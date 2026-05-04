@@ -47,22 +47,24 @@ A arquitectura visual é **chat-first com habitat secundário**: o chat é o pon
 
 ### 2.1 Naming
 
-**Recomendação:** **Manter `meu-jarvis` como codename interno; lançar publicamente como "Astro"**.
+**Decisão fixada (Eurico, 2026-05-04):**
 
-| Opção | Avaliação | Verdict |
-|-------|-----------|---------|
-| `meu-jarvis` (actual) | Reconhecível mas: (1) "Jarvis" é trademark Marvel/Stark, risco legal; (2) tom masculino-só; (3) "meu" é PT-BR-coded em ambiguidade ("o meu Jarvis" PT-PT vs "meu Jarvis" PT-BR); (4) não é distintivo em SEO. | **Reject como nome público** |
-| **Astro** | Curto (5 letras), pronunciável idêntico em todos os mercados PT, evoca orientação/bússola/céu (calmo, confiável), sem baggage AI. Disponível como domínio com sufixo (`astro.pt`, `useastro.pt`). Não compete com "Astro" framework web (mercado diferente). | **Recomendado** |
-| Aurelia | Bonito, clássico PT, mas longo (7 letras) e tom feminino-só. Risco SEO com nome próprio comum. | Rejeitada |
-| Hélio | Curto, PT-rooted, evoca sol/calor — mas próximo demais de "AI helper" cliché. | Rejeitada |
-| Bússola | Conceptualmente perfeito (orientação) mas longo, difícil pronunciar internacionalmente, soa institucional. | Rejeitada |
+| Camada | Nome | Onde aparece |
+|--------|------|--------------|
+| Codename interno | `meu-jarvis` | Pasta do projecto, repo git, `package.json` names, comentários técnicos |
+| **Produto público** | **Expressia** | UI, marketing, copy, faturas, emails, app stores |
+| Domínio principal | **`expressia.pt`** (registado) | Website, app, emails (`@expressia.pt`) |
+
+**Razão:** "Jarvis" é trademark Marvel/Disney (risco legal). O Eurico escolheu **Expressia** em vez de outras alternativas. "Expressia" sugere expressão/conversação — alinha com o paradigma chat-first do produto. É curto, pronunciável em PT, distinto do Néctar.
 
 **Posicionamento copy do nome:**
-- Hero copy: *"Astro — o assistente que organiza a tua vida em português."*
+- Hero copy: *"Expressia — o assistente que organiza a tua vida em português."*
 - Tagline: *"Uma frase. Tudo organizado."*
 - NÃO usar: "AI", "inteligente", "revolucionário", "automático", "Jarvis", referências Iron Man.
 
-> **Decisão final pendente do Eurico.** Restante deste documento usa `Astro` como nome de produto e `meu-jarvis` como codename de repo.
+**Trademark advisory:** Verificação no INPI Portugal pendente antes de marketing público (delegar a `@analyst`).
+
+> Restante deste documento usa `Expressia` como nome de produto e `meu-jarvis` como codename de repo.
 
 ### 2.2 Logo Concept
 
@@ -70,7 +72,7 @@ A arquitectura visual é **chat-first com habitat secundário**: o chat é o pon
 
 - **Símbolo:** uma única forma — um círculo com um traço vectorial interior que sugere uma seta de bússola apontando NE (norte-nordeste, equivalente visual a "para a frente"). Geometria simples, executável em 16×16px sem perder legibilidade.
 - **Versões:** símbolo solo (favicon, app icon), símbolo + wordmark horizontal, wordmark solo.
-- **Wordmark:** "Astro" em Lora SemiBold 600, letter-spacing -0.01em, com o "A" partilhando o ângulo da seta interior do símbolo (ligadura subtil).
+- **Wordmark:** "Expressia" em Lora SemiBold 600, letter-spacing -0.01em, com o "A" partilhando o ângulo da seta interior do símbolo (ligadura subtil).
 - **Cor primária:** Atlântico (#1F4F6A) sobre fundo claro; off-white (#F7F4EE) sobre fundo escuro.
 - **Anti-padrão explícito:** nada de cérebros, nada de circuitos, nada de partículas, nada de gradientes.
 
@@ -229,7 +231,7 @@ Sombras suaves, calibradas para fundo creme (não para preto puro Material).
 | Customização | Trivial | Complexa | Razoável | Trivial mas caro |
 | Time to MVP | Rápido | Médio | Rápido | Lento |
 | Performance bundle | Excelente | Pesado | Médio | Excelente |
-| Aderência ao branding `Astro` | Total | Difícil | Difícil | Total |
+| Aderência ao branding `Expressia` | Total | Difícil | Difícil | Total |
 
 shadcn/ui dá-nos componentes Radix com Tailwind, sem dependência runtime — código vive no nosso repo, podemos reescrever variantes sem fork. Critico dado o tom calmo/editorial específico que queremos (Material seria too much, Mantine too generic).
 
@@ -297,7 +299,7 @@ Wireframes em formato textual estruturado. Toda copy é production-ready PT-PT.
 ```
 ┌────────────────────────────────────────────────┐
 │                                                 │
-│                  [Logo Astro]                    │
+│                  [Logo Expressia]                    │
 │                                                 │
 │        Bem-vindo de volta.                       │ ← Lora 32px
 │        Continua de onde paraste.                 │ ← Inter 15px secondary
@@ -344,7 +346,7 @@ Wireframes em formato textual estruturado. Toda copy é production-ready PT-PT.
 
 ```
 ┌────────────────────────────────────────────────┐
-│                  [Logo Astro]                    │
+│                  [Logo Expressia]                    │
 │                                                 │
 │        Cria a tua conta.                         │ ← Lora 32px
 │        14 dias grátis. Sem cartão.               │ ← Inter 15px secondary
@@ -430,7 +432,7 @@ Wireframes em formato textual estruturado. Toda copy é production-ready PT-PT.
 │                                                 │
 │         Escreve uma frase. Vais ver.             │ ← Lora 32px
 │                                                 │
-│         O Astro vai detectar tudo o que          │
+│         O Expressia vai detectar tudo o que          │
 │         tens dentro dessa frase e organizar     │
 │         por ti. Experimenta com isto:           │
 │                                                 │
@@ -479,7 +481,7 @@ Wireframes em formato textual estruturado. Toda copy é production-ready PT-PT.
 
 **Estados:**
 - Saltar tudo é sempre possível. Trial activa-se de qualquer forma.
-- Após "Começar a usar" → redirect para `/visao` com toast: *"Bem-vindo, João. O Astro está pronto."*
+- Após "Começar a usar" → redirect para `/visao` com toast: *"Bem-vindo, João. O Expressia está pronto."*
 
 ---
 
@@ -491,7 +493,7 @@ Wireframes em formato textual estruturado. Toda copy é production-ready PT-PT.
 
 ```
 ┌─[Sidebar]──┬─────────────────────────────────────────────┐
-│ Logo Astro │  Bom dia, João. Hoje é segunda, 14/03/2026. │ ← Lora 24px
+│ Logo Expressia │  Bom dia, João. Hoje é segunda, 14/03/2026. │ ← Lora 24px
 │            │  ─────────────────────────────────────────  │
 │ ▾ Visão    │                                             │
 │   Chat     │  ┌── Briefing diário ──────────────┐ ⚙ ×    │
@@ -572,7 +574,7 @@ Wireframes em formato textual estruturado. Toda copy é production-ready PT-PT.
 │            │  amanhã às 15h. Paguei    │ Ontem           │
 │            │  €78,70 no Continente.   │ • Tarde 17:14   │
 │            │                           │                 │
-│            │  [○ Astro]  10:23         │ Sexta 11/03     │
+│            │  [○ Expressia]  10:23         │ Sexta 11/03     │
 │            │  Detectei 2 acções:       │ • 09:01         │
 │            │                           │ • 14:32         │
 │            │  ┌─ PreviewCard ────────┐ │                 │
@@ -593,7 +595,7 @@ Wireframes em formato textual estruturado. Toda copy é production-ready PT-PT.
 │            │  Quanto gastei em         │                 │
 │            │  restaurantes este mês?   │                 │
 │            │                           │                 │
-│            │  [○ Astro]                │                 │
+│            │  [○ Expressia]                │                 │
 │            │  Em Março gastaste        │                 │
 │            │  €124,50 em Restauração   │                 │
 │            │  (8 transacções).         │                 │
@@ -1117,7 +1119,7 @@ Click "Pedir eliminação" abre dialog de confirmação com input *"Escreve ELIM
 
 > **Olá,**
 >
-> O João convidou-te para te juntares ao agregado **Casa dos Santos** no Astro.
+> O João convidou-te para te juntares ao agregado **Casa dos Santos** no Expressia.
 >
 > Vais poder partilhar tarefas, agenda e finanças com ele.
 >
@@ -1125,7 +1127,7 @@ Click "Pedir eliminação" abre dialog de confirmação com input *"Escreve ELIM
 >
 > [**Aceitar convite**] (válido por 7 dias)
 >
-> O Astro é uma ferramenta portuguesa para organizar a vida em família. Mais em astro.pt.
+> O Expressia é uma ferramenta portuguesa para organizar a vida em família. Mais em expressia.pt.
 
 **Estados:**
 - Limite atingido: convite bloqueado, copy: *"Atingiste o limite de membros do plano Família (4). Sobe para Pro ou remove um membro existente."*
@@ -1158,7 +1160,7 @@ Click "Pedir eliminação" abre dialog de confirmação com input *"Escreve ELIM
 ### 6.2 Mensagem do Agente
 
 ```
-┌─[Avatar Astro]─────────────────────────────┐
+┌─[Avatar Expressia]─────────────────────────────┐
 │  10:23                                       │
 │                                              │
 │  Detectei 2 acções na tua frase:             │ ← Body 15px
@@ -1231,7 +1233,7 @@ Padrão consistente: ilustração SVG suave + headline Lora + copy curta + CTA �
 | Tarefas — lista | "Sem tarefas para mostrar." | "Diz ao chat ou clica em [+ Nova]." | [+ Nova tarefa] |
 | Tarefas — Kanban (coluna vazia) | (subtle text) | *"Arrasta aqui."* | — |
 | Finanças — variáveis | "Sem despesas registadas." | "Diz ao chat 'gastei €X em Y' ou adiciona manualmente." | [+ Adicionar] |
-| Finanças — recorrentes | "Sem recorrências." | "Renda, salário, subscrições — adiciona uma vez e o Astro trata do resto." | [+ Adicionar] |
+| Finanças — recorrentes | "Sem recorrências." | "Renda, salário, subscrições — adiciona uma vez e o Expressia trata do resto." | [+ Adicionar] |
 | Finanças — cartões | "Ainda não tens cartões." | "Adiciona um cartão para acompanhar a fatura, prestações e saldo." | [+ Adicionar] |
 | Finanças — património | "Adiciona a tua primeira conta." | "Banco, saldo inicial — em 30 segundos vês o teu património." | [+ Conta] |
 | Chat (primeira sessão) | "Olá, João. Em que posso ajudar?" | (3 sugestões clicáveis) | — |
@@ -1536,7 +1538,7 @@ Servidos via `next/font` (auto-optimization, zero CLS).
 
 ### 15.1 Decisões pendentes do Eurico
 
-1. **Naming:** confirmar `Astro` como nome público ou pedir alternativa.
+1. **Naming:** confirmar `Expressia` como nome público ou pedir alternativa.
 2. **Paleta:** validar Atlântico (#1F4F6A) + Cortiça (#B5754A) ou pedir variação.
 3. **Default theme:** confirmar claro como default (vs escuro).
 4. **Logo:** aprovar conceito (símbolo bússola minimal) ou contratar designer visual externo.
@@ -1547,7 +1549,7 @@ Servidos via `next/font` (auto-optimization, zero CLS).
 |------|------|-----------|
 | `@architect` | Validar stack UI (shadcn/ui, Radix, Tailwind, dnd-kit) e integrar em `architecture.md` | Alta |
 | `@architect` | Decidir SSR strategy (theme detection, locale) | Alta |
-| Designer visual externo | Criar logo Astro, favicon set, 8 empty state illustrations | Média (não bloqueia Epic 1) |
+| Designer visual externo | Criar logo Expressia, favicon set, 8 empty state illustrations | Média (não bloqueia Epic 1) |
 | `@po` | Validar este spec contra PRD UI Goals (§3) | Alta |
 | `@sm` | Criar stories de Epic 5 (UI shell) com este spec como dependência | Após validação @po |
 | `@dev` (futuro) | Bootstrap shadcn/ui + setup tokens em `tailwind.config.ts` | Após Epic 1 foundation |
