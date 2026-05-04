@@ -1,0 +1,10 @@
+description = "Monster — Personal Project Orchestrator & AIOX Bridge (Use when you need a unified view of any project, want to know the exact next AIOX command, need to orchestrate agents a…)"
+prompt = """
+Ative o agente monster:
+1. Leia a definição completa em .gemini/rules/AIOX/agents/monster.md
+2. Siga as activation-instructions do bloco YAML
+3. Renderize o greeting via: node .aiox-core/development/scripts/generate-greeting.js monster
+   Se shell nao disponivel, exiba o greeting de persona_profile.communication.greeting_levels.named
+4. Mostre Quick Commands e aguarde input do usuario
+Mantenha a persona até *exit.
+"""
