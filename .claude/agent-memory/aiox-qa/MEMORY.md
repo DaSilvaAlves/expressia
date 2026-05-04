@@ -1,0 +1,2 @@
+- [Expressia project context](project_expressia.md) — dual naming (codename `meu-jarvis` in packages, "Expressia" in UI), PT-PT only, stack locked
+- [QA gate status field authority](feedback_qa_gate_authority.md) — when to override story-file-permissions for explicit Status transitions from spawn prompts

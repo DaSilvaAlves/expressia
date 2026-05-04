@@ -1,0 +1,198 @@
+# CI/CD Pipeline — meu-jarvis (Expressia)
+#
+# Quality gates pre-merge bloqueantes para PRs e push em main.
+# Trace: Story 1.2, PRD NFR5/NFR8/NFR17, Architecture §11.4, Epic 1 AC1 (< 5 min).
+#
+# Jobs:
+#   - quality   : lint + typecheck + test (sequencial dentro do job; bloqueante)
+#   - rls-gate  : aplica migrations num Postgres 16 efémero e corre check-rls-coverage (NFR5)
+#   - build     : valida `pnpm build` Next.js (depende de quality para poupar minutos quando quality falha)
+#
+# Paralelismo: `quality` e `rls-gate` correm em paralelo. `build` espera por `quality`
+# (decisão consciente — AC5 "onde possível"; evita gastar minutos de build quando quality falha).
+# `build` corre em paralelo com `rls-gate` se `quality` passar primeiro.
+#
+# Secrets necessários (Settings → Secrets and variables → Actions):
+#   - NEXT_PUBLIC_SUPABASE_URL
+#   - NEXT_PUBLIC_SUPABASE_ANON_KEY
+# Detalhes em docs/runbooks/ci-setup.md.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancela runs anteriores no mesmo PR para poupar minutos CI
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Permissões mínimas (princípio least privilege)
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9.12.3'
+
+jobs:
+  # -----------------------------------------------------------------------
+  # quality — lint + typecheck + test (AC1, AC2, AC9)
+  # -----------------------------------------------------------------------
+  quality:
+    name: Quality (lint + typecheck + test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Configurar Node.js (com cache pnpm)
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Cache adicional pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (ESLint)
+        run: pnpm lint
+
+      - name: Typecheck (TypeScript strict)
+        run: pnpm typecheck
+
+      - name: Testes unitários (Vitest)
+        run: pnpm test
+
+  # -----------------------------------------------------------------------
+  # rls-gate — Postgres 16 + migrations + check-rls-coverage (AC3, AC8, NFR5)
+  # -----------------------------------------------------------------------
+  rls-gate:
+    name: RLS Coverage Gate (NFR5)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Configurar Node.js (com cache pnpm)
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Cache adicional pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Aguardar Postgres ready
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U test; then
+              echo "Postgres pronto."
+              exit 0
+            fi
+            echo "A aguardar Postgres... ($i/30)"
+            sleep 2
+          done
+          echo "Postgres não ficou ready em 60s." >&2
+          exit 1
+
+      - name: Aplicar migrations (Drizzle)
+        run: pnpm --filter @meu-jarvis/db db:migrate
+
+      - name: Verificar cobertura RLS (NFR5)
+        run: pnpm check:rls
+
+  # -----------------------------------------------------------------------
+  # build — Next.js production build (AC4)
+  # -----------------------------------------------------------------------
+  # `needs: [quality]` é decisão consciente: AC5 pede paralelismo "onde possível";
+  # encadear build após quality poupa minutos CI quando lint/typecheck/test falham.
+  # `build` continua a correr em paralelo com `rls-gate` (que não tem dependência).
+  build:
+    name: Build Next.js
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [quality]
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Configurar Node.js (com cache pnpm)
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Cache adicional pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Compilar Next.js (production build)
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
