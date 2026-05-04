@@ -1,0 +1,32 @@
+{
+  "name": "meu-jarvis",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Expressia (codinome meu-jarvis) — monorepo pnpm para o assistente fullstack Next.js 15 + Supabase + Drizzle. PT-PT, EUR, Frankfurt.",
+  "type": "module",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@9.12.3",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "check:rls": "tsx scripts/check-rls-coverage.ts",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "eslint": "^9.13.0",
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.8",
+    "tsx": "^4.19.0",
+    "turbo": "^2.2.3",
+    "typescript": "^5.6.3"
+  }
+}

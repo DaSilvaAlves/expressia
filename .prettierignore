@@ -1,0 +1,13 @@
+node_modules
+.next
+.turbo
+dist
+build
+coverage
+pnpm-lock.yaml
+*.min.js
+*.min.css
+.aiox-core
+.aiox
+.claude
+docs/qa
