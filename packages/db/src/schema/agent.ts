@@ -1,0 +1,255 @@
+/**
+ * Schema — Cérebro AI (agent_runs, intents, reverse ops, quotas).
+ *
+ * Trace: PRD FR1-FR6, NFR9 (audit), NFR20-21 (custo LLM),
+ *        architecture §4 (pipeline) e §4.5 (undo).
+ *
+ * Notas críticas:
+ *   - `agent_runs` é audit imutável (REVOKE UPDATE/DELETE em migration RLS).
+ *   - `agent_reverse_ops.expires_at = now() + 30s` (FR6).
+ *   - `prompt_text` é PII — REDACTED nos logs OTel; aqui é guardado mas com retenção
+ *     limitada (purge job Inngest mensal).
+ */
+import { sql } from 'drizzle-orm';
+import {
+  pgEnum,
+  pgTable,
+  uuid,
+  text,
+  timestamp,
+  integer,
+  numeric,
+  index,
+  jsonb,
+  boolean,
+  unique,
+  check,
+} from 'drizzle-orm/pg-core';
+
+import { authUsers } from '@/schema/auth';
+import { households, planTierEnum } from '@/schema/tenancy';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const agentRunStatusEnum = pgEnum('agent_run_status', [
+  'classifying',
+  'pending_preview', // FR4 — confidence < 0.70
+  'confirmed',
+  'executing',
+  'success',
+  'failed',
+  'reverted', // FR6 — utilizador fez undo
+]);
+
+export const agentIntentEnum = pgEnum('agent_intent', [
+  'criar_tarefa',
+  'criar_financa_variavel',
+  'criar_financa_recorrente',
+  'criar_cartao',
+  'criar_parcelada',
+  'consultar_dados',
+  'cancelar_ultima',
+  'unknown',
+]);
+
+export const llmModelEnum = pgEnum('llm_model', [
+  'gpt-4o-mini', // classifier
+  'claude-sonnet-4-5', // executor (futuras versões adicionar aqui)
+  'claude-opus-4-7',
+]);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// agent_runs — audit log imutável (NFR9)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const agentRuns = pgTable(
+  'agent_runs',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    householdId: uuid('household_id')
+      .notNull()
+      .references(() => households.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => authUsers.id, { onDelete: 'restrict' }),
+    /** Texto do prompt original (PII — purge mensal). */
+    promptText: text('prompt_text').notNull(),
+    /** SHA-256 do prompt+salt para correlation sem PII (NFR12). */
+    promptHash: text('prompt_hash').notNull(),
+    /** Idioma detectado — sempre 'pt-PT' no MVP (CON3). */
+    language: text('language').notNull().default('pt-PT'),
+    /** Resultado do classifier — array de {intent, confidence, raw_span}. */
+    intentsDetected: jsonb('intents_detected').notNull(),
+    /** Confidence agregada (mínimo das intents detectadas). */
+    confidence: numeric('confidence', { precision: 4, scale: 3 }).notNull(),
+    status: agentRunStatusEnum('status').notNull().default('classifying'),
+    /** Resumo human-friendly do que foi feito ("Criada 1 tarefa, 1 transacção €78,70"). */
+    responseSummary: text('response_summary'),
+    /** Stream de tool calls executados (lista de {tool, input, output}). */
+    toolCalls: jsonb('tool_calls'),
+    latencyMs: integer('latency_ms'),
+    classifierModel: llmModelEnum('classifier_model'),
+    executorModel: llmModelEnum('executor_model'),
+    tokensInput: integer('tokens_input').default(0),
+    tokensOutput: integer('tokens_output').default(0),
+    /** Custo total em EUR com 5 casas decimais (€0,00006 é típico). */
+    costEur: numeric('cost_eur', { precision: 10, scale: 5 }).default('0'),
+    /** Trace ID OTel para deep-link Grafana. */
+    traceId: text('trace_id'),
+    /** Erro estruturado quando status='failed'. */
+    errorCode: text('error_code'),
+    errorMessage: text('error_message'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    revertedAt: timestamp('reverted_at', { withTimezone: true }),
+  },
+  (t) => ({
+    householdIdx: index('agent_runs_household_idx').on(t.householdId),
+    userIdx: index('agent_runs_user_idx').on(t.userId),
+    statusIdx: index('agent_runs_status_idx').on(t.status),
+    createdAtIdx: index('agent_runs_created_at_idx').on(t.createdAt.desc()),
+    /** Índice composto para query "próximo undo disponível para este user". */
+    undoIdx: index('agent_runs_undo_idx').on(t.userId, t.createdAt.desc(), t.status),
+    confidenceCheck: check(
+      'agent_runs_confidence_range',
+      sql`${t.confidence} >= 0 AND ${t.confidence} <= 1`,
+    ),
+    languageCheck: check('agent_runs_language_pt', sql`${t.language} = 'pt-PT'`),
+  }),
+);
+
+export type AgentRun = typeof agentRuns.$inferSelect;
+export type NewAgentRun = typeof agentRuns.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// intent_classifications — uma linha por intent detectada por agent_run
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Detalhe granular de cada intent (1 agent_run pode ter N intents — FR2 multi-intent).
+ *
+ * `target_entity_table` + `target_entity_id` permitem rastrear "esta intent criou
+ * a transaction X". Útil para undo e para benchmarks.
+ */
+export const intentClassifications = pgTable(
+  'intent_classifications',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    agentRunId: uuid('agent_run_id')
+      .notNull()
+      .references(() => agentRuns.id, { onDelete: 'cascade' }),
+    householdId: uuid('household_id')
+      .notNull()
+      .references(() => households.id, { onDelete: 'cascade' }),
+    intent: agentIntentEnum('intent').notNull(),
+    confidence: numeric('confidence', { precision: 4, scale: 3 }).notNull(),
+    /** Sub-string do prompt que originou esta intent. */
+    rawSpan: text('raw_span'),
+    /** Parâmetros extraídos pelo planner (input do tool call). */
+    params: jsonb('params').notNull(),
+    executed: boolean('executed').notNull().default(false),
+    /** Tabela onde a entidade foi criada (ex: 'tasks', 'transactions'). */
+    targetEntityTable: text('target_entity_table'),
+    targetEntityId: uuid('target_entity_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    runIdx: index('intent_classifications_run_idx').on(t.agentRunId),
+    householdIdx: index('intent_classifications_household_idx').on(t.householdId),
+    intentIdx: index('intent_classifications_intent_idx').on(t.intent),
+    confidenceCheck: check(
+      'intent_classifications_confidence_range',
+      sql`${t.confidence} >= 0 AND ${t.confidence} <= 1`,
+    ),
+  }),
+);
+
+export type IntentClassification = typeof intentClassifications.$inferSelect;
+export type NewIntentClassification = typeof intentClassifications.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// agent_reverse_ops — undo declarativo 30s (FR6)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Cada tool execute() produz um reverse_op declarativo persistido aqui.
+ *
+ * Tipos JSONB:
+ *   - { kind: 'delete_row', table, id }                       (insert reverte com delete)
+ *   - { kind: 'restore_row', table, id, snapshot: {...} }     (update reverte com snapshot)
+ *   - { kind: 'composite', ops: [...] }                       (lista de ops)
+ *
+ * Ver `types.ts` → `ReverseOpKind`.
+ *
+ * Job Inngest diário limpa registos com `expires_at < now() - interval '1 hour'`.
+ */
+export const agentReverseOps = pgTable(
+  'agent_reverse_ops',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    agentRunId: uuid('agent_run_id')
+      .notNull()
+      .references(() => agentRuns.id, { onDelete: 'cascade' }),
+    householdId: uuid('household_id')
+      .notNull()
+      .references(() => households.id, { onDelete: 'cascade' }),
+    /** Operação reversível em formato JSONB tipado (ver `ReverseOpKind`). */
+    reverseOp: jsonb('reverse_op').notNull(),
+    /** Janela de undo — sempre `now() + interval '30 seconds'` na criação. */
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    executedAt: timestamp('executed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    runIdx: index('agent_reverse_ops_run_idx').on(t.agentRunId),
+    householdIdx: index('agent_reverse_ops_household_idx').on(t.householdId),
+    /** Query principal: "operações reverte-able do user X agora". */
+    undoQueryIdx: index('agent_reverse_ops_undo_query_idx').on(
+      t.householdId,
+      t.expiresAt,
+      t.executedAt,
+    ),
+  }),
+);
+
+export type AgentReverseOp = typeof agentReverseOps.$inferSelect;
+export type NewAgentReverseOp = typeof agentReverseOps.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// agent_quotas — quotas mensais por household (NFR20)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Contadores rolling do mês corrente. Reset alinhado com `subscriptions.current_period_start`.
+ *
+ * Job Inngest diário verifica se mudou o período e zera contadores.
+ * Hard-stop a 110% da quota — endpoint devolve 429 PT-PT.
+ */
+export const agentQuotas = pgTable(
+  'agent_quotas',
+  {
+    householdId: uuid('household_id')
+      .primaryKey()
+      .references(() => households.id, { onDelete: 'cascade' }),
+    /** Plano observado (denormalizado para evitar JOIN em hot path). */
+    plan: planTierEnum('plan').notNull(),
+    periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+    periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
+    promptsUsed: integer('prompts_used').notNull().default(0),
+    tokensInputUsed: integer('tokens_input_used').notNull().default(0),
+    tokensOutputUsed: integer('tokens_output_used').notNull().default(0),
+    /** Custo acumulado € no período (rolling). */
+    costEurAccumulated: numeric('cost_eur_accumulated', { precision: 10, scale: 5 })
+      .notNull()
+      .default('0'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    periodIdx: index('agent_quotas_period_idx').on(t.periodStart, t.periodEnd),
+  }),
+);
+
+export type AgentQuota = typeof agentQuotas.$inferSelect;
+export type NewAgentQuota = typeof agentQuotas.$inferInsert;
