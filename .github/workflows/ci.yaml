@@ -82,16 +82,27 @@ jobs:
         run: pnpm test
 
   # -----------------------------------------------------------------------
-  # rls-gate — Postgres 16 + migrations + check-rls-coverage (AC3, AC8, NFR5)
+  # rls-gate — RLS coverage estática + suite de testes RLS dinâmica (NFR5)
   # -----------------------------------------------------------------------
+  # Story 1.4: o job agora faz dois níveis de validação:
+  #   1. Coverage estática: `pnpm check:rls` valida que cada tabela com
+  #      `household_id` tem 4 policies (SELECT/INSERT/UPDATE/DELETE).
+  #   2. Suite dinâmica: `@meu-jarvis/db-test` sobe Postgres 16 efémero via
+  #      Testcontainers e prova que o RLS bloqueia tudo cross-household.
+  #
+  # Já não precisamos do service `postgres:16` do GitHub Actions porque o
+  # `db-test` package gere o seu próprio container via Testcontainers
+  # (Docker disponível em ubuntu-latest por default). Deixamos a opção activa
+  # para o step `db:migrate` que ainda assenta sobre uma DB real para validar
+  # que as migrations aplicam contra um Postgres 16 limpo.
   rls-gate:
     name: RLS Coverage Gate (NFR5)
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
 
     services:
       postgres:
-        image: postgres:16
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
@@ -106,6 +117,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+      DIRECT_URL: postgresql://test:test@localhost:5432/testdb
 
     steps:
       - name: Checkout repositório
@@ -134,7 +146,7 @@ jobs:
       - name: Instalar dependências
         run: pnpm install --frozen-lockfile
 
-      - name: Aguardar Postgres ready
+      - name: Aguardar Postgres ready (service do GH Actions)
         run: |
           for i in {1..30}; do
             if pg_isready -h localhost -p 5432 -U test; then
@@ -147,11 +159,14 @@ jobs:
           echo "Postgres não ficou ready em 60s." >&2
           exit 1
 
-      - name: Aplicar migrations (Drizzle)
+      - name: Aplicar migrations contra Postgres 16 (smoke check de aplicação)
         run: pnpm --filter @meu-jarvis/db db:migrate
 
-      - name: Verificar cobertura RLS (NFR5)
+      - name: Verificar cobertura estática RLS (NFR5 — check-rls-coverage)
         run: pnpm check:rls
+
+      - name: Suite dinâmica RLS (Story 1.4 — Testcontainers Postgres 16 efémero)
+        run: pnpm --filter @meu-jarvis/db-test test
 
   # -----------------------------------------------------------------------
   # build — Next.js production build (AC4)
