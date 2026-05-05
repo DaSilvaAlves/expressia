@@ -6,7 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Identidade do Projecto
 
-- **Codename interno (repo, package):** `meu-jarvis`
+- **Codename interno (pasta local + package names `@meu-jarvis/*`):** `meu-jarvis`
+- **Repo GitHub remote:** `DaSilvaAlves/expressia` (público, AGPL-3.0)
 - **Marca pública:** **Expressia** — domínio `expressia.pt`
 - **Mercado:** **PT-PT exclusivo** (Portugal continental). NUNCA escrever copy/UI em PT-BR; sem i18n no MVP.
 - **Moeda:** EUR único, formato PT-PT (`€8,88`, `€1.234,56`, vírgula decimal).
