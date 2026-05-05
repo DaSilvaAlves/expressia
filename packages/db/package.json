@@ -14,10 +14,12 @@
   },
   "scripts": {
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "tsx src/scripts/apply-migrations.ts",
     "db:push": "drizzle-kit push",
+    "db:seed": "tsx src/scripts/apply-seeds.ts",
     "db:studio": "drizzle-kit studio",
     "db:check-rls": "tsx ../../scripts/check-rls-coverage.ts",
+    "db:reset": "echo \"⚠️  db:reset não implementado — usa Supabase Dashboard ou apaga manualmente.\" && exit 1",
     "lint": "echo \"@meu-jarvis/db: lint herdado do typecheck Drizzle/TS — ver typecheck script\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -27,10 +29,11 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "drizzle-orm": "^0.34.0",
-    "postgres": "^3.4.4"
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",
+    "dotenv": "^16.4.5",
     "drizzle-kit": "^0.25.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.3",

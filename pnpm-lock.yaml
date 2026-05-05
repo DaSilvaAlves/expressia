@@ -97,12 +97,15 @@ importers:
         specifier: ^0.34.0
         version: 0.34.1(@types/react@19.2.14)(postgres@3.4.9)(react@19.2.5)
       postgres:
-        specifier: ^3.4.4
+        specifier: ^3.4.9
         version: 3.4.9
     devDependencies:
       '@types/node':
         specifier: ^22.7.0
         version: 22.19.17
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
       drizzle-kit:
         specifier: ^0.25.0
         version: 0.25.0
@@ -1874,6 +1877,10 @@ packages:
 
   dom-accessibility-api@0.6.3:
     resolution: {integrity: sha512-7ZgogeTnjuHbo+ct10G9Ffp0mif17idi0IyWNVA/wcwcm7NPOD/WEHVP3n7n3MhXqxoIYm8d6MuZohYWIZ4T3w==}
+
+  dotenv@16.6.1:
+    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
+    engines: {node: '>=12'}
 
   drizzle-kit@0.25.0:
     resolution: {integrity: sha512-Rcf0nYCAKizwjWQCY+d3zytyuTbDb81NcaPor+8NebESlUz1+9W3uGl0+r9FhU4Qal5Zv9j/7neXCSCe7DHzjA==}
@@ -4835,6 +4842,8 @@ snapshots:
   dom-accessibility-api@0.5.16: {}
 
   dom-accessibility-api@0.6.3: {}
+
+  dotenv@16.6.1: {}
 
   drizzle-kit@0.25.0:
     dependencies:
