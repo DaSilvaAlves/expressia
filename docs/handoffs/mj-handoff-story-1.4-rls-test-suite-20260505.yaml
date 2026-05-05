@@ -1,0 +1,424 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Story 1.4 RLS Test Suite (Expressia / meu-jarvis)
+# ═══════════════════════════════════════════════════════════════════════════
+
+handoff_id: mj-handoff-story-1.4-rls-test-suite-20260505
+from_agent: aiox-master (Orion)
+to_agent: aiox-master (any new terminal session)
+created: 2026-05-05T03:00:00+01:00
+status: pending
+consumed: false
+priority: high
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# SUMMARY (1 parágrafo — aparece no INDEX)
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Continuar pipeline AIOX greenfield-fullstack do produto Expressia (codename
+  meu-jarvis): SaaS multi-tenant PT-PT exclusivo, concorrente do Néctar.
+  Stories 1.1, 1.2, 1.3 da Epic 1 estão Done. Schema aplicado à Supabase real
+  (27 tabelas, 104 RLS policies, 24 categorias PT default). Próxima:
+  Story 1.4 — Suite de Testes RLS Automatizada via Testcontainers Postgres.
+  Sem bloqueador externo. Story já validada por @po na fase de drafting.
+
+# ───────────────────────────────────────────────────────────────────────────
+# PROJECT IDENTITY (lei — não desafiar)
+# ───────────────────────────────────────────────────────────────────────────
+project_constraints:
+  market: PT-PT EXCLUSIVO (Portugal continental)
+  language_ui: PT-PT exclusivo (não PT-BR, não i18n no MVP)
+  currency: EUR único, formato vírgula decimal (€8,88, €1.234,56)
+  pricing_hero: Família €8,88/mês (tier diferenciador)
+  rejected_markets: [Brasil, CPLP, lusófono global, multi-país]
+  trademark_advisory: |
+    "Expressia" pode ter usos noutros mercados. Verificação INPI Portugal pendente
+    (delegar a @analyst antes de marketing público). Não-bloqueante para dev.
+
+product_naming:
+  codename_repo: meu-jarvis    # pasta, package.json, repo git
+  public_brand: Expressia      # UI, copy, marketing, faturas, emails
+  domain: expressia.pt          # registado pelo Eurico
+
+# ───────────────────────────────────────────────────────────────────────────
+# CURRENT STATE — Pipeline AIOX
+# ───────────────────────────────────────────────────────────────────────────
+pipeline_state:
+  phase: greenfield-fullstack > Story Development Cycle (Epic 1)
+  workflow: AIOX Story Development Cycle (4 phases: Draft -> Validate -> Implement -> QA Gate)
+
+  completed_tasks:
+    - id: task-1
+      name: AIOX install
+      detail: "aiox-core@5.0.7 instalado com --merge --force --quiet"
+    - id: task-2
+      name: Research competitivo Néctar
+      agent: "@analyst Atlas"
+      output: docs/research/01-competitive-analysis.md
+    - id: task-3
+      name: Project Brief + PRD MVP
+      agent: "@pm Bob (corrigido por @aiox-master após directiva PT-PT)"
+      output: [docs/project-brief.md, docs/prd.md]
+    - id: task-4
+      name: Arquitectura fullstack
+      agent: "@architect Aria"
+      output: docs/architecture.md
+      adrs_closed: 9
+    - id: task-5
+      name: Schema database
+      agent: "@data-engineer Dara"
+      output:
+        - "packages/db/ (26 tabelas Drizzle)"
+        - "migrations/0000_initial_schema.sql + 0001_rls_policies.sql"
+        - "scripts/check-rls-coverage.ts (CI gate NFR5)"
+        - "docs/db-schema.md"
+    - id: task-6
+      name: UX/UI spec
+      agent: "@ux Uma"
+      output: docs/front-end-spec.md
+    - id: task-7
+      name: Story Development Cycle (Epic 1)
+      stories_done: [1.1, 1.2, 1.3]
+      stories_pending: [1.4, 1.5, 1.6, 1.7]
+
+  stories_status:
+    "1.1":
+      title: "Monorepo + Next.js scaffold"
+      status: Done
+      qa_verdict: "PASS 7/7"
+      tech_debt:
+        - id: MNT-001
+          severity: medium
+          desc: "next.config.ts usa experimental.typedRoutes deprecado"
+        - id: MNT-002
+          severity: medium
+          desc: "outputFileTracingRoot em falta (warning lockfile parent)"
+    "1.2":
+      title: "CI/CD Pipeline GitHub Actions"
+      status: Done
+      qa_verdict: "PASS 7/7"
+      tech_debt: []
+    "1.3":
+      title: "Supabase + Drizzle Bootstrap"
+      status: Done (schema aplicado à Supabase real, verificações OK)
+      qa_verdict: "Não passou por @qa formal (aiox-master aplicou directamente após @dev ter problema de Bash sandbox)"
+      verifications:
+        tables: 27   # 26 multi-tenant + __schema_migrations
+        rls_policies: 104
+        pt_categories_default: 24
+        helper_sql_functions: 4
+      gotcha_resolved: |
+        check_function_bodies = off adicionado ao apply-migrations.ts para
+        permitir helpers SQL com forward references a tabelas criadas mais
+        à frente na mesma migration.
+    "1.4":
+      title: "Suite de Testes RLS Automatizada (Testcontainers)"
+      status: Ready (validated by @po como parte do batch da Epic 1)
+      next_action: "@dev *develop 1.4"
+    "1.5":
+      title: "Supabase Auth + RLS Integration + custom_access_token_hook"
+      status: Ready
+      blocker: "B2 — configuração no Supabase Dashboard pelo Eurico"
+    "1.6":
+      title: "Endpoint Canary /api/me + E2E RLS test"
+      status: Ready
+      blocker: "Depende de 1.5 (Auth)"
+    "1.7":
+      title: "Observabilidade OTel + Sentry EU + Grafana Cloud EU"
+      status: Ready
+      blockers: ["B3 — Sentry EU project (DSN + token)", "B4 — Grafana Cloud EU stack (OTLP endpoint + token)"]
+
+# ───────────────────────────────────────────────────────────────────────────
+# ARTEFACTOS DOCUMENTAIS (ler para contexto antes de continuar)
+# ───────────────────────────────────────────────────────────────────────────
+docs:
+  prd: docs/prd.md
+  project_brief: docs/project-brief.md
+  architecture: docs/architecture.md
+  db_schema: docs/db-schema.md
+  front_end_spec: docs/front-end-spec.md
+  research: docs/research/01-competitive-analysis.md
+  runbooks:
+    - docs/runbooks/ci-setup.md
+    - docs/runbooks/supabase-setup.md
+  stories_active: docs/stories/active/
+  qa_gates: docs/qa/gates/
+
+# ───────────────────────────────────────────────────────────────────────────
+# MEMÓRIAS (regras absolutas + decisões — ler todas no arranque)
+# ───────────────────────────────────────────────────────────────────────────
+memory_location: "C:/Users/XPS/.claude/projects/C--Users-XPS-Documents-meu-jarvis/memory/"
+memory_files:
+  - MEMORY.md                       # índice
+  - project_vision.md               # SaaS PT-PT concorrente Néctar
+  - market_pt_pt_exclusive.md       # REGRA ABSOLUTA mercado PT
+  - product_naming.md               # Expressia / meu-jarvis
+  - tech_stack.md                   # stack fechada
+  - design_decisions.md             # decisões A-G validadas
+  - mvp_scope.md                    # Fase 1 scope
+  - user_style.md                   # como Eurico colabora
+
+# ───────────────────────────────────────────────────────────────────────────
+# CREDENCIAIS — onde estão (NUNCA copiar para handoff)
+# ───────────────────────────────────────────────────────────────────────────
+credentials:
+  supabase:
+    project_ref: llpotuxlyiyjvvxzetoo
+    region: eu-west-1 (Ireland) — GDPR compliant
+    project_url: https://llpotuxlyiyjvvxzetoo.supabase.co
+    env_files:
+      - apps/web/.env.local
+      - packages/db/.env.local
+    gitignored: true
+    keys_in_env_files:
+      - SUPABASE_URL
+      - SUPABASE_PROJECT_REF
+      - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (sb_publishable_*)
+      - SUPABASE_SECRET_KEY (sb_secret_*)
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY (legacy JWT)
+      - SUPABASE_SERVICE_ROLE_KEY (legacy JWT)
+      - DATABASE_URL (transaction pooler 6543, IPv4 compatible)
+      - DIRECT_URL (session pooler 5432, IPv4 compatible)
+
+    security_advisory: |
+      Password Postgres foi exposta na conversa anterior (3 resets).
+      Eurico foi avisado para rotacionar antes de produção. Não bloquear dev.
+
+  pending_external_blockers:
+    B2_supabase_auth_hook:
+      story_blocked: "1.5"
+      action_required: "Eurico configura custom_access_token_hook no Supabase Dashboard quando chegar a 1.5"
+    B3_sentry_eu:
+      story_blocked: "1.7"
+      action_required: "Eurico cria Sentry EU project (DSN deve conter ingest.de.sentry.io ou ingest.eu.sentry.io)"
+    B4_grafana_cloud_eu:
+      story_blocked: "1.7"
+      action_required: "Eurico cria Grafana Cloud EU stack (Frankfurt ou Dublin) — OTLP endpoint + API key"
+
+# ───────────────────────────────────────────────────────────────────────────
+# AMBIENTE TÉCNICO LOCAL (já configurado e a funcionar)
+# ───────────────────────────────────────────────────────────────────────────
+local_env:
+  os: Windows 11 Pro
+  shell: PowerShell + Bash via WSL
+  node_version: v22.22.2
+  package_manager: pnpm 9.12.3 (via corepack)
+  monorepo: pnpm workspaces (apps/web + packages/db)
+
+  scripts_root:
+    - "pnpm install"
+    - "pnpm typecheck (turbo, todos os packages)"
+    - "pnpm lint"
+    - "pnpm test"
+    - "pnpm build"
+    - "pnpm check:rls (alias para tsx scripts/check-rls-coverage.ts)"
+
+  scripts_db:
+    - "pnpm --filter @meu-jarvis/db db:migrate (raw SQL runner com check_function_bodies=off)"
+    - "pnpm --filter @meu-jarvis/db db:seed"
+    - "pnpm --filter @meu-jarvis/db db:reset (drop + reapply, dev only)"
+    - "pnpm --filter @meu-jarvis/db db:check-rls"
+
+  git:
+    branch: main
+    remote: nenhum (dev local, push é exclusivo @devops + ainda não pediu)
+    last_commits:
+      - "feat(1.3): Supabase + Drizzle bootstrap — schema aplicado"
+      - "qa(1.2): QA Gate PASS 7/7 — CI Pipeline Done"
+      - "feat(1.2): CI pipeline GitHub Actions com quality gates"
+      - "feat(1.1): monorepo + Next.js 15 scaffold"
+
+# ───────────────────────────────────────────────────────────────────────────
+# STORY 1.4 — A FAZER A SEGUIR
+# ───────────────────────────────────────────────────────────────────────────
+next_story:
+  id: "1.4"
+  file: docs/stories/active/1.4.rls-helpers-test-suite.md
+  title: "Suite de Testes RLS Automatizada"
+  estimate: L
+  status: Ready
+  no_external_blocker: true
+
+  goal: |
+    Criar suite de testes automatizada que valida o comportamento das RLS
+    policies (104 policies, 26 tabelas) usando Testcontainers Postgres
+    (instâncias efémeras). Garantir que cross-household access é bloqueado e
+    que policies SELECT/INSERT/UPDATE/DELETE funcionam conforme spec.
+
+  acceptance_criteria_summary:
+    - "Testcontainers Postgres setup (Docker required)"
+    - "Suite que aplica migrations + seeds num container efémero"
+    - "Helpers de teste: createHousehold(), createMember(), authAs()"
+    - "Negative tests: cross-household SELECT/UPDATE/DELETE devem ser negados"
+    - "Positive tests: same-household operations devem funcionar"
+    - "Integração com pnpm test (corre em CI rls-gate job)"
+    - "Coverage mínima: 1 positive + 1 negative test por tabela com household_id (26+26 = 52 testes mínimos)"
+
+  technical_notes:
+    - "@architect (Aria) já desenhou o pattern em docs/architecture.md §10.2"
+    - "Story 1.4 file tem detalhes completos e tasks numeradas — ler primeiro"
+    - "Docker Desktop é pré-requisito — Eurico confirmou ter (verifica com `docker --version`)"
+    - "Usa testcontainers npm package (procura versão compatível Node 22)"
+    - "Container Postgres deve carregar pgcrypto + uuid-ossp + pgvector se necessário"
+    - "Imports absolutos obrigatórios (CON5)"
+    - "PT-PT em comments e error messages"
+
+# ───────────────────────────────────────────────────────────────────────────
+# DECISÕES DO EUROCO (validadas, não voltar a perguntar)
+# ───────────────────────────────────────────────────────────────────────────
+validated_decisions:
+  A_naming: "Expressia (público) / meu-jarvis (codename interno)"
+  B_theme_default: "prefers-color-scheme (sistema do utilizador)"
+  C_typography: "Lora + Inter + JetBrains Mono (default Uma, Eurico aceitou)"
+  D_domain: "expressia.pt (registado)"
+  E_stripe_pt: "Conta Stripe PT criada (entidade legal e DPO email TBD não-bloqueante)"
+  F_trial_tier: "Tier Família durante trial 14d"
+  G_downgrade: "UI bloqueia downgrade Família→Pessoal com >1 membro"
+
+# ───────────────────────────────────────────────────────────────────────────
+# TECH DEBT LOG (não-bloqueante, programar para sprint futura)
+# ───────────────────────────────────────────────────────────────────────────
+tech_debt:
+  - id: MNT-001
+    file: apps/web/next.config.ts
+    desc: "experimental.typedRoutes deprecado, mover para top-level typedRoutes"
+    severity: medium
+    estimated_effort: 5min
+  - id: MNT-002
+    file: apps/web/next.config.ts
+    desc: "outputFileTracingRoot em falta — warning sobre lockfile parent (C:/Users/XPS/package-lock.json)"
+    severity: medium
+    estimated_effort: 5min
+  - id: SEC-001
+    file: ".env.local files (apps/web + packages/db)"
+    desc: "Password Postgres foi exposta em conversa de chat. Rotacionar antes de produção."
+    severity: medium
+    estimated_effort: 2min (Supabase reset + sed substituição)
+
+# ───────────────────────────────────────────────────────────────────────────
+# CONTEXTO IMPORTANTE — PROBLEMAS RESOLVIDOS / GOTCHAS APRENDIDOS
+# ───────────────────────────────────────────────────────────────────────────
+gotchas_learned:
+  - issue: "Supabase Free limit é per-user, não per-org (mas criar nova organização Free conseguiu novo slot)"
+    resolution: "Eurico criou organização 'Expressia' Free na mesma conta euricoalvesia@gmail.com — funcionou"
+    source: 2026-05-04 chat
+
+  - issue: "Connection 'Direct' do Supabase é IPv4-incompatível (DNS db.<ref>.supabase.co não resolve em redes IPv4-only)"
+    resolution: "Usar Transaction pooler (6543) e Session pooler (5432) — ambos IPv4-compatible via aws-0-eu-west-1.pooler.supabase.com"
+    source: 2026-05-05 debugging
+
+  - issue: "PostgreSQL 'language sql' functions validam corpo na criação (forward references a tabelas falham)"
+    resolution: "apply-migrations.ts adiciona 'set local check_function_bodies = off' antes de cada migration"
+    source: 2026-05-05 debugging
+    file: packages/db/src/scripts/apply-migrations.ts
+
+  - issue: "Password Postgres reset tem 30s+ de propagação no Supavisor pooler"
+    resolution: "Esperar 30s entre reset e teste de connection"
+    source: 2026-05-05 debugging
+
+  - issue: "@dev em background não tem permissão Bash em alguns hosts; pode falhar silenciosamente em pnpm install/migrate"
+    resolution: "@aiox-master corre os comandos depois e regista no commit"
+    source: 2026-05-05 Story 1.3
+
+# ───────────────────────────────────────────────────────────────────────────
+# COMO RETOMAR (passos exactos para o próximo aiox-master)
+# ───────────────────────────────────────────────────────────────────────────
+next_action: |
+  PASSO 1 — Verificar estado actual (sanity check):
+
+    cd C:\Users\XPS\Documents\meu-jarvis
+    git log --oneline | head -10           # confirmar último commit é Story 1.3
+    pnpm typecheck && pnpm lint && pnpm test  # confirmar gates ainda verdes
+    pnpm --filter @meu-jarvis/db test       # confirmar 6/6 (incluindo 5 contra DB real)
+    docker --version                        # confirmar Docker Desktop instalado
+
+  PASSO 2 — Ler memórias e docs essenciais:
+
+    Read: C:/Users/XPS/.claude/projects/C--Users-XPS-Documents-meu-jarvis/memory/MEMORY.md
+    Read: docs/stories/active/1.4.rls-helpers-test-suite.md
+    Read: docs/architecture.md (§10.2 testing strategy)
+    Read: docs/db-schema.md §5 (RLS pattern)
+    Read: packages/db/migrations/0001_rls_policies.sql (referência policies)
+
+  PASSO 3 — Marcar handoff como consumed e arquivar:
+
+    Editar este YAML: status: consumed, consumed: true, consumed_at, consumed_by
+    Mover para docs/handoffs/archive/
+    Remover linha pending de docs/HANDOFF-INDEX.md
+    Adicionar linha no bloco Archived
+
+  PASSO 4 — Disparar @dev para Story 1.4 em modo YOLO autónomo:
+
+    Usar Agent tool com subagent_type=aiox-dev
+    Brief: implementar Story 1.4 conforme docs/stories/active/1.4.*.md
+    Constraints: Testcontainers, Docker, PT-PT, imports absolutos
+    Quality gates: pnpm typecheck/lint/test/build + check-rls
+
+  PASSO 5 — Após @dev terminar:
+
+    Correr pnpm test (deve ter 50+ testes RLS a passar)
+    Disparar @qa para gate da Story 1.4
+    Se PASS: marcar 1.4 Done, commit
+    Se CONCERNS/FAIL: voltar a @dev com feedback específico
+
+  PASSO 6 — Próxima story:
+
+    Story 1.5 (Auth) → BLOQUEADA por B2 (Supabase Auth hook config) → pedir Eurico
+    Story 1.7 (Observability) → BLOQUEADA por B3 (Sentry) + B4 (Grafana) → pedir Eurico
+    Se Eurico não desbloquear ainda, pausar pipeline e fazer trabalho interno:
+      - Resolver tech debt MNT-001 + MNT-002
+      - @analyst verificação trademark Expressia no INPI Portugal
+      - @sm draft preliminar Epic 2 (Cérebro AI multi-intent) sem implementar
+
+# ───────────────────────────────────────────────────────────────────────────
+# AGENTE BRIEF TEMPLATE (para colar ao @dev quando arrancares 1.4)
+# ───────────────────────────────────────────────────────────────────────────
+dev_brief_template: |
+  Sou o Orion (aiox-master). Story 1.4 — Suite de Testes RLS via Testcontainers.
+
+  Localização: C:\Users\XPS\Documents\meu-jarvis
+  Modo: YOLO autónomo.
+
+  ## Estado actual
+
+  Stories 1.1, 1.2, 1.3 DONE. Schema Supabase real aplicado:
+  - 27 tabelas (26 multi-tenant + tracking)
+  - 104 RLS policies (4 por tabela)
+  - 24 categorias PT default
+  - 4 helper SQL functions
+
+  ## Story alvo
+
+  docs/stories/active/1.4.rls-helpers-test-suite.md (Status: Ready, validada)
+
+  ## Inputs obrigatórios (lê primeiro)
+
+  - docs/stories/active/1.4.*.md (story completa)
+  - docs/architecture.md §10.2 (testing strategy)
+  - docs/db-schema.md §5 (RLS pattern)
+  - packages/db/migrations/0001_rls_policies.sql (104 policies referência)
+  - C:/Users/XPS/.claude/projects/C--Users-XPS-Documents-meu-jarvis/memory/*.md
+
+  ## Constraints
+
+  - PT-PT exclusivo (comments, error messages)
+  - Imports absolutos (@/)
+  - TypeScript strict
+  - Testcontainers Postgres efémero (Docker required)
+  - Coverage mínima: 1 positive + 1 negative test por tabela multi-tenant
+  - Quality gates: pnpm typecheck + lint + test + check-rls
+  - NUNCA git push (exclusivo @devops)
+
+  ## Entregável
+
+  Suite de 50+ testes RLS que pode correr em CI (rls-gate job).
+  Story marcada Done com File List + Change Log + Dev Agent Record preenchidos.
+
+  Procede.
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Fim do handoff
+# ═══════════════════════════════════════════════════════════════════════════
