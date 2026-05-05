@@ -9,7 +9,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "echo \"@meu-jarvis/db-test: lint herdado do typecheck — ver typecheck script\"",
-    "build": "echo \"@meu-jarvis/db-test: package source-only (sem build step)\""
+    "build": "echo \"@meu-jarvis/db-test: package source-only (sem build step)\"",
+    "db:bootstrap": "tsx src/scripts/apply-bootstrap.ts"
   },
   "dependencies": {
     "@meu-jarvis/db": "workspace:*",

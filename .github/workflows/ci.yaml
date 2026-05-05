@@ -159,6 +159,15 @@ jobs:
           echo "Postgres não ficou ready em 60s." >&2
           exit 1
 
+      # Provisiona o schema `auth` + roles Supabase ANTES das migrations de produção.
+      # As migrations 0000/0001 referenciam `auth.uid()` e `auth.users` (Supabase
+      # nativo) — não existem em Postgres vanilla. Decisão arquitectural deliberada:
+      # bootstrap vive APENAS no harness de testes (ver packages/db-test/src/harness/bootstrap.ts),
+      # não nas migrations. Aqui reusamos a mesma lógica via wrapper standalone para
+      # garantir paridade entre CI e Testcontainers (single source of truth).
+      - name: Provisionar schema auth + roles Supabase (stub Postgres CI)
+        run: pnpm --filter @meu-jarvis/db-test db:bootstrap
+
       - name: Aplicar migrations contra Postgres 16 (smoke check de aplicação)
         run: pnpm --filter @meu-jarvis/db db:migrate
 
