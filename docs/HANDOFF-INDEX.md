@@ -13,7 +13,9 @@
 
 ## 📥 Pending (active handoffs)
 
-_Nenhum handoff pendente._
+| Created | ID | From → To | Story/Task | Notas |
+|---------|-----|-----------|------------|-------|
+| 2026-05-05 | [mj-handoff-devops-blocker-no-remote-20260505](handoffs/mj-handoff-devops-blocker-no-remote-20260505.yaml) | devops → aiox-master | Story 1.4 push blocker | 5 commits criados localmente, CodeRabbit PASS Story 1.4, mas remote não existe. Requer decisão Eurico para criar repo privado. |
 
 ---
 
@@ -39,4 +41,4 @@ _Nenhum handoff pendente._
 
 ---
 
-*Última actualização: 2026-05-05 17:05 (handoff qa → devops consumido por Gage; commits criados localmente; push bloqueado por ausência de remote)*
+*Última actualização: 2026-05-05 17:25 (handoff devops → aiox-master criado: blocker REMOTE-001 — repo `meu-jarvis` não existe em github.com/DaSilvaAlves; aguarda decisão Eurico)*
