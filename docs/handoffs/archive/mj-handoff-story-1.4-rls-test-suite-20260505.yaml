@@ -7,8 +7,10 @@ handoff_id: mj-handoff-story-1.4-rls-test-suite-20260505
 from_agent: aiox-master (Orion)
 to_agent: aiox-master (any new terminal session)
 created: 2026-05-05T03:00:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-05T13:00:00+01:00
+consumed_by: aiox-master (Orion — terminal docs/handoffs)
 priority: high
 project_prefix: mj
 project_codename: meu-jarvis

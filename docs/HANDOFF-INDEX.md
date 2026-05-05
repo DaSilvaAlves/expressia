@@ -13,15 +13,17 @@
 
 ## 📥 Pending (active handoffs)
 
-| Data | ID | From | To | Story/Task | Acção concreta seguinte |
-|------|-----|------|-----|-----------|--------------------------|
-| 2026-05-05 | [mj-handoff-story-1.4-rls-test-suite-20260505](handoffs/mj-handoff-story-1.4-rls-test-suite-20260505.yaml) | aiox-master (Orion) | aiox-master (any new terminal) | Story 1.4 RLS Test Suite | Correr sanity checks, disparar @dev em modo YOLO para Story 1.4 |
+_Nenhum handoff pendente._
 
 ---
 
 ## 📦 Archived (consumed)
 
-_(vazio — primeiro handoff do projecto)_
+| Consumed | ID | From → To | Story/Task | Notas |
+|----------|-----|-----------|------------|-------|
+| 2026-05-05 | [mj-handoff-story-1.4-ready-for-push-20260505](handoffs/archive/mj-handoff-story-1.4-ready-for-push-20260505.yaml) | qa → devops | Story 1.4 RLS Test Suite | Consumido por @devops Gage; commits criados, push bloqueado por ausência de remote (ver runbook). |
+| 2026-05-05 | [mj-handoff-story-1.4-ready-for-qa-20260505](handoffs/archive/mj-handoff-story-1.4-ready-for-qa-20260505.yaml) | aiox-master → qa | Story 1.4 RLS Test Suite | Implementação completa entregue ao QA; gate file PASS 7/7 (`docs/qa/gates/1.4-qa-gate.md`); story Done. |
+| 2026-05-05 | [mj-handoff-story-1.4-rls-test-suite-20260505](handoffs/archive/mj-handoff-story-1.4-rls-test-suite-20260505.yaml) | aiox-master → aiox-master | Story 1.4 RLS Test Suite | Sanity ok (Docker 29, Node 22, pnpm 9.12.3); Status 1.4 Draft→Ready; delegado a @dev YOLO |
 
 ---
 
@@ -37,4 +39,4 @@ _(vazio — primeiro handoff do projecto)_
 
 ---
 
-*Última actualização: 2026-05-05*
+*Última actualização: 2026-05-05 17:05 (handoff qa → devops consumido por Gage; commits criados localmente; push bloqueado por ausência de remote)*

@@ -1,0 +1,120 @@
+handoff:
+  id: mj-handoff-story-1.4-ready-for-push-20260505
+  from_agent: qa
+  to_agent: devops
+  created: 2026-05-05T16:40:00Z
+  status: consumed
+  consumed: true
+  consumed_at: 2026-05-05T17:05:00Z
+  consumed_by: devops (Gage)
+
+summary: |
+  Story 1.4 — Suite de testes RLS automatizada — PASSOU QA Gate (7/7, 10/10 ACs).
+  Working tree pronto para commit + push para main. 29 ficheiros novos em
+  packages/db-test/, 2 actualizados (.github/workflows/ci.yaml, pnpm-lock.yaml).
+  86/86 testes verde em 23s wall-clock local. Status da story: Done.
+
+context:
+  story_id: "1.4"
+  story_path: docs/stories/active/1.4.rls-helpers-test-suite.md
+  story_status_before: InReview
+  story_status_after: Done
+  branch: main
+  epic: Epic 1 — Foundation & Multi-Tenant Core
+  qa_gate_file: docs/qa/gates/1.4-qa-gate.md
+  qa_verdict: PASS
+  qa_score: 7/7
+  acs_satisfied: 10/10
+  blocking_issues: 0
+  non_blocking_issues:
+    - id: PERF-001
+      severity: low
+      summary: |
+        Risco marginal de cold pull da imagem pgvector/pgvector:pg16 (~150MB) em
+        CI primeira run — estimativa 30-65s vs budget AC7 de 60s. Margem ampla
+        face ao timeout 12min do job. Recomendação opcional: registar tempo
+        real após primeira CI run e considerar pre-pull se exceder 60s.
+    - id: OBS-001
+      severity: low
+      summary: |
+        payment_events totalmente bloqueado a authenticated. Documentar em
+        runbook futuro que inspecção via Supabase Studio requer service_role.
+
+quality_gates_locais_re_validados:
+  pnpm_typecheck_db_test: PASS
+  pnpm_typecheck_workspace: "PASS FULL TURBO 119ms (cached)"
+  pnpm_lint: "PASS 0 erros (1 warning Next.js lockfile pre-existente)"
+  pnpm_check_rls: "PASS 26 tabelas, 104 policies"
+  pnpm_test_db_test: "PASS 86/86 em 23.09s wall-clock (testes em 3.94s)"
+  pnpm_test_workspace: "PASS db-test + db smoke + web smoke"
+  docker_availability: "PASS Docker 29.1.3 (alinha com ubuntu-latest CI)"
+
+ficheiros_para_commit:
+  novos:
+    - packages/db-test/package.json
+    - packages/db-test/tsconfig.json
+    - packages/db-test/vitest.config.ts
+    - packages/db-test/src/rls-harness.ts
+    - packages/db-test/src/setup/global-setup.ts
+    - packages/db-test/src/harness/bootstrap.ts
+    - packages/db-test/src/harness/migrations.ts
+    - packages/db-test/src/helpers/fixtures.ts
+    - packages/db-test/src/tests/harness.smoke.test.ts
+    - "packages/db-test/src/tests/<25 ficheiros .rls.test.ts cobrindo 26 tabelas>"
+    - docs/qa/gates/1.4-qa-gate.md
+    - docs/handoffs/mj-handoff-story-1.4-ready-for-qa-20260505.yaml (será movido para archive antes do commit pelo @qa)
+    - docs/handoffs/mj-handoff-story-1.4-ready-for-push-20260505.yaml (este ficheiro)
+  modificados:
+    - .github/workflows/ci.yaml
+    - docs/HANDOFF-INDEX.md
+    - docs/stories/active/1.4.rls-helpers-test-suite.md
+    - pnpm-lock.yaml
+
+next_action: |
+  @devops Gage executa o seguinte (na ordem indicada):
+
+  1. git add dos ficheiros listados em ficheiros_para_commit (preferir add explícito,
+     evitar `git add -A` para não apanhar artefactos não intencionais como CLAUDE.md
+     que está untracked).
+
+  2. git commit com mensagem (sugestão):
+       feat(1.4): suite de testes RLS automatizada via Testcontainers
+
+       - Package @meu-jarvis/db-test com Vitest + Testcontainers Postgres 16
+       - Harness rls-harness.ts com seedTwoHouseholds/asUser/expectRlsBlocks/resetData
+       - 86 testes RLS verde em 23s wall-clock cobrindo 26 tabelas multi-tenant
+       - Bootstrap auth.* isolado no harness (migrations produção continuam limpas)
+       - CI: rls-gate corre Testcontainers + check-rls-coverage; service postgres
+         migrado para pgvector/pgvector:pg16 (alinha com extensão vector)
+
+       Story 1.4 — Status Done — QA Gate PASS 7/7 (docs/qa/gates/1.4-qa-gate.md)
+
+  3. CodeRabbit pre-push review (regra coderabbit-integration: @devops max 2 iter):
+       wsl bash -c 'cd /mnt/c/Users/XPS/Documents/meu-jarvis && ~/.local/bin/coderabbit \
+         --prompt-only --base origin/main'
+     Se CRITICAL/HIGH found → auto-fix (max 2 iter) → re-commit → re-push.
+
+  4. git push origin main
+
+  5. Verificar primeira CI run pós-push:
+       gh run watch
+     Job rls-gate é o crítico. Se exceder 60s só na suite (PERF-001), aplicar pre-pull
+     layer cache via docker/setup-buildx-action ou step `docker pull pgvector/pgvector:pg16 &`.
+
+  6. Após CI verde, marcar handoff dev→qa como consumed e mover para archive.
+
+  Constraints:
+  - Push exclusivo @devops (regra agent-authority: ANY → @devops *push)
+  - NUNCA fazer push --force a main
+  - Hooks NÃO devem ser skipped (--no-verify proibido)
+
+dependencies:
+  upstream:
+    - "1.1"  # Done
+    - "1.2"  # Done
+    - "1.3"  # Done
+    - "1.4"  # Done (após este push)
+  downstream:
+    - "1.5"  # Auth — desbloqueia agora que RLS está testado e em main
+
+waiver: { active: false }

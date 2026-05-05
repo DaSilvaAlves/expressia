@@ -1,0 +1,125 @@
+handoff:
+  id: mj-handoff-story-1.4-ready-for-qa-20260505
+  from_agent: aiox-master
+  to_agent: qa
+  created: 2026-05-05T03:45:00Z
+  status: consumed
+  consumed: true
+  consumed_at: 2026-05-05T16:40:00Z
+  consumed_by: qa
+
+summary: |
+  Story 1.4 — Suite de testes RLS automatizada — implementada e pronta para QA gate.
+  Package @meu-jarvis/db-test criado com harness Vitest+Testcontainers Postgres 16. 86/86 testes
+  RLS verdes em 7.88s wall-clock local (target AC7 < 60s confortavelmente cumprido). Status da
+  story: InReview. Quality gates locais todos verde (typecheck, lint, test, check:rls).
+
+context:
+  story_id: "1.4"
+  story_path: docs/stories/active/1.4.rls-helpers-test-suite.md
+  story_status_before: Ready
+  story_status_after: InReview
+  branch: main
+  epic: Epic 1 — Foundation & Multi-Tenant Core
+
+  tabelas_cobertas: 22
+  tabelas_alta_risco_cobertas: [tasks, transactions, accounts, cards, agent_runs, audit_log]
+
+  testes_total: 86
+  testes_smoke: 7
+  testes_rls: 79
+  ficheiros_teste: 27
+
+  performance:
+    local_wall_clock: 7.88s
+    container_start_local_warm: 2.5s
+    estimativa_ci_cold_pull: 30-45s
+
+decisoes_tecnicas:
+  - id: imagem-pgvector
+    descricao: |
+      Trocou postgres:16 → pgvector/pgvector:pg16 porque a migration 0000 cria
+      `extension "vector"` (Architecture §11.2 prepara Fase 3 RAG). Service do CI
+      também actualizado para a mesma imagem.
+  - id: bootstrap-auth
+    descricao: |
+      Bootstrap SQL isolado em packages/db-test/src/harness/bootstrap.ts cria role
+      `authenticated` + schema `auth` + funções `auth.uid()`/`auth.jwt()`. Não tocou
+      nas migrations de produção (essas assumem ambiente Supabase).
+  - id: container-partilhado
+    descricao: |
+      Vitest globalSetup boots 1 container para toda a suite. Cada teste usa
+      resetData() em beforeEach (TRUNCATE CASCADE). Isolamento garantido sem custo
+      de subir container novo.
+  - id: pool-singlefork
+    descricao: |
+      vitest.config.ts: pool='forks' + singleFork=true para evitar race conditions
+      com o container partilhado.
+  - id: type-querysql
+    descricao: |
+      Criado type alias QuerySql = Sql | TransactionSql para que helpers em
+      fixtures.ts aceitem ambos os contextos (admin vs transactional).
+  - id: revoke-explicit-tests
+    descricao: |
+      audit_log UPDATE/DELETE são bloqueados via REVOKE explícito (não policy).
+      Os testes usam expect(...).rejects.toThrow(/permission denied/) em vez de
+      verificar count=0.
+
+areas_para_qa_atencao:
+  - tempo_ci: |
+      Local 7.88s mas primeiro run em CI tem cold pull da imagem (~150MB).
+      Estimativa 30-45s. Se passar 60s, considerar pre-pull no workflow ou cache de layers.
+  - testcontainers_ci: |
+      Docker está disponível em ubuntu-latest mas Testcontainers requer DOCKER_HOST acessível.
+      Se houver problemas, adicionar `docker version` no workflow para diagnose.
+  - categorias_defaults: |
+      categories.rls.test.ts faz delete from public.categories no beforeEach (limpa tudo
+      incluindo defaults). Se Story 1.5 adicionar mais defaults via seed, este teste continua válido
+      (testa policy, não contagem).
+  - payment_events_select_universal: |
+      authenticated nunca pode ver payment_events — apenas service_role via webhook.
+      Confirmar se este nível é desejado para debugging em Supabase Studio
+      (alternativa: permitir owner/admin ver mas continuar a bloquear escrita).
+
+quality_gates_locais:
+  pnpm_install: PASS
+  pnpm_typecheck_db_test: PASS
+  pnpm_test_db_test: "PASS 86/86 em 7.88s"
+  pnpm_typecheck_root: PASS
+  pnpm_lint: PASS
+  pnpm_test_root: "PASS 21s total"
+  pnpm_check_rls: "PASS 26 tabelas multi-tenant 104 policies"
+
+ficheiros_criados:
+  - packages/db-test/package.json
+  - packages/db-test/tsconfig.json
+  - packages/db-test/vitest.config.ts
+  - packages/db-test/src/rls-harness.ts
+  - packages/db-test/src/setup/global-setup.ts
+  - packages/db-test/src/harness/bootstrap.ts
+  - packages/db-test/src/harness/migrations.ts
+  - packages/db-test/src/helpers/fixtures.ts
+  - packages/db-test/src/tests/harness.smoke.test.ts
+  - "packages/db-test/src/tests/<22 ficheiros .rls.test.ts>"
+
+ficheiros_actualizados:
+  - .github/workflows/ci.yaml  # job rls-gate + service postgres → pgvector/pgvector:pg16
+  - pnpm-lock.yaml              # deps testcontainers + @testcontainers/postgresql
+  - docs/stories/active/1.4.rls-helpers-test-suite.md
+
+next_action: |
+  @qa Quinn deve executar *qa-gate na Story 1.4:
+    1. Verificar acceptance criteria (todos os 10 marcados [x])
+    2. Correr `pnpm --filter @meu-jarvis/db-test test` localmente para confirmar 86/86
+    3. Inspeccionar 1-2 ficheiros de teste (recomendo tasks.rls.test.ts e categories.rls.test.ts)
+       para validar qualidade do padrão e clareza dos comentários PT-PT (AC10)
+    4. Confirmar que o job rls-gate em .github/workflows/ci.yaml está bem integrado
+    5. Verificar que não há `any` em packages/db-test/src/**/*.ts (TS strict — AC9)
+    6. Decisão: PASS / CONCERNS / FAIL em docs/qa/gates/1.4-*.yaml
+
+  Se PASS, story passa de InReview → Done e @devops faz push.
+  Se FAIL, devolver à @dev (Orion no modo dev) com feedback específico.
+
+dependencies:
+  upstream: ["1.1", "1.2", "1.3"]   # todas Done
+  downstream: ["1.5"]                # Auth — depende desta
