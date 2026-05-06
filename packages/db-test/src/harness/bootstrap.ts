@@ -40,6 +40,13 @@ begin
   if not exists (select 1 from pg_roles where rolname = 'service_role') then
     create role service_role nologin bypassrls;
   end if;
+  -- supabase_auth_admin: role usado pelo Supabase Auth para invocar Auth Hooks
+  -- (ex: custom_access_token_hook em migration 0002). A migração 0002 faz
+  -- 'grant ... to supabase_auth_admin'; sem este role criado, a aplicação
+  -- da migration falha com "role does not exist" (Postgres 42704).
+  if not exists (select 1 from pg_roles where rolname = 'supabase_auth_admin') then
+    create role supabase_auth_admin nologin;
+  end if;
 end
 $$;
 
