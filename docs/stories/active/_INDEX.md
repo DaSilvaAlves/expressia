@@ -3,7 +3,7 @@
 **Epic Goal:** Estabelecer fundação técnica do projecto: monorepo Next.js+TS, CI/CD com gates de qualidade, Postgres com RLS multi-tenant, autenticação básica, stack de observability — terminando com um endpoint canary autenticado que prova multi-tenancy fim-a-fim.
 
 **Criado:** 2026-05-04
-**Actualizado:** 2026-05-04
+**Actualizado:** 2026-05-06 (Story 1.5 → Done, movida para `completed/`)
 **Autor:** River (@sm)
 
 ---
@@ -16,7 +16,7 @@
 | 1.2 | [1.2.ci-pipeline-quality-gates.md](./1.2.ci-pipeline-quality-gates.md) | CI/CD Pipeline com Quality Gates | Draft | @dev | M | Depende de 1.1 |
 | 1.3 | [1.3.supabase-drizzle-bootstrap.md](./1.3.supabase-drizzle-bootstrap.md) | Supabase + Drizzle Bootstrap | Draft | @dev | M | Depende de 1.1, 1.2; **BLOQUEADOR: credenciais Supabase** |
 | 1.4 | [1.4.rls-helpers-test-suite.md](./1.4.rls-helpers-test-suite.md) | Suite de Testes RLS Automatizada | Draft | @dev | L | Depende de 1.1, 1.3 |
-| 1.5 | [1.5.supabase-auth-rls-integration.md](./1.5.supabase-auth-rls-integration.md) | Supabase Auth + RLS Integration | Draft | @dev | L | Depende de 1.1, 1.3, 1.4; **BLOQUEADOR: Supabase Auth Hook config** |
+| 1.5 | [1.5.supabase-auth-rls-integration.md](../completed/1.5.supabase-auth-rls-integration.md) | Supabase Auth + RLS Integration + custom_access_token_hook | **Done** ✅ | @dev | L | ~~Bloqueador B2 resolvido~~ |
 | 1.6 | [1.6.canary-endpoint-me.md](./1.6.canary-endpoint-me.md) | Endpoint Canary `/api/me` + E2E RLS | Draft | @dev | M | Depende de 1.5 |
 | 1.7 | [1.7.observability-otel-sentry.md](./1.7.observability-otel-sentry.md) | Observabilidade OTel + Sentry EU + Grafana | Draft | @dev | M | **BLOQUEADOR: Sentry EU + Grafana Cloud EU API keys** |
 
