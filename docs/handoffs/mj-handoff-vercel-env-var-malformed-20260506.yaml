@@ -91,11 +91,9 @@ playbook:
     comando: '@devops *push'
     pre_condicao: 'Passo 1 completo + curl OK'
     accao: |
-      Push 4 commits locais para origin/main:
-        - 64ae35d feat(api): add /api/me canary endpoint with RLS-via-JWT [Story 1.6]
-        - dcf0ef0 docs(handoffs): coordinate Vercel setup for Story 1.6
-        - 3991453 docs(handoffs): document Vercel middleware crash investigation playbook
+      Push 2 commits locais para origin/main (origin/main já tem 3991453):
         - c7901a7 chore(turbo): expor SUPABASE_SERVICE_ROLE_KEY no pipeline de build [Story 1.6]
+        - 4c45068 docs(handoffs): close Vercel middleware crash investigation, escalate env var fix to Eurico
       CI corre quality + rls-gate + build. Vercel auto-redeploy em paralelo.
 
   passo_3_dev_retoma_tasks_4_5:

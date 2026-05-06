@@ -34,15 +34,16 @@ consumed_outcome: |
   a turbo.json `tasks.build.env` (resolve warning do build, alinhado com
   Passo 2 do playbook — mas NÃO é a causa do crash).
 
-  Estado git ao consumir: branch main 3 ahead de origin/main
-  (64ae35d feat(api), dcf0ef0 + 3991453 docs(handoffs), c7901a7 chore(turbo)).
+  Estado git ao consumir: branch main 2 ahead de origin/main
+  (c7901a7 chore(turbo) + 4c45068 docs(handoffs) — feitos nesta sessão).
+  Nota: origin/main já tem 64ae35d/dcf0ef0/3991453 (verificado via git fetch).
 
   Próximo accionável (escala para Eurico, depois Gage):
   1. Eurico edita NEXT_PUBLIC_SUPABASE_URL na Vercel UI (~2 min)
   2. Eurico verifica também as outras 4 env vars não têm aspas/whitespace
   3. Vercel auto-redeploy ou trigger manual sem cache
   4. curl https://expressia-black.vercel.app — esperar 200/redirect (não 500)
-  5. @devops *push (3 commits locais)
+  5. @devops *push (2 commits locais: c7901a7 + 4c45068)
   6. @dev retoma Story 1.6 Tasks 4-5
 priority: high
 project_prefix: mj
