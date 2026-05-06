@@ -1,0 +1,284 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Vercel deploy verde mas middleware crash (Story 1.6 Tasks 4-5)
+# ═══════════════════════════════════════════════════════════════════════════
+# Propósito: Sessão 2026-05-06 21:30-22:37 com Eurico montou Vercel project
+# correctamente para a Expressia. Build verde, deploy Ready, mas Vercel
+# middleware crasha em runtime com MIDDLEWARE_INVOCATION_FAILED. Sessão
+# pausada — Eurico exausto, mais investigação requer mãos no codebase
+# (não na Vercel UI). Próxima sessão pega aqui.
+
+handoff_id: mj-handoff-vercel-middleware-crash-20260506
+from_agent: dev (Dex)
+to_agent: any (dev/devops, com cabeça fresca)
+created: 2026-05-06T22:37:00+01:00
+status: pending
+consumed: false
+priority: high
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR (60 segundos)
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Vercel project Expressia criado correctamente (project name expressia,
+  Root Directory apps/web, Framework Next.js, Region cdg1/Paris UE, 5 env
+  vars Supabase carregadas). Build verde 30s. Deploy Ready Production
+  Current. MAS expressia-black.vercel.app retorna 500 MIDDLEWARE_INVOCATION_FAILED
+  consistentemente em todos os 6 redeploys. Causa precisa de investigação
+  com cabeça fresca — duas hipóteses identificadas (turbo.json incompleto,
+  valores env vars potencialmente com formato errado). Sessão pausada.
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📊 ESTADO ACTUAL (snapshot 2026-05-06 22:37)
+# ───────────────────────────────────────────────────────────────────────────
+estado_actual:
+  vercel:
+    project_name: expressia
+    project_id: prj_u5y4Jq5rrhIqQevAfUyFqnwRyeVz
+    team: euricojsalves-4744s-projects
+    repo_ligado: DaSilvaAlves/expressia
+    root_directory: apps/web
+    framework_preset: Next.js
+    include_files_outside_root: enabled
+    node_version: 24.x
+    region_runtime: cdg1 (Paris UE) — confirmado por error IDs
+    deploys_total: 6 (todos Ready, mas todos middleware-crash em runtime)
+    production_alias: expressia-black.vercel.app
+    deployment_current: 6Fxp87Jot
+
+  env_vars_no_vercel:
+    total: 5
+    todas_marcadas_como: 'Production and Preview' (Development NÃO marcado, mas não bloqueia)
+    lista:
+      - NEXT_PUBLIC_SUPABASE_URL (sensitive)
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY (sensitive)
+      - DATABASE_URL (sensitive)
+      - DATABASE_URL_DIRECT (sensitive)
+      - SUPABASE_SERVICE_ROLE_KEY (sensitive)
+
+  github_secrets:
+    total: 0
+    nota: 'Ainda não foram configurados — bloqueado até Vercel deploy estar verde end-to-end + Eurico partilhar SUPABASE_SERVICE_ROLE_KEY ao Gage'
+
+  story_1_6:
+    status: InProgress
+    progresso: '4/6 tasks done (Tasks 1, 2, 3, 6 — commit 64ae35d local). Tasks 4-5 ⏸ paused'
+    commits_locais_nao_pushed: 2
+    commits_detalhe:
+      - sha: 64ae35d
+        titulo: 'feat(api): add /api/me canary endpoint with RLS-via-JWT [Story 1.6]'
+      - sha: dcf0ef0
+        titulo: 'docs(handoffs): coordinate Vercel setup for Story 1.6 — C4 resolved, C5 blocked on Eurico'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🔴 PROBLEMA EXACTO
+# ───────────────────────────────────────────────────────────────────────────
+problema:
+  sintoma: |
+    GET https://expressia-black.vercel.app/ → 500 INTERNAL_SERVER_ERROR
+    Code: MIDDLEWARE_INVOCATION_FAILED
+    ID: cdg1::g7kx1-1778102865385-87b96deda789 (mesmo padrão em todos os deploys)
+
+  o_que_NAO_e:
+    - 'NÃO é env vars em falta (foram adicionadas todas as 5 e o redeploy foi triggado)'
+    - 'NÃO é Root Directory errado (apps/web confirmado em screenshot)'
+    - 'NÃO é Framework errado (Next.js detectado)'
+    - 'NÃO é region errada (cdg1 Paris é UE, vercel.json regions:["fra1"] respeitado em geral)'
+    - 'NÃO é cache antigo (último redeploy foi sem cache: "Skipping build cache, deployment was triggered without cache")'
+
+  warnings_relevantes_no_build:
+    - |
+      `WARNING - the following environment variables are set on your Vercel project,
+       but missing from "turbo.json":
+         [warn] @meu-jarvis/db#build  - SUPABASE_SERVICE_ROLE_KEY
+         [warn] @meu-jarvis/auth#build - SUPABASE_SERVICE_ROLE_KEY
+         [warn] @meu-jarvis/web#build  - SUPABASE_SERVICE_ROLE_KEY`
+    - |
+      `WARNING no output files found for task @meu-jarvis/auth#build.
+       Please check your "outputs" key in turbo.json`
+    - |
+      `WARNING no output files found for task @meu-jarvis/db#build.
+       Please check your "outputs" key in turbo.json`
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🧪 HIPÓTESES A TESTAR (próxima sessão, ordem de probabilidade)
+# ───────────────────────────────────────────────────────────────────────────
+hipoteses:
+  H1_valores_env_vars_com_aspas_ou_whitespace:
+    probabilidade: HIGH
+    descricao: |
+      Eurico colou os valores no Vercel possivelmente:
+        - com aspas literais ("https://...") porque o .env.local pode ter aspas
+        - com whitespace trailing
+        - com newline embebido
+      Em runtime, process.env.NEXT_PUBLIC_SUPABASE_URL = '"https://..."' (com aspas)
+      → createServerClient(URL_invalida, ANON_KEY, ...) → fetch falha → middleware crash
+    como_validar: |
+      No Vercel: Settings → Environment Variables → click ⋯ em NEXT_PUBLIC_SUPABASE_URL
+      → Edit → ver início e fim do valor (Vercel revela em edit mode)
+      Confirmar:
+        - NÃO começa com aspas (")
+        - NÃO termina com aspas (")
+        - NÃO termina com espaço ou \n
+        - Começa com "https://"
+        - Termina com ".supabase.co" (sem trailing slash)
+    como_corrigir: |
+      Para cada env var com problema:
+        1. ⋯ → Remove
+        2. Add Environment Variable → Name + Value (sem aspas, sem whitespace)
+        3. Marcar Production + Preview + Development
+        4. Save
+      Depois: trigger redeploy SEM cache.
+
+  H2_turbo_json_falta_SUPABASE_SERVICE_ROLE_KEY:
+    probabilidade: MEDIUM
+    descricao: |
+      turbo.json em "tasks.build.env" lista 5 vars mas falta SUPABASE_SERVICE_ROLE_KEY.
+      Vercel avisou nos build logs. Por si só isto NÃO causa middleware crash
+      (middleware só usa NEXT_PUBLIC_*) mas pode estar relacionado com bundling.
+    como_validar: |
+      Ler turbo.json — confirmar que "env" lista TODAS as 5 env vars
+    como_corrigir: |
+      Adicionar "SUPABASE_SERVICE_ROLE_KEY" ao array env em turbo.json.
+      Esta correcção é trabalho de @dev (NÃO é coisa para Eurico fazer).
+      Diff esperado:
+        "env": [
+          "NODE_ENV",
+          "DATABASE_URL",
+          "DATABASE_URL_DIRECT",
+          "NEXT_PUBLIC_SUPABASE_URL",
+          "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+       +  "SUPABASE_SERVICE_ROLE_KEY"
+        ]
+      Commit + push (via Gage). Vercel auto-redeploy.
+
+  H3_supabase_ssr_edge_runtime_incompatibilidade:
+    probabilidade: LOW
+    descricao: |
+      @supabase/ssr pode ter API que não funciona em Edge Runtime.
+      apps/web/src/middleware.ts importa createServerClient directamente.
+      Versão de @supabase/ssr instalada vs Next.js 15.5.15.
+    como_validar: |
+      Ler runtime logs do deploy (não build logs!) — devem mostrar stack trace
+      exacto do crash. Acesso: deployment 6Fxp87Jot → tab "Logs" → filtrar Runtime.
+    como_corrigir: |
+      Se confirmado: forçar middleware a Node.js Runtime adicionando ao
+      apps/web/src/middleware.ts:
+        export const config = {
+          runtime: 'nodejs',  // forçar Node, não Edge
+          matcher: [...]
+        }
+      Mas isto introduz cold start latency — só usar se H1+H2 não resolverem.
+
+  H4_supabase_ssr_versao_quebrada:
+    probabilidade: LOW
+    descricao: |
+      Versão de @supabase/ssr no package.json pode ter incompatibilidade
+      com @supabase/supabase-js ou Next.js 15.
+    como_validar: |
+      pnpm --filter @meu-jarvis/web ls @supabase/ssr @supabase/supabase-js
+      cross-reference com release notes.
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🎯 NEXT_SESSION_PLAYBOOK (ordem recomendada, sem trabalho na UI Vercel)
+# ───────────────────────────────────────────────────────────────────────────
+next_session_playbook:
+  precondicao: |
+    git status: branch main, 2 ahead de origin/main (commits 64ae35d + dcf0ef0)
+    Story 1.6 status: InProgress. Eurico exausto da sessão Vercel UI.
+
+  passo_1_dev_le_runtime_logs:
+    quem: '@dev (Dex)'
+    duracao: ~5 min
+    accao: |
+      Aceder a https://vercel.com/euricojsalves-4744s-projects/expressia/deployments
+      → click no deployment current (6Fxp87Jot ou mais recente)
+      → tab "Logs" (NÃO build logs)
+      → filtrar Runtime/Functions
+      → fazer um GET fresh em expressia-black.vercel.app
+      → tirar screenshot/copy do stack trace exacto
+      Stack trace vai dizer EXACTAMENTE qual a hipótese (H1, H2, H3 ou H4).
+
+  passo_2_dev_corrige_turbo_json:
+    quem: '@dev (Dex)'
+    duracao: ~2 min
+    accao: |
+      Adicionar "SUPABASE_SERVICE_ROLE_KEY" ao array env em turbo.json.
+      Commit local (sem push — Gage trata do push).
+
+  passo_3_eurico_valida_env_values:
+    quem: Eurico (manual, ~2 min)
+    duracao: ~2 min
+    accao: |
+      Apenas SE o stack trace de Passo 1 indicar H1:
+      Vercel UI → Settings → Environment Variables → ⋯ Edit em cada var
+      → confirmar valor sem aspas/whitespace/newlines.
+      Se houver corrupção, remove + add fresh.
+
+  passo_4_devops_push_e_redeploy:
+    quem: '@devops (Gage)'
+    duracao: ~3 min
+    comando: '@devops *push'
+    accao: |
+      Push commits 64ae35d + dcf0ef0 + (eventual fix turbo.json) para origin/main.
+      Vercel auto-redeploy via GitHub Integration.
+      Validar deploy verde + Visit retorna landing OU redirect /entrar (sem 500).
+
+  passo_5_dev_retoma_tasks_4_5:
+    quem: '@dev (Dex)'
+    duracao: ~30-60 min
+    comando: '@dev *develop docs/stories/active/1.6.canary-endpoint-me.md'
+    accao: |
+      Tasks 4-5 conforme handoff anterior (mj-handoff-vercel-setup-c5-blocker).
+      Ainda precisa de Gage configurar 3 GitHub secrets antes (Eurico partilha
+      SUPABASE_SERVICE_ROLE_KEY + Gage gh secret set).
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🚨 RECOMENDAÇÃO PARA EURICO
+# ───────────────────────────────────────────────────────────────────────────
+recomendacao_humana: |
+  Eurico — esta sessão saiu fora do escopo "trabalho rápido de Eurico".
+  Próxima sessão pega aqui SEM tu teres de clicar em UI Vercel:
+    - Passo 1: Dex (no terminal) lê os runtime logs
+    - Passo 2: Dex altera turbo.json (1 linha)
+    - Passo 3: tu (apenas SE necessário) verificas valores em 2 minutos
+    - Passo 4: Gage faz push
+    - Passo 5: Dex retoma Tasks 4-5
+
+  Não há urgência. Story 1.6 é o único item Epic 1 ainda não Done — depois
+  fecha-se Epic 1 (Story 1.7 tem o seu próprio blocker B3+B4).
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🔗 REFERÊNCIAS
+# ───────────────────────────────────────────────────────────────────────────
+referencias:
+  story: docs/stories/active/1.6.canary-endpoint-me.md
+  handoff_anterior: docs/handoffs/mj-handoff-vercel-setup-c5-blocker-20260506.yaml
+  middleware_codigo: apps/web/src/middleware.ts (linhas 30-31 lêem env vars)
+  turbo_config: turbo.json (env array a expandir com SUPABASE_SERVICE_ROLE_KEY)
+  vercel_dashboard: https://vercel.com/euricojsalves-4744s-projects/expressia
+  vercel_deployments: https://vercel.com/euricojsalves-4744s-projects/expressia/deployments
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📝 LIÇÕES APRENDIDAS DESTA SESSÃO
+# ───────────────────────────────────────────────────────────────────────────
+licoes:
+  - 'Eurico deve criar Vercel projects via URL directo do repo, não via /new genérico. URL: https://vercel.com/new/import?s=https://github.com/<owner>/<repo>'
+  - 'Vercel auto-selecciona o último repo importado — risco de criar projects para repo errado se houver clique rápido'
+  - 'Em monorepo pnpm + turborepo, Root Directory tem de ser o app específico (apps/web), não a raiz. Sem isso, vercel.json não é lido e region default fica em sfo1/iad1.'
+  - 'Hobby plan: deployment-specific URLs estão sob Vercel SSO — só production alias é público'
+  - 'turbo.json precisa de declarar TODAS as env vars sob tasks.build.env, senão Vercel emite warning (não erro fatal mas potencialmente impacta bundling)'
+  - 'NUNCA continuar a empurrar humano para mais cliques quando a sessão ultrapassa 30 min de UI work — pausar e mover trabalho para terminal/codebase'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📝 NOTAS PARA O CONSUMIDOR
+# ───────────────────────────────────────────────────────────────────────────
+notas_consumidor: |
+  - Quando consumido, marcar status: consumed, mover para archive/, atualizar INDEX.
+  - Este handoff substitui (mas não consome) mj-handoff-vercel-setup-c5-blocker.
+    Esse fica também pending até Tasks 4-5 fecharem completamente.
+  - PASSO 1 do playbook (runtime logs) DECIDE qual é a causa real.
+    Sem isso é especulação.
