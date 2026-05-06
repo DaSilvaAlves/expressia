@@ -460,7 +460,7 @@ begin
   select hm.household_id into default_household
   from public.household_members hm
   where hm.user_id = (event->>'user_id')::uuid
-  order by hm.created_at asc
+  order by hm.joined_at asc  -- coluna canónica em household_members (corrigido 2026-05-06 vs versão 1.0 que dizia created_at)
   limit 1;
 
   if default_household is not null then
