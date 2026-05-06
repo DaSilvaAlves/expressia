@@ -3,7 +3,7 @@
 **Epic Goal:** Estabelecer fundação técnica do projecto: monorepo Next.js+TS, CI/CD com gates de qualidade, Postgres com RLS multi-tenant, autenticação básica, stack de observability — terminando com um endpoint canary autenticado que prova multi-tenancy fim-a-fim.
 
 **Criado:** 2026-05-04
-**Actualizado:** 2026-05-06 (Story 1.6 → Done com Reduced Scope, movida para `completed/`)
+**Actualizado:** 2026-05-07 (Story 1.4 → Done formalmente reconhecida e movida para `completed/`. Implementação real estava em main desde 2026-05-05 mas o ficheiro tinha ficado em `active/` — housekeeping pós-1.6.)
 **Autor:** River (@sm)
 
 ---
@@ -15,7 +15,7 @@
 | 1.1 | [1.1.monorepo-nextjs-scaffold.md](./1.1.monorepo-nextjs-scaffold.md) | Monorepo pnpm + Next.js 15 + TS strict + ESLint + Vitest | Draft | @dev | M | Nenhum |
 | 1.2 | [1.2.ci-pipeline-quality-gates.md](./1.2.ci-pipeline-quality-gates.md) | CI/CD Pipeline com Quality Gates | Draft | @dev | M | Depende de 1.1 |
 | 1.3 | [1.3.supabase-drizzle-bootstrap.md](./1.3.supabase-drizzle-bootstrap.md) | Supabase + Drizzle Bootstrap | Draft | @dev | M | Depende de 1.1, 1.2; **BLOQUEADOR: credenciais Supabase** |
-| 1.4 | [1.4.rls-helpers-test-suite.md](./1.4.rls-helpers-test-suite.md) | Suite de Testes RLS Automatizada | Draft | @dev | L | Depende de 1.1, 1.3 |
+| 1.4 | [1.4.rls-helpers-test-suite.md](../completed/1.4.rls-helpers-test-suite.md) | Suite de Testes RLS Automatizada | **Done** ✅ | @dev | L | ~~Depende de 1.1, 1.3~~ — entregue 2026-05-05 (QA PASS 7/7, 86/86 testes verde) |
 | 1.5 | [1.5.supabase-auth-rls-integration.md](../completed/1.5.supabase-auth-rls-integration.md) | Supabase Auth + RLS Integration + custom_access_token_hook | **Done** ✅ | @dev | L | ~~Bloqueador B2 resolvido~~ |
 | 1.6 | [1.6.canary-endpoint-me.md](../completed/1.6.canary-endpoint-me.md) | Endpoint Canary `/api/me` + E2E RLS | **Done** ✅ (Reduced Scope) | @dev | M | ~~Depende de 1.5~~ — validated in production 2026-05-06 |
 | 1.7 | [1.7.observability-otel-sentry.md](./1.7.observability-otel-sentry.md) | Observabilidade OTel + Sentry EU + Grafana | Draft | @dev | M | **BLOQUEADOR: Sentry EU + Grafana Cloud EU API keys** |

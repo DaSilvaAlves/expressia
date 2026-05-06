@@ -1,0 +1,212 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Estado real pós housekeeping 2026-05-07
+# ═══════════════════════════════════════════════════════════════════════════
+# Sucessor canónico de mj-handoff-session-pause-after-1.6-done-20260506 (consumed).
+# Reflecte verdade factual: Story 1.4 já estava Done desde 2026-05-05; o
+# handoff anterior estava factualmente errado quando dizia "1.4 Ready".
+# Housekeeping concluído nesta sessão. Decisão real próxima sessão: B / C / D.
+
+handoff_id: mj-handoff-session-state-post-housekeeping-20260507
+from_agent: aiox-master (Orion)
+to_agent: any (Eurico / Orion / @pm próxima sessão)
+created: 2026-05-07T00:05:00+01:00
+status: pending
+consumed: false
+priority: medium
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR (60 segundos)
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Sessão 2026-05-07 começou ao consumir o handoff "1.6 pause" (Opção A:
+  arrancar Story 1.4). Descobriu-se imediatamente que Story 1.4 estava Done
+  desde 2026-05-05 (commits e4ebfeb feat + c4d6969 Done QA PASS 7/7) — só
+  faltava housekeeping (file em active/ em vez de completed/, INDEX a dizer
+  Draft). Housekeeping executado: (1) git mv 1.4 active→completed, (2)
+  _INDEX.md actualizado (1.4 Done + path), (3) handoff "1.6 pause"
+  consumed+archived, (4) órfão duplicate `mj-handoff-devops-blocker-no-remote`
+  na raiz eliminado (já existia em archive/). 1 commit local pendente push
+  por @devops. Decisão estratégica próxima sessão: B (Story 1.7 unblock), C
+  (Epic 2 scope), ou D (formalizar 1.1/1.2/1.3 como Done).
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🟢 ESTADO ACTUAL — VERIFIED
+# ───────────────────────────────────────────────────────────────────────────
+estado_actual:
+  production:
+    url: https://expressia-black.vercel.app
+    status: 200 OK (assumido — não re-validado nesta sessão; última validação 2026-05-06 23:15)
+    region: cdg1 Paris UE
+
+  git:
+    branch: main
+    head_after_session: '(local commit pendente push — `chore(housekeeping): close Story 1.4 + cleanup handoffs`)'
+    head_remote: b399f6f
+    ahead_behind_pre_session: 0/0
+    ahead_behind_post_session: 1/0 (after housekeeping commit)
+    working_tree_pre_session: clean
+    working_tree_post_session: clean (após commit)
+
+  epic_1_real_state:
+    - 'Story 1.1 (Monorepo): file Draft em active/ — implementação real em main, working monorepo'
+    - 'Story 1.2 (CI Pipeline): file Draft em active/ — implementação real em main, CI verde'
+    - 'Story 1.3 (Supabase + Drizzle): file Draft em active/ — DB schema aplicado em prod (27 tabelas, 104 policies)'
+    - 'Story 1.4 (RLS Test Suite): Done ✅ em completed/ (formalizado nesta sessão; 86/86 testes verde, QA PASS 7/7)'
+    - 'Story 1.5 (Auth + RLS): Done ✅ em completed/'
+    - 'Story 1.6 (Canary /api/me): Done ✅ em completed/ (Reduced Scope)'
+    - 'Story 1.7 (Observability): Draft em active/ — bloqueada B3 + B4'
+
+  ficheiros_alterados_nesta_sessao:
+    - 'R docs/stories/active/1.4.rls-helpers-test-suite.md → docs/stories/completed/1.4.rls-helpers-test-suite.md'
+    - 'M docs/stories/active/_INDEX.md (1.4 Draft→Done, path actualizado, header actualizado)'
+    - 'D docs/handoffs/mj-handoff-devops-blocker-no-remote-20260505.yaml (órfão duplicate, raiz)'
+    - 'R docs/handoffs/mj-handoff-session-pause-after-1.6-done-20260506.yaml → archive/ (consumed)'
+    - 'M docs/HANDOFF-INDEX.md (mover linha pending → archived; adicionar nova entry pending)'
+    - 'A docs/handoffs/mj-handoff-session-state-post-housekeeping-20260507.yaml (este ficheiro)'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🎯 DECISÃO PRÓXIMA SESSÃO
+# ───────────────────────────────────────────────────────────────────────────
+decisao_pendente:
+  pergunta: Qual stream destravar primeiro agora que 1.4 está formalmente fechada?
+  opcoes:
+    b:
+      titulo: 'Destrancar Story 1.7 — Observability OTel + Sentry EU + Grafana EU'
+      pros:
+        - 'Cobre AC4 deferred da Story 1.6 (latency p95)'
+        - 'Cobre AC4 macro do Epic 1 (telemetria visível em dashboard)'
+        - 'Pode correr em paralelo com qualquer outro stream depois de criadas as contas'
+      cons:
+        - 'Bloqueada por contas externas (B3 Sentry EU, B4 Grafana Cloud EU)'
+        - 'Eurico precisa de ~30 min para criar contas e fornecer credenciais ANTES de @dev poder começar'
+      pre_requisito: 'Eurico cria contas em sentry.io (data residency EU) + grafana cloud (region eu-west) — ~30 min total'
+      ranking_orion: 'PRIMEIRA — fecha Epic 1 mais rapidamente; bloqueador é apenas 30 min de criação de contas'
+    c:
+      titulo: 'Mover para Epic 2 (Cérebro AI multi-intent) draft + scope decision'
+      pros:
+        - 'Epic 2 já tem PRD draft; precisa de @pm rever e decidir scope MVP'
+        - 'Permite paralelização: @pm + @architect podem desenhar Epic 2 enquanto 1.7 espera contas'
+      cons:
+        - 'Epic 1 ainda tem stories Draft formalmente abertas (1.1, 1.2, 1.3)'
+        - 'Pode parecer scope creep; melhor fechar Epic 1 antes'
+      ranking_orion: 'SEGUNDA — útil mas escopo creep até Epic 1 fechar'
+    d:
+      titulo: 'Formalizar Stories 1.1 / 1.2 / 1.3 como Done (retro-gate @qa)'
+      pros:
+        - 'Limpa Epic 1 a 100% formalmente'
+        - 'Honestidade documental (status real ≠ status no ficheiro hoje)'
+        - 'Sem dependências externas — totalmente local'
+        - 'Trabalho leve: @qa retro-gate baseado em código já em prod'
+      cons:
+        - 'Cosmético — não desbloqueia features novas'
+        - '~30-45 min para 3 stories (review ACs + mover files + actualizar INDEX)'
+      ranking_orion: 'TERCEIRA — útil como housekeeping mas não bloqueia roadmap'
+
+  recomendacao_global: |
+    Sequência sugerida pela Orion:
+      1. Eurico cria contas Sentry EU + Grafana EU (~30 min, fora desta sessão).
+      2. Próxima sessão arranca com Story 1.7 (@sm *draft → @dev *develop).
+      3. Em paralelo (mesma sessão ou próxima): D (formalizar 1.1/1.2/1.3 Done) — 30-45 min.
+      4. Depois de Epic 1 100% fechada: C (Epic 2 scope decision com @pm).
+    Justificação: B é o único stream com dependência externa hard que vale começar a remover já;
+    D pode encaixar em qualquer slot porque é leve e local; C deve ser último porque é decisão grande.
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🎯 PLAYBOOK PRÓXIMA SESSÃO (~5 min para arrancar)
+# ───────────────────────────────────────────────────────────────────────────
+playbook:
+  passo_1_consume_este_handoff:
+    quem: 'agente que activar primeiro (Orion ou @pm)'
+    duracao: 30s
+    accao: |
+      1. Marcar este handoff consumed:true + consumed_at + consumed_by
+      2. Mover para docs/handoffs/archive/
+      3. Update HANDOFF-INDEX.md (linha pending → archived)
+
+  passo_2_devops_push_pendente:
+    quem: '@devops Gage'
+    duracao: 1 min
+    comando: '@devops *push'
+    accao: |
+      Existe 1 commit local não pushed (housekeeping desta sessão).
+      Push é exclusivo do @devops conforme rules.
+
+  passo_3_decisao_eurico:
+    quem: Eurico
+    duracao: 1 min
+    accao: |
+      Confirma B (criar contas Sentry+Grafana primeiro), C (Epic 2 scope agora),
+      ou D (formalizar 1.1/1.2/1.3 Done agora).
+      Recomendação Orion: começar por B (criar contas) em paralelo com D
+      (não requer agente, é trabalho de Eurico em browser).
+
+  passo_4a_se_b_apos_contas:
+    quem: Eurico → @devops Gage → @sm River → @dev Dex
+    duracao: 30 min Eurico + sessão @dev
+    accao: |
+      1. Eurico cria Sentry EU project (sentry.io/auth/login com data residency EU)
+         → SENTRY_DSN + SENTRY_AUTH_TOKEN
+      2. Eurico cria Grafana Cloud EU account (region eu-west)
+         → OTEL_EXPORTER_OTLP_ENDPOINT + OTEL_EXPORTER_OTLP_HEADERS (token)
+      3. Gage @devops corre `gh secret set` para 4 secrets (B3+B4)
+      4. River @sm verifica ficheiro 1.7 em active/ — se Ready, encaminha para @dev
+      5. Dex @dev *develop 1.7
+
+  passo_4b_se_c_epic_2:
+    quem: '@pm Morgan'
+    duracao: 1-2 sessões
+    comando: '@pm *execute-epic 2 (ou @pm com revisão de PRD)'
+    accao: |
+      Morgan revê PRD draft do Epic 2 (cérebro AI multi-intent).
+      Decide scope MVP da pipeline classifier→planner→executor.
+      Cria stories da Epic 2.
+
+  passo_4c_se_d_formalizar:
+    quem: '@qa Quinn (retro-gate)'
+    duracao: 30-45 min
+    accao: |
+      Para cada Story 1.1, 1.2, 1.3:
+      1. Verificar ACs vs implementação real em main
+      2. Documentar QA gate retroactivo (PASS, com notas sobre validação a posteriori)
+      3. git mv active/ → completed/
+      4. Actualizar _INDEX.md (status Draft → Done)
+      5. Commit + push @devops
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📊 LIÇÕES DESTA SESSÃO
+# ───────────────────────────────────────────────────────────────────────────
+licoes:
+  - 'Handoffs podem desactualizar-se entre sessões — o handoff "1.6 pause" listava 1.4 como "Ready/Draft" candidato, mas a realidade era que 1.4 estava Done há 2 dias. Sempre verificar o estado do ficheiro de story (status: Done?) e do filesystem (active/ vs completed/) antes de aceitar o ranking de opções de um handoff antigo.'
+  - 'Housekeeping (mover files active→completed, actualizar INDEX) é trabalho real. Quando @qa fecha um gate PASS, devem haver passos automáticos ou explícitos para mover o file e actualizar o INDEX — caso contrário, ficam inconsistências silenciosas. Considerar adicionar isto ao DoD futuro (`mover ficheiro para completed/` checkbox).'
+  - 'Órfãos duplicate (mesmo file em raiz e em archive) são sintoma de `cp` em vez de `git mv`. A regra deve ser sempre `git mv` para preservar history e nunca duplicar.'
+  - 'Stories 1.1, 1.2, 1.3 estão formalmente Draft mas a implementação está toda em main há semanas. Isto cria divergência semântica grande. Vale a pena um retro-gate para fechar formalmente.'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🔗 REFERÊNCIAS
+# ───────────────────────────────────────────────────────────────────────────
+referencias:
+  story_fechada_nesta_sessao: docs/stories/completed/1.4.rls-helpers-test-suite.md
+  story_proxima_candidata_b: docs/stories/active/1.7.observability-otel-sentry.md
+  index_stories: docs/stories/active/_INDEX.md
+  handoff_consumido_nesta_sessao: docs/handoffs/archive/mj-handoff-session-pause-after-1.6-done-20260506.yaml
+  production_url: https://expressia-black.vercel.app
+  vercel_dashboard: https://vercel.com/euricojsalves-4744s-projects/expressia
+  bloqueadores_externos:
+    b3_sentry_eu: 'Eurico → criar projecto em sentry.io com EU data residency'
+    b4_grafana_eu: 'Eurico → criar conta Grafana Cloud com region eu-west'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📝 NOTAS PARA O CONSUMIDOR
+# ───────────────────────────────────────────────────────────────────────────
+notas_consumidor: |
+  Este handoff é "soft" — não há bloqueador táctico. Production assumida verde
+  (re-validar com curl antes de qualquer trabalho novo).
+
+  Existe 1 commit local pendente push (housekeeping desta sessão). @devops
+  Gage tem de fazer push antes de qualquer outro trabalho colidir.
+
+  Se o tempo entre sessões for > 7 dias, este handoff fica stale.
