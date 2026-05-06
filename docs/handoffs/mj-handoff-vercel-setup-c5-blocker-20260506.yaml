@@ -1,0 +1,183 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Vercel project setup (C5 blocker para Story 1.6 Tasks 4-5)
+# ═══════════════════════════════════════════════════════════════════════════
+# Propósito: Story 1.6 Tasks 1-3+6 done by Dex (commit local 64ae35d). Tasks
+# 4-5 (Playwright E2E + Vercel perf measurement) bloqueadas por: (a) Vercel
+# project NÃO existe para DaSilvaAlves/expressia, (b) zero secrets configurados
+# no repo. Eurico tem de executar passos manuais antes de Gage continuar.
+
+handoff_id: mj-handoff-vercel-setup-c5-blocker-20260506
+from_agent: devops (Gage)
+to_agent: any (Eurico primeiro, depois devops/dev)
+created: 2026-05-06T20:45:00+01:00
+status: pending
+consumed: false
+priority: high
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR (60 segundos)
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Story 1.6 (/api/me canary endpoint) com Tasks 1-3+6 done por Dex (commit
+  64ae35d local, lint+typecheck+test verde 9/9). Tasks 4-5 bloqueadas:
+  Vercel project NÃO existe para DaSilvaAlves/expressia (descoberto via
+  `vercel projects ls` — 22 projects no team euricojsalves-4744s-projects,
+  nenhum ligado a este repo). Zero secrets no repo (CI passa porque build
+  Next.js não falha sem env vars em build-time). Eurico tem de criar o
+  Vercel project + fornecer SUPABASE_SERVICE_ROLE_KEY antes de Gage
+  configurar secrets e Dex retomar Tasks 4-5.
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🎯 NEXT_SESSION_PLAYBOOK — Eurico → Gage → Dex
+# ───────────────────────────────────────────────────────────────────────────
+next_session_playbook:
+  precondicao: |
+    git status: branch main, 1 commit ahead de origin/main (64ae35d), working
+    tree limpo. Story 1.6 status: InProgress. Tasks 4-5 ⏸ paused.
+
+  passo_1_eurico_cria_vercel_project:
+    quem: Eurico (manual — Gage não tem permissão)
+    duracao: ~5 min
+    accao: |
+      1. Abrir https://vercel.com/new
+      2. Import Git Repository → seleccionar DaSilvaAlves/expressia
+      3. Configurar:
+         - Team: euricojsalves-4744s-projects (ou criar novo)
+         - Project Name: expressia (sugerido)
+         - Root Directory: apps/web
+         - Framework Preset: Next.js (auto-detect)
+         - Region: fra1 (já em apps/web/vercel.json)
+      4. Environment Variables (Production + Preview + Development):
+         - NEXT_PUBLIC_SUPABASE_URL = <Supabase project URL eu-central-1>
+         - NEXT_PUBLIC_SUPABASE_ANON_KEY = <anon key>
+         - DATABASE_URL = <pooler 6543 com prepare:false>
+         - DATABASE_URL_DIRECT = <pooler 5432 session-mode>
+         - SUPABASE_SERVICE_ROLE_KEY = <service role key>
+      5. Confirmar GitHub Integration activa (auto-deploy em PRs + push main)
+      6. Após criar, validar:
+         - First deploy verde (deve compilar Next.js sem problemas)
+         - Custom domain expressia.pt apontado (opcional, pode ficar para depois)
+
+  passo_2_eurico_partilha_credenciais:
+    quem: Eurico → Gage
+    duracao: ~1 min
+    accao: |
+      Fornecer ao Gage (na conversa, copy/paste — NÃO commit ao repo):
+        - Vercel project name confirmado (ex: "expressia" ou outro)
+        - SUPABASE_SERVICE_ROLE_KEY (para CI test setup E2E)
+      Os outros secrets (NEXT_PUBLIC_*) já estão na Vercel — Gage também
+      precisa de os adicionar ao GitHub Actions (mesmo valor que Vercel).
+
+  passo_3_gage_configura_github_secrets:
+    quem: '@devops (Gage)'
+    duracao: ~2 min
+    comando: '@devops *coordinate-vercel-setup (resume after Eurico confirms)'
+    accao: |
+      Executar (após confirmação Eurico para cada):
+        gh secret set NEXT_PUBLIC_SUPABASE_URL --repo DaSilvaAlves/expressia
+        gh secret set NEXT_PUBLIC_SUPABASE_ANON_KEY --repo DaSilvaAlves/expressia
+        gh secret set SUPABASE_SERVICE_ROLE_KEY --repo DaSilvaAlves/expressia
+      Verificar com: gh secret list --repo DaSilvaAlves/expressia
+
+  passo_4_dex_retoma_tasks_4_5:
+    quem: '@dev (Dex)'
+    duracao: ~30-60 min
+    comando: '@dev *develop docs/stories/active/1.6.canary-endpoint-me.md'
+    accao: |
+      Tasks 4 (E2E Playwright RLS isolation) + 5 (Vercel preview perf):
+        - Task 4.1: criar apps/web/e2e/
+        - Task 4.2: criar apps/web/playwright.config.ts
+        - Task 4.3: criar apps/web/e2e/rls-isolation.spec.ts
+        - Task 4.4: extender .github/workflows/ci.yaml com job e2e
+          (template em Story 1.6 Dev Agent Record C4 RESOLVED)
+        - Task 4.5 (NEW por C3): criar apps/web/e2e/helpers/test-users.ts
+          usando supabase.auth.admin.createUser() (Admin API)
+        - Task 5: deploy preview, medir latência p95 < 200ms (10x curl)
+
+  passo_5_qa_gate:
+    quem: '@qa (Quinn)'
+    comando: '@qa *qa-gate 1.6'
+
+  passo_6_devops_push:
+    quem: '@devops (Gage)'
+    comando: '@devops *push'
+    nota: 'Após QA PASS — push de TUDO (commit 64ae35d + commits Tasks 4-5).'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📊 ESTADO ACTUAL (snapshot 2026-05-06 20:45)
+# ───────────────────────────────────────────────────────────────────────────
+estado_actual:
+  story_1_6_status: InProgress
+  story_1_6_progress: '4/6 tasks done (Tasks 1, 2, 3, 6) — 67%'
+  commits_locais_nao_pushed: 1
+  commits_detalhe:
+    - sha: 64ae35d
+      titulo: 'feat(api): add /api/me canary endpoint with RLS-via-JWT [Story 1.6]'
+      ficheiros: 4
+      linhas: '+487/-28'
+
+  vercel:
+    project_existe: false
+    vercel_cli_local: 'instalada (51.2.1), autenticada'
+    vercel_team: euricojsalves-4744s-projects
+    projects_no_team: 22
+    projects_ligados_ao_repo: 0
+    vercel_json: 'apps/web/vercel.json com regions:["fra1"] já configurado'
+
+  github_repo: DaSilvaAlves/expressia
+  github_secrets:
+    total: 0
+    ci_runs_anteriores: 'passaram (build não falha sem secrets — Next.js só lê em runtime)'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🚨 BLOCKER EXTERNO
+# ───────────────────────────────────────────────────────────────────────────
+blocker_externo:
+  descricao: 'Vercel project não existe para DaSilvaAlves/expressia'
+  owner: Eurico
+  razao: 'Gage não tem permissão para criar Vercel projects (precisa Eurico autenticar via Vercel UI)'
+  impact: 'Story 1.6 Tasks 4 (E2E) e 5 (perf) ficam bloqueadas até resolvido'
+  alternativas_consideradas_e_rejeitadas:
+    - 'Vercel CLI local link via `vercel link`': 'rejeitado — precisa autenticação interactiva, Eurico tem de aprovar na UI mesmo assim'
+    - 'Hardcoded staging URL': 'rejeitado — não há staging, e fixo perde valor de testar preview por PR'
+    - 'Skip Task 4-5 e shipar Story 1.6 sem E2E': 'rejeitado — viola AC5/AC6/AC10 explicitamente'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📋 DECISÕES TÉCNICAS (Gage @devops, 2026-05-06)
+# ───────────────────────────────────────────────────────────────────────────
+decisoes_tecnicas:
+  C4_approach: 'Opção B — Vercel GitHub Integration nativa (sem Vercel CLI no CI)'
+  C4_razoes:
+    - 'Zero CI minutos extra (Vercel deploya em paralelo)'
+    - 'Standard pattern Next.js + Vercel'
+    - 'Sem necessidade de VERCEL_TOKEN/ORG_ID/PROJECT_ID'
+  C4_action_e2e: 'bobheadxi/deployments@v1 (1k+ stars, mantida) para apanhar preview URL via GitHub Deployment Status'
+  C4_secrets_extra_no_repo:
+    - NEXT_PUBLIC_SUPABASE_URL  # já necessária para build
+    - NEXT_PUBLIC_SUPABASE_ANON_KEY  # já necessária para build
+    - SUPABASE_SERVICE_ROLE_KEY  # NOVA — apenas para CI test setup E2E
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🔗 REFERÊNCIAS
+# ───────────────────────────────────────────────────────────────────────────
+referencias:
+  story: docs/stories/active/1.6.canary-endpoint-me.md
+  story_change_log: 'v1.5 (2026-05-06) — Gage coordinated Vercel setup'
+  ci_workflow: .github/workflows/ci.yaml
+  vercel_config: apps/web/vercel.json
+  prd_context: 'docs/prd.md §6 Epic 1 AC2 (cross-household RLS verificado em teste automatizado), AC3 (canary p95 < 200ms)'
+  arquitectura: 'docs/architecture.md §11.4 (job e2e Playwright)'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📝 NOTAS PARA O CONSUMIDOR
+# ───────────────────────────────────────────────────────────────────────────
+notas_consumidor: |
+  - Este handoff tem priority HIGH porque bloqueia Story 1.6 (single biggest
+    item Epic 1 que ainda não está Done — depois disto Epic 1 fica perto de
+    fechar, restando apenas Story 1.7 que tem o seu próprio blocker B3+B4).
+  - Não há urgência de tempo absoluta — Eurico pode tratar amanhã sem custo.
+  - Quando consumido, marcar status: consumed, mover para archive/, atualizar INDEX.
