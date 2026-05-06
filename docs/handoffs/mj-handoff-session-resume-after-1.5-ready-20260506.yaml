@@ -1,0 +1,434 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF SESSION-RESUME — Pós Story 1.5 Ready (Expressia / meu-jarvis)
+# ═══════════════════════════════════════════════════════════════════════════
+# Propósito: dar ao próximo terminal/sessão o panorama EXACTO e COMPLETO
+# do estado do projecto após a sessão de 2026-05-05/06 (que fechou bloqueador
+# B2, validou Story 1.5 e empurrou tudo para repo público AGPL-3.0).
+#
+# Sem este handoff o próximo terminal teria que reconstruir tudo do git log
+# + ler 4 ficheiros — este YAML poupa esse trabalho.
+
+handoff_id: mj-handoff-session-resume-after-1.5-ready-20260506
+from_agent: aiox-master (Orion)
+to_agent: any (aiox-master, dev, qa, devops, ou utilizador humano)
+created: 2026-05-06T01:40:00+01:00
+status: pending
+consumed: false
+priority: high
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR (lê isto primeiro — 60 segundos)
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Story 1.5 (Supabase Auth + RLS Integration) está **Ready** com @po
+  validation GO 9/10. Bloqueador externo B2 (Supabase Auth Hook) está
+  RESOLVIDO: migration 0002 criada e aplicada na Supabase real, Auth Hook
+  registado e ENABLED no Dashboard, função `custom_access_token_hook`
+  validada com smoke test verde. Repo público AGPL-3.0 em
+  `DaSilvaAlves/expressia` com 12 commits e CI 100% verde. Próximo passo:
+  despachar `@dev *develop 1.5` em modo Pre-Flight.
+
+# ───────────────────────────────────────────────────────────────────────────
+# ESTADO ACTUAL EXACTO (snapshot 2026-05-06T01:40 Lisboa)
+# ───────────────────────────────────────────────────────────────────────────
+current_state:
+  branch: main
+  working_tree: limpo (assumindo que este handoff já foi commitado — ver next_action)
+  remote: https://github.com/DaSilvaAlves/expressia.git (PUBLIC, AGPL-3.0)
+  remote_url_dashboard: https://github.com/DaSilvaAlves/expressia
+  ci_status: 🟢 verde no último run (após 2 fixes durante a sessão)
+  commits_in_main_remote: 12
+  head_remote: 95c7fde
+
+  recent_commits_in_session:
+    - "95c7fde docs(1.5): @po validation GO (9/10) — Status Draft → Ready [Story 1.5]"
+    - "00f2634 fix(ci): bootstrap inclui supabase_auth_admin role (gap migration 0002)"
+    - "d2cbf1f feat(db): 0002 custom_access_token_hook — Auth Hook Supabase [Story 1.5 AC3]"
+    - "641a9bf fix(ci): rls-gate provisiona auth schema antes das migrations [CI-001]"
+    - "fc7513e docs(handoff): session-resume Story 1.4 — criado e consumido [Handoff]"
+    - "1150b91 docs(public): LICENSE AGPL-3.0 + README + repo remote name [Public-ready]"
+
+  story_status:
+    "1.1": Done — monorepo + Next.js 15
+    "1.2": Done — CI Pipeline GitHub Actions
+    "1.3": Done — Supabase + Drizzle bootstrap (27 tabelas, 104 policies)
+    "1.4": Done — Suite RLS Testcontainers (86/86 verde) + QA gate PASS 7/7
+    "1.5": **Ready** — @po GO 9/10; Tasks 3.1-3.3 cumpridas pre-emptively; aguarda @dev *develop
+    "1.6": Ready (depende de 1.5)
+    "1.7": Ready, **BLOQUEADA** por config externa (Sentry EU + Grafana Cloud EU)
+
+  supabase_state:
+    project_ref: llpotuxlyiyjvvxzetoo
+    region: eu-west-1 (Ireland)
+    postgres_version: 17.6
+    schema_aplicado: 27 tabelas + 104 policies + 24 categorias PT default + função custom_access_token_hook
+    auth_hook_dashboard: ENABLED (schema=public, function=custom_access_token_hook, type=Postgres function)
+    migrations_aplicadas: ["0000_initial_schema.sql", "0001_rls_policies.sql", "0002_auth_hook.sql"]
+
+# ───────────────────────────────────────────────────────────────────────────
+# CONFIRMAR ESTADO COM OS PRÓPRIOS OLHOS (corre no novo terminal)
+# ───────────────────────────────────────────────────────────────────────────
+inspection_commands:
+  git_state: |
+    cd C:\Users\XPS\Documents\meu-jarvis
+    git pull origin main                  # garante que tens commits 7-12 locais
+    git log --oneline -15                 # vê os 12 commits + commit deste handoff
+    git status                            # working tree clean
+    git remote -v                         # https://github.com/DaSilvaAlves/expressia.git
+
+  ci_state: |
+    gh run list --limit 5
+    # Esperado: último run "success" para HEAD `95c7fde` ou superior
+
+  story_state: |
+    # Story 1.5 file (Status: Ready, Change Log v1.2)
+    code docs/stories/active/1.5.supabase-auth-rls-integration.md
+    # Vê linha 3 (Status: Ready) e linha 340 (Change Log v1.2 @po validation)
+
+  re_run_proof_it_works: |
+    pnpm install                                          # ~30-40s frozen-lockfile
+    pnpm --filter @meu-jarvis/db-test test                # 86/86 verde em ~9s
+    pnpm typecheck && pnpm lint && pnpm test              # workspace inteiro
+    pnpm check:rls                                        # 26 tabelas, 104 policies
+
+  supabase_real_state: |
+    # No SQL Editor da Supabase Dashboard:
+    select routine_name from information_schema.routines
+    where routine_schema = 'public' and routine_name = 'custom_access_token_hook';
+    # Esperado: 1 row
+
+    select name from public.__schema_migrations order by name;
+    # Esperado: ['0000_initial_schema.sql', '0001_rls_policies.sql', '0002_auth_hook.sql']
+
+  auth_hook_dashboard_state: |
+    # Browser:
+    https://supabase.com/dashboard/project/llpotuxlyiyjvvxzetoo/auth/hooks
+    # Esperado: "Customize Access Token (JWT) Claims hook" com badge ENABLED verde
+
+# ───────────────────────────────────────────────────────────────────────────
+# TRABALHO DESTA SESSÃO (cronologia detalhada — 2026-05-05 22:00 → 2026-05-06 01:40 Lisboa)
+# ───────────────────────────────────────────────────────────────────────────
+session_chronology:
+  - phase: "1. Public-ready + push inicial"
+    commits: ["1150b91", "fc7513e"]
+    actions:
+      - "Auditoria pré-público (zero secrets no histórico, .env.example template puro, .gitignore OK)"
+      - "Criados LICENSE (AGPL-3.0 oficial GNU, 661 linhas) + README.md decente (187 linhas, PT-PT)"
+      - "CLAUDE.md actualizado: codename interno (`meu-jarvis`) vs repo GitHub (`DaSilvaAlves/expressia`)"
+      - "Despachado @devops Gage para criar repo público + remote add + push"
+      - "Repo público criado: https://github.com/DaSilvaAlves/expressia (AGPL-3.0)"
+      - "Push de 8 commits — primeiro CI run #25404823363 falhou (rls-gate)"
+
+  - phase: "2. Fix CI rls-gate — schema auth missing"
+    commits: ["641a9bf"]
+    root_cause: "Migrations 0000/0001 referenciam auth.uid()/auth.users; schema 'auth' é Supabase-only, não existe em Postgres vanilla CI."
+    fix: "Criado packages/db-test/src/scripts/apply-bootstrap.ts (wrapper standalone) que reusa applyBootstrap() existente em harness/bootstrap.ts. Step CI inserido antes de db:migrate. Single source of truth: BOOTSTRAP_SQL vive APENAS em harness."
+    result: "CI run #25405696191 verde (3/3 jobs)"
+
+  - phase: "3. Migration 0002 — custom_access_token_hook"
+    commits: ["d2cbf1f"]
+    discovered_gap: "Story 1.5 assumia que função `custom_access_token_hook` existia nas migrations; na verdade NUNCA foi materializada — só estava na spec do architecture.md §5.2."
+    delegated_to: "@data-engineer (Dara) autonomamente"
+    actions:
+      - "Criou packages/db/migrations/0002_auth_hook.sql (security DEFINER, grants supabase_auth_admin, revoke authenticated/anon/public)"
+      - "Aplicou na Supabase real (eu-west-1) em 495ms — registado em __schema_migrations"
+      - "Smoke test verde: função devolve event intacto quando user não tem membership"
+      - "DETECTOU bug semântico: spec architecture §5.2 usava `order by hm.created_at` mas schema canónico tem `joined_at` em household_members. Fixou para `joined_at`."
+      - "Criou packages/db/src/scripts/verify-0002.ts (auditoria reutilizável)"
+    side_effects:
+      - "docs/architecture.md §5.2 corrigido (`created_at` → `joined_at`) com nota de versão"
+
+  - phase: "4. Eurico regista Auth Hook no Supabase Dashboard"
+    actor: Eurico (humano, manual UI)
+    actions:
+      - "Acedeu https://supabase.com/dashboard/project/llpotuxlyiyjvvxzetoo/auth/hooks"
+      - "Adicionou hook 'Customize Access Token (JWT) Claims hook' com schema=public, function=custom_access_token_hook"
+      - "Confirmou ENABLED via screenshot"
+
+  - phase: "5. Fix CI 2ª onda — supabase_auth_admin role missing"
+    commits: ["00f2634"]
+    root_cause: "Migration 0002 faz grants a supabase_auth_admin (Auth Hooks requirement); esse role existe em Supabase real mas não em Postgres vanilla CI. Bootstrap só criava 3 roles (anon, authenticated, service_role)."
+    fix: "Adicionado supabase_auth_admin ao do$$ block em harness/bootstrap.ts (idempotente, só cria se não existir). Tropeço: backticks no comment SQL quebravam template literal TS — fixado com aspas simples."
+    result: "CI run #25410124363 verde (3/3 jobs, 86/86 tests)"
+    directives_added_to_commit:
+      - "Roles Supabase no BOOTSTRAP_SQL devem espelhar grants das migrations"
+      - "Comments dentro do BOOTSTRAP_SQL não podem usar backticks (TS interpretation)"
+
+  - phase: "6. Story 1.5 actualizada + @po validation"
+    commits: ["95c7fde"]
+    actions:
+      - "Orion marcou Tasks 3.1, 3.2, 3.3 como done com annotations explicativas (gap fechado)"
+      - "Adicionou Change Log v1.1 a Story 1.5 documentando desbloqueio"
+      - "Despachou aiox-po (Pax) autonomamente para *validate-story-draft 1.5"
+      - "Pax devolveu: GO 9/10 (8 ✅ + 2 ⚠️ — Business Value e Risks sem secções formais mas conteúdo distribuído inline)"
+      - "Pax actualizou Status field: Draft → Ready"
+      - "Pax adicionou Change Log v1.2 com verdict + recomendações para @dev"
+
+# ───────────────────────────────────────────────────────────────────────────
+# PRÓXIMO PASSO ÚNICO E CLARO
+# ───────────────────────────────────────────────────────────────────────────
+next_action:
+  primary: "Despachar @dev (Dex) para implementar Story 1.5 em modo Pre-Flight"
+  command_to_invoke: "@dev *develop 1.5"
+  alternative_command: "/AIOX:agents:aiox-dev → *develop 1.5 --mode pre-flight"
+
+  why_pre_flight_mode: |
+    A Story 1.5 tem ramificações que beneficiam de planeamento upfront
+    (recomendação Pax):
+      - Trigger SQL vs Supabase Database Webhook (Architecture §5.3 sugere ambos)
+      - Plano trial família vs pessoal (Eurico flagou para validação — default família)
+      - JWT testing strategy (mock vs utilizador real Supabase)
+      - Ordem das tasks (Pax sugere alternativa à ordem do file)
+
+  estimated_duration: "2-4 horas (story é Estimate L)"
+
+  expected_outcome: |
+    - 7 Tasks completadas (1: auth package; 2: middleware; 3.4-3.5: login + runbook;
+      4: trigger handle_new_user; 5: páginas auth scaffold; 6: testes integração; 7: verificação)
+    - Migration nova: 0003_auth_user_trigger.sql (NÃO reutilizar 0002 já gravada)
+    - Status: InProgress → InReview (após @qa)
+
+# ───────────────────────────────────────────────────────────────────────────
+# RECOMENDAÇÕES PAX PARA O @DEV (do reporte da @po validation)
+# ───────────────────────────────────────────────────────────────────────────
+po_recommendations_for_dev:
+  task_order:
+    rationale: "A ordem natural do file (1→7) tem dependência implícita: Task 3.4 (login + JWT) precisa que Task 4 (trigger criar household) já funcione, senão não há household_id para injectar."
+    suggested_order:
+      - "Task 1 — packages/auth/ (createServerSupabaseClient + createBrowserSupabaseClient)"
+      - "Task 4 — Trigger handle_new_user (migration 0003_auth_user_trigger.sql) — testar isolado primeiro"
+      - "Task 5 — Páginas auth scaffold em apps/web/ (entrar, registar, recuperar)"
+      - "Task 3.4 — Login com utilizador real e verificar JWT contém household_id"
+      - "Task 3.5 — Documentar passos em docs/runbooks/supabase-auth-setup.md"
+      - "Task 2 — Middleware apps/web/src/middleware.ts (auth gate /(app)/*)"
+      - "Task 6 — Teste integração JWT + RLS em packages/db-test/"
+      - "Task 7 — Verificação final (lint + typecheck + env vars)"
+
+  material_risks:
+    - risk: "Task 4 toca auth.users (Supabase managed schema)"
+      mitigation: "Testar trigger isolado primeiro; considerar Supabase Database Webhook como alternativa mais segura — Architecture §5.3 sugere ambos como opções válidas"
+    - risk: "Plano trial família vs pessoal pendente validação"
+      mitigation: "Implementar como `familia` por default (Architecture §6.4); marcar TODO se Eurico mudar de ideia depois"
+    - risk: "Migration nova com numbering errado"
+      mitigation: "Usar 0003_auth_user_trigger.sql (NÃO 0002 — esse já está aplicado e gravado em __schema_migrations)"
+
+  things_already_done:
+    - "Task 3.1 ✅ (função SQL existe — migration 0002 aplicada)"
+    - "Task 3.2 ✅ (Eurico acedeu Dashboard)"
+    - "Task 3.3 ✅ (Hook ENABLED no Dashboard, schema=public, function=custom_access_token_hook)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# CAMINHOS ALTERNATIVOS (se @dev *develop 1.5 não for prioridade)
+# ───────────────────────────────────────────────────────────────────────────
+alternative_paths:
+  - id: pause_continue_later
+    label: "Pausa e continuar mais tarde"
+    description: "Este handoff existe exactamente para isso. Sem prejuízo. Story 1.5 fica Ready à espera."
+
+  - id: unblock_story_1_7
+    label: "Desbloquear Story 1.7 (Observability) em paralelo"
+    description: |
+      Story 1.7 está Ready mas BLOQUEADA por:
+        - B3: criar projecto Sentry com região EU data residency → SENTRY_DSN + SENTRY_AUTH_TOKEN
+        - B4: criar Grafana Cloud stack na EU (Frankfurt ou Dublin) → OTLP endpoint + API key
+      Tempo: ~30 min config externa + ~M sprint de @dev.
+      Vantagem: 1.5 e 1.7 podem correr em paralelo (não dependem uma da outra).
+
+  - id: tech_debt_internal
+    label: "Tech debt interno enquanto bloqueadores externos não resolvem"
+    description: |
+      Items menores que não exigem config externa:
+        - MNT-001 / MNT-002: next.config.ts deprecations (~10 min) → @dev
+        - README packages/db-test/ (recomendação OBS-001 do QA gate Story 1.4) → @dev (~15 min)
+        - Trademark INPI Portugal para `Expressia` (~30-60 min research) → @analyst
+        - Draft Epic 2 (Cérebro AI multi-intent) sem implementar (~1-2h) → @sm + @architect
+
+  - id: epic_2_planning
+    label: "Começar planning Epic 2 (cérebro AI multi-intent)"
+    description: "Epic 1 é Foundation — quando 1.5 + 1.6 + 1.7 estiverem Done, Epic 1 fica fechada e Epic 2 começa: pipeline classifier (GPT-4o-mini) + planner+executor (Claude Sonnet) com tool calling, undo 30s, prompt caching. Pode ser drafted em paralelo."
+
+# ───────────────────────────────────────────────────────────────────────────
+# BLOQUEADORES AINDA EM ABERTO
+# ───────────────────────────────────────────────────────────────────────────
+open_blockers:
+  - id: B3
+    affects: Story 1.7
+    description: "Sentry EU project não criado"
+    required_action: "Eurico cria projecto Sentry com região EU data residency"
+    deliverable: "SENTRY_DSN + SENTRY_AUTH_TOKEN para .env"
+    estimated_effort: "10 min config"
+
+  - id: B4
+    affects: Story 1.7
+    description: "Grafana Cloud EU stack não criado"
+    required_action: "Eurico cria stack Grafana Cloud (Frankfurt ou Dublin) e configura OTLP"
+    deliverable: "OTLP endpoint + API key para .env"
+    estimated_effort: "20 min config"
+
+  - id: oauth_decision
+    affects: Story 1.5 (extensão futura)
+    description: "Decisão sobre Google/Apple OAuth providers (FR24)"
+    required_action: "Eurico decide se MVP inclui social login ou não"
+    note: "Story 1.5 só cobre email+password. OAuth fica para extensão posterior se Eurico quiser."
+
+resolved_blockers_during_session:
+  - id: REMOTE-001
+    description: "Repo GitHub não existia — push bloqueado"
+    resolved_via: "Eurico decidiu Opção B (público AGPL-3.0); @devops criou DaSilvaAlves/expressia"
+    handoff_archived: docs/handoffs/archive/mj-handoff-devops-blocker-no-remote-20260505.yaml
+
+  - id: B2
+    description: "Supabase Auth Hook não registado"
+    resolved_via: "(1) Dara criou migration 0002 + aplicou na Supabase real; (2) Eurico registou hook no Dashboard"
+
+# ───────────────────────────────────────────────────────────────────────────
+# IDENTIDADE DO PROJECTO (lei — recapitulação)
+# ───────────────────────────────────────────────────────────────────────────
+project_identity:
+  codename: meu-jarvis (pasta local + package names @meu-jarvis/*)
+  public_brand: Expressia (UI, copy, marketing, faturas, repo GitHub)
+  domain: expressia.pt (registado)
+  repo_github: DaSilvaAlves/expressia (público, AGPL-3.0)
+  market: PT-PT EXCLUSIVO (Portugal continental — nunca PT-BR, CPLP, lusófono)
+  currency: EUR único, formato vírgula (€8,88, €1.234,56)
+  pricing_hero: Família €8,88/mês
+  data_residency: |
+    UE obrigatória — Vercel fra1, Supabase eu-central-1 (target) /
+    eu-west-1 (actual), Inngest EU, Sentry EU, Grafana Cloud EU
+  rejected_markets: [Brasil, CPLP, lusófono global, multi-país]
+  trademark: Expressia INPI Portugal (verificação pendente — não-bloqueante para repo privado/público mas crítico para domínio principal)
+
+# ───────────────────────────────────────────────────────────────────────────
+# DOCS ESSENCIAIS (caminhos absolutos para o próximo terminal)
+# ───────────────────────────────────────────────────────────────────────────
+key_docs:
+  CLAUDE_md_project: C:/Users/XPS/Documents/meu-jarvis/CLAUDE.md
+  CLAUDE_md_global: C:/Users/XPS/.claude/CLAUDE.md
+  prd: docs/prd.md
+  architecture: docs/architecture.md (§5 Auth e Multi-Tenancy + §5.2 spec custom_access_token_hook)
+  db_schema: docs/db-schema.md
+  story_1_5: docs/stories/active/1.5.supabase-auth-rls-integration.md (Status: Ready, Change Log v1.2)
+  story_1_5_index: docs/stories/active/_INDEX.md
+  handoff_index: docs/HANDOFF-INDEX.md (este handoff aparece em pending)
+  this_handoff: docs/handoffs/mj-handoff-session-resume-after-1.5-ready-20260506.yaml
+  archived_devops_blocker: docs/handoffs/archive/mj-handoff-devops-blocker-no-remote-20260505.yaml
+  migration_0002: packages/db/migrations/0002_auth_hook.sql (aplicada Supabase real)
+  verify_script: packages/db/src/scripts/verify-0002.ts
+  bootstrap_ci: packages/db-test/src/harness/bootstrap.ts (com supabase_auth_admin)
+  apply_bootstrap_ci_wrapper: packages/db-test/src/scripts/apply-bootstrap.ts
+  ci_workflow: .github/workflows/ci.yaml (com step 'Provisionar schema auth + roles Supabase')
+  runbook_supabase: docs/runbooks/supabase-setup.md
+  runbook_ci: docs/runbooks/ci-setup.md
+
+memory_files: C:/Users/XPS/.claude/projects/C--Users-XPS-Documents-meu-jarvis/memory/
+
+# ───────────────────────────────────────────────────────────────────────────
+# AMBIENTE TÉCNICO (já configurado — não tocar)
+# ───────────────────────────────────────────────────────────────────────────
+local_env:
+  os: Windows 11 Pro
+  shell: PowerShell + Bash via WSL (instruções globais reconhecem ambos)
+  node: v22.22.2 (target >=20)
+  pnpm: 9.12.3 (via corepack)
+  docker: 29.1.3 (Desktop) — Testcontainers usa
+  git_user: DaSilvaAlves
+  git_email: euricojsalves@gmail.com
+  gh_authenticated: true (DaSilvaAlves, scopes: gist read:org repo)
+
+env_local_files:
+  packages_db: packages/db/.env.local — DIRECT_URL + DATABASE_URL apontam para Supabase eu-west-1 pooler (5432 e 6543)
+  packages_db_test: não usa .env.local (Testcontainers gere DATABASE_URL_TEST internamente)
+  apps_web: apps/web/.env.local — NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY (configurar quando @dev arrancar Story 1.5)
+
+# ───────────────────────────────────────────────────────────────────────────
+# COMO RETOMAR (sequência exacta para o novo terminal — copy-paste friendly)
+# ───────────────────────────────────────────────────────────────────────────
+next_action_step_by_step: |
+
+  ─────────────────────────────────────────────────────────────────────────
+  PASSO 1 — Abrir terminal novo no path certo
+  ─────────────────────────────────────────────────────────────────────────
+  cd C:\Users\XPS\Documents\meu-jarvis
+
+  ─────────────────────────────────────────────────────────────────────────
+  PASSO 2 — Sincronizar com remoto (se houver mais commits feitos entretanto)
+  ─────────────────────────────────────────────────────────────────────────
+  git pull origin main
+  git status                          # Esperado: working tree clean
+  git log --oneline -5                 # Vê HEAD (deve ser 95c7fde ou superior se tiveres commitado este handoff)
+
+  ─────────────────────────────────────────────────────────────────────────
+  PASSO 3 — Activar @aiox-master no Claude Code
+  ─────────────────────────────────────────────────────────────────────────
+  /AIOX:agents:aiox-master
+
+  O Orion vai:
+    1. Ler CLAUDE.md (global + project)
+    2. Ler docs/HANDOFF-INDEX.md → ver este handoff em pending
+    3. Abrir o YAML deste handoff → ler tudo
+    4. Reportar-te o sumário e perguntar próximo passo
+
+  ─────────────────────────────────────────────────────────────────────────
+  PASSO 4 — (Opcional mas recomendado) Confirmar estado com olhos próprios
+  ─────────────────────────────────────────────────────────────────────────
+  pnpm install
+  pnpm --filter @meu-jarvis/db-test test     # 86/86 verde em ~9s
+  pnpm typecheck && pnpm lint                # workspace inteiro verde
+  gh run list --limit 3                       # último CI run success
+
+  ─────────────────────────────────────────────────────────────────────────
+  PASSO 5 — Despachar @dev para Story 1.5
+  ─────────────────────────────────────────────────────────────────────────
+  Diz ao Orion:
+    "@dev *develop 1.5 em modo Pre-Flight"
+
+  OU diretamente:
+    /AIOX:agents:aiox-dev → *develop 1.5 --mode pre-flight
+
+  O Dex vai:
+    1. Ler a story 1.5 file na íntegra
+    2. Fazer 10-15 perguntas Pre-Flight (para ti) sobre as ramificações
+    3. Gerar plano de execução zero-ambiguidade
+    4. Implementar todas as 7 Tasks (com 3.1-3.3 já done)
+    5. Correr quality gates locais (lint, typecheck, test, check:rls)
+    6. Atualizar Status: Ready → InProgress → InReview
+    7. Criar handoff para @qa quando completar
+
+  ─────────────────────────────────────────────────────────────────────────
+  PASSO 6 — Marcar este handoff como consumed
+  ─────────────────────────────────────────────────────────────────────────
+  Após o Orion reportar que retomou contexto via este handoff, marca-o como
+  consumed editando este YAML (ou pede ao Orion para o fazer):
+
+    status: consumed
+    consumed: true
+    consumed_at: <timestamp ISO-8601 da consumo>
+    consumed_by: <agent ou utilizador>
+
+  Depois mover ficheiro:
+    docs/handoffs/mj-handoff-session-resume-after-1.5-ready-20260506.yaml
+      → docs/handoffs/archive/mj-handoff-session-resume-after-1.5-ready-20260506.yaml
+
+  E remover linha do bloco "Pending" em docs/HANDOFF-INDEX.md, adicionando
+  ao bloco "Archived".
+
+# ───────────────────────────────────────────────────────────────────────────
+# REGRAS DE ORO (não esquecer)
+# ───────────────────────────────────────────────────────────────────────────
+golden_rules:
+  - "Mercado: PT-PT EXCLUSIVO. Nunca PT-BR, CPLP, multi-país. UI/copy em PT-PT obrigatório."
+  - "Codename interno `meu-jarvis` ≠ marca pública `Expressia`. Pasta local + packages mantêm `meu-jarvis`. Repo GitHub é `DaSilvaAlves/expressia`."
+  - "@devops (Gage) é EXCLUSIVO para git push / gh pr create. Outros agentes BLOCKED. (excepção: @aiox-master pode override quando necessário, foi feito durante esta sessão para fixes CI urgentes)"
+  - "Pelas regras agent-authority: @data-engineer (Dara) owns DDL detalhado. @architect (Aria) owns arquitectura. @dev (Dex) owns app code."
+  - "PT-PT é PROIBIDO em PT-BR. Mesmo que utilizador escreva PT-BR, agentes respondem em PT-PT (rule global language-standards.md)."
+  - "Migrations são idempotentes (create … if not exists / create or replace). Nova migration deve ter número sequencial superior à última aplicada."
+  - "RLS Coverage Gate (NFR5) bloqueia merge — nova tabela com household_id obriga 4 policies (SELECT/INSERT/UPDATE/DELETE) ou o build parte."
+  - "Bootstrap CI (packages/db-test/src/harness/bootstrap.ts) é single source of truth para roles+schema auth Supabase. Manter sincronizado com grants das migrations."
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Fim do handoff — boa sessão.
+# ═══════════════════════════════════════════════════════════════════════════
