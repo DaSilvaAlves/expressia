@@ -15,7 +15,7 @@
 
 | Created | ID | From → To | Story/Task | Notas |
 |---------|-----|-----------|------------|-------|
-| 2026-05-06 | [mj-handoff-1.5-runtime-bug-local-dev-server-20260506](handoffs/mj-handoff-1.5-runtime-bug-local-dev-server-20260506.yaml) | aiox-master → any | **Story 1.5 Done formal MAS dev server local com Runtime Error** | Story 1.5 está formalmente Done (QA gate PASS, 15 commits pushed, CI 2x verde). MAS dev server background acumulou cache stale `.next/` durante sessão longa. Browser local mostra `Cannot find module './364.js'` em `/visao` e `__webpack_modules__[moduleId] is not a function` em `/?code=`. CI continua verde — bug é só local. **Fix:** kill dev server + `rm -rf apps/web/.next` + `pnpm dev` (~30s). Autocrítica: Orion não revalidou UI pós-fix antes de fechar como Done. |
+| _(vazio)_ | — | — | — | Sem handoffs pendentes. |
 
 ---
 
@@ -23,6 +23,7 @@
 
 | Consumed | ID | From → To | Story/Task | Notas |
 |----------|-----|-----------|------------|-------|
+| 2026-05-06 | [mj-handoff-1.5-runtime-bug-local-dev-server-20260506](handoffs/archive/mj-handoff-1.5-runtime-bug-local-dev-server-20260506.yaml) | aiox-master → any | Story 1.5 Done formal + dev server local Runtime Error + commit ahead | Consumido por Orion 2026-05-06 18:47 (com Eurico). Playbook executado: P1 rm .next + pnpm dev fresco → Ready 2.8s. P2 Eurico smoke browser /registar /entrar /visao com login real → tudo OK. P3 Gage @devops push f2e4022 → CI run 25451514752 verde 1m41s. P4 este consume + arquivo + INDEX update. **Story 1.5 confirmada Done end-to-end.** |
 | 2026-05-06 | [mj-handoff-story-1.5-ready-for-qa-20260506](handoffs/archive/mj-handoff-story-1.5-ready-for-qa-20260506.yaml) | aiox-master → qa | Story 1.5 ready for QA gate | Consumido por Quinn (@qa) ~17:00 — gate inicial CONCERNS (1 teste com bug harness). Orion fez fix mecânico commit `57de178`, re-gate Orion 17:30 → PASS. Sucessor: Gage @devops *push (2x verde) → Story 1.5 Done. |
 | 2026-05-06 | [mj-handoff-session-resume-after-1.5-mid-implementation-20260506](handoffs/archive/mj-handoff-session-resume-after-1.5-mid-implementation-20260506.yaml) | aiox-master → any | SESSION RESUME — Story 1.5 mid-implementation | Consumido por aiox-master (Orion) na sessão 04:00–04:30 (com Eurico). Finalização manual da Story 1.5: smoke test browser real passou (registar→email→login→JWT com household_id→/visao OK), bug AC3 corrigido (decode JWT directo em vez de user_metadata), 3 commits novos (test JWT-RLS, fix /visao, story v1.3). Sucessor: mj-handoff-story-1.5-ready-for-qa. 3 paralelos (Epic 2/trademark/landing) ficam untracked sem decisão Eurico — sem custo. |
 | 2026-05-06 | [mj-handoff-session-resume-after-1.5-ready-20260506](handoffs/archive/mj-handoff-session-resume-after-1.5-ready-20260506.yaml) | aiox-master → any | SESSION RESUME — pós Story 1.5 Ready | Consumido por aiox-master (Orion) na sessão 02:00–03:30; despachou Dex (Story 1.5 — 7/9 done), Morgan (Epic 2), Alex (Trademark research), Uma (Marketing landing). Sessão terminada por usage limit; sucessor é mj-handoff-session-resume-after-1.5-mid-implementation. |
@@ -46,4 +47,4 @@
 
 ---
 
-*Última actualização: 2026-05-06 17:50 (Story 1.5 Done formal — gate PASS, 15 commits pushed, CI 2x verde, story em `completed/`. MAS dev server local com Runtime Error de cache stale — handoff novo `mj-handoff-1.5-runtime-bug-local-dev-server` em pending para fix de 30s na próxima sessão).*
+*Última actualização: 2026-05-06 18:47 (handoff `mj-handoff-1.5-runtime-bug-local-dev-server` consumido + arquivado por Orion. Playbook 4-passos executado integralmente: dev server fresco, smoke browser Eurico OK, push f2e4022 com CI verde, INDEX update. **Estado real: `main` igual a `origin/main`, working tree limpo excepto modificações deste consume e dirs untracked `docs/epics/` + `docs/marketing/`. Story 1.5 confirmada Done end-to-end.** Sem handoffs pendentes).*

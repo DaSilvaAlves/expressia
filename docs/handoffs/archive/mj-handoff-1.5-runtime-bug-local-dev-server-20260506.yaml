@@ -12,8 +12,17 @@ handoff_id: mj-handoff-1.5-runtime-bug-local-dev-server-20260506
 from_agent: aiox-master (Orion)
 to_agent: any (Orion próxima sessão, ou dev, ou utilizador humano)
 created: 2026-05-06T17:50:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-06T18:47:03+01:00
+consumed_by: aiox-master (Orion)
+consumed_outcome: |
+  Playbook executado integralmente:
+  - P1 (Orion): kill node + rm .next + pnpm dev fresh → Ready in 2.8s
+  - P2 (Eurico): smoke browser /registar /entrar /visao com login real → tudo OK
+  - P3 (Gage @devops): push f2e4022 → origin/main, CI run 25451514752 verde 1m41s
+  - P4 (Orion): este consume + arquivo + INDEX update
+  Story 1.5 confirmada Done end-to-end (não só formalmente).
 priority: high
 project_prefix: mj
 project_codename: meu-jarvis
@@ -31,6 +40,69 @@ summary: >
   Cannot find module './364.js' + __webpack_modules__[moduleId] is not a
   function. CI continua verde porque builds limpos não têm o problema.
   Fix local: kill dev server, rm -rf .next/, pnpm dev (~30s).
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🎯 NEXT_SESSION_PLAYBOOK — copy/paste, sem pensar (~3 min total)
+# ───────────────────────────────────────────────────────────────────────────
+# Lê isto SE acabaste de activar @aiox-master numa sessão nova e este handoff
+# apareceu no INDEX. Executa os 3 passos por ordem. Nenhum requer raciocínio.
+next_session_playbook:
+  precondicao: |
+    git status deve mostrar:
+      - branch main, "ahead 1" de origin/main (commit f2e4022)
+      - working tree limpo (excepto docs/epics/ + docs/marketing/ untracked → IGNORAR)
+
+  passo_1_fix_dev_server:
+    quem: aiox-master (Orion) directo, sem delegar
+    duracao: ~30s
+    comandos_powershell: |
+      cd C:\Users\XPS\Documents\meu-jarvis
+      Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force
+      Remove-Item -Recurse -Force apps\web\.next -ErrorAction SilentlyContinue
+      pnpm --filter @meu-jarvis/web dev
+      # Aguardar "Ready in Xs" (~10s)
+    confirmar: terminal mostra "✓ Ready" + porta 3000
+
+  passo_2_smoke_test_browser:
+    quem: Eurico (humano) — Orion não pode validar UI
+    duracao: ~1 min
+    rotas_a_testar:
+      - "http://localhost:3000/registar  → form PT-PT carrega sem Runtime Error"
+      - "http://localhost:3000/entrar    → form login carrega sem Runtime Error"
+      - "http://localhost:3000/visao     → redirect /entrar (não autenticado)"
+      - "Login com euricojsalves@gmail.com → redirect /visao"
+      - "/visao mostra Household ID UUID válido (ex: 36abfd0c-...)"
+    se_falha:
+      - "Re-abrir Story 1.5 como bug — não é cache stale, é estrutural"
+      - "Tentar pnpm build && pnpm start (modo prod local) para isolar dev vs prod"
+      - "Inspeccionar apps/web/src/app/(app)/visao/page.tsx commit 018f5b7"
+
+  passo_3_push_commit_pendente:
+    quem: '@devops (Gage) — push é EXCLUSIVO dele'
+    duracao: ~30s + ~2min CI
+    comando_orion: '@devops *push'
+    o_que_faz: |
+      Push do commit f2e4022 (handoff doc + housekeeping) para origin/main.
+      Nenhum risco — é só docs/. CI verde esperado.
+    confirmar: |
+      gh run list --limit 1 → status completed + conclusion success
+      git status → "up to date with origin/main"
+
+  passo_4_consumir_handoff:
+    quem: aiox-master (Orion) que fez fix
+    duracao: ~10s
+    accao: |
+      1. Editar este YAML: status: consumed, consumed: true,
+         consumed_at: <ISO-8601>, consumed_by: aiox-master
+      2. Mover docs/handoffs/mj-handoff-1.5-runtime-bug-local-dev-server-20260506.yaml
+         → docs/handoffs/archive/
+      3. Actualizar docs/HANDOFF-INDEX.md: remover linha de Pending,
+         adicionar em Archived
+      4. git add + git commit (não push — Eurico decide se faz lote com outro)
+
+  total_estimado: 3-5 min se tudo correr bem
+  bloqueia_se: passo 2 falha (re-abre Story 1.5)
+  nao_bloqueia_se: untracked dirs (docs/epics/, docs/marketing/) ficam para outra sessão
 
 # ───────────────────────────────────────────────────────────────────────────
 # AUTOCRÍTICA — ERRO DE PROCESSO
@@ -66,9 +138,15 @@ process_failure:
 current_state:
   branch: main
   remote_head: 23a9237
-  local_head: 23a9237
-  in_sync_with_remote: true
-  ci_status_remote: 🟢 verde (2x runs verdes nesta sessão)
+  local_head: f2e4022
+  in_sync_with_remote: false
+  ahead_of_remote: 1
+  commit_pendente_push:
+    sha: f2e4022
+    message: "docs(handoffs): handoff runtime bug dev server local + housekeeping"
+    risco: nenhum — só docs/, sem código tocado
+    push_authority: '@devops (Gage) — exclusivo'
+  ci_status_remote: 🟢 verde (2x runs verdes nesta sessão, antes do commit pendente)
   story_1_5_status: Done (formalmente — gate PASS + push verde + admin close)
   story_1_5_path: docs/stories/completed/1.5.supabase-auth-rls-integration.md
   qa_gate_path: docs/qa/gates/1.5-qa-gate.md (verdict PASS)
