@@ -1,0 +1,558 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF SESSION-RESUME — Story 1.5 mid-implementation + 3 paralelos done
+# ═══════════════════════════════════════════════════════════════════════════
+# Propósito: dar ao próximo terminal/sessão o panorama EXACTO e COMPLETO
+# do estado do projecto após a sessão de 2026-05-06 02:00–03:30 Lisboa, que:
+#   - Consumiu handoff anterior (session-resume-after-1.5-ready)
+#   - Despachou Dex (@dev) para implementar Story 1.5 — fez 7 de 9 tasks
+#     mas bateu monthly usage limit antes de finalizar
+#   - Despachou 3 agentes paralelos (Morgan/Alex/Uma) — TODOS terminaram
+#     com outputs entregues e prontos para validação humana
+#   - Detectou risco ALTO de conflito trademark (Expresia Inc. CA)
+#
+# Sem este handoff o próximo terminal teria que reconstruir 4h de trabalho
+# do git log + ler 3 ficheiros novos não-commitados — este YAML poupa isso.
+
+handoff_id: mj-handoff-session-resume-after-1.5-mid-implementation-20260506
+from_agent: aiox-master (Orion)
+to_agent: any (aiox-master, dev, qa, devops, ou utilizador humano)
+created: 2026-05-06T03:30:00+01:00
+status: consumed
+consumed: true
+consumed_at: 2026-05-06T04:30:00+01:00
+consumed_by: aiox-master (Orion) — sessão de finalização Story 1.5
+priority: high
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR (lê isto primeiro — 90 segundos)
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Story 1.5 está a 7/9 tasks done com 8 commits locais limpos (não pushed —
+  Gage exclusivo). Dex bateu monthly usage limit antes de fechar. Restam 4
+  tarefas mecânicas (~30 min): commitar JWT-RLS test, correr quality gates
+  finais, atualizar story file, criar handoff QA. Em paralelo, Morgan
+  entregou Epic 2 draft (8 DPs), Alex entregou trademark research (RISCO
+  ALTO — Expresia Inc. CA pode bloquear EUIPO), Uma entregou landing page
+  draft (12 Qs). Eurico tem ~26 decisões para validar mas NENHUMA bloqueia
+  o fecho da Story 1.5. Próximo passo: finalizar Story 1.5 → @qa gate.
+
+# ───────────────────────────────────────────────────────────────────────────
+# ESTADO ACTUAL EXACTO (snapshot 2026-05-06T03:30 Lisboa)
+# ───────────────────────────────────────────────────────────────────────────
+current_state:
+  branch: main
+  working_tree: tem 3 paths untracked (ver untracked_files abaixo) — NÃO commitar até validação humana
+  remote: https://github.com/DaSilvaAlves/expressia.git (PUBLIC, AGPL-3.0)
+  ci_status: 🟢 verde no último push (HEAD remote 95c7fde) — mas há 8 commits locais não-pushed
+  commits_ahead_of_remote: 8
+  head_local: 57f00ac
+
+  recent_commits_session_2026_05_06:
+    # Story 1.5 implementation (Dex via @dev autonomous)
+    - "57f00ac feat(web): middleware auth + /visao dummy + logout action [Story 1.5 AC2 AC8]"
+    - "95af56e docs(1.5): runbook supabase-auth-setup PT-PT [Story 1.5 Task 3.5]"
+    - "ae3dee0 feat(web): páginas auth /entrar /registar /recuperar PT-PT [Story 1.5 AC2]"
+    # Trademark research (Alex via @analyst autonomous)
+    - "03d9006 docs(research): trademark Expressia INPI Portugal research [Research]"
+    # Story 1.5 implementation cont.
+    - "5bb7db4 test(db): cobertura trigger handle_new_user + harness fix [Story 1.5 AC4 AC6]"
+    - "2ba2b4b feat(db): 0003 trigger handle_new_user — household default + trial 14d [Story 1.5 AC4]"
+    - "3d0e5da feat(auth): packages/auth com clientes Supabase SSR + browser [Story 1.5 AC1]"
+    - "a1a67fd chore(1.5): start implementation [Story 1.5]"
+
+  untracked_files:
+    - "docs/epics/epic-2-cerebro-ai-multi-intent.md (250 linhas, Morgan @pm)"
+    - "docs/marketing/landing-page-expressia-draft.md (717 linhas, Uma @ux-design-expert)"
+    - "packages/db-test/src/tests/jwt-rls-isolation.test.ts (Dex Task 6 — não commitou antes do limit)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# STORY 1.5 — TASKS DONE vs PENDING
+# ───────────────────────────────────────────────────────────────────────────
+story_1_5:
+  status_in_file: InProgress (NÃO actualizar para InReview até gates verde)
+  tasks_done:
+    - id: Task 1
+      title: "packages/auth/ Supabase clients (SSR + browser)"
+      commit: 3d0e5da
+      ac: AC1
+    - id: Task 4-SQL
+      title: "Migration 0003_auth_user_trigger.sql aplicada Supabase real"
+      commit: 2ba2b4b
+      ac: AC4
+      detail: "Trigger handle_new_user com household default + trial 14d família + audit_log. Usa owner_user_id, trial_ends_at, plan='familia' denormalizado em households. Aplicado em Supabase eu-west-1 e gravado em __schema_migrations."
+    - id: Task 4-Test
+      title: "Vitest cobertura trigger + harness fix"
+      commit: 5bb7db4
+      ac: "AC4, AC6"
+      detail: "Mock minimal de auth.users em harness/bootstrap.ts; teste handle-new-user.trigger.test.ts"
+    - id: Task 5
+      title: "Páginas auth /entrar /registar /recuperar em PT-PT"
+      commit: ae3dee0
+      ac: AC2
+      detail: "(auth)/{entrar,registar,recuperar}/page.tsx + actions.ts + layout.tsx"
+    - id: Task 3.5
+      title: "Runbook Supabase Auth PT-PT"
+      commit: 95af56e
+      detail: "docs/runbooks/supabase-auth-setup.md com Dashboard config + redirect URLs preview + troubleshooting"
+    - id: Task 2
+      title: "Middleware auth gate + /(app)/visao dummy + logout-action"
+      commit: 57f00ac
+      ac: "AC2, AC8"
+      detail: "apps/web/src/middleware.ts + (app)/{layout.tsx,visao/page.tsx,logout-action.ts}"
+    - id: Task 3.1-3.3
+      title: "Auth Hook Supabase (sessão anterior)"
+      commit: "d2cbf1f + dashboard manual Eurico"
+      ac: AC3
+      detail: "Migration 0002 + Hook ENABLED no Dashboard (já feito antes desta sessão)"
+
+  tasks_pending:
+    - id: Task 6
+      title: "Teste JWT + RLS isolation"
+      status: "Ficheiro CRIADO mas NÃO commitado"
+      file: "packages/db-test/src/tests/jwt-rls-isolation.test.ts"
+      ac: AC6
+      next_step: |
+        1. Ler o ficheiro para validar que está correcto
+        2. Correr `pnpm --filter @meu-jarvis/db-test test -- jwt-rls-isolation` localmente
+        3. Se passar: `git add` + commit com `test(db): JWT + RLS isolation [Story 1.5 AC6]`
+        4. Se falhar: ler erro, decidir fixar mecanicamente OU reportar a Eurico
+
+    - id: Task 7
+      title: "Verificação final — quality gates workspace inteiro"
+      status: "NÃO corrido"
+      ac: "todas"
+      commands_to_run: |
+        cd C:\Users\XPS\Documents\meu-jarvis
+        pnpm install                    # garantir deps actualizadas
+        pnpm lint                        # ESLint --max-warnings=0
+        pnpm typecheck                   # TypeScript strict
+        pnpm test                        # Vitest workspace
+        pnpm check:rls                   # RLS Coverage Gate (NFR5)
+        pnpm build                       # Next.js build
+      expected: "TODOS os 5 verdes. Se algum falhar, fixar mecanicamente OU reportar."
+
+    - id: Task 3.4
+      title: "Smoke test login real (browser, manual)"
+      status: "NÃO feito — precisa de browser e credenciais Supabase"
+      ac: AC3
+      what_to_do: |
+        Manual via browser:
+        1. cd apps/web && pnpm dev (porta 3000)
+        2. Garantir apps/web/.env.local tem NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY
+           (URL: https://llpotuxlyiyjvvxzetoo.supabase.co, anon key: Dashboard Settings > API)
+        3. Abrir http://localhost:3000/registar — registar utilizador real
+        4. Verificar que cria household + membership + subscription via trigger (consultar Supabase Dashboard)
+        5. Login em http://localhost:3000/entrar
+        6. Decodificar JWT (jwt.io) e CONFIRMAR que tem claim `household_id`
+        7. Aceder /visao — deve mostrar email + household_id
+        8. Logout — deve redirigir para /entrar
+      acceptance: "Documentar resultado no story file (capturas opcionais). Pode ser feito por @qa Quinn no gate."
+
+    - id: Task story_file_update
+      title: "Atualizar story file com File List + Status + Change Log"
+      status: "NÃO feito"
+      file: "docs/stories/active/1.5.supabase-auth-rls-integration.md"
+      what_to_do: |
+        - Marcar todos os checkboxes das Tasks 1-7 como [x]
+        - Preencher secção File List com TODOS os ficheiros criados/modificados (ver files_created abaixo)
+        - Mudar Status: InProgress → InReview (apenas DEPOIS de Task 7 verde)
+        - Adicionar Change Log v1.3 com sumário da implementação + decisões D1-D15 aplicadas + conflitos schema corrigidos + resultados gates
+
+    - id: Task qa_handoff
+      title: "Criar handoff dev → qa para QA gate"
+      status: "NÃO feito"
+      file_to_create: "docs/handoffs/mj-handoff-story-1.5-ready-for-qa-{YYYYMMDD}.yaml"
+      what_to_include: |
+        - from_agent: dev (Dex)  [ou aiox-master Orion se Orion finalizou]
+        - to_agent: qa (Quinn)
+        - status: pending
+        - summary: implementação completa, gates verdes, pronto para *qa-gate 1.5
+        - files_created: [...]
+        - files_modified: [...]
+        - quality_gates_local: { lint, typecheck, test, check_rls, build } — todos pass
+        - risks_for_qa_to_audit:
+            - "D2 fail-hard atomicidade trigger"
+            - "D4 audit_log scrita (NFR9)"
+            - "Smoke test manual Task 3.4 (Eurico ou Quinn faz)"
+        - next_action: "@qa Quinn — *qa-gate 1.5"
+      and_then: "Adicionar linha em docs/HANDOFF-INDEX.md no bloco Pending"
+
+  files_created_during_session_2026_05_06:
+    # packages/auth (Task 1)
+    - "packages/auth/package.json"
+    - "packages/auth/tsconfig.json"
+    - "packages/auth/src/server.ts"
+    - "packages/auth/src/browser.ts"
+    - "packages/auth/src/index.ts"
+    # Migration 0003 (Task 4)
+    - "packages/db/migrations/0003_auth_user_trigger.sql"
+    # db-test (Task 4-Test + Task 6)
+    - "packages/db-test/src/tests/handle-new-user.trigger.test.ts"
+    - "packages/db-test/src/tests/jwt-rls-isolation.test.ts (UNTRACKED — não commitado)"
+    # Páginas auth (Task 5)
+    - "apps/web/src/app/(auth)/layout.tsx"
+    - "apps/web/src/app/(auth)/actions.ts"
+    - "apps/web/src/app/(auth)/entrar/page.tsx"
+    - "apps/web/src/app/(auth)/registar/page.tsx"
+    - "apps/web/src/app/(auth)/recuperar/page.tsx"
+    # (app) group + middleware (Task 2)
+    - "apps/web/src/app/(app)/layout.tsx"
+    - "apps/web/src/app/(app)/visao/page.tsx"
+    - "apps/web/src/app/(app)/logout-action.ts"
+    - "apps/web/src/middleware.ts"
+    # Páginas existentes modificadas
+    - "apps/web/src/app/error.tsx (modificado)"
+    - "apps/web/src/app/not-found.tsx (modificado)"
+    - "apps/web/src/app/page.tsx (modificado)"
+    # Bootstrap CI (Task 4-Test)
+    - "packages/db-test/src/harness/bootstrap.ts (extendido com mock auth.users + trigger setup)"
+    # Runbook (Task 3.5)
+    - "docs/runbooks/supabase-auth-setup.md"
+    # Configs
+    - "apps/web/next.config.ts (adicionado @meu-jarvis/auth ao transpilePackages)"
+    - "apps/web/package.json (adicionado @supabase/ssr + @supabase/supabase-js)"
+    - "pnpm-lock.yaml (auto-update)"
+    - "package.json raiz (workspace pode ter sido tocado)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# 3 PARALELOS ENTREGUES (não-commitados, Eurico decide o que fazer)
+# ───────────────────────────────────────────────────────────────────────────
+paralleled_outputs:
+  - id: epic_2
+    agent: "aiox-pm (Morgan)"
+    file: "docs/epics/epic-2-cerebro-ai-multi-intent.md"
+    lines: 250
+    status: "Untracked — Morgan deixou para Eurico decidir commit"
+    summary: |
+      Draft v0.1 do Epic 2 (Cérebro AI Multi-Intent) com:
+      - 11 stories propostas (2.1-2.11): 2×S, 7×M, 2×L
+      - 10 riscos macro (R1-R10)
+      - 8 decisões pendentes (DP1-DP8) que Eurico tem de validar antes de detalhar stories:
+          * DP1: Modelo de undo (30s só vs persistente)
+          * DP2: Threshold preview-then-confirm (0.70 default)
+          * DP3: Multi-intent cap por prompt — Morgan recomenda 5 ops
+          * DP4: Provider fallback (Anthropic-only vs +OpenAI/Google)
+          * DP5: Prompt cache budget (tokens por sessão)
+          * DP6: Tools mínimas Epic 2 vs scope Epic 3/4
+          * DP7: Trial=Família consistency
+          * DP8: Prompt logging (RGPD)
+      - DoD macro: pipeline 3 estágios, p95<6s, accuracy>=90%, undo 30s, telemetria UE
+    next_action: "Eurico lê §8 e valida DP1-DP8. Depois Morgan faz v0.2 com decisões fixadas."
+    blocks: "Detalhe das Stories 2.1+ (não bloqueia Story 1.5 nem Epic 1)."
+
+  - id: trademark_research
+    agent: "aiox-analyst (Alex)"
+    file: "docs/research/trademark-expressia-inpi-portugal.md"
+    lines: 415
+    status: "✅ COMMITTED — 03d9006 (Alex foi proactivo)"
+    critical_finding: |
+      RISCO ALTO de conflito de marca:
+      1. Expresia Inc. (Canadá, Burnaby BC, fundada 2018) — DXP/SaaS multi-tenant headless CMS.
+         Diferença de UMA letra ("s"), classes Nice 9/42 sobrepostas. Risco EUIPO/Madrid Protocol.
+      2. Expressia BR (TiX Tecnologia, Belo Horizonte, fundada 2020, grupo Key2enable USA+UAE)
+         App SaaS Comunicação Aumentativa em web.expressia.life. Grafia IDÊNTICA. Risco PT directo
+         baixo (territorialidade) mas médio via Madrid Protocol.
+      3. Expressia.pl — tradução. Risco BAIXO.
+    cost_estimates_july_2025:
+      inpi_portugal_3_classes: "~€236 (online) + €30-50 pesquisa anterioridade"
+      euipo_3_classes: "€1.050 (4.4x mais caro)"
+      pi_agent_optional: "€200-500"
+    recommendation: "Opção C — Híbrido: INPI Portugal AGORA (~€236-285) + monitorizar EUIPO 12-24 meses + due diligence pago contra Expresia Inc. CA antes de avançar EUIPO"
+    blocking_actions_for_eurico:
+      - "Encomendar pesquisa profissional INPI (€30-50) — CRÍTICO antes de qualquer pagamento"
+      - "Confirmar NIF + morada para depósito"
+      - "Decidir Caminho A (PT only) vs B (UE) vs C (híbrido — recomendado)"
+      - "Decidir registo próprio vs agente PI"
+    methodology_caveat: "Alex não conseguiu fetch automatizado de TMview/EUIPO/INPI online (HTTP 403). Confirmation oficial pendente — pesquisa profissional é IMPRESCINDÍVEL antes de pagamento."
+
+  - id: marketing_landing
+    agent: "aiox-ux (Uma)"
+    file: "docs/marketing/landing-page-expressia-draft.md"
+    lines: 717
+    status: "Untracked — Uma deixou para Eurico decidir commit"
+    summary: |
+      Draft v0.1 da landing page Expressia com:
+      - Estratégia (persona família primária, JTBD, mensagem central "Uma frase. Tudo organizado.")
+      - 9 secções wireframe + footer com copy production-ready PT-PT
+      - 3 exemplos chat-style demonstrando cérebro multi-intent (Família/Profissional/Casal)
+      - Pricing 4 cards, Família €8,88 com badge "Mais popular" Cortiça
+      - Privacidade & RGPD (Frankfurt, export, eliminação 30d, sem cookies)
+      - Social proof SEM testimonials inventados (GitHub stars + Made in PT + AGPL-3.0)
+      - 3 taglines candidatas (rec. Uma: "Uma frase. Tudo organizado.")
+      - Tokens reusam front-end-spec.md (Atlântico+Cortiça, Lora+Inter+JetBrains Mono)
+      - 12 open questions (Q1-Q12) para Eurico decidir
+      - Implementation notes para @dev quando Story 1.5 fechar
+    next_action: "Eurico lê §6 (12 Qs) e decide. Uma faz v0.2 com decisões fixadas."
+    cross_dependency: "DEPENDE da decisão trademark — se Eurico pivotar marca, copy precisa de revisão completa"
+    blocks: "Implementação @dev de apps/web/src/app/(marketing)/page.tsx (não bloqueia Story 1.5)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# DECISÕES PENDENTES AGREGADAS (Eurico)
+# ───────────────────────────────────────────────────────────────────────────
+pending_decisions_for_eurico:
+  bloqueantes_immediate:
+    - id: D-trademark-research
+      what: "Encomendar pesquisa profissional INPI (€30-50)"
+      why: "Reduz risco trademark + desbloqueia caminho seguro pré-pagamento depósito"
+      blocks: "Tudo que envolve marca Expressia (landing, repo público, domínio) se houver conflito"
+    - id: D-trademark-path
+      what: "Caminho A (PT only) vs B (UE) vs C (híbrido)"
+      why: "Define custo (€236 vs €1.050) e cobertura"
+      recommendation: "C — híbrido"
+    - id: D-trademark-data
+      what: "NIF + morada para depósito"
+      why: "Campos obrigatórios INPI"
+
+  alta_prioridade_para_detalhar_epic_2:
+    - id: DP1 (Morgan)
+      what: "Modelo undo Epic 2 — 30s só vs persistente"
+    - id: DP2 (Morgan)
+      what: "Threshold preview-then-confirm (0.70 default)"
+    - id: DP3 (Morgan)
+      what: "Multi-intent cap por prompt — rec. 5 ops"
+    - id: DP4 (Morgan)
+      what: "Provider fallback (single Anthropic vs multi-vendor)"
+    - id: DP6 (Morgan)
+      what: "Tools mínimas Epic 2 (não duplicar Epic 3/4)"
+
+  media_prioridade:
+    - "DP5, DP7, DP8 do Epic 2 (cache budget, trial=Família, prompt logging)"
+    - "Q1-Q12 da landing (logo, demo interactiva, vídeo hero, pricing pessoal, newsletter, blog, etc.)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# PRÓXIMO PASSO ÚNICO E CLARO PARA O NOVO TERMINAL
+# ───────────────────────────────────────────────────────────────────────────
+next_action:
+  primary: "Finalizar Story 1.5 — 4 tarefas mecânicas (~30 min) sem spawnar novo Dex (poupar usage)"
+
+  step_by_step: |
+    PASSO 1 — Sincronizar e activar Orion
+    ───────────────────────────────────────
+    cd C:\Users\XPS\Documents\meu-jarvis
+    git status
+    git log --oneline -10
+    /AIOX:agents:aiox-master
+
+    O Orion deve:
+    1. Ler CLAUDE.md (global + project)
+    2. Ler docs/HANDOFF-INDEX.md → ver este handoff em pending
+    3. Ler este YAML
+    4. Reportar sumário e propor finalização
+
+    PASSO 2 — Ler e validar JWT-RLS test (Task 6 pendente)
+    ───────────────────────────────────────
+    Ler packages/db-test/src/tests/jwt-rls-isolation.test.ts
+    (revisar lógica — espelhar padrão dos outros *.rls.test.ts existentes)
+
+    PASSO 3 — Correr Task 6 isolada
+    ───────────────────────────────────────
+    pnpm --filter @meu-jarvis/db-test test -- jwt-rls-isolation
+    Se passar: git add + commit (`test(db): JWT + RLS isolation [Story 1.5 AC6]`)
+    Se falhar: diagnosticar erro mecânico, corrigir, re-correr
+
+    PASSO 4 — Quality gates finais (Task 7)
+    ───────────────────────────────────────
+    pnpm install
+    pnpm lint              # ESLint --max-warnings=0
+    pnpm typecheck         # TypeScript strict
+    pnpm test              # Vitest workspace
+    pnpm check:rls         # RLS Coverage Gate
+    pnpm build             # Next.js build
+
+    Se todos verdes: avançar
+    Se algum falhar: fixar mecanicamente OU reportar a Eurico
+
+    PASSO 5 — Atualizar story file
+    ───────────────────────────────────────
+    Edit docs/stories/active/1.5.supabase-auth-rls-integration.md:
+    - Marcar todos os checkboxes [x]
+    - Preencher File List com a lista em files_created_during_session_2026_05_06 deste YAML
+    - Status: InProgress → InReview
+    - Change Log v1.3: sumário implementação + decisões D1-D15 aplicadas + 4 conflitos schema corrigidos + resultados gates
+
+    PASSO 6 — Criar handoff QA
+    ───────────────────────────────────────
+    Criar docs/handoffs/mj-handoff-story-1.5-ready-for-qa-{YYYYMMDD}.yaml
+    Adicionar linha em docs/HANDOFF-INDEX.md (Pending block)
+
+    PASSO 7 — Marcar este handoff como consumed
+    ───────────────────────────────────────
+    Editar este YAML:
+      consumed: true
+      consumed_at: <timestamp ISO-8601>
+      consumed_by: <agent>
+      status: consumed
+    Mover para docs/handoffs/archive/
+    Atualizar INDEX (remover de pending, adicionar a archived)
+
+    PASSO 8 — Aguardar Eurico decidir paralelos + trademark
+    ───────────────────────────────────────
+    NÃO commitar docs/epics/ nem docs/marketing/ sem GO explícito.
+    Eurico tem ~26 decisões para validar — não interromper.
+
+  estimated_duration: "30 min se gates verdes, 60-90 min se algum gate falhar"
+
+  expected_outcome: |
+    - Story 1.5 InReview com gates verdes
+    - Handoff QA criado para Quinn
+    - Working tree limpo (excepto docs/epics/ + docs/marketing/ untracked se Eurico ainda não decidiu)
+    - Pronto para `@qa *qa-gate 1.5`
+
+# ───────────────────────────────────────────────────────────────────────────
+# CAMINHOS ALTERNATIVOS (se finalizar 1.5 não for prioridade)
+# ───────────────────────────────────────────────────────────────────────────
+alternative_paths:
+  - id: review_3_paralelos_first
+    label: "Validar Epic 2 / Trademark / Landing primeiro"
+    description: "Eurico lê os 3 ficheiros e responde DPs antes de finalizar Story 1.5. Vantagem: decisões trademark podem alterar landing/Epic 2 se houver pivot. Desvantagem: 1.5 fica pending mais tempo."
+
+  - id: encomendar_trademark_research_paid
+    label: "Encomendar pesquisa profissional INPI já (€30-50)"
+    description: "Não bloqueia nada técnico. Desbloqueia decisão trademark em ~5 dias úteis. Eurico contacta agente PI ou vai a https://servicosonline.inpi.pt"
+
+  - id: pause_continue_later
+    label: "Pausa — handoff existe para isto"
+    description: "Story 1.5 em InProgress fica à espera. Sem prejuízo. Repo limpo localmente."
+
+  - id: unblock_story_1_7
+    label: "Desbloquear Story 1.7 Observability em paralelo"
+    description: "B3 (Sentry EU) + B4 (Grafana EU) — config externa Eurico. Tempo: ~30 min config + sprint @dev."
+
+# ───────────────────────────────────────────────────────────────────────────
+# BLOQUEADORES AINDA EM ABERTO
+# ───────────────────────────────────────────────────────────────────────────
+open_blockers:
+  - id: B3
+    affects: Story 1.7
+    description: "Sentry EU project não criado"
+    deliverable: "SENTRY_DSN + SENTRY_AUTH_TOKEN para .env"
+    estimated_effort: "10 min"
+
+  - id: B4
+    affects: Story 1.7
+    description: "Grafana Cloud EU stack não criado"
+    deliverable: "OTLP endpoint + API key para .env"
+    estimated_effort: "20 min"
+
+  - id: oauth_decision
+    affects: Story 1.5 (extensão futura)
+    description: "Decisão Google/Apple OAuth (FR24) — adiada, não bloqueia esta story"
+
+  - id: trademark_research_paid
+    affects: "Marca Expressia inteira (repo, domínio, landing, README)"
+    description: "Pesquisa profissional INPI (€30-50) para confirmar viabilidade antes de gastos maiores"
+    severity: "Médio — não bloqueia técnico mas pode forçar pivot de marca"
+
+  - id: usage_limit_anthropic
+    affects: "Capacidade de spawnar novos agentes Anthropic"
+    description: "Org bateu monthly usage limit durante implementação Story 1.5. Reset mensal."
+    mitigation: "Finalizar 1.5 manualmente (sem spawn) ou aguardar reset"
+
+resolved_blockers_during_session_2026_05_06:
+  - id: B2
+    description: "Supabase Auth Hook não registado"
+    resolved_via: "Já resolvido em sessão anterior (2026-05-05)"
+  - id: REMOTE-001
+    description: "Repo GitHub não existia — push bloqueado"
+    resolved_via: "Já resolvido em sessão anterior (2026-05-05)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# IDENTIDADE DO PROJECTO (lei — recapitulação)
+# ───────────────────────────────────────────────────────────────────────────
+project_identity:
+  codename: meu-jarvis (pasta local + package names @meu-jarvis/*)
+  public_brand: Expressia (UI, copy, marketing, repo GitHub)
+  domain: expressia.pt (registado)
+  repo_github: DaSilvaAlves/expressia (público, AGPL-3.0)
+  market: PT-PT EXCLUSIVO (Portugal continental — nunca PT-BR, CPLP, lusófono)
+  currency: EUR único, formato vírgula (€8,88, €1.234,56)
+  pricing_hero: Família €8,88/mês
+  data_residency: |
+    UE obrigatória — Vercel fra1, Supabase eu-west-1 (actual),
+    Inngest EU, Sentry EU (B3 pendente), Grafana Cloud EU (B4 pendente)
+  rejected_markets: [Brasil, CPLP, lusófono global, multi-país]
+  trademark_status: "RISCO ALTO detectado (Expresia Inc. CA + Expressia BR) — pesquisa profissional pendente"
+
+# ───────────────────────────────────────────────────────────────────────────
+# DOCS ESSENCIAIS (paths absolutos para o novo terminal)
+# ───────────────────────────────────────────────────────────────────────────
+key_docs:
+  CLAUDE_md_project: C:/Users/XPS/Documents/meu-jarvis/CLAUDE.md
+  CLAUDE_md_global: C:/Users/XPS/.claude/CLAUDE.md
+  prd: docs/prd.md
+  architecture: docs/architecture.md (§5 Auth, §6.4 trial família, §8.1 route groups)
+  db_schema: docs/db-schema.md
+  story_1_5: docs/stories/active/1.5.supabase-auth-rls-integration.md (Status: InProgress, Change Log v1.2)
+  story_1_5_index: docs/stories/active/_INDEX.md
+  handoff_index: docs/HANDOFF-INDEX.md
+  this_handoff: docs/handoffs/mj-handoff-session-resume-after-1.5-mid-implementation-20260506.yaml
+  previous_handoff_archived: docs/handoffs/archive/mj-handoff-session-resume-after-1.5-ready-20260506.yaml
+
+  story_1_5_outputs:
+    - "packages/auth/{package.json,tsconfig.json,src/{server,browser,index}.ts}"
+    - "packages/db/migrations/0003_auth_user_trigger.sql"
+    - "packages/db-test/src/tests/{handle-new-user.trigger,jwt-rls-isolation}.test.ts"
+    - "packages/db-test/src/harness/bootstrap.ts (extendido)"
+    - "apps/web/src/app/(auth)/{layout,actions}.tsx + (entrar|registar|recuperar)/page.tsx"
+    - "apps/web/src/app/(app)/{layout,visao/page,logout-action}.tsx"
+    - "apps/web/src/middleware.ts"
+    - "docs/runbooks/supabase-auth-setup.md"
+
+  paralleled_outputs:
+    - "docs/epics/epic-2-cerebro-ai-multi-intent.md (untracked)"
+    - "docs/research/trademark-expressia-inpi-portugal.md (commit 03d9006)"
+    - "docs/marketing/landing-page-expressia-draft.md (untracked)"
+
+memory_files: C:/Users/XPS/.claude/projects/C--Users-XPS-Documents-meu-jarvis/memory/
+
+# ───────────────────────────────────────────────────────────────────────────
+# AMBIENTE TÉCNICO (já configurado — não tocar)
+# ───────────────────────────────────────────────────────────────────────────
+local_env:
+  os: Windows 11 Pro
+  shell: PowerShell + Bash via WSL
+  node: v22.22.2 (target >=20)
+  pnpm: 9.12.3 (via corepack)
+  docker: 29.1.3 (Desktop) — Testcontainers usa
+  git_user: DaSilvaAlves
+  git_email: euricojsalves@gmail.com
+  gh_authenticated: true (DaSilvaAlves)
+
+env_local_files:
+  packages_db: "packages/db/.env.local — DIRECT_URL + DATABASE_URL aponta Supabase eu-west-1 pooler (5432, 6543)"
+  apps_web: "apps/web/.env.local — VERIFICAR se NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY estão presentes (Dex pode ter feito ou não — confirmar antes de Task 3.4 manual)"
+
+supabase_state:
+  project_ref: llpotuxlyiyjvvxzetoo
+  region: eu-west-1
+  postgres_version: 17.6
+  migrations_applied:
+    - "0000_initial_schema.sql"
+    - "0001_rls_policies.sql"
+    - "0002_auth_hook.sql"
+    - "0003_auth_user_trigger.sql (aplicada nesta sessão)"
+  schema: "27 tabelas + 104 policies + 24 categorias PT default + custom_access_token_hook + handle_new_user trigger"
+  auth_hook_dashboard: ENABLED
+
+# ───────────────────────────────────────────────────────────────────────────
+# REGRAS DE OURO (não esquecer)
+# ───────────────────────────────────────────────────────────────────────────
+golden_rules:
+  - "Mercado: PT-PT EXCLUSIVO. Nunca PT-BR, CPLP, multi-país. UI/copy em PT-PT obrigatório."
+  - "Codename interno meu-jarvis ≠ marca pública Expressia. Pasta local + packages mantêm meu-jarvis. Repo GitHub é DaSilvaAlves/expressia."
+  - "@devops (Gage) é EXCLUSIVO para git push / gh pr create. Excepção: @aiox-master pode override quando necessário."
+  - "Story 1.5 está em InProgress — não pular para InReview até gates verde."
+  - "PT-PT é PROIBIDO em PT-BR. Mesmo que utilizador escreva PT-BR, agentes respondem em PT-PT."
+  - "RLS Coverage Gate (NFR5) bloqueia merge — nova tabela com household_id obriga 4 policies."
+  - "Migration 0003 já está aplicada e gravada em __schema_migrations — NÃO reaplicar."
+  - "docs/epics/ + docs/marketing/ NÃO commitar sem GO explícito do Eurico (paralelos pendentes de validação)."
+  - "Trademark: pesquisa profissional INPI (€30-50) é PRIORITÁRIA antes de qualquer pagamento de depósito."
+  - "Anthropic monthly usage limit batido — preferir finalização manual a spawn de novos agentes."
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Fim do handoff — boa sessão.
+# ═══════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,167 @@
+---
+# Story 1.5 ready for QA gate
+# Handoff dev (Orion) -> qa (Quinn)
+
+handoff_id: mj-handoff-story-1.5-ready-for-qa-20260506
+from_agent: aiox-master (Orion — finalizou implementação Story 1.5 manualmente)
+to_agent: qa (Quinn)
+created: 2026-05-06T04:30:00+01:00
+status: pending
+consumed: false
+priority: medium
+project_prefix: mj
+
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Story 1.5 (Supabase Auth + RLS Integration + custom_access_token_hook) está
+  funcionalmente completa e validada com smoke test manual end-to-end. Todas
+  as 8 ACs e 7 Tasks marcadas done. 11 commits locais (não-pushed — Gage
+  exclusivo). Pronto para *qa-gate 1.5 a executar os 7 quality checks formais.
+
+# ───────────────────────────────────────────────────────────────────────────
+story:
+  id: 1.5
+  title: Supabase Auth + RLS Integration + custom_access_token_hook
+  path: docs/stories/active/1.5.supabase-auth-rls-integration.md
+  status: InReview
+  change_log_version: v1.3
+
+# ───────────────────────────────────────────────────────────────────────────
+implementation_summary:
+  package_auth_created:
+    - packages/auth/src/server.ts (createServerSupabaseClient via @supabase/ssr)
+    - packages/auth/src/browser.ts (createBrowserSupabaseClient)
+    - packages/auth/src/index.ts (barrel)
+  middleware:
+    - apps/web/src/middleware.ts — auth gate /(app)/** + token refresh via getUser()
+  trigger_db:
+    - packages/db/migrations/0003_auth_user_trigger.sql APLICADA Supabase eu-west-1
+    - handle_new_user trigger: cria household ('Casa de {username}') + membership
+      owner + subscription trial 14d família + audit_log entry
+  custom_access_token_hook:
+    - migration 0002 já aplicada antes desta sessão
+    - Hook ENABLED no Supabase Dashboard (confirmado por Eurico)
+    - JWT injecta `household_id` em claims top-level (não em metadata)
+  pages_auth:
+    - apps/web/src/app/(auth)/{layout,actions}.tsx
+    - apps/web/src/app/(auth)/{entrar,registar,recuperar}/page.tsx (PT-PT)
+  app_group:
+    - apps/web/src/app/(app)/layout.tsx
+    - apps/web/src/app/(app)/visao/page.tsx (placeholder com JWT decode directo)
+    - apps/web/src/app/(app)/logout-action.ts
+  tests:
+    - packages/db-test/src/tests/handle-new-user.trigger.test.ts (cobertura trigger)
+    - packages/db-test/src/tests/jwt-rls-isolation.test.ts (4 cenários AC6)
+    - packages/db-test/src/harness/bootstrap.ts (mock auth.users + trigger setup)
+  runbook:
+    - docs/runbooks/supabase-auth-setup.md (Dashboard config + redirect URLs + troubleshooting PT-PT)
+
+# ───────────────────────────────────────────────────────────────────────────
+smoke_test_manual_passado:
+  data: 2026-05-06T04:00 Lisboa
+  actor: Eurico (utilizador final, browser real)
+  fluxo:
+    - "Arranque: pnpm dev (apps/web), porta 3000 OK"
+    - "GET /registar -> formulário PT-PT carregou (200)"
+    - "Submeter signup com euricojsalves@gmail.com -> Supabase emitiu email"
+    - "Click no link 'Confirm your mail' -> redirect para /?code=<token>"
+    - "GET /entrar -> login com password -> redirect /visao com sessão activa"
+    - "GET /visao -> mostra User ID, Email, Household ID UUID válido (2dedb1ec-...)"
+    - "JWT contém claim household_id injectado pelo hook (validado via decode directo)"
+  observacao: |
+    Caveat conhecido: D8 (no código) pretendia "Email Confirmations OFF para MVP"
+    mas o Dashboard Supabase tem ENABLED. Conflito menor — funciona mesmo assim
+    (user faz confirmation e depois login). Documentar para Quinn decidir se é
+    issue para gate ou follow-up Epic 6.
+
+# ───────────────────────────────────────────────────────────────────────────
+commits_locais_nao_pushed:
+  count: 11
+  recentes_desta_sessao:
+    - "6defb4e docs(1.5): story update v1.3 InProgress -> InReview [Story 1.5]"
+    - "018f5b7 fix(web): decode JWT directo em /visao para ler household_id [Story 1.5 AC3]"
+    - "d79d01d test(db): JWT + RLS isolation [Story 1.5 AC6]"
+  sessao_anterior_2026_05_06_02h_03h30:
+    - "57f00ac feat(web): middleware auth + /visao dummy + logout action [Story 1.5 AC2 AC8]"
+    - "95af56e docs(1.5): runbook supabase-auth-setup PT-PT [Story 1.5 Task 3.5]"
+    - "ae3dee0 feat(web): páginas auth /entrar /registar /recuperar PT-PT [Story 1.5 AC2]"
+    - "5bb7db4 test(db): cobertura trigger handle_new_user + harness fix [Story 1.5 AC4 AC6]"
+    - "2ba2b4b feat(db): 0003 trigger handle_new_user [Story 1.5 AC4]"
+    - "3d0e5da feat(auth): packages/auth com clientes Supabase SSR + browser [Story 1.5 AC1]"
+    - "a1a67fd chore(1.5): start implementation [Story 1.5]"
+  remote: "DaSilvaAlves/expressia (público AGPL-3.0). Push é EXCLUSIVO de @devops Gage"
+
+# ───────────────────────────────────────────────────────────────────────────
+quality_gates_pendentes_para_qa_validar:
+  workspace_full_run_nao_executado_nesta_sessao:
+    - "pnpm lint (ESLint --max-warnings=0)"
+    - "pnpm typecheck (workspace) — apps/web typecheck isolado correu verde durante esta sessão (exit 0)"
+    - "pnpm test (Vitest workspace)"
+    - "pnpm check:rls (RLS Coverage Gate NFR5)"
+    - "pnpm build (Next.js)"
+  motivo_skip: |
+    Eurico explicitamente pediu "commit e handoff" sem gates completos.
+    Quinn (@qa) deve correr todos como parte do *qa-gate 1.5.
+
+# ───────────────────────────────────────────────────────────────────────────
+risks_for_qa_to_audit:
+  - id: D2
+    title: Fail-hard atomicidade trigger
+    detail: |
+      Migration 0003 trigger handle_new_user usa BEGIN/EXCEPTION genérico — em
+      falha de qualquer dos 3 INSERTs (households, membership, subscription)
+      a transacção rollback inteira. Validar comportamento sob falhas reais
+      (ex: tentar criar household com nome duplicado se houver UNIQUE).
+  - id: D4
+    title: audit_log scrita no trigger (NFR9)
+    detail: |
+      Trigger escreve audit_log entry. Validar que o registo é completo
+      (actor_user_id, action, resource_type, resource_id, household_id).
+  - id: D8_conflito_dashboard
+    title: Email confirmation ON no Dashboard mas D8 dizia OFF
+    detail: |
+      Decisão D8 no actions.ts:71 dizia "OFF para MVP". Dashboard real tem ON.
+      Smoke test mostrou que funciona (user confirma + login), mas é fricção
+      extra. Quinn decide: aceitar como follow-up Epic 6 ou bloquear gate.
+  - id: smoke_test_manual_unico
+    title: Smoke test manual feito apenas em browser do Eurico
+    detail: |
+      Validado para 1 utilizador real. Não testado para casos como: signup
+      com email já registado, password fraca a passar, recovery flow completo.
+      Quinn pode complementar com Playwright/manual.
+
+# ───────────────────────────────────────────────────────────────────────────
+not_in_scope_dependencias_externas_aceites:
+  - id: oauth_google_apple
+    detail: "PRD FR24 menciona social login. Story 1.5 só faz email+password. OAuth é Epic futuro."
+  - id: email_template_pt_pt
+    detail: "Email Supabase está em inglês default. Custom PT-PT requer integração Resend (Epic 6)."
+  - id: callback_handler_route
+    detail: |
+      Não foi criada /auth/callback/route.ts. Email confirmation Supabase processa
+      server-side (user fica confirmed na DB) e depois utilizador faz signin
+      normal. Funciona, mas se quisermos UX "click link -> entrou logo" é Epic 6.
+
+# ───────────────────────────────────────────────────────────────────────────
+next_action:
+  who: qa (Quinn)
+  command: "@qa *qa-gate 1.5"
+  expected_outcome: |
+    PASS / CONCERNS / FAIL / WAIVED no docs/qa/gates/1.5-qa-gate.md.
+    Se PASS: Eurico decide quando despachar @devops Gage para push (11 commits ahead).
+    Se CONCERNS: gerar lista de fixes mecânicos para @dev (ou Orion fazer manualmente
+    para poupar usage Anthropic).
+    Se FAIL: re-trabalho substancial, story volta a InProgress.
+
+# ───────────────────────────────────────────────────────────────────────────
+key_docs:
+  story: docs/stories/active/1.5.supabase-auth-rls-integration.md
+  runbook_supabase: docs/runbooks/supabase-auth-setup.md
+  architecture_auth: docs/architecture.md (§5.1, §5.2, §7.1, §7.2)
+  prd_relevante: docs/prd.md (FR24, FR25, NFR5, NFR8)
+  this_handoff: docs/handoffs/mj-handoff-story-1.5-ready-for-qa-20260506.yaml
+  parent_handoff_consumed: docs/handoffs/archive/mj-handoff-session-resume-after-1.5-mid-implementation-20260506.yaml
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Fim do handoff.
+# ═══════════════════════════════════════════════════════════════════════════

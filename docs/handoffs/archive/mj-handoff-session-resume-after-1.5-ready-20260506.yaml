@@ -13,8 +13,10 @@ handoff_id: mj-handoff-session-resume-after-1.5-ready-20260506
 from_agent: aiox-master (Orion)
 to_agent: any (aiox-master, dev, qa, devops, ou utilizador humano)
 created: 2026-05-06T01:40:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-06T03:30:00+01:00
+consumed_by: aiox-master (Orion) — sessão arrancou com este handoff, despachou Dex (Story 1.5) + Morgan (Epic 2) + Alex (Trademark) + Uma (Marketing). Sessão terminada por usage limit; sucessor é mj-handoff-session-resume-after-1.5-mid-implementation-20260506.
 priority: high
 project_prefix: mj
 project_codename: meu-jarvis
