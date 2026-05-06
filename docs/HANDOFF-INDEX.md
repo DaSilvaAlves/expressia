@@ -15,7 +15,7 @@
 
 | Created | ID | From → To | Story/Task | Notas |
 |---------|-----|-----------|------------|-------|
-| _(vazio)_ | — | — | — | Sem handoffs pendentes. |
+| 2026-05-06 | [mj-handoff-session-pause-after-1.5-done-20260506](handoffs/mj-handoff-session-pause-after-1.5-done-20260506.yaml) | aiox-master → any | **Pausa sessão pós Story 1.5 Done end-to-end + 3 commits locais não pushed** | Story 1.5 confirmada Done end-to-end (smoke browser real OK + CI 4x verde). 3 commits locais (`f8749f7` Epic 2 draft, `add0b35` landing draft, `<sha>` este handoff) — todos docs, sem código. **Playbook próxima sessão (~3 min):** P1 consumir este handoff + P2 `@devops *push` dos 3 commits + P3 Eurico decide foco entre A (Story 1.6 canary), B (1.7 Observability — bloqueado por B3+B4 humano), C (validar Epic 2 §8 com Morgan), D (implementar landing v0.1). Decisões product-level pendentes: D1 Epic 2 scope, D2 landing queue, D3 trademark adiar, D4 B3+B4 contas EU. |
 
 ---
 
@@ -47,4 +47,4 @@
 
 ---
 
-*Última actualização: 2026-05-06 18:47 (handoff `mj-handoff-1.5-runtime-bug-local-dev-server` consumido + arquivado por Orion. Playbook 4-passos executado integralmente: dev server fresco, smoke browser Eurico OK, push f2e4022 com CI verde, INDEX update. **Estado real: `main` igual a `origin/main`, working tree limpo excepto modificações deste consume e dirs untracked `docs/epics/` + `docs/marketing/`. Story 1.5 confirmada Done end-to-end.** Sem handoffs pendentes).*
+*Última actualização: 2026-05-06 18:55 (sessão pausa após Story 1.5 Done end-to-end. 17 commits pushed nesta sessão + 4 CI runs verdes. 3 commits locais não pushed: `f8749f7` Epic 2 + `add0b35` landing + commit deste handoff — todos docs. Novo handoff `mj-handoff-session-pause-after-1.5-done` com playbook ~3 min para próxima sessão. **Estado real: `main` 3 ahead de `origin/main`, working tree limpo, dev server `bavhasjps` ainda a correr em :3000.** Decisões product-level pendentes: D1 Epic 2 scope, D2 landing queue, D3 trademark adiar, D4 B3+B4 contas EU para Story 1.7).*

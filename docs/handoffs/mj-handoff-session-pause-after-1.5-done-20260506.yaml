@@ -1,0 +1,209 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Pausa de sessão após Story 1.5 Done end-to-end
+# ═══════════════════════════════════════════════════════════════════════════
+# Propósito: Sessão 2026-05-06 (~6h, das 02:00 às 19:00) terminou com
+# Story 1.5 confirmada Done end-to-end (CI verde + smoke browser real).
+# Eurico em fadiga — pediu commits + handoff para outra sessão. 3 commits
+# locais não pushed. Decisões de produto pendentes (Epic 2, landing, 1.6 vs 1.7).
+
+handoff_id: mj-handoff-session-pause-after-1.5-done-20260506
+from_agent: aiox-master (Orion)
+to_agent: any (Orion próxima sessão)
+created: 2026-05-06T18:55:00+01:00
+status: pending
+consumed: false
+priority: medium
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR (60 segundos)
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Story 1.5 (Supabase Auth + RLS) confirmada Done end-to-end. Bug runtime
+  do dev server resolvido (rm .next + dev server fresco), smoke browser
+  passou, 2 pushes verdes (f2e4022 + 0adf892, runs 25451514752 +
+  25452272016). 3 commits locais não pushed: f8749f7 (Epic 2 draft),
+  add0b35 (landing draft), + commit deste handoff. Sem urgência —
+  todos docs, sem código.
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🎯 NEXT_SESSION_PLAYBOOK — copy/paste, ~2 min só para sincronizar git
+# ───────────────────────────────────────────────────────────────────────────
+next_session_playbook:
+  precondicao: |
+    git status deve mostrar:
+      - branch main, ahead de origin/main (3 commits: f8749f7, add0b35,
+        e o commit deste handoff)
+      - working tree limpo
+
+  passo_1_consumir_este_handoff:
+    quem: aiox-master (Orion) na sessão nova
+    duracao: ~10s
+    accao: |
+      1. Editar este YAML: status: consumed, consumed: true,
+         consumed_at: <ISO-8601>, consumed_by: aiox-master
+      2. Mover docs/handoffs/mj-handoff-session-pause-after-1.5-done-20260506.yaml
+         → docs/handoffs/archive/
+      3. Actualizar docs/HANDOFF-INDEX.md: remover de Pending,
+         adicionar em Archived
+
+  passo_2_push_commits_pendentes:
+    quem: '@devops (Gage) — push EXCLUSIVO'
+    duracao: ~30s + ~2min CI
+    comando_orion: '@devops *push'
+    o_que_faz: |
+      Push de 3 commits para origin/main:
+        - f8749f7 docs(epics): Epic 2 draft Cérebro AI
+        - add0b35 docs(marketing): landing page draft v0.1
+        - <sha> docs(handoffs): consume + create session-pause
+      Risco: zero — todos docs, sem código.
+    confirmar: gh run list --limit 1 → conclusion=success
+
+  passo_3_decidir_proximo_foco:
+    quem: Eurico decide; Orion apresenta opções
+    opcoes:
+      - id: A
+        label: "Story 1.6 — Canary endpoint (FR-canary, sem bloqueador externo)"
+        ready: true
+        next_command: '@sm *draft 1.6'
+      - id: B
+        label: "Desbloquear Story 1.7 — Sentry EU + Grafana EU"
+        blocker: 'B3 (Sentry org EU) + B4 (Grafana Cloud EU) — Eurico tem de criar contas'
+        next_command: 'Eurico cria Sentry EU + Grafana → @sm *draft 1.7'
+      - id: C
+        label: "Validar Epic 2 §8 com Morgan (planning only — não detalhar stories)"
+        next_command: '@pm *validate-epic 2'
+        nota: 'Não compromete implementação — só decisão de scope'
+      - id: D
+        label: "Implementar landing v0.1 em apps/web/src/app/(marketing)/page.tsx"
+        ready: true
+        next_command: '@sm *draft landing-mvp'
+        nota: 'Rota reservada na arquitectura §8.1; pode arrancar paralelo a 1.6'
+
+  total_estimado: passo 1+2 = ~3 min; passo 3 depende da escolha.
+
+# ───────────────────────────────────────────────────────────────────────────
+# ESTADO REAL (snapshot 2026-05-06T18:55)
+# ───────────────────────────────────────────────────────────────────────────
+current_state:
+  branch: main
+  remote_head: 0adf892
+  ahead_of_remote: 3
+  commits_pendentes_push:
+    - sha: f8749f7
+      message: "docs(epics): add Epic 2 draft — Cérebro AI Multi-Intent"
+      file: docs/epics/epic-2-cerebro-ai-multi-intent.md (250 linhas)
+      risco: nenhum — só docs
+    - sha: add0b35
+      message: "docs(marketing): add landing page Expressia draft v0.1"
+      file: docs/marketing/landing-page-expressia-draft.md (754 linhas)
+      risco: nenhum — só docs
+    - sha: '<será criado por este commit>'
+      message: "docs(handoffs): create session-pause handoff for next session"
+      risco: nenhum — só docs
+
+  ci_status_remote: 🟢 verde (último run 25452272016 — 1m51s)
+
+  story_1_5_status: Done end-to-end (formal + smoke browser real confirmado)
+  story_1_5_path: docs/stories/completed/1.5.supabase-auth-rls-integration.md
+
+  background_processes:
+    - id: bavhasjps
+      command: "pnpm --filter @meu-jarvis/web dev"
+      porta: 3000
+      status: a correr (dev server fresco arrancado às 18:31)
+      nota: "Eurico pode matar com Stop-Process node se já não precisa"
+
+# ───────────────────────────────────────────────────────────────────────────
+# DECISÕES PRODUCT-LEVEL PENDENTES
+# ───────────────────────────────────────────────────────────────────────────
+decisions_pending:
+  - id: D1
+    titulo: "Validar Epic 2 §8 (Cérebro AI) — scope final antes de detalhar stories"
+    owner: Eurico (com Morgan @pm)
+    bloqueia: Detalhamento de stories Epic 2
+    nao_bloqueia: Epic 1 finalização (1.6, 1.7)
+
+  - id: D2
+    titulo: "Landing v0.1 — implementar agora ou queue?"
+    owner: Eurico
+    contexto: "Draft 754 linhas pronto. Rota apps/web/src/app/(marketing)/page.tsx reservada."
+    opcao_paralela: "Pode arrancar paralelo a 1.6 (canary) — não bloqueia"
+
+  - id: D3
+    titulo: "Trademark Expressia — research Alex (sessão anterior) custou €270+ sem produto público"
+    owner: Eurico
+    accao_sugerida: "Adiar trademark até landing live + tracção mínima"
+    nota: "Sessão anterior 02:00–03:30 fez scope creep — Orion empurrou trademark sem GO"
+
+  - id: D4
+    titulo: "B3 (Sentry org EU) + B4 (Grafana Cloud EU) — bloqueadores Story 1.7"
+    owner: Eurico
+    accao_humana: "Criar Sentry org EU (sentry.io/signup, region EU) + Grafana Cloud EU"
+    duracao_humana: "~10 min cada (com email + verify)"
+    desbloqueia: Story 1.7 (Observability)
+
+# ───────────────────────────────────────────────────────────────────────────
+# RESUMO DA SESSÃO 2026-05-06 (visão completa)
+# ───────────────────────────────────────────────────────────────────────────
+session_recap:
+  duracao: ~6h (com pausas)
+  fases:
+    - "02:00–03:30: Orion despacha 4 agentes paralelos (Dex/Morgan/Alex/Uma) — scope creep"
+    - "04:00–04:30: Orion finaliza Story 1.5 mid-implementation com Eurico"
+    - "16:30–17:30: Pivot — Eurico chama atenção, Orion corta ruído, foca produto"
+    - "17:30: Quinn @qa gate CONCERNS → fix → re-gate PASS → Gage push verde"
+    - "17:50: Eurico testa browser → Runtime Error descoberto (cache stale dev server)"
+    - "18:30: Playbook executado — rm .next, smoke OK, 2 pushes verdes"
+    - "18:55: Sessão pausa — commits Epic 2 + landing + este handoff"
+
+  metrics:
+    commits_criados_sessao: 11
+    commits_pushed_sessao: 17 (incluindo prévios)
+    ci_runs_verdes: 4 (25448067744, 25448603601, 25451514752, 25452272016)
+    handoffs_consumidos: 1 (mj-handoff-1.5-runtime-bug-local-dev-server)
+    story_status_final: Story 1.5 Done end-to-end
+
+  golden_rules_reaffirmadas:
+    - "Smoke browser real obrigatório antes de fechar story UI"
+    - "Sessões longas: reiniciar dev server periodicamente"
+    - "Eurico tem direito de questionar scope creep"
+    - "Push é EXCLUSIVO @devops — Orion delega sempre"
+
+# ───────────────────────────────────────────────────────────────────────────
+# DOCS ESSENCIAIS
+# ───────────────────────────────────────────────────────────────────────────
+key_docs:
+  CLAUDE_md_project: C:/Users/XPS/Documents/meu-jarvis/CLAUDE.md
+  CLAUDE_md_global: C:/Users/XPS/.claude/CLAUDE.md
+  story_1_5: docs/stories/completed/1.5.supabase-auth-rls-integration.md
+  qa_gate: docs/qa/gates/1.5-qa-gate.md
+  handoff_index: docs/HANDOFF-INDEX.md
+  this_handoff: docs/handoffs/mj-handoff-session-pause-after-1.5-done-20260506.yaml
+  previous_handoff: docs/handoffs/archive/mj-handoff-1.5-runtime-bug-local-dev-server-20260506.yaml
+  epic_2_draft: docs/epics/epic-2-cerebro-ai-multi-intent.md
+  landing_draft: docs/marketing/landing-page-expressia-draft.md
+
+# ───────────────────────────────────────────────────────────────────────────
+# PRÓXIMO PASSO ÚNICO E CLARO
+# ───────────────────────────────────────────────────────────────────────────
+next_action:
+  primary: |
+    Sessão nova com @aiox-master:
+    1. Consumir este handoff (passo 1 do playbook acima)
+    2. Despachar @devops *push dos 3 commits locais (passo 2)
+    3. Apresentar Eurico opções A/B/C/D do passo 3 e aguardar decisão
+
+  estimated_duration: "~3 min até decisão Eurico"
+
+  expected_outcome: |
+    main sincronizado com origin/main, INDEX limpo (este handoff em archive),
+    Eurico decide foco (Story 1.6 / 1.7 / Epic 2 / landing) e arrancamos
+    o agente apropriado.
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Fim do handoff. Sessão pausa aqui.
+# ═══════════════════════════════════════════════════════════════════════════
