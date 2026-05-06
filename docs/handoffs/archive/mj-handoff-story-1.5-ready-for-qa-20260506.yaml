@@ -6,8 +6,10 @@ handoff_id: mj-handoff-story-1.5-ready-for-qa-20260506
 from_agent: aiox-master (Orion — finalizou implementação Story 1.5 manualmente)
 to_agent: qa (Quinn)
 created: 2026-05-06T04:30:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-06T17:00:00+01:00
+consumed_by: qa (Quinn) — gate PASS após fix mecânico Orion (re-gate 17:30)
 priority: medium
 project_prefix: mj
 
