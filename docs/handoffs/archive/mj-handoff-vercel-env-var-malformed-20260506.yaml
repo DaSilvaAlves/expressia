@@ -10,8 +10,17 @@ handoff_id: mj-handoff-vercel-env-var-malformed-20260506
 from_agent: dev (Dex)
 to_agent: any (Eurico → @devops Gage → @dev Dex)
 created: 2026-05-06T22:55:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-06T23:30:00+01:00
+consumed_by: aiox-master (Orion)
+consumed_outcome: |
+  Eurico corrigiu env vars na Vercel UI (Passo 1 do playbook) E desactivou
+  Vercel Authentication ("Require Log In" toggle OFF) — segunda camada que
+  não estava no playbook original mas foi descoberta após o middleware
+  começar a executar. Production validada 200 OK em janela anónima
+  2026-05-06 ~23:15. Story 1.6 fechada Done (Reduced Scope). 4 commits
+  pushed a origin/main: c7901a7 → 4c45068 → 41b0c79 → c48d18e.
 priority: high
 project_prefix: mj
 project_codename: meu-jarvis

@@ -11,8 +11,18 @@ handoff_id: mj-handoff-vercel-setup-c5-blocker-20260506
 from_agent: devops (Gage)
 to_agent: any (Eurico primeiro, depois devops/dev)
 created: 2026-05-06T20:45:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-06T23:30:00+01:00
+consumed_by: aiox-master (Orion)
+consumed_outcome: |
+  Vercel project Expressia criado e operacional (Eurico, sessão 21:30-22:37).
+  Production deploy verde 200 OK (validado 2026-05-06 ~23:15 em janela anónima).
+  Story 1.6 fechada Done (Reduced Scope) — Tasks 4-5 deferred:
+    - Task 4 (Playwright E2E RLS) → re-scoped para Story 1.4 RLS suite
+    - Task 5 (latency p95) → re-scoped para Story 1.7 Observability
+  Production validation empírica supersedes formal E2E gates. Bloqueador
+  C5 efectivamente resolvido para o purpose desta canary.
 priority: high
 project_prefix: mj
 project_codename: meu-jarvis

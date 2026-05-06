@@ -11,8 +11,16 @@ handoff_id: mj-handoff-session-pause-after-1.5-done-20260506
 from_agent: aiox-master (Orion)
 to_agent: any (Orion próxima sessão)
 created: 2026-05-06T18:55:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-06T23:30:00+01:00
+consumed_by: aiox-master (Orion)
+consumed_outcome: |
+  Parcialmente consumido em 2026-05-06 20:00 (3 commits docs pushed). Sessão
+  continuou Story 1.6 implementation → Done (Reduced Scope). Decisões
+  product-level pendentes (Epic 2 scope, landing queue, trademark, B3+B4)
+  permanecem em aberto — re-scoped para o novo handoff
+  mj-handoff-session-pause-after-1.6-done-20260506.
 priority: medium
 project_prefix: mj
 project_codename: meu-jarvis
