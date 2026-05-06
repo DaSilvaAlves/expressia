@@ -222,40 +222,56 @@ export async function seedTwoHouseholds(): Promise<TwoHouseholdsSeed> {
     email: `userb-${Date.now()}@meu-jarvis.test`,
   };
 
-  // 1. Inserir users em auth.users (FKs do schema referenciam isto).
-  await adminSql`
-    insert into auth.users (id, email)
-    values
-      (${userA.id}, ${userA.email}),
-      (${userB.id}, ${userB.email})
-  `;
+  // Story 1.5 (migration 0003) introduziu trigger `on_auth_user_created` em
+  // auth.users que cria automaticamente household + membership + subscription
+  // + audit_log para cada novo utilizador. Os testes de RLS pré-existentes
+  // assumem controlo total sobre quantos households/subscriptions existem,
+  // logo desactivamos o trigger durante o seed e re-ligamos no fim.
+  // Sem isto, cada `seedTwoHouseholds()` cria 4 households (2 manuais + 2 do
+  // trigger) e quebra todas as asserções de toHaveLength(1).
+  await adminSql.unsafe(`alter table auth.users disable trigger on_auth_user_created`);
 
-  // 2. Criar households com cada user como owner.
-  const householdA: TestHousehold = {
-    id: randomUUID(),
-    name: 'Casa A',
-  };
-  const householdB: TestHousehold = {
-    id: randomUUID(),
-    name: 'Casa B',
-  };
+  try {
+    // 1. Inserir users em auth.users (FKs do schema referenciam isto).
+    await adminSql`
+      insert into auth.users (id, email)
+      values
+        (${userA.id}, ${userA.email}),
+        (${userB.id}, ${userB.email})
+    `;
 
-  await adminSql`
-    insert into public.households (id, name, owner_user_id, plan)
-    values
-      (${householdA.id}, ${householdA.name}, ${userA.id}, 'familia'),
-      (${householdB.id}, ${householdB.name}, ${userB.id}, 'familia')
-  `;
+    // 2. Criar households com cada user como owner.
+    const householdA: TestHousehold = {
+      id: randomUUID(),
+      name: 'Casa A',
+    };
+    const householdB: TestHousehold = {
+      id: randomUUID(),
+      name: 'Casa B',
+    };
 
-  // 3. Membership: cada user é owner do seu household.
-  await adminSql`
-    insert into public.household_members (household_id, user_id, role)
-    values
-      (${householdA.id}, ${userA.id}, 'owner'),
-      (${householdB.id}, ${userB.id}, 'owner')
-  `;
+    await adminSql`
+      insert into public.households (id, name, owner_user_id, plan)
+      values
+        (${householdA.id}, ${householdA.name}, ${userA.id}, 'familia'),
+        (${householdB.id}, ${householdB.name}, ${userB.id}, 'familia')
+    `;
 
-  return { householdA, householdB, userA, userB };
+    // 3. Membership: cada user é owner do seu household.
+    await adminSql`
+      insert into public.household_members (household_id, user_id, role)
+      values
+        (${householdA.id}, ${userA.id}, 'owner'),
+        (${householdB.id}, ${userB.id}, 'owner')
+    `;
+
+    return { householdA, householdB, userA, userB };
+  } finally {
+    // Re-activar o trigger — testes de Story 1.5 (handle-new-user.trigger.test.ts)
+    // dependem dele estar ligado. `try/finally` garante que mesmo um erro no seed
+    // não deixa o trigger desligado para os testes seguintes.
+    await adminSql.unsafe(`alter table auth.users enable trigger on_auth_user_created`);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
