@@ -12,8 +12,38 @@ handoff_id: mj-handoff-vercel-middleware-crash-20260506
 from_agent: dev (Dex)
 to_agent: any (dev/devops, com cabeça fresca)
 created: 2026-05-06T22:37:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-06T22:55:00+01:00
+consumed_by: dev (Dex)
+consumed_outcome: |
+  Passo 1 (runtime logs) executado e decisivo. Vercel CLI revelou causa real:
+  `[Error: Invalid supabaseUrl: Provided URL is malformed.]` — emitido por
+  @supabase/ssr `createServerClient` em apps/web/src/middleware.ts:29.
+  H1 (env var values com aspas/whitespace) CONFIRMADA. H2/H3/H4 descartadas.
+  Comando que entregou diagnóstico:
+    vercel logs https://expressia-black.vercel.app --no-follow --since 30m \
+      --source edge-middleware --expand \
+      --project expressia --scope euricojsalves-4744s-projects
+
+  Fix requer **Eurico** editar Vercel UI (Settings → Environment Variables →
+  ⋯ Edit em NEXT_PUBLIC_SUPABASE_URL → confirmar valor sem aspas/whitespace/
+  newlines, depois trigger redeploy). Não é fix de codebase.
+
+  Cleanup paralelo: commit local `c7901a7` adiciona SUPABASE_SERVICE_ROLE_KEY
+  a turbo.json `tasks.build.env` (resolve warning do build, alinhado com
+  Passo 2 do playbook — mas NÃO é a causa do crash).
+
+  Estado git ao consumir: branch main 3 ahead de origin/main
+  (64ae35d feat(api), dcf0ef0 + 3991453 docs(handoffs), c7901a7 chore(turbo)).
+
+  Próximo accionável (escala para Eurico, depois Gage):
+  1. Eurico edita NEXT_PUBLIC_SUPABASE_URL na Vercel UI (~2 min)
+  2. Eurico verifica também as outras 4 env vars não têm aspas/whitespace
+  3. Vercel auto-redeploy ou trigger manual sem cache
+  4. curl https://expressia-black.vercel.app — esperar 200/redirect (não 500)
+  5. @devops *push (3 commits locais)
+  6. @dev retoma Story 1.6 Tasks 4-5
 priority: high
 project_prefix: mj
 project_codename: meu-jarvis

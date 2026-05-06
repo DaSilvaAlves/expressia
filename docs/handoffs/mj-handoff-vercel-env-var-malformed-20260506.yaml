@@ -1,0 +1,139 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Vercel env var corrompida (Story 1.6 unblock)
+# ═══════════════════════════════════════════════════════════════════════════
+# Sucessor de mj-handoff-vercel-middleware-crash-20260506.
+# Investigação fechada. Causa real isolada. Fix requer mãos do Eurico
+# na Vercel UI (não é trabalho de codebase).
+
+handoff_id: mj-handoff-vercel-env-var-malformed-20260506
+from_agent: dev (Dex)
+to_agent: any (Eurico → @devops Gage → @dev Dex)
+created: 2026-05-06T22:55:00+01:00
+status: pending
+consumed: false
+priority: high
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Sessão 22:37–22:55 executou Passo 1 do playbook anterior. Vercel CLI
+  (`vercel logs --source edge-middleware`) revelou stack trace exacto:
+  `[Error: Invalid supabaseUrl: Provided URL is malformed.]`
+  Causa: pelo menos 1 das 5 env vars Supabase em Vercel UI tem aspas
+  literais, whitespace, ou newline embebido. @supabase/ssr `createServerClient`
+  valida a URL e rejeita. Fix é manual Eurico (~3 min). Não é trabalho de
+  codebase. Cleanup paralelo já feito: commit local c7901a7 adiciona
+  SUPABASE_SERVICE_ROLE_KEY a turbo.json.
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🔴 CAUSA EXACTA (evidence)
+# ───────────────────────────────────────────────────────────────────────────
+causa:
+  comando_diagnostico: |
+    vercel logs https://expressia-black.vercel.app --no-follow --since 30m \
+      --source edge-middleware --expand \
+      --project expressia --scope euricojsalves-4744s-projects
+  output_decisivo: |
+    TIME         HOST                        LEVEL
+    22:50:15.02  expressia-black.vercel.app  error  ε GET /
+    [Error: Invalid supabaseUrl: Provided URL is malformed.]
+  origem_codigo: |
+    apps/web/src/middleware.ts:29
+      createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,  // ← este valor é malformado
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        ...
+      )
+    @supabase/ssr valida a URL e lança Error em runtime → middleware crash → 500.
+  hipoteses_descartadas:
+    - 'H2 (turbo.json): build warnings não afectam middleware (só usa NEXT_PUBLIC_*). Cleanup feito mesmo assim.'
+    - 'H3 (Edge Runtime incompat): false — error message é validação de URL, não API incompat.'
+    - 'H4 (versão @supabase/ssr quebrada): false — error é input validation.'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🎯 PLAYBOOK PRÓXIMA SESSÃO
+# ───────────────────────────────────────────────────────────────────────────
+playbook:
+  passo_1_eurico_corrige_env_vars:
+    quem: Eurico (manual UI)
+    duracao: ~3 min
+    accao: |
+      1. Abrir https://vercel.com/euricojsalves-4744s-projects/expressia/settings/environment-variables
+      2. Para CADA uma das 5 env vars (NEXT_PUBLIC_SUPABASE_URL,
+         NEXT_PUBLIC_SUPABASE_ANON_KEY, DATABASE_URL, DATABASE_URL_DIRECT,
+         SUPABASE_SERVICE_ROLE_KEY):
+         a. Click ⋯ → Edit
+         b. VERIFICAR o início e o fim do valor:
+            - NÃO começa com aspa literal (")
+            - NÃO termina com aspa literal (")
+            - NÃO termina com espaço, tab ou newline
+         c. NEXT_PUBLIC_SUPABASE_URL deve começar com `https://` e
+            terminar com `.supabase.co` (sem trailing slash)
+         d. Se houver corrupção: clear field, copiar valor fresh do
+            `apps/web/.env.local` (ou pedir ao gestor de secrets) e colar.
+            Save.
+      3. Após editar, ir a Deployments → ⋯ no current deployment →
+         "Redeploy" → DESMARCAR "Use existing Build Cache" → Redeploy.
+      4. Esperar Build complete (~30s) + Deploy Ready.
+      5. Confirmar com curl:
+         curl -i https://expressia-black.vercel.app/
+         Esperado: 200 OK (landing) OU 307 redirect para /entrar.
+         NÃO 500.
+
+  passo_2_devops_push:
+    quem: '@devops Gage'
+    duracao: ~2 min
+    comando: '@devops *push'
+    pre_condicao: 'Passo 1 completo + curl OK'
+    accao: |
+      Push 4 commits locais para origin/main:
+        - 64ae35d feat(api): add /api/me canary endpoint with RLS-via-JWT [Story 1.6]
+        - dcf0ef0 docs(handoffs): coordinate Vercel setup for Story 1.6
+        - 3991453 docs(handoffs): document Vercel middleware crash investigation playbook
+        - c7901a7 chore(turbo): expor SUPABASE_SERVICE_ROLE_KEY no pipeline de build [Story 1.6]
+      CI corre quality + rls-gate + build. Vercel auto-redeploy em paralelo.
+
+  passo_3_dev_retoma_tasks_4_5:
+    quem: '@dev Dex'
+    duracao: ~30-60 min
+    comando: '@dev *develop docs/stories/active/1.6.canary-endpoint-me.md'
+    pre_condicao: 'Passo 2 completo + Vercel deploy verde'
+    accao: |
+      Tasks 4 (Playwright E2E RLS isolation) + 5 (latency p95 < 200ms).
+      Pré-requisitos: Gage configura 3 GitHub secrets primeiro (Eurico
+      partilha SUPABASE_SERVICE_ROLE_KEY → gh secret set).
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🔗 REFERÊNCIAS
+# ───────────────────────────────────────────────────────────────────────────
+referencias:
+  story: docs/stories/active/1.6.canary-endpoint-me.md
+  handoff_anterior_consumido: docs/handoffs/archive/mj-handoff-vercel-middleware-crash-20260506.yaml
+  middleware_codigo: apps/web/src/middleware.ts (linhas 29-31)
+  vercel_env_settings: https://vercel.com/euricojsalves-4744s-projects/expressia/settings/environment-variables
+  vercel_deployments: https://vercel.com/euricojsalves-4744s-projects/expressia/deployments
+  commit_cleanup_local: c7901a7
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📝 LIÇÕES (para gotchas.json futuro)
+# ───────────────────────────────────────────────────────────────────────────
+licoes:
+  - 'Quando MIDDLEWARE_INVOCATION_FAILED em Next.js 15 + Vercel, sempre comecar por `vercel logs --source edge-middleware --expand` para apanhar o stack trace runtime (NÃO build logs). O comando precisa de --project e --scope explícitos quando o repo não está linkado a um project local.'
+  - '@supabase/ssr `createServerClient` valida `supabaseUrl` em runtime e lança Error sincronamente — qualquer corrupção do valor (aspas, whitespace, newline) crasha o middleware antes de ele ter chance de fazer try/catch.'
+  - 'Vercel UI não normaliza valores ao guardar env vars. Copy/paste de `.env.local` que tenha aspas (formato dotenv) preserva-as como caracteres literais. Validação manual em Edit mode é a única forma de detectar.'
+  - 'turbo.json `tasks.build.env` deve listar TODAS as env vars usadas em build, mesmo as que apenas o middleware/runtime consomem — Vercel/Turborepo emite warning visível em build logs caso falte. Não é causa de crash mas é tech debt visível.'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📝 NOTAS PARA O CONSUMIDOR
+# ───────────────────────────────────────────────────────────────────────────
+notas_consumidor: |
+  Quando Eurico completar Passo 1 e o curl retornar não-500, marcar este
+  handoff consumed: true, mover para archive/, e actualizar o INDEX.
+
+  Este handoff substitui (mas não consome) `mj-handoff-vercel-setup-c5-blocker`.
+  Esse fica também pending até Tasks 4-5 fecharem completamente.
