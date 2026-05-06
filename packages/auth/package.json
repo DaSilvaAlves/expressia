@@ -1,0 +1,35 @@
+{
+  "name": "@meu-jarvis/auth",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cliente Supabase Auth (SSR + browser) para o meu-jarvis (Expressia). PT-PT, multi-tenant via household_id no JWT.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts",
+    "./browser": "./src/browser.ts"
+  },
+  "scripts": {
+    "lint": "echo \"@meu-jarvis/auth: lint herdado do typecheck — ver typecheck script\"",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"@meu-jarvis/auth: sem testes unitários — coberto por @meu-jarvis/db-test e e2e em apps/web\"",
+    "build": "echo \"@meu-jarvis/auth: package source-only (sem build step)\""
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "peerDependencies": {
+    "next": "^15.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "next": "^15.0.3",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

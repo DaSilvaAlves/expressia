@@ -9,8 +9,8 @@ const nextConfig: NextConfig = {
     // Ativar typedRoutes para type-safe href em <Link>.
     typedRoutes: true,
   },
-  // Permitir importar do workspace package @meu-jarvis/db sem transpile boilerplate.
-  transpilePackages: ['@meu-jarvis/db'],
+  // Permitir importar dos workspace packages sem transpile boilerplate.
+  transpilePackages: ['@meu-jarvis/db', '@meu-jarvis/auth'],
   // i18n PT-PT: desactivado o sistema legacy do Next; usaremos middleware/route segments quando aplicável.
 };
 
