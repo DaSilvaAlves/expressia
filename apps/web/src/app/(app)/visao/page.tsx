@@ -30,18 +30,29 @@ export default async function VisaoPage() {
     );
   }
 
-  // Extrair household_id da app_metadata / user_metadata. O custom_access_token_hook
-  // injecta-o nas claims do JWT — fica acessível via getUser() em
-  // user.user_metadata ou na decoded JWT. Para fins de smoke test, lemos
-  // directamente do session via getSession (não revalida, mas devolve o
-  // payload com claims).
+  // O custom_access_token_hook (migration 0002) injecta `household_id` directamente
+  // nos claims top-level do JWT — não em user_metadata/app_metadata. Para o ler,
+  // decodificamos o payload do access_token. Smoke test Story 1.5 AC3.
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  const householdId =
-    (session?.user.user_metadata?.['household_id'] as string | undefined) ??
-    (session?.user.app_metadata?.['household_id'] as string | undefined) ??
-    '(não disponível — verificar Auth Hook)';
+
+  let householdId = '(não disponível — hook não activo ou não retorna claim)';
+  if (session?.access_token) {
+    try {
+      const payload = session.access_token.split('.')[1];
+      if (payload) {
+        const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8')) as {
+          household_id?: string;
+        };
+        if (decoded.household_id) {
+          householdId = decoded.household_id;
+        }
+      }
+    } catch {
+      householdId = '(erro a decodificar JWT)';
+    }
+  }
 
   return (
     <div className="space-y-6">
