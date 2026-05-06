@@ -28,7 +28,13 @@
 import { afterAll, beforeEach, describe, expect, test } from 'vitest';
 
 import { admin, insertTask } from '@/helpers/fixtures';
-import { asUser, closeRlsHarness, resetData, seedTwoHouseholds } from '@/rls-harness';
+import {
+  asUser,
+  closeRlsHarness,
+  expectRlsBlocks,
+  resetData,
+  seedTwoHouseholds,
+} from '@/rls-harness';
 
 afterAll(async () => {
   await closeRlsHarness();
@@ -104,14 +110,18 @@ describe('JWT + RLS isolation — Story 1.5 AC6', () => {
     // userB tenta inserir uma task no householdA (cross-household). Mesmo
     // que `current_household_id()` esteja a A, o WITH CHECK usando
     // is_household_member(A) falha porque userB não é membro de A.
-    await asUser(userB.id, householdA.id, async (sql) => {
-      await expect(
-        sql`
-          insert into public.tasks (household_id, created_by_user_id, title)
-          values (${householdA.id}, ${userB.id}, 'Hijack attempt')
-        `,
-      ).rejects.toThrow(/row-level security|new row violates|permission denied/i);
+    //
+    // Nota: usamos `expectRlsBlocks` em vez de `expect().rejects.toThrow`
+    // dentro de `asUser` porque uma rejection dentro do callback aborta a
+    // transacção do harness antes de a assertion conseguir capturar.
+    // `expectRlsBlocks` apanha o erro pattern-matching no message.
+    const blocked = await expectRlsBlocks(userB.id, householdA.id, async (sql) => {
+      await sql`
+        insert into public.tasks (household_id, created_by_user_id, title)
+        values (${householdA.id}, ${userB.id}, 'Hijack attempt')
+      `;
     });
+    expect(blocked).toBe(true);
 
     // Confirmar que nada foi inserido em A.
     const tasksInA = await admin()<{ count: number }[]>`
