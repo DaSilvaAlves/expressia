@@ -72,3 +72,8 @@ Thumbs.db
 # Drizzle (local generated artifacts)
 # =====================================================================
 packages/db/drizzle.local.config.ts
+
+.vercel
+.env*.local
+
+.env.secrets
