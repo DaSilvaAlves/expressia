@@ -11,8 +11,10 @@ handoff_id: mj-handoff-session-pause-after-1.6-done-20260506
 from_agent: aiox-master (Orion)
 to_agent: any (Orion / @sm próxima sessão)
 created: 2026-05-06T23:30:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-07T00:00:00+01:00
+consumed_by: 'aiox-master (Orion) — sessão Eurico+Orion 2026-05-07 detectou que Story 1.4 estava factualmente Done desde 2026-05-05 (commits e4ebfeb feat + c4d6969 docs Done QA PASS 7/7); a Opção A do handoff (destravar Story 1.4) tornou-se obsoleta. Housekeeping executado: 1.4 active→completed/, _INDEX.md actualizado, órfão duplicate `mj-handoff-devops-blocker-no-remote-20260505.yaml` na raiz eliminado (já existia em archive/). Sucessor: `mj-handoff-session-state-post-housekeeping-20260507.yaml` com decisão real B/C/D pendente.'
 priority: medium
 project_prefix: mj
 project_codename: meu-jarvis
