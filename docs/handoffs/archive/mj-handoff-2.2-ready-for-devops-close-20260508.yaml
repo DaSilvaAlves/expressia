@@ -9,8 +9,10 @@ handoff_id: mj-handoff-2.2-ready-for-devops-close-20260508
 from_agent: architect (Aria)
 to_agent: devops (Gage)
 created: 2026-05-08T22:15:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-08T17:35:00+01:00
+consumed_by: devops (Gage)
 priority: medium
 project_prefix: mj
 project_codename: meu-jarvis
