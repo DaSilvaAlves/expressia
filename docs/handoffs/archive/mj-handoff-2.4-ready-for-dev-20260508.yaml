@@ -14,12 +14,57 @@ handoff:
   from_agent: "@aiox-po (Pax)"
   to_agent: "@aiox-dev (Dex)"
   created: "2026-05-08T21:00:00+01:00"
-  status: pending
+  status: consumed
+  consumed: true
+  consumed_at: "2026-05-09T01:00:00+01:00"
+  consumed_by: "@aiox-dev (Dex)"
   priority: medium
   project_prefix: mj-
   project_codename: meu-jarvis
   project_brand: Expressia (expressia.pt)
   predecessor: "mj-handoff-terminal-switch-2.4-pending-validation-20260508 (consumed por @po)"
+
+consumption_record:
+  actions_taken:
+    - "Lido core-config.yaml + handoff completo + story 2.4 Ready v1.1 + scaffold references (2.2, 2.3 packages)"
+    - "Pre-flight commit: 5 docs da sessão @po committed em b78529a (story v1.1, _INDEX, HANDOFF-INDEX, handoff terminal-switch archive move, novo handoff dev)"
+    - "Status story Ready → InProgress"
+    - "Task 1 — Scaffold package @meu-jarvis/classifier (package.json source-only, tsconfig extends base, vitest.config.ts globals node, transpilePackages + workspace dep em apps/web)"
+    - "Task 2 — schemas.ts: IntentSchema 8 valores + ClassifiedIntentSchema + ClassificationSchema (min(1) max(5)) + CLASSIFIER_MODEL satisfies LlmModel + CLASSIFIER_CONFIDENCE_THRESHOLD"
+    - "Task 6 — errors.ts (executada antes de Task 5 por dependência): ClassifierError abstract + 4 subclasses; userMessage PT-PT em todas; severity warn em Language; sanitizeHint reutilizado de @meu-jarvis/agent (D10)"
+    - "Task 3 — prompts/classifier-system.ts: CLASSIFIER_SYSTEM_PROMPT v1 com 5 few-shot examples PT-PT, instrução PT-PT-only, tabela 8 intents canónicos"
+    - "Task 4 — language-gate.ts: detectNonPtPt() com helper unicodeWordPattern() (lookbehind/lookahead Unicode-aware com flag iu) — 19 padrões PT-BR/EN/ES"
+    - "Task 7 — tracing.ts: withClassifierSpan + annotateClassifierMetrics + CLASSIFIER_SPAN_ATTRIBUTE_KEYS (12 keys whitelist; userId hashed)"
+    - "Task 5 — classifier.ts: Classifier class com classify() em 7 steps; retry 1× para ClassifierOutputError; mapOpenAIError envolve em ClassifierLLMError; payload OpenAI structured outputs com strict mode + zod-to-json-schema"
+    - "Task 8 — PII redaction integrada em errors.ts (sanitizeHint + assertions em errors.test.ts NIF/email/IBAN/telefone PT)"
+    - "Task 9 — Tests (78 entregues; target ≥35; 46 mapeados): __fixtures__/mock-openai-client.ts + 7 ficheiros __tests__/"
+    - "Task 10 — index.ts barrel + README.md package-level"
+    - "Task 11 — 5 quality gates exit 0 (typecheck FULL TURBO, lint FULL TURBO 0 warnings, test 78/78, check:rls 26/104 NFR5 preserved, build Next.js 9 routes)"
+    - "Modificações zero-risk a Story 2.2 (D9/D10): packages/agent/src/index.ts + packages/agent/src/errors.ts — re-exports OpenAIClientLike + sanitizeHint + mapOpenAIError. agent typecheck/test passa inalterado"
+    - "Story actualizada v1.2: tasks/subtasks marcadas [x], Dev Agent Record completo (Agent Model + Debug Log com 2 iterações + Completion Notes com decisões D9-D12 + File List 17 novos + 6 modificados), Change Log v1.2"
+    - "Status InProgress → Ready for Review"
+    - "Commit feat(classifier) adc57d7 (25 files / 2595 inserts / 83 deletes)"
+  outcome: |
+    Implementação 100% mockada entregue conforme story (NÃO bloqueada por
+    EB2). 78 tests pass (>>target 35). 5 quality gates verde. 4 AUTO-DECISIONS
+    documentadas. 2 minor issues durante o ciclo (typecheck cross-package +
+    regex Unicode boundary) resolvidos com pattern documentado. Pronto para
+    @architect quality gate.
+  metrics:
+    files_new: 17
+    files_modified: 6
+    test_count: 78
+    test_target_minimum: 35
+    test_target_mapped: 46
+    quality_gates_passed: 5
+    typecheck_strict: true
+    lint_warnings: 0
+    rls_state: "26 tabelas / 104 policies (NFR5 PRESERVADA — inalterado)"
+    auto_decisions_dev: 4
+    iterations_with_fixes: 2
+    coderabbit_executed: false
+    coderabbit_skip_reason: "Precedente 2.2/2.3 + @architect canonical gate; AUTO-DECISION D12"
+  successor_handoff: "mj-handoff-2.4-ready-for-architect-gate-20260508.yaml"
 
 # -----------------------------------------------------------------------------
 # 1. RESUMO PARA O @dev

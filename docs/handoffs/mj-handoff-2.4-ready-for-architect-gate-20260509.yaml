@@ -1,0 +1,269 @@
+# =============================================================================
+# HANDOFF — Story 2.4 Ready for Review (v1.2) → @architect *qa-gate 2.4
+# =============================================================================
+# CONTEXTO: @dev (Dex) executou *develop 2.4 em modo YOLO autónomo. Package
+# @meu-jarvis/classifier criado com 17 ficheiros novos, 78 testes (target ≥35),
+# 5 quality gates verde. 4 AUTO-DECISIONS @dev documentadas em Dev Agent Record.
+# Próximo passo: @architect quality gate (decisões arquitecturais críticas —
+# structured outputs strategy, language gate conservatism, defense-in-depth PII,
+# error taxonomy). Padrão de Stories 2.1, 2.2, 2.3.
+# =============================================================================
+
+handoff:
+  id: mj-handoff-2.4-ready-for-architect-gate-20260509
+  from_agent: "@aiox-dev (Dex)"
+  to_agent: "@aiox-architect (Aria)"
+  created: "2026-05-09T01:30:00+01:00"
+  status: pending
+  priority: medium
+  project_prefix: mj-
+  project_codename: meu-jarvis
+  project_brand: Expressia (expressia.pt)
+  predecessor: "mj-handoff-2.4-ready-for-dev-20260508 (consumed por @dev)"
+
+# -----------------------------------------------------------------------------
+# 1. RESUMO PARA O @architect
+# -----------------------------------------------------------------------------
+summary: |
+  Story 2.4 (Classifier PT-PT GPT-4o-mini) entregue v1.2 Ready for Review.
+  Package @meu-jarvis/classifier source-only criado com 13 ACs satisfeitos,
+  11/11 tasks + 43/43 subtasks marcadas, 78 testes Vitest (>>target 35) sem
+  chamadas reais OpenAI, 5 quality gates exit 0. 4 AUTO-DECISIONS @dev
+  documentadas. Modificações zero-risk a packages/agent (Story 2.2 — D9/D10).
+
+  Comando: @aiox-architect *qa-gate 2.4
+  Modo:   review profunda (padrão 2.1/2.2/2.3 — gate report ~750 linhas)
+  Commit a inspeccionar: adc57d7 (25 files / 2595 inserts / 83 deletes)
+  Commit precedente: b78529a (PO docs commit)
+
+# -----------------------------------------------------------------------------
+# 2. ESTADO DO PROJECTO
+# -----------------------------------------------------------------------------
+current_state:
+  branch: main
+  head_sha: adc57d7
+  ahead_of_origin: 2  # b78529a (PO docs) + adc57d7 (dev impl)
+  working_tree:
+    modified: ["docs/HANDOFF-INDEX.md (será actualizado por este consume)"]
+    new: ["docs/handoffs/mj-handoff-2.4-ready-for-architect-gate-20260509.yaml (este)"]
+    moved: ["docs/handoffs/mj-handoff-2.4-ready-for-dev-20260508.yaml → archive/"]
+  epic_2_progress: "3/11 Done + 1 Ready for Review (2.4) — após gate verde será 4/11"
+
+# -----------------------------------------------------------------------------
+# 3. ÁREAS-CHAVE PARA REVIEW @architect
+# -----------------------------------------------------------------------------
+review_focus_areas:
+
+  area_1_structured_outputs:
+    description: |
+      Validar que o payload OpenAI com `response_format: { type: 'json_schema',
+      json_schema: { strict: true, schema: zodToJsonSchema(...) } }` está
+      semanticamente correcto e robusto.
+    files: ["packages/classifier/src/classifier.ts:225-260"]
+    questions:
+      - "JSON Schema gerado por zod-to-json-schema é compatível com OpenAI strict mode?"
+      - "$refStrategy: 'none' é o trade-off correcto (vs preserving refs)?"
+      - "max_tokens: 256 é suficiente para 5 intents output?"
+
+  area_2_language_gate_conservatism:
+    description: |
+      Validar que a lista de 19 padrões PT-BR/EN/ES é suficientemente
+      conservadora — zero falsos positivos em PT-PT legítimo, falsos
+      negativos aceites (LLM decide).
+    files: ["packages/classifier/src/language-gate.ts:42-65"]
+    decision_to_review: "[AUTO-DECISION D3 do @sm — regex sem ML; D11 do @dev — Unicode-aware lookbehind/lookahead com flag iu]"
+    test_evidence: "12 frases PT-PT legítimas pass + 8 non-PT-PT fail + 4 edge cases (24 tests language-gate.test.ts)"
+    questions:
+      - "Faltam padrões obviamente non-PT-PT?"
+      - "Algum padrão tem risco de falso positivo PT-PT?"
+
+  area_3_defense_in_depth_pii:
+    description: |
+      Validar 3 camadas de defesa NFR12 — error messages, sanitizeHint,
+      OTel whitelist.
+    files:
+      - "packages/classifier/src/errors.ts (todas as 4 subclasses)"
+      - "packages/classifier/src/tracing.ts (whitelist 12 keys)"
+      - "packages/classifier/src/__tests__/errors.test.ts (10 testes PII assertions)"
+      - "packages/classifier/src/__tests__/tracing.test.ts (4 testes whitelist)"
+    questions:
+      - "Algum path em classifier.ts pode logar input.text sem o noticiar?"
+      - "trace_id é sempre seguro de logar (não é PII)?"
+      - "user_hash via hashForCorrelation é resistente a rainbow tables?"
+
+  area_4_error_taxonomy_completeness:
+    description: |
+      Validar a taxonomia 4-class:
+      - ClassifierValidationError (input rules — não retryable, error)
+      - ClassifierLanguageError (gate — não retryable, warn)
+      - ClassifierLLMError (wraps ProviderError — retryable=delegated)
+      - ClassifierOutputError (Zod validation — retryable=true, retry 1×)
+    decision_to_review: "[AUTO-DECISION D4 do @sm — sem ClassifierConfidenceError]"
+    questions:
+      - "Falta alguma categoria (ex: ClassifierTimeoutError separado)?"
+      - "ClassifierLanguageError severity warn é defensável?"
+      - "Retry 1× para Output é suficiente (vs 2× exponential)?"
+
+  area_5_d8_max_5_intents_guardrail:
+    description: |
+      [AUTO-DECISION D8 — adicionada por @po na validation]: max(5) intents é
+      guardrail anti-hallucination. Architecture.md:327 só impõe min(1).
+      PRD AC1 Epic 2 ilustra cenário com 2 intents. PRD não fixa máximo.
+    decision_to_review: "[AUTO-DECISION D8] manter / aumentar para max(10) / remover (só min(1))"
+    impact_of_alternatives:
+      - "Manter max(5): Story 2.4 stays as-is. Prudência intacta."
+      - "max(10): permitir prompts mais densos; risco de hallucination LLM gerar 8-9 intents fracas. Recalcular threshold needs_confirmation?"
+      - "Remover max: literal Architecture; risco max real — uma única misclassification do LLM gera resposta absurda."
+    recommendation_dev: "Manter max(5) — bom equilíbrio. Validável em telemetry pós-2.5 (Story 2.11)."
+
+  area_6_ac3_recalculation_in_classifier:
+    description: |
+      Decisão @dev: Classifier RECALCULA needs_confirmation e
+      overall_confidence a partir do array de intents (linha 311-323
+      classifier.ts via applyConfidenceDerivation). Protege contra LLM gerar
+      output com flags incoerentes (ex: confidence < 0.70 mas
+      needs_confirmation: false).
+    files: ["packages/classifier/src/classifier.ts:311-323"]
+    questions:
+      - "Esta recalculação é a estratégia certa, ou devíamos REJEITAR outputs incoerentes?"
+      - "Algum risco de divergência semântica vs o que o LLM 'queria' transmitir?"
+
+  area_7_d9_d10_zero_risk_exports:
+    description: |
+      Story 2.2 (Done) modificada para expor OpenAIClientLike + sanitizeHint
+      + mapOpenAIError. Modificações zero-comportamentais (apenas tornam
+      pública uma type/function já existentes).
+    files:
+      - "packages/agent/src/errors.ts (sanitizeHint export added)"
+      - "packages/agent/src/index.ts (3 re-exports added)"
+    verification: "pnpm --filter @meu-jarvis/agent typecheck + test passam inalterados"
+    questions:
+      - "Modificar uma story Done é aceitável neste escopo (zero comportamento)?"
+      - "Alternativa rejected: redefinir OpenAIClientLike localmente — viola AC7 da 2.4"
+
+  area_8_d11_sanity_check_strategy:
+    description: |
+      Article IV sanity-check via fs.readFile + regex sobre agent.ts (em vez
+      de import directo). Pattern análogo a Story 2.2 LLM_MODEL_VALUES_SANITY_CHECK
+      mas via I/O em vez de import.
+    files: ["packages/classifier/src/__tests__/schemas.test.ts:31-43"]
+    rationale_dev: "TS cross-package não resolve @/* aliases internos do @meu-jarvis/db."
+    questions:
+      - "I/O em test é aceitável? (alternativa: project references no tsconfig do db)"
+      - "Path absoluto frágil se monorepo muda (ver Directive em commit message)?"
+
+  area_9_d12_skip_coderabbit:
+    description: |
+      CodeRabbit skipped por [AUTO-DECISION D12]. Precedente: Stories 2.2/2.3
+      skipparam. Justificativa: 23 ficheiros (abaixo limite 150 mas adicional
+      10-15min); decisões arquitecturais ficam para este gate; 5 quality
+      gates já verde.
+    options_for_architect:
+      - "Aceitar skip (precedente 2.2/2.3)"
+      - "Pedir CodeRabbit pre-gate (cmd: wsl bash -c 'cd /mnt/c/.../meu-jarvis && ~/.local/bin/coderabbit --prompt-only -t uncommitted')"
+    questions:
+      - "Aceita o skip ou pede execução antes do gate?"
+
+# -----------------------------------------------------------------------------
+# 4. EVIDÊNCIA DE QUALIDADE — Quality Gates já verificados pelo @dev
+# -----------------------------------------------------------------------------
+quality_gates_evidence:
+  pre_gate_exit_0_all:
+    typecheck:
+      cmd: "pnpm typecheck"
+      result: "FULL TURBO (8 tasks cached) ✅"
+    lint:
+      cmd: "pnpm lint"
+      result: "FULL TURBO (8 tasks, 0 warnings ESLint) ✅"
+    test:
+      cmd: "pnpm test"
+      result: "FULL TURBO — classifier 78/78 + web 9/9 + restantes inalterados ✅"
+    rls_gate:
+      cmd: "pnpm check:rls"
+      result: "26 tabelas / 104 policies (NFR5 PRESERVADA inalterada — classifier não adiciona household_id) ✅"
+    build:
+      cmd: "pnpm build"
+      result: "Next.js 9 routes static + dynamic; classifier transpiled via transpilePackages; Sentry sourcemap upload OK ✅"
+
+  test_breakdown:
+    schemas: 11
+    language_gate: 24
+    errors: 10
+    prompts: 6
+    tracing: 4
+    classifier: 21
+    contract: 2
+    total: 78
+    target_minimum: 35
+    target_mapped: 46
+
+  files_changed:
+    new: 17  # packages/classifier/* (sem .turbo logs)
+    modified: 6  # apps/web/{next.config.ts,package.json}, packages/agent/{errors.ts,index.ts}, pnpm-lock.yaml, story.md
+
+# -----------------------------------------------------------------------------
+# 5. AC-BY-AC SELF-ASSESSMENT @dev
+# -----------------------------------------------------------------------------
+ac_self_assessment:
+  AC1_scaffold: "PASS — package.json + tsconfig + vitest.config + transpilePackages + workspace dep + estrutura directorias"
+  AC2_intent_schema: "PASS — IntentSchema com 8 valores + sanity-check D11 contra enum DB"
+  AC3_classification_schema: "PASS com [AUTO-DECISION D8] explícita — min(1) literal architecture, max(5) guardrail @po validated"
+  AC4_system_prompt: "PASS — v1 versionado, 5 few-shot, 8 intents listed, hash snapshot test"
+  AC5_classifier_model: "PASS — satisfies LlmModel compile-time"
+  AC6_language_gate: "PASS — Unicode-aware regex (D11 fix), 24 tests covering 12 PT-PT legítimo + 8 non-PT-PT + 4 edge cases"
+  AC7_classifier_class: "PASS — classify() injectável OpenAIClientLike, retry 1×, fluxo 7 steps"
+  AC8_error_taxonomy: "PASS — 4 subclasses + ClassifierError abstract, severity correcto"
+  AC9_otel_whitelist: "PASS — 12 keys, zero PII, userId hashed via hashForCorrelation"
+  AC10_pii_redaction: "PASS — sanitizeHint reused (D10), 10 testes assertions NIF/email/IBAN/telefone PT"
+  AC11_tests: "EXCEEDS — 78 vs target 35 (123% above; 70% above mapped 46)"
+  AC12_index_exports: "PASS — 21 named exports público + helpers internos NOT exportados"
+  AC13_readme: "PASS — README com posição pipeline, exports, 8 intents, exemplos uso, bumpar versão prompt, Constitution compliance"
+
+# -----------------------------------------------------------------------------
+# 6. POSSÍVEIS NITS / SUGESTÕES @dev (não-blocking)
+# -----------------------------------------------------------------------------
+non_blocking_observations:
+  - id: "NIT-001"
+    location: "classifier.ts:296"
+    description: |
+      `void trace` e `void z` no fim do ficheiro são side-effects para evitar
+      tree-shaking agressivo. Solução pragmática mas pode ser substituída por
+      configuração tsconfig (`importsNotUsedAsValues`) ou import direct usage.
+    impact: "Baixo (cosmetic)."
+
+  - id: "NIT-002"
+    location: "schemas.test.ts:33"
+    description: |
+      DB_AGENT_SCHEMA_PATH é path relativo via fileURLToPath. Se a estrutura
+      do monorepo mudar (e.g. `packages/db` → `packages/database`), o test
+      falhará com erro claro. Documentado em commit message como Directive.
+    impact: "Baixo (failure mode é limpo, não silent)."
+
+  - id: "NIT-003"
+    location: "language-gate.ts:42-65"
+    description: |
+      19 padrões cobrem PT-BR/EN/ES. Falta cobertura para FR/IT/DE/etc. — não
+      requerido pela story (PT-PT exclusivo) mas Story 2.5 Planner pode querer
+      uma camada adicional para idiomas não-Latinos.
+    impact: "Baixo (out of scope; defer to 2.5)."
+
+# -----------------------------------------------------------------------------
+# 7. CONSUMPTION PROTOCOL
+# -----------------------------------------------------------------------------
+consumption_instructions:
+  who_should_consume: "@aiox-architect (Aria) ao iniciar *qa-gate 2.4"
+  how_to_consume:
+    - "Ler este YAML completo + story 2.4 v1.2 Ready for Review + commit adc57d7 + 9 áreas review_focus_areas"
+    - "Executar gate: typecheck/lint/test/build/check:rls re-verification (FULL TURBO esperado por cache)"
+    - "Análise das 9 áreas + AC-by-AC + 4 AUTO-DECISIONS @dev (D9-D12)"
+    - "Considerar 3 nits non-blocking"
+    - "Decidir veredicto: APPROVED ≥9.0 / APPROVED WITH CONCERNS 8.0-8.9 / NEEDS WORK <8.0"
+    - "Gravar gate report em docs/qa/gates/2.4-architect-gate.md (~ pattern 2.1/2.2/2.3 ~750 linhas)"
+    - "Editar este YAML: status pending → consumed; consumption_record com gate verdict"
+    - "git mv archive/ + actualizar HANDOFF-INDEX"
+    - "Criar successor mj-handoff-2.4-ready-for-devops-close-20260509.yaml (architect → devops)"
+  successor_handoff_expected: "mj-handoff-2.4-ready-for-devops-close-20260509.yaml (architect→devops para *push)"
+
+# -----------------------------------------------------------------------------
+# FIM DO HANDOFF
+# -----------------------------------------------------------------------------
