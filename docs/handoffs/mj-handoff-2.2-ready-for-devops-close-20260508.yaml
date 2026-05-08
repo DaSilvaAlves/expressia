@@ -1,0 +1,120 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Story 2.2 Architect Gate APPROVED — `@devops *push`
+# Pipeline: Draft (Orion) → Ready (Pax GO 9.5/10) → Implementação (Dex)
+#           → Architect Gate APPROVED 9.4/10 (Aria) → Push (Gage) ← AQUI
+# ═══════════════════════════════════════════════════════════════════════════
+
+handoff_id: mj-handoff-2.2-ready-for-devops-close-20260508
+from_agent: architect (Aria)
+to_agent: devops (Gage)
+created: 2026-05-08T22:15:00+01:00
+status: pending
+consumed: false
+priority: medium
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Story 2.2 v1.3 architect gate APPROVED 9.4/10 HIGH confidence pelo Aria.
+  Branch main 2 commits ahead de origin/main (2c5fa52 draft + b0bf0fb impl).
+  Zero issues bloqueantes. 3 nits non-blocking registados para futuras stories
+  (2.3 Tool Registry, 2.5 Planner+Executor, 2.9 Cost Router) — não bloqueiam
+  push. Gates re-verificados independentemente no gate: typecheck 6/6, lint
+  6/6, test 6/6 (102 agent tests), check:rls 26/104 NFR5 preservada. Ready
+  for `@devops *push`.
+
+# ───────────────────────────────────────────────────────────────────────────
+# NEXT ACTION
+# ───────────────────────────────────────────────────────────────────────────
+next_action:
+  command: "@devops *push"
+  branch: main
+  commits_to_push:
+    - hash: "2c5fa52"
+      message: "feat(stories): draft Story 2.2 v1.0 packages/agent + provider abstraction [Story 2.2]"
+    - hash: "b0bf0fb"
+      message: "feat(agent): Story 2.2 packages/agent + provider abstraction [Story 2.2]"
+  expected_ci:
+    - "quality job: lint + typecheck + test (≤10min timeout)"
+    - "rls-gate job: db:migrate + check:rls com Postgres 16 ephemeral (≤8min)"
+    - "build job: pnpm build Next.js production (≤10min, needs quality)"
+  post_push_actions:
+    - "Após CI verde, mover docs/stories/active/2.2.agent-package-provider-abstraction.md → docs/stories/completed/"
+    - "Actualizar docs/stories/active/_INDEX.md (Story 2.2 Done)"
+    - "Marcar este handoff consumed=true + mover para archive/"
+    - "Actualizar docs/HANDOFF-INDEX.md (remover de pending, adicionar a archived)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# ARCHITECT GATE SUMMARY (referência rápida)
+# ───────────────────────────────────────────────────────────────────────────
+architect_gate:
+  verdict: APPROVED
+  score: 9.4
+  confidence: HIGH
+  gate_report: docs/qa/gates/2.2-architect-gate.md
+  reviewer: "Aria (@architect)"
+  review_date: 2026-05-08
+  story_version_reviewed: v1.2
+  blocking_issues: 0
+  non_blocking_issues:
+    - "[TEST-001-NB] cache_control no último tool sem test inspeccional → Story 2.3"
+    - "[ARCH-001-NB] ZodError vs ProviderError na fronteira de complete() não em JSDoc → Story 2.5"
+    - "[DOC-001-NB] Factory cache stale após mudança de flag não testado → Story 2.9"
+  score_breakdown:
+    decisions_d1_d10: 9.5  # peso 25%
+    article_iv_no_invention: 10.0  # peso 20%
+    pii_defense_in_depth: 10.0  # peso 15%
+    test_coverage: 9.5  # peso 15% (102 tests, 3.4× target ≥30)
+    nfr11_compliance_doc: 9.5  # peso 10%
+    nfr5_conservation_foundation: 10.0  # peso 10%
+    constitution_pt_pt: 9.0  # peso 5%
+
+# ───────────────────────────────────────────────────────────────────────────
+# GATES RE-VERIFICADOS NO ARCHITECT GATE (não apenas confiei no handoff)
+# ───────────────────────────────────────────────────────────────────────────
+gates_verified:
+  pnpm_typecheck: "exit 0 — 6/6 packages, 3.165s (5 cached + agent novo)"
+  pnpm_lint: "exit 0 — 6/6 packages com --max-warnings=0"
+  pnpm_test_agent: "exit 0 — 102 tests passing em 10 ficheiros, 2.70s"
+  pnpm_test_monorepo: "exit 0 — 6/6 packages via FULL TURBO cache"
+  pnpm_check_rls: "exit 0 — 26 tabelas / 104 policies (NFR5 inalterada)"
+  pnpm_build: "NÃO re-executado (handoff dev reporta 1m23s; código source-only sem changes a routes)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# REFERÊNCIAS
+# ───────────────────────────────────────────────────────────────────────────
+references:
+  predecessor_handoff: mj-handoff-2.2-ready-for-architect-gate-20260508 (consumed 2026-05-08 22:15)
+  story_file: docs/stories/active/2.2.agent-package-provider-abstraction.md (v1.3 Architect Gate APPROVED)
+  story_index: docs/stories/active/_INDEX.md
+  gate_report: docs/qa/gates/2.2-architect-gate.md
+  story_2_1_reference: docs/qa/gates/2.1-architect-gate.md (precedente: APPROVED 9.5/10 HIGH)
+
+# ───────────────────────────────────────────────────────────────────────────
+# PENDÊNCIAS EXTERNAS (não afectam push 2.2 — registadas para tracking Epic 2)
+# ───────────────────────────────────────────────────────────────────────────
+external_blockers_epic2:
+  EB1:
+    requisito: "ANTHROPIC_API_KEY tier Sonnet 4.5 com DPA UE + zero retention + no training"
+    estado: "Pendente — Eurico contacta Anthropic Sales (não-self-serve)"
+    afecta: "Story 2.5 (Planner+Executor real), Story 2.10 (benchmark com call real)"
+  EB2:
+    requisito: "OPENAI_API_KEY tier GPT-4o-mini com DPA UE"
+    estado: "Pendente — Eurico via OpenAI Enterprise"
+    afecta: "Story 2.4 (Classifier real), Story 2.10"
+  nota: "Story 2.2 é 100% mockable e foi assim implementada (102 tests com mocks Vitest). Push 2.2 NÃO está bloqueado por EB1/EB2."
+
+# ───────────────────────────────────────────────────────────────────────────
+# CONSUMPTION PROTOCOL
+# ───────────────────────────────────────────────────────────────────────────
+consumption_protocol:
+  - "Quem consome: @devops Gage ao executar `*push`"
+  - "Marca consumed: true + consumed_at + consumed_by após push + CI verde"
+  - "Move ficheiro de docs/handoffs/ → docs/handoffs/archive/ via `git mv`"
+  - "Actualiza docs/HANDOFF-INDEX.md (remove de Pending, adiciona a Archived)"
+  - "Move story para completed/ e actualiza _INDEX.md"
