@@ -1,0 +1,304 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Story 2.2 ready for @sm draft (BLOCKED on EB1 for @dev)
+# Pipeline: Story 2.1 Done ✅ → @sm *draft 2.2 → @po *validate → @dev *develop
+# ═══════════════════════════════════════════════════════════════════════════
+# Sucessor de `mj-handoff-2.1-ready-for-architect-gate-20260508` (consumed
+# 2026-05-08 17:30 com APPROVED 9.5/10 HIGH). Story 2.1 fechada Done v1.3,
+# movida para `docs/stories/completed/`, push final pelo @devops Gage.
+# Epic 2 entra na próxima story: 2.2 (`packages/agent/` + provider abstraction).
+
+handoff_id: mj-handoff-2.2-ready-for-sm-blocked-eb1-20260508
+from_agent: devops (Gage)
+to_agent: sm (River)
+created: 2026-05-08T18:30:00+01:00
+status: pending
+consumed: false
+priority: medium
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Story 2.1 (schema agent: auditoria + RLS coverage + immutability NFR9 + TTL)
+  fechada Done 2026-05-08 com @architect APPROVED 9.5/10 HIGH e push final pelo
+  @devops. Epic 2 está agora 1/11 stories Done. Próxima: Story 2.2 (`packages/agent/`
+  package + provider abstraction Anthropic Sonnet primary / OpenAI fallback).
+  River (@sm) deve arrancar `*draft 2.2` consumindo este handoff. Trabalho do
+  @sm é **PRD-driven e não bloqueado** por EB1 (ANTHROPIC_API_KEY). MAS @dev
+  fica bloqueado em `*develop 2.2` até key estar provisionada (Anthropic tier
+  Sonnet + DPA UE + zero retention/no training — não está em self-serve, Eurico
+  precisa pedir directamente à Anthropic Sales). Best case: key chega antes do
+  @sm draftar (zero blocker). Pior caso: @sm draft completo + @po valida +
+  story Ready, e @dev espera EB1 antes de implementar.
+
+# ───────────────────────────────────────────────────────────────────────────
+# NEXT ACTION
+# ───────────────────────────────────────────────────────────────────────────
+next_action:
+  command: "@sm *draft 2.2"
+  story_id: "2.2"
+  story_title: "Package packages/agent + provider abstraction"
+  expected_output:
+    - "docs/stories/active/2.2.agent-package-provider-abstraction.md (v1.0, Status Draft)"
+    - "Sucessor handoff `mj-handoff-story-2.2-ready-for-validation-20260508` (sm→po)"
+  inputs_needed:
+    - "PRD §6 Epic 2 (linhas 264-287) — Story 2.2 acceptance criteria"
+    - "docs/architecture.md §4 (Arquitectura do Cérebro AI) — pipeline 3 estágios + provider abstraction"
+    - "docs/epics/EPIC-2-EXECUTION.yaml — entry para Story 2.2 (scope_summary, dependencies, blocked_by_external)"
+    - "Story 2.1 Done — schema agent disponível (4 tabelas reais, migration 0005 com immutability + TTL)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# ESTADO DO EPIC 2 (snapshot pós Story 2.1 Done)
+# ───────────────────────────────────────────────────────────────────────────
+epic_state:
+  epic_id: 2
+  epic_title: "Cérebro AI Multi-Intent"
+  total_stories: 11
+  done: 1
+  ready: 0
+  draft: 0
+  backlog: 10
+  done_stories:
+    - story_id: "2.1"
+      title: "Schema agent: auditoria, RLS coverage e immutability NFR9"
+      verdict: "APPROVED 9.5/10 HIGH"
+      gate_report: "docs/qa/gates/2.1-architect-gate.md"
+      story_file: "docs/stories/completed/2.1.agent-schema-rls.md"
+      closed: "2026-05-08"
+  next_story:
+    story_id: "2.2"
+    title: "Package packages/agent + provider abstraction"
+    estimate: M
+    blockers:
+      - "EB1 ANTHROPIC_API_KEY (PENDING) — bloqueia @dev *develop"
+      - "EB2 OPENAI_API_KEY (PENDING) — bloqueia @dev *develop (fallback flag-gated)"
+    can_start_draft_without_keys: true
+  critical_path:
+    - "2.1 ✅ → 2.2 → 2.3 → 2.5 → 2.6 (endpoint /api/agent/prompt autenticado)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# STORY 2.2 — SCOPE SUMMARY (do EPIC-2-EXECUTION.yaml)
+# ───────────────────────────────────────────────────────────────────────────
+story_2_2_context:
+  scope_summary: >
+    Criar package `packages/agent/` com abstracção de providers LLM (Anthropic
+    Sonnet primary, OpenAI fallback flag-gated), incluindo: client wrapper
+    tipado com Zod, retry/backoff, error mapping, prompt cache (Anthropic),
+    cost router skeleton (a refinar em 2.9), tracing OTel (span por call),
+    PII redaction nos prompts antes de log/Sentry. NÃO inclui pipeline lógica
+    (Classifier/Planner/Executor — Stories 2.4 e 2.5).
+  prd_acceptance_criteria_target:
+    - "PRD AC1 (Cérebro processa prompt PT-PT) — provider abstraction é fundação"
+    - "PRD AC2 (multi-intent até 5) — não nesta story, mas prepara terreno"
+    - "NFR11 (Anthropic DPA UE + zero retention) — provider config respeita constraint"
+  architecture_reference:
+    - "docs/architecture.md §4.1-4.5 (3-stage pipeline overview)"
+    - "docs/architecture.md §4.6 (provider abstraction pattern)"
+    - "docs/architecture.md §4.7 (cost router + cache — skeleton agora, full em 2.9)"
+  schema_already_available:
+    note: "Story 2.1 entregou schema agent COMPLETO. Story 2.2 só CONSOME, não modifica."
+    tables:
+      - "agent_runs (audit imutável post-terminal — trigger 0005)"
+      - "intent_classifications (multi-intent metadata)"
+      - "agent_reverse_ops (undo TTL DEFAULT 30s)"
+      - "agent_quotas (rate limiting hooks)"
+    article_iv_naming_carry_over:
+      - "intent_classifications (NÃO `agent_intents`)"
+      - "agent_runs.tool_calls JSONB (NÃO tabela `agent_tool_calls`)"
+      - "agent_runs.intents_detected JSONB (multi-intent payload)"
+  enums_available_for_2_2:
+    - "agent_run_status: classifying, pending_preview, confirmed, executing, success, failed, reverted"
+    - "agent_intent: criar_tarefa, criar_financa_variavel, criar_financa_recorrente, criar_cartao, criar_parcelada, consultar_dados, cancelar_ultima, unknown"
+    - "llm_model: gpt-4o-mini, claude-sonnet-4-5, claude-opus-4-7"
+
+# ───────────────────────────────────────────────────────────────────────────
+# BLOQUEADOR EXTERNO EB1 — STATUS E ACÇÃO
+# ───────────────────────────────────────────────────────────────────────────
+external_blocker_eb1:
+  id: EB1
+  title: "ANTHROPIC_API_KEY tier Sonnet com DPA UE + zero retention/no training"
+  status: PENDING
+  blocking:
+    - "Story 2.2 @dev *develop (provider abstraction não pode ser testada end-to-end sem key)"
+    - "Story 2.5 @dev *develop (Planner+Executor Sonnet)"
+    - "Story 2.6 @dev *develop (endpoint /api/agent/prompt)"
+    - "Story 2.7 @dev *develop (preview-then-confirm)"
+    - "Story 2.10 @dev *develop (LLM benchmark suite)"
+  not_blocking:
+    - "Story 2.2 @sm *draft (PRD-driven)"
+    - "Story 2.2 @po *validate-story-draft (checklist contra spec)"
+    - "Stories 2.3 / 2.4 (esperam 2.2 Done OU EB2 OpenAI key — independentes de EB1)"
+  action_owner: Eurico
+  action_required: >
+    Pedir à Anthropic Sales (DPA UE NÃO está em self-serve — precisa de e-mail
+    directo à equipa enterprise/legal). Tier necessário: Sonnet 4.5 ou superior.
+    Constraints obrigatórios para NFR11:
+      1. Data Processing Addendum (DPA) com EU data residency
+      2. Zero retention (logs/conversations não armazenados pela Anthropic)
+      3. No training on inputs/outputs
+      4. SCC (Standard Contractual Clauses) para transfers UE→US se aplicável
+    Output esperado: chave `sk-ant-api03-...` mais documento DPA assinado.
+  storage_target:
+    - "GitHub Actions secret: `ANTHROPIC_API_KEY` em repo `DaSilvaAlves/expressia` (gh secret set)"
+    - "Vercel env vars: `ANTHROPIC_API_KEY` em production+preview encrypted"
+    - "Local dev `.env.local` em `apps/web/` (gitignored, não commitar)"
+  best_case_timeline: >
+    Eurico contacta Anthropic Sales hoje (2026-05-08) — DPA típico chega em
+    48-72h úteis. Best case key em runtime 2026-05-13. @sm pode arrancar draft
+    HOJE; quando @dev iniciar `*develop`, key já estará disponível.
+  worst_case_timeline: >
+    DPA negociation pode demorar 1-2 semanas se Anthropic Legal pedir review
+    do contracto. @sm + @po fecham story Ready em 1-2 dias; @dev fica em hold
+    até key chegar. NÃO blocker para roadmap se preparação @sm/@po anticipa.
+
+external_blocker_eb2:
+  id: EB2
+  title: "OPENAI_API_KEY tier GPT-4o-mini com DPA UE"
+  status: PENDING
+  affects_story_2_2: "Provider abstraction inclui OpenAI fallback flag-gated. Sem key, fallback path NÃO testável end-to-end."
+  workaround_for_2_2: >
+    Story 2.2 pode entregar provider abstraction com Anthropic happy-path + OpenAI
+    code-path mockado em testes (sem call real). Fallback E2E real fica para
+    Story 2.4 (Classifier GPT-4o-mini) onde EB2 é blocker absoluto.
+  action_owner: Eurico
+  action_required: >
+    OpenAI também requer DPA UE (a equipa enterprise responde). Self-serve
+    keys (`sk-...`) podem ser geradas mas SEM DPA não cumprem NFR11.
+
+# ───────────────────────────────────────────────────────────────────────────
+# CONTEXTO DA SESSÃO ANTERIOR (Story 2.1 close)
+# ───────────────────────────────────────────────────────────────────────────
+session_context:
+  story_2_1_close_summary:
+    architect_gate:
+      verdict: "APPROVED 9.5/10 HIGH"
+      gate_report: "docs/qa/gates/2.1-architect-gate.md"
+      consumed_at: "2026-05-08T17:30:00+01:00"
+    devops_close_summary: >
+      @devops Gage executou close final: (1) story status Ready for Review →
+      Done v1.3, (2) Change Log entry adicionada referenciando gate APPROVED,
+      (3) `git mv docs/stories/active/2.1.agent-schema-rls.md →
+      docs/stories/completed/` preservando history, (4) `_INDEX.md`
+      actualizado (Epic 2: 0/11 → 1/11 Done; Story 2.2 Backlog mantém-se mas
+      bloqueador EB1 destacado), (5) este handoff criado, (6) HANDOFF-INDEX
+      actualizado (2.1-architect-gate consumed/archived; 2.2 pending),
+      (7) commit `chore(stories)` + `git push origin main`. Vercel auto-deploy
+      triggered automaticamente (sem code changes — só docs, build re-runs em
+      cache).
+    git_state_pre_devops_close:
+      branch: main
+      ahead_of_origin: 2
+      commits:
+        - sha: "6b44a83"
+          subject: "feat(db): Story 2.1 schema agent immutability + reverse_ops TTL [Story 2.1]"
+          author: "@dev (Dex)"
+        - sha: "dd25afb"
+          subject: "docs(qa): architect gate Story 2.1 APPROVED 9.5/10 [Story 2.1]"
+          author: "@architect (Aria)"
+    git_state_post_devops_close:
+      branch: main
+      ahead_of_origin: 0
+      pushed_commits:
+        - "6b44a83 (feat schema agent immutability)"
+        - "dd25afb (docs architect gate)"
+        - "<NEW> chore(stories): close Story 2.1 Done + handoff Story 2.2 blocked on EB1 [Story 2.1]"
+
+# ───────────────────────────────────────────────────────────────────────────
+# PONTOS DE ATENÇÃO PARA @sm RIVER
+# ───────────────────────────────────────────────────────────────────────────
+sm_focus_points:
+  - title: "Article IV (No Invention) — usar nomes reais do schema"
+    detail: >
+      Schema agent já existe (Story 1.3 + 2.1). Quando @sm criar a story 2.2,
+      DEVE referenciar nomes reais: `agent_runs`, `intent_classifications`,
+      `agent_reverse_ops`, `agent_quotas`. NÃO inventar tabelas (não há
+      `agent_intents` nem `agent_tool_calls`). Os enums também são realidade
+      a respeitar. Validação cross-source: `packages/db/src/schema/agent.ts`,
+      `packages/db/migrations/0001_rls_policies.sql`, `0005_agent_immutability_and_ttl.sql`,
+      `docs/db-schema.md §4.4`.
+
+  - title: "Provider abstraction NÃO é pipeline"
+    detail: >
+      Story 2.2 entrega APENAS o package `packages/agent/` com client wrappers
+      tipados (Anthropic + OpenAI), retry/backoff, error mapping, prompt cache,
+      tracing OTel, PII redaction. **NÃO entrega**: classifier (Story 2.4),
+      planner+executor (Story 2.5), endpoint (Story 2.6), tool registry (Story 2.3).
+      @sm deve resistir a alargar scope.
+
+  - title: "Tracing OTel — reutilizar `@meu-jarvis/observability`"
+    detail: >
+      Story 1.7 entregou package `@meu-jarvis/observability` com logger Pino +
+      tracer OTel + Sentry wrapper. Story 2.2 deve consumir esse package, NÃO
+      duplicar instrumentação. Span por LLM call: `agent.provider.call`
+      attributes (model, prompt_tokens, completion_tokens, latency_ms,
+      provider, fallback_used).
+
+  - title: "PII redaction antes de Sentry/Grafana"
+    detail: >
+      Prompts PT-PT podem conter dados pessoais (nomes, IBANs, montantes).
+      Antes de log/Sentry capture, prompts/responses devem passar por
+      redactor. Story 1.7 já tem 3 camadas de redaction — reutilizar pattern.
+      `agent_runs.prompt` na DB também deve ser redacted (decisão arquitectural
+      do Story 2.6 — flagar para review).
+
+  - title: "Mock providers em testes"
+    detail: >
+      Story 2.2 testes Vitest devem usar Vitest mocks para Anthropic/OpenAI
+      SDKs — sem calls reais (caro e flaky). Smoke test E2E com call real
+      fica para Story 2.10 (benchmark suite). @sm deve mencionar este
+      pattern explicitamente nos testes acceptance criteria.
+
+  - title: "EB1 visibility na story"
+    detail: >
+      Bloco BLOQUEADORES EXTERNOS no header da story DEVE listar EB1
+      (ANTHROPIC_API_KEY) com nota "@dev *develop bloqueado até key em
+      runtime; @sm draft + @po validation NÃO bloqueados". Acompanhar pattern
+      da Story 1.7 v1.0 que tinha B3+B4 listados claramente.
+
+# ───────────────────────────────────────────────────────────────────────────
+# CRITICAL PATH EPIC 2 (após Story 2.1 Done)
+# ───────────────────────────────────────────────────────────────────────────
+critical_path:
+  diagram: |
+    Epic 1 (Done 7/7) → Story 2.1 Done ✅
+                          ↓
+                       Story 2.2 (BLOQUEADO EB1+EB2 para @dev) ← AQUI
+                          ↓
+              ┌─────────────────────────────┐
+              ↓                             ↓
+          Story 2.3 (Tool Registry)     Story 2.4 (Classifier — EB2)
+              ↓                             ↓
+              └─────────────────────────────┘
+                          ↓
+                       Story 2.5 (Planner+Executor — EB1)
+                          ↓
+                       Story 2.6 (Endpoint /api/agent/prompt — EB3 Upstash)
+
+  deferred_blockers:
+    - "EB3 Upstash Redis EU (Story 2.6+) — pode ser provisionado em paralelo agora"
+    - "EB4 Inngest function (Story 2.8) — pode ser provisionado em paralelo agora"
+
+# ───────────────────────────────────────────────────────────────────────────
+# REFERÊNCIAS
+# ───────────────────────────────────────────────────────────────────────────
+references:
+  predecessor_handoff:
+    - "mj-handoff-2.1-ready-for-architect-gate-20260508 (consumed 2026-05-08 17:30 — APPROVED 9.5/10)"
+  story_2_1_artifacts:
+    story_file: "docs/stories/completed/2.1.agent-schema-rls.md"
+    gate_report: "docs/qa/gates/2.1-architect-gate.md"
+    migration: "packages/db/migrations/0005_agent_immutability_and_ttl.sql"
+    schema_doc: "docs/db-schema.md §4.4"
+  epic_artifacts:
+    plan_doc: "docs/epics/epic-2-cerebro-ai-multi-intent.md (v0.1 — Bob/Morgan 2026-05-06)"
+    execution_yaml: "docs/epics/EPIC-2-EXECUTION.yaml"
+  prd_section: "docs/prd.md §6 Epic 2 (linhas 264-287)"
+  architecture_section: "docs/architecture.md §4 (Arquitectura do Cérebro AI, linhas 268-438)"
+  observability_package: "packages/observability/ (entregue em Story 1.7)"
+  precedent_handoffs_format:
+    - "mj-handoff-story-1.7-ready-for-dev-20260508 (po→dev, formato com BLOQUEADORES list)"
+    - "mj-handoff-epic2-kickoff-20260508 (pm→sm, formato kickoff)"
