@@ -99,6 +99,16 @@ grant usage on schema public to authenticated, anon;
 alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;
 alter default privileges in schema public grant usage on sequences to authenticated;
 alter default privileges in schema public grant execute on functions to authenticated;
+
+-- service_role precisa de privilégios completos para representar o servidor
+-- (Inngest jobs, Stripe webhooks, etc.). Em Supabase isto vem por default;
+-- replicamos aqui para que os testes possam validar fluxos como o setter de
+-- reverted_at via service_role no agent_runs (NFR9 / Story 2.1 AC6).
+-- O role já tem bypassrls (criado acima); aqui adicionamos as grants de table-level.
+grant usage on schema public to service_role;
+alter default privileges in schema public grant select, insert, update, delete on tables to service_role;
+alter default privileges in schema public grant usage on sequences to service_role;
+alter default privileges in schema public grant execute on functions to service_role;
 `;
 
 /**

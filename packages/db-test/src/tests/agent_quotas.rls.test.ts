@@ -49,4 +49,49 @@ describe('RLS isolation: agent_quotas', () => {
     });
     expect(blocked).toBe(true);
   });
+
+  // ───────────────────────────────────────────────────────────────────
+  // Story 2.1 AC7 — agent_quotas é write-only via service_role (NFR20)
+  // ───────────────────────────────────────────────────────────────────
+
+  test('UPDATE bloqueado para authenticated (race conditions — apenas service_role gere counters)', async () => {
+    const { householdA, userA } = await seedTwoHouseholds();
+    await insertAgentQuota(admin(), householdA.id);
+
+    // Policy `agent_quotas_update_blocked` (using=false with check=false).
+    // No UPDATE row é "found" + filtrado pelo USING → 0 rows afectadas.
+    await asUser(userA.id, householdA.id, async (sql) => {
+      const result = await sql`
+        update public.agent_quotas
+        set prompts_used = 9999
+        where household_id = ${householdA.id}
+      `;
+      expect(result.count).toBe(0);
+    });
+
+    // Confirma que o counter NÃO mudou (estado original = 0).
+    const rows = await admin()<{ prompts_used: number }[]>`
+      select prompts_used from public.agent_quotas where household_id = ${householdA.id}
+    `;
+    expect(rows[0]?.prompts_used).toBe(0);
+  });
+
+  test('DELETE bloqueado para authenticated', async () => {
+    const { householdA, userA } = await seedTwoHouseholds();
+    await insertAgentQuota(admin(), householdA.id);
+
+    // Policy `agent_quotas_delete_blocked` (using=false) → 0 rows afectadas.
+    await asUser(userA.id, householdA.id, async (sql) => {
+      const result = await sql`
+        delete from public.agent_quotas where household_id = ${householdA.id}
+      `;
+      expect(result.count).toBe(0);
+    });
+
+    // Confirma que a row continua presente.
+    const rows = await admin()<{ n: number }[]>`
+      select count(*)::int as n from public.agent_quotas where household_id = ${householdA.id}
+    `;
+    expect(rows[0]?.n).toBe(1);
+  });
 });

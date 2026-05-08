@@ -119,9 +119,26 @@ erDiagram
 
 | Tabela | FRs | Notas |
 |--------|-----|-------|
-| `agent_runs` | FR1-FR5 | Audit log imutável por run. Inclui `prompt_hash` (não texto claro — NFR12), latência, custo EUR, modelo usado. |
-| `intent_classifications` | FR1-FR2 | 1:N de `agent_runs`. Cada intent detectada com confidence + params + entity criada. |
-| `agent_reverse_ops` | FR6 | Undo declarativo: SQL de reversão com `valid_until` (30s window). |
+| `agent_runs` | FR1-FR5, NFR9 | Audit log imutável por run. Inclui `prompt_hash` (não texto claro — NFR12), `intents_detected` JSONB, `tool_calls` JSONB, latência, custo EUR, modelo usado. **Imutável após estado terminal** (success/reverted/failed) via trigger `trg_agent_runs_immutability` (migration 0005) — só `service_role` pode mutar para purge mensal e setter de `reverted_at`. |
+| `intent_classifications` | FR1-FR2 | 1:N de `agent_runs`. Cada intent detectada com confidence + params + entity criada. DELETE bloqueado para `authenticated`. |
+| `agent_reverse_ops` | FR6 | Undo declarativo: `reverse_op` JSONB tipado + `expires_at` NOT NULL com `DEFAULT now() + interval '30 seconds'` (migration 0005). Job Inngest diário limpa rows com `expires_at < now() - interval '1 hour'`. |
+| `agent_quotas` | NFR20 | Contadores rolling do mês corrente (prompts, tokens, custo €). PK = `household_id`. **Write-only via service_role** — INSERT/UPDATE/DELETE bloqueados a `authenticated` (race conditions). SELECT visível ao household para `/conta/plano`. |
+
+**Enums Postgres:**
+
+| Enum | Valores |
+|------|---------|
+| `agent_run_status` | `classifying`, `pending_preview`, `confirmed`, `executing`, `success`, `failed`, `reverted` |
+| `agent_intent` | `criar_tarefa`, `criar_financa_variavel`, `criar_financa_recorrente`, `criar_cartao`, `criar_parcelada`, `consultar_dados`, `cancelar_ultima`, `unknown` |
+| `llm_model` | `gpt-4o-mini`, `claude-sonnet-4-5`, `claude-opus-4-7` |
+
+**Invariantes críticas:**
+
+- `agent_runs.status` evolui: `classifying` → `pending_preview` (FR4 `confidence < 0.70`) → `confirmed` → `executing` → terminal (`success` | `failed` | `reverted`). UPDATE em row terminal **só via `service_role`** (NFR9).
+- `agent_runs.confidence` ∈ [0, 1] (CHECK constraint).
+- `agent_runs.language = 'pt-PT'` fixo (CHECK — CON3).
+- `agent_reverse_ops.expires_at = now() + interval '30 seconds'` por DEFAULT (FR6); janela de undo activa enquanto `expires_at > now() AND executed_at IS NULL`.
+- `agent_quotas` é **append-once** (INSERT pelo trigger de criação de household via service_role) e **update-only** via `service_role` (atomicidade dos contadores).
 
 ### 4.5 Tarefas (`schema/tasks.ts`)
 

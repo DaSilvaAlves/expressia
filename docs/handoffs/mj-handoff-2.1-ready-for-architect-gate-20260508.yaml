@@ -1,0 +1,271 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Story 2.1 Ready for Review: @dev (Dex) → @architect (Aria)
+# ═══════════════════════════════════════════════════════════════════════════
+# Pipeline: @sm *draft 2.1 ✅ → @po *validate-story-draft 2.1 ✅ →
+#           @dev *develop 2.1 ✅ → @architect *qa-gate 2.1 (PRÓXIMO)
+
+handoff_id: mj-handoff-2.1-ready-for-architect-gate-20260508
+from_agent: dev (Dex)
+to_agent: architect (Aria)
+created: 2026-05-08T16:30:00+01:00
+status: pending
+consumed: false
+priority: medium
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Story 2.1 (schema agent: auditoria + RLS coverage + immutability NFR9 + TTL)
+  implementada por @dev em duas sessões (segunda sessão fechou após stream
+  timeout da primeira, sem perda de trabalho). Migration `0005_agent_immutability_and_ttl.sql`
+  criada com (1) trigger BEFORE UPDATE em `agent_runs` que bloqueia mutação após
+  estado terminal (success/reverted/failed) APENAS para roles aplicacionais
+  (`authenticated`, `anon`) — service_role/postgres bypassam para Inngest purge
+  + DBA ops, e (2) DEFAULT `now() + interval '30 seconds'` em
+  `agent_reverse_ops.expires_at` (FR6 safety net). 8 testes novos cobrem
+  immutability terminal, fluxo normal pré-terminal permitido, service_role
+  bypass, DEFAULT TTL, NOT NULL. `docs/db-schema.md §4.4` actualizada (4 tabelas,
+  3 enums, invariantes). Bootstrap test harness ajustado para grants `service_role`
+  (paridade com Supabase produção). Todos os gates verdes. Story v1.2 Ready for
+  Review. Quality gate target: @architect (decisão arquitectural sobre semantics
+  do trigger).
+
+# ───────────────────────────────────────────────────────────────────────────
+# NEXT ACTION
+# ───────────────────────────────────────────────────────────────────────────
+next_action:
+  command: "@architect *qa-gate 2.1"
+  story_id: "2.1"
+  story_file: "docs/stories/active/2.1.agent-schema-rls.md"
+  story_version: "1.2"
+  story_status: "Ready for Review"
+  expected_verdict: "APPROVED | NEEDS_WORK | BLOCKED"
+  precedent: "Story 1.7 architect gate APPROVED 9.4/10 (gate report em docs/qa/gates/1.7-architect-gate.md)"
+  output_artifact: "docs/qa/gates/2.1-architect-gate.md"
+
+# ───────────────────────────────────────────────────────────────────────────
+# IMPLEMENTAÇÃO @dev — RESUMO EXECUTIVO
+# ───────────────────────────────────────────────────────────────────────────
+implementation_summary:
+  acs_covered: "10/10 (AC1-AC10)"
+  tasks_completed: "7/7 (Tasks 1-7 — todas com checkbox [x])"
+  estimate_actual: "M (alinhado com estimate inicial @sm)"
+  files_created:
+    - packages/db/migrations/0005_agent_immutability_and_ttl.sql
+  files_modified:
+    - packages/db-test/src/harness/bootstrap.ts        # service_role grants paridade Supabase
+    - packages/db-test/src/tests/agent_runs.rls.test.ts  # +4 tests immutability NFR9
+    - packages/db-test/src/tests/agent_quotas.rls.test.ts  # +2 tests UPDATE/DELETE blocked
+    - packages/db-test/src/tests/agent_reverse_ops.rls.test.ts  # +3 tests DEFAULT/TTL/NOT NULL
+    - docs/db-schema.md  # §4.4 actualizada (4 tabelas, enums, invariantes)
+    - docs/stories/active/2.1.agent-schema-rls.md  # checkboxes + Dev Agent Record + v1.2
+
+# ───────────────────────────────────────────────────────────────────────────
+# DECISÕES ARQUITECTURAIS PARA REVIEW
+# ───────────────────────────────────────────────────────────────────────────
+architectural_decisions:
+  - id: D1
+    title: "Trigger semantics — bloquear roles aplicacionais, não só service_role"
+    decision: >
+      A função `prevent_update_terminal_agent_runs()` bloqueia UPDATE quando
+      `current_user IN ('authenticated', 'anon')`. Tudo o resto (service_role,
+      postgres superuser, supabase_auth_admin) é PERMITIDO.
+    initial_design: "Bloquear todos excepto current_user = 'service_role'."
+    why_changed: >
+      O migration runner (`apply-migrations.ts`) conecta como `postgres` superuser.
+      Bloquear postgres partia migrations + DBA ops manuais (correcção de dados,
+      retention). A semântica correcta é "o utilizador final via JWT não pode
+      mutar audit log post-terminal", não "apenas Inngest pode".
+    tradeoffs:
+      - "PRO: migrations + DBA ops + Inngest purge funcionam sem rituais"
+      - "PRO: alinhado com Supabase pattern (service_role tem bypassrls + grants)"
+      - "CON: superfície de bypass é mais larga — qualquer role privilegiado pode mutar (mas todos esses são interno-server, não JWT)"
+    request_to_architect: >
+      Validar: é aceitável que `postgres` superuser bypasse o trigger? Em produção
+      Supabase, a única via para o caller chegar a `postgres` é DBA manual
+      (não há JWT que mapeie para postgres). Logo invariante mantém-se.
+
+  - id: D2
+    title: "Trigger vs column-level RLS"
+    decision: "Trigger BEFORE UPDATE FOR EACH ROW WHEN (OLD.status terminal)."
+    rationale: >
+      Postgres não suporta column-level RLS nativo. Para enforçar "agent_run com
+      status terminal não pode ser mutado" de forma declarativa e semântica
+      (não apenas via expressão WHERE em USING/WITH CHECK), trigger é a única
+      opção. RLS layer 1 (`agent_runs_update_self`) continua aplicada.
+      Defense-in-depth.
+
+  - id: D3
+    title: "DEFAULT expires_at = now() + interval '30 seconds' como safety net"
+    decision: "Não substitui o caller — é redundância."
+    rationale: >
+      O pipeline executor (Story 2.5+) deve continuar a passar `expires_at`
+      explicitamente para clareza de intenção. O DEFAULT só protege contra
+      omissão acidental futura (ex: refactor do pipeline). Documentado no
+      comment da column.
+
+  - id: D4
+    title: "Bootstrap test harness — grants service_role"
+    decision: >
+      Adicionados `grant select/insert/update/delete on tables` + `grant usage
+      on schema/sequences` + `grant execute on functions` para `service_role`
+      no bootstrap dos Testcontainers.
+    rationale: >
+      Em produção (Supabase) esses grants vêm por default. No test harness
+      apenas `bypassrls` estava configurado. Sem os grants, o teste
+      "service_role bypassa trigger" falhava com `permission denied for table
+      agent_runs` — não pelo trigger, mas pelo grants ausentes. Fix em L4
+      (test-only) para espelhar produção.
+
+  - id: D5
+    title: "Não tocar policy `agent_runs_update_self` existente"
+    decision: "Policy mantém-se; trigger é layer adicional."
+    rationale: >
+      RLS layer 1 (policy) bloqueia cross-tenant + user_id mismatch. Trigger
+      layer 2 bloqueia mutação post-terminal. Não há sobreposição — ambos
+      enforcam invariantes diferentes.
+
+# ───────────────────────────────────────────────────────────────────────────
+# NAMING REALITY (Article IV — No Invention)
+# ───────────────────────────────────────────────────────────────────────────
+schema_naming_reality:
+  tables_present:
+    - agent_runs
+    - intent_classifications
+    - agent_reverse_ops
+    - agent_quotas
+  tables_NOT_present:
+    - agent_intents          # agent_runs.intents_detected é JSONB column, não tabela
+    - agent_tool_calls       # agent_runs.tool_calls é JSONB column, não tabela
+  enums:
+    - "agent_run_status: classifying, pending_preview, confirmed, executing, success, failed, reverted"
+    - "agent_intent: criar_tarefa, criar_financa_variavel, criar_financa_recorrente, criar_cartao, criar_parcelada, consultar_dados, cancelar_ultima, unknown"
+    - "llm_model: gpt-4o-mini, claude-sonnet-4-5, claude-opus-4-7"
+  terminal_statuses_NFR9_scope:
+    - success
+    - reverted
+    - failed
+  pre_terminal_statuses_allowed_to_update:
+    - classifying
+    - pending_preview
+    - confirmed
+    - executing
+
+# ───────────────────────────────────────────────────────────────────────────
+# GATES — TODOS VERDES
+# ───────────────────────────────────────────────────────────────────────────
+gates:
+  db_migrate:
+    command: "pnpm --filter @meu-jarvis/db db:migrate"
+    exit_code: 0
+    notes: "Migration 0005 aplicada em 548ms. 4 anteriores skip (já em __schema_migrations)."
+  check_rls:
+    command: "pnpm check:rls"
+    exit_code: 0
+    notes: "26 tabelas multi-tenant todas com SELECT/INSERT/UPDATE/DELETE coverage. Invariante NFR5 preservada (104 policies)."
+  typecheck:
+    command: "pnpm typecheck"
+    exit_code: 0
+    notes: "5/5 tasks. 4 cached, 1 fresh."
+  lint:
+    command: "pnpm lint"
+    exit_code: 0
+    notes: "5/5 tasks. --max-warnings=0 mantido."
+  test:
+    command: "pnpm test"
+    exit_code: 0
+    db_test_count: "103 passed (29 test files)"
+    web_test_count: "9 passed (2 test files)"
+    delta_vs_baseline: "+8 tests (4 immutability agent_runs + 2 quotas blocked + 3 reverse_ops TTL/DEFAULT)"
+  build:
+    command: "pnpm build"
+    exit_code: 0
+    notes: "FULL TURBO cache (5/5 tasks cached). Sem regressão Next.js build."
+
+# ───────────────────────────────────────────────────────────────────────────
+# PONTOS DE ATENÇÃO PARA @architect
+# ───────────────────────────────────────────────────────────────────────────
+architect_review_focus:
+  - title: "Validação D1 — bypass list do trigger"
+    detail: >
+      Verificar racional de bloquear apenas authenticated+anon. Considerar:
+      em produção Supabase, postgres superuser é alcançável apenas por DBA
+      manual (sem path JWT → postgres). Logo invariante NFR9 mantém-se.
+      Aria pode requerer comment SQL adicional explicando esta escolha.
+
+  - title: "Validação D4 — test harness divergir de produção"
+    detail: >
+      Bootstrap em packages/db-test (test-only) foi expandido com grants
+      explícitos para service_role. Em produção, esses grants são default
+      Supabase. Verificar que a expansão do test harness reflecte produção
+      (não introduz divergência).
+
+  - title: "Cobertura de testes para o caso 'service_role' real"
+    detail: >
+      Os tests usam `admin().begin(set local role service_role)` para simular
+      bypass. Aria pode requerer adição de teste que valide o comportamento
+      end-to-end com uma connection real `service_role` (não set local). Por
+      ora consideramos suficiente porque o postgres-js client respeita SET
+      LOCAL ROLE no nível da transacção.
+
+  - title: "Article IV (No Invention) — verificar trace completa"
+    detail: >
+      Migration trace: PRD FR6, NFR9; architecture §4.1 (audit imutável), §4.5
+      (undo TTL). Story trace: ACs 3, 6, 8, 10. Verificar que nenhum elemento
+      novo foi inventado fora destes traces.
+
+  - title: "Defense-in-depth ainda intacto"
+    detail: >
+      RLS layer 1 (policies de 0001) bloqueia cross-tenant.
+      Trigger layer 2 (0005) bloqueia mutação post-terminal.
+      Aria deve confirmar que ambos camadas são necessárias e que remover
+      qualquer uma quebra a invariante.
+
+# ───────────────────────────────────────────────────────────────────────────
+# CONTEXTO DA SESSÃO (TRANSPARÊNCIA)
+# ───────────────────────────────────────────────────────────────────────────
+session_history:
+  - phase: "Sessão 1 (timeout)"
+    start: "2026-05-08T15:30:00+01:00"
+    work_done: >
+      @dev implementou Tasks 1-7 substantivamente: análise de schema, gap
+      detection, criação da migration 0005, expansão dos 3 ficheiros de tests,
+      ajuste do bootstrap, actualização de docs/db-schema.md §4.4, marcação
+      dos checkboxes da story. Trabalho ficou em working tree (sem commit).
+    end_reason: "Stream timeout antes de fazer commit + handoff."
+  - phase: "Sessão 2 (resumption — ESTA)"
+    start: "2026-05-08T16:25:00+01:00"
+    work_done: >
+      @dev resumiu: sanity check do trabalho (migration sólida, tests cobrem
+      todos os cenários críticos, story file completa, INDEX desactualizado).
+      Aplicou migration via db:migrate (idempotente — 4 skip, 1 apply).
+      Correu todos os gates (verdes). Actualizou HANDOFF-INDEX.md (consume +
+      novo handoff). Criou este handoff. Commit final.
+    end_reason: "Story closed — handoff @architect criado."
+
+# ───────────────────────────────────────────────────────────────────────────
+# REFERÊNCIAS
+# ───────────────────────────────────────────────────────────────────────────
+references:
+  story: docs/stories/active/2.1.agent-schema-rls.md
+  migration: packages/db/migrations/0005_agent_immutability_and_ttl.sql
+  prd:
+    - "FR6 (undo 30s window)"
+    - "NFR9 (audit imutável + 12m retention)"
+    - "NFR5 (RLS coverage gate)"
+  architecture:
+    - "docs/architecture.md §3.2 (multi-tenancy via RLS)"
+    - "docs/architecture.md §4.1 (audit log)"
+    - "docs/architecture.md §4.5 (undo pattern)"
+  schema_doc:
+    - "docs/db-schema.md §4.4 (Cérebro AI — actualizada nesta story)"
+  predecessor_handoffs:
+    - "mj-handoff-story-2.1-ready-for-validation-20260508 (sm→po, archived)"
+    - "mj-handoff-story-2.1-ready-for-dev-20260508 (po→dev, archived nesta sessão)"
+  precedent_gate:
+    - "docs/qa/gates/1.7-architect-gate.md (Story 1.7 APPROVED 9.4/10 — formato esperado)"
