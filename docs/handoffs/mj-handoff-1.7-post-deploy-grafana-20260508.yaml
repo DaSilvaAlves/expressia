@@ -1,0 +1,252 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Story 1.7 Done: pós-deploy Grafana UI + smoke test 5xx
+# ═══════════════════════════════════════════════════════════════════════════
+# Auto-handoff devops → devops. Não-bloqueante para a Story 1.7 estar Done.
+# Trabalho mecânico que requer Vercel deploy verde + ≥1 request real
+# para produzir dados nos painéis Grafana.
+
+handoff_id: mj-handoff-1.7-post-deploy-grafana-20260508
+from_agent: devops (Gage)
+to_agent: devops (Gage)
+created: 2026-05-08T02:00:00+01:00
+status: pending
+consumed: false
+priority: low
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR (60 segundos)
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Story 1.7 (Observability OTel + Sentry EU + Grafana Cloud EU) Done com
+  @architect gate APPROVED 9.4/10 HIGH. Tasks 7-8 PARTIAL aceitas (deferral
+  pragmático: dashboard JSON está completo e versionado em
+  docs/dashboards/grafana-epic1.json + queries documentadas em runbook §6).
+  Falta apenas 5 acções mecânicas pós-deploy production verde para fechar
+  o ciclo: importar dashboard via UI Grafana, criar 2 alertas, smoke test 5xx
+  contra Sentry Frankfurt, validar Vercel Analytics activo. Handoff non-blocking
+  — Story 1.7 está formalmente Done; este trabalho complementa AC7+AC9 com
+  artefactos UI reais. Próxima sessão `@devops` quando Vercel deploy automático
+  pós-push estiver verde.
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🟢 ESTADO ACTUAL (no momento da criação deste handoff)
+# ───────────────────────────────────────────────────────────────────────────
+estado_actual:
+  story_1_7:
+    status: Done
+    version: v1.4
+    file: docs/stories/completed/1.7.observability-otel-sentry.md
+    quality_gate: '@architect (Aria)'
+    gate_verdict: APPROVED 9.4/10 HIGH
+    gate_file: docs/qa/gates/1.7-architect-gate.md
+    tasks_completed: [1, 2, 3, 4, 5, 6, 9]
+    tasks_partial_deferred: [7, 8]
+    acceptance_criteria_passing: 'AC1-AC6, AC8, AC10 full; AC7+AC9 PARTIAL aceito'
+
+  artefactos_versionados:
+    dashboard_scaffold: docs/dashboards/grafana-epic1.json
+    runbook: docs/runbooks/observability-setup.md
+    runbook_secciones_relevantes:
+      - §5 — Dashboard mínimo: 4 painéis com queries OTel/Loki
+      - §6 — Alertas: 2 alertas (error rate >1% / p95 >200ms) com queries + contact
+      - §7 — Diagnóstico: tabelas de troubleshooting (corrigido §7 vs §4 conflict)
+
+  git:
+    branch: main
+    head_local_pre_devops_session: 'a16cdc9 (feat dev) + chore docs (este commit)'
+    head_remote_post_push: 'TBD após push'
+
+  vercel:
+    project: euricojsalves-4744s-projects/expressia
+    region: cdg1 Paris UE
+    auto_deploy: 'enabled (GitHub Integration)'
+    expected_after_push: 'auto-deploy triggered com SENTRY_AUTH_TOKEN sourcemap upload'
+    production_url: https://expressia-black.vercel.app
+
+  observability_stack:
+    sentry_eu:
+      org: eurico-xw
+      project: expressia-web
+      data_residency: 'European Union (Frankfurt)'
+      dsn_domain: 'o4510848200278016.ingest.de.sentry.io'
+    grafana_cloud_eu:
+      stack: expressia.grafana.net
+      region: eu-west-6 (Ireland)
+      otlp_endpoint: 'https://otlp-gateway-prod-eu-west-6.grafana.net/otlp'
+    vercel_observability:
+      analytics: 'enabled (validado pelo @devops 2026-05-07)'
+      speed_insights: 'instalado via @vercel/speed-insights em layout.tsx'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🎯 NEXT ACTION — 5 passos mecânicos pós-deploy
+# ───────────────────────────────────────────────────────────────────────────
+next_action: >
+  Em sessão `@devops` futura, quando Vercel auto-deploy pós-push estiver verde,
+  executar as 5 acções abaixo em ordem (~30-45 min total). Não-bloqueante para
+  Story 1.7 estar Done — apenas substitui PARTIAL por full em AC7+AC9.
+
+next_action_steps:
+  - id: 1
+    label: 'Confirmar Vercel deploy verde'
+    description: |
+      Validar que o auto-deploy automático disparado pelo push da sessão @devops
+      anterior (commit chore docs) ficou Ready. Build deve ter SENTRY_AUTH_TOKEN
+      injectado e sourcemap upload bem-sucedido.
+    como: |
+      - Browser: vercel.com/euricojsalves-4744s-projects/expressia/deployments
+      - CLI: `vercel ls --prod` em apps/web/
+      - Verificar: build log mostra `sentry-cli releases ... files upload-sourcemaps`
+        sem warning de SENTRY_AUTH_TOKEN ausente.
+    estimated_minutes: 5
+    blocker_se_falhar: 'criar handoff de diagnóstico — não tentar workarounds'
+
+  - id: 2
+    label: 'Importar dashboard JSON na UI Grafana'
+    description: |
+      Levar `docs/dashboards/grafana-epic1.json` para a UI Grafana, ajustar
+      datasources reais (Prometheus + Loki + Tempo), confirmar que os 4 painéis
+      renderizam, depois re-exportar JSON populated e substituir o scaffold no repo.
+    como: |
+      1. Browser: https://expressia.grafana.net → Dashboards → New → Import
+      2. Upload `docs/dashboards/grafana-epic1.json`
+      3. Mapear datasources placeholder para datasources reais da stack expressia
+      4. Save → confirmar 4 painéis: latência p95 /api/me, error rate 5xx,
+         RLS violations, DB query latency p95
+      5. Dashboard → Share → Export → Save to file (with values JSON populated)
+      6. Substituir `docs/dashboards/grafana-epic1.json` pelo export final
+      7. Commit local (não push) para incluir junto com smoke test results
+    estimated_minutes: 10
+    referencia: 'docs/runbooks/observability-setup.md §5 (queries por painel)'
+
+  - id: 3
+    label: 'Criar 2 alertas via UI Grafana'
+    description: |
+      Implementar os 2 alertas documentados no runbook §6 via Grafana UI
+      (Alerting → Alert rules). Queries idênticas ao dashboard.
+    como: |
+      Alerta 1 — Error rate >1% em janela 5min:
+        Query: queries no runbook §6 alerta 1 (PromQL sobre
+        `http_server_response_count` filtrado por status_code 5xx)
+        Threshold: > 0.01 (1%)
+        Window: last 5m
+        Notification: contact point email euricojsalves@gmail.com
+        Severity: critical
+
+      Alerta 2 — Latência p95 /api/me >200ms em janela 5min:
+        Query: queries no runbook §6 alerta 2 (PromQL com
+        `histogram_quantile(0.95, http_server_duration_milliseconds_bucket)`)
+        Threshold: > 200
+        Window: last 5m
+        Notification: contact point email euricojsalves@gmail.com
+        Severity: warning
+
+      Para cada alerta: Save → Test → confirmar contact point recebe notificação.
+    estimated_minutes: 10
+    referencia: 'docs/runbooks/observability-setup.md §6'
+
+  - id: 4
+    label: 'Smoke test pós-deploy — erro 5xx contra Sentry'
+    description: |
+      Forçar evento de erro intencional para validar que: (a) Sentry recebe
+      o evento com banner "European Union (Frankfurt)", (b) sourcemap aplicado
+      (stack trace legível, não minificada), (c) PII redaction `beforeSend`
+      activa (sem email/headers Authorization no evento).
+    como: |
+      Opção A — endpoint temporário /api/_smoke (criar branch curta):
+        Criar route handler que faz `throw new Error("Sentry EU smoke test")`,
+        deploy preview, hit GET, depois remover.
+
+      Opção B — request inválido contra /api/me:
+        Forjar JWT inválido (header Authorization: Bearer broken.jwt.token)
+        contra production /api/me — captureException já capta erros 5xx.
+
+      Verificação:
+        1. https://eurico-xw.sentry.io/issues → ver issue novo
+        2. Issue → Details → confirmar banner "Stored in: European Union (Frankfurt)"
+        3. Stack trace → confirmar nomes de ficheiros legíveis (sourcemap aplicado)
+        4. Event payload → confirmar zero PII (sem email/Authorization/Cookie)
+    estimated_minutes: 10
+
+  - id: 5
+    label: 'Validar Vercel Analytics activo'
+    description: |
+      Confirmar que Vercel Analytics está a recolher dados RUM em production.
+    como: |
+      1. Visitar https://expressia-black.vercel.app (gerar pageview real)
+      2. Esperar ~1-2 min para data ingestion
+      3. https://vercel.com/euricojsalves-4744s-projects/expressia/analytics
+      4. Confirmar: contagem de visitors >0, Web Vitals (LCP/FID/CLS) presentes
+      5. Speed Insights tab — confirmar runtime metrics presentes
+    estimated_minutes: 5
+
+  - id: 6
+    label: 'Fechar handoff'
+    description: |
+      Após acções 1-5 concluídas, marcar este handoff como consumed e arquivar.
+    como: |
+      1. Editar este YAML: `consumed: true`, `consumed_at: <ISO>`,
+         `consumed_by: devops (Gage)`, `status: consumed`,
+         `consumption_notes: <resumo do que foi executado + observações>`
+      2. `git mv docs/handoffs/mj-handoff-1.7-post-deploy-grafana-20260508.yaml
+              docs/handoffs/archive/mj-handoff-1.7-post-deploy-grafana-20260508.yaml`
+      3. Actualizar `docs/HANDOFF-INDEX.md`:
+         - Remover linha pending
+         - Adicionar linha archived
+      4. Se dashboard JSON foi re-exportado em passo 2, commit + push
+         em commit `chore(observability): post-deploy Grafana UI + smoke test [Story 1.7 follow-up]`
+    estimated_minutes: 5
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📚 REFERÊNCIAS
+# ───────────────────────────────────────────────────────────────────────────
+referencias:
+  story:
+    file: docs/stories/completed/1.7.observability-otel-sentry.md
+    versao: v1.4
+    status: Done
+  gate:
+    file: docs/qa/gates/1.7-architect-gate.md
+    score: 9.4/10
+    confidence: HIGH
+  runbook: docs/runbooks/observability-setup.md
+  dashboard_scaffold: docs/dashboards/grafana-epic1.json
+  arquitectura:
+    file: docs/architecture.md
+    seccoes_relevantes: ['§9.1 Stack', '§9.2 Métricas', '§9.3 Logs', '§9.4 Dashboards', 'ADR-004']
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-story-1.7-ready-for-dev-20260508.yaml
+  predecessor_secrets: docs/handoffs/archive/mj-handoff-secrets-configured-20260507.yaml
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🚧 BLOCKERS / DEPENDÊNCIAS
+# ───────────────────────────────────────────────────────────────────────────
+blockers:
+  - id: deploy-vercel-verde
+    descricao: 'Vercel auto-deploy disparado pelo push da sessão devops anterior tem de estar Ready (não Building, não Error)'
+    estado: 'pending verification (sessão actual fecha antes de deploy verde)'
+    accao: 'verificar antes de iniciar passo 2 (importar dashboard) — sem deploy não há /api/me a emitir spans, dashboard fica vazio'
+  - id: pelo-menos-um-request-real
+    descricao: 'Para confirmar dados nos painéis (passo 2), é necessário ≥1 request real a /api/me em production'
+    estado: 'fácil — visitar https://expressia-black.vercel.app/visao após autenticação ou fazer hit autenticado a /api/me'
+    accao: 'incluir em passo 2 antes de exportar dashboard final'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📝 NOTAS PARA O CONSUMIDOR
+# ───────────────────────────────────────────────────────────────────────────
+notas_para_consumidor:
+  - 'Não-bloqueante para Story 1.7 — esta está Done formalmente. O trabalho aqui apenas substitui PARTIAL por full em AC7+AC9 com artefactos UI reais.'
+  - 'Se o smoke test 5xx (passo 4) falhar (Sentry não recebe evento ou banner não diz Frankfurt), criar handoff de diagnóstico imediato — não tentar workarounds. Possíveis causas: SENTRY_DSN errado em production, beforeSend a swallow eventos, Vercel runtime sem var.'
+  - 'Se Vercel Analytics (passo 5) não mostrar dados, validar que `<Analytics />` está renderizado em layout.tsx (não removido em sessão posterior) e que o domínio está configurado correctamente em Vercel project settings.'
+  - 'O export final do dashboard JSON pode ter datasource UIDs específicos da stack expressia.grafana.net — guardar como está, qualquer importação futura permite remap. Não normalizar UIDs.'
+  - 'Compromisso do gate @architect (ver `docs/qa/gates/1.7-architect-gate.md` linhas 80-86): este handoff é a materialização desse compromisso.'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🎓 LIÇÕES (para próximas stories observability)
+# ───────────────────────────────────────────────────────────────────────────
+licoes:
+  - 'Tasks que dependem de UI externa com dados reais beneficiam do pattern "scaffold versionado + queries documentadas + handoff post-deploy" — evita ginástica de UI vazia e mantém a story DoD limpa.'
+  - 'O quality_gate `@architect` (vs `@qa`) é apropriado para stories com profundidade arquitectural mas baixa lógica de domínio (observability, infra, package design). 9.4/10 confirma o fit.'
+  - '`@vercel/otel` é o caminho de menor fricção para Next 15 — tomar nota para Epic 2 (Cérebro AI) instrumentar o pipeline 3-stage usando o mesmo wrapper.'

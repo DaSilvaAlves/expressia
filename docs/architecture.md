@@ -118,7 +118,7 @@ graph TB
 | IaC | **Terraform** (mínimo) | 1.9+ | Provisioning Supabase project + Vercel domain + secrets | Reproducibilidade |
 | CI/CD | **GitHub Actions** | — | lint+typecheck+test+RLS-gate+e2e gates | NFR17, NFR24 |
 | Error Tracking | **Sentry** (UE region) | latest | Errors + session replay (PII redacted) | NFR12, NFR13 |
-| Telemetria | **OpenTelemetry SDK → Grafana Cloud (EU)** | OTel 1.x | Métricas + traces + logs estruturados | NFR13, NFR14, NFR15 |
+| Telemetria | **`@vercel/otel` (wrapper OTel) → Grafana Cloud (EU)** | `@vercel/otel` 1.10.x sobre OTel API 1.9.x | Métricas + traces + logs estruturados; `@vercel/otel` é o wrapper canónico Vercel para Next.js 15 — auto-instrumenta HTTP/fetch/Next routing e trata cold-start serverless | NFR13, NFR14, NFR15 |
 | Frontend RUM | **Vercel Observability** | — | Web Vitals + RUM | NFR4, NFR14 |
 | Feature Flags | **Postgres-backed (`feature_flags` table) + plan-derived flags** | — | Simples, sem vendor extra | PRD 4.4 |
 | Email transaccional | **Resend (EU)** | — | Confirmação email, faltaria de webhook, recuperação | FR24, FR35 |
@@ -725,7 +725,7 @@ Vercel AI SDK 4 + Anthropic provider, streaming SSE. Tool calls intermédios sã
 |--------|----------|--------|-------|
 | RUM / Web Vitals | Vercel Observability | UE | built-in, zero overhead |
 | Errors + Replay | Sentry (EU data residency) | UE | DX premium, replay com PII redaction |
-| Métricas + Traces + Logs | OTel SDK → Grafana Cloud (EU) | UE | open standard, custo previsível, evita lock-in vendor |
+| Métricas + Traces + Logs | `@vercel/otel` (wrapper OTel) → Grafana Cloud (EU) | UE | open standard, custo previsível, evita lock-in vendor; wrapper Vercel canónico para Next 15 (auto-instrumentação serverless, cold-start tratado, lê env vars OTLP directamente) |
 
 **Why não Honeycomb (avaliado):** óptima DX para tracing mas custo mensal mínimo ($100+) excessivo para MVP; região US-default cria fricção GDPR; Grafana Cloud tem free tier com 10k metrics + 50GB logs em EU que serve até ~5k households.
 

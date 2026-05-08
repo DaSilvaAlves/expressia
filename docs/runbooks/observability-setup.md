@@ -202,10 +202,10 @@ logger.info({ household_id: 'abc' }, 'Pedido recebido');
 
 | Causa provável | Verificação | Resolução |
 |----------------|-------------|-----------|
-| `experimental.instrumentationHook` não activado | `apps/web/next.config.ts` tem `experimental.instrumentationHook: true`? | Adicionar e re-deploy. |
+| `apps/web/instrumentation.ts` ausente ou export incorrecto | Confirmar que o ficheiro existe na raiz de `apps/web/` (não dentro de `src/`) e exporta `function register()`. | Repor ficheiro conforme §4. **NÃO** adicionar `experimental.instrumentationHook` ao `next.config.ts` em Next 15+: o flag foi removido e causa `TS2353` (era exclusivo de Next 13/14). |
 | Env vars OTel ausentes em runtime | `vercel env ls` mostra `OTEL_EXPORTER_OTLP_ENDPOINT` + `OTEL_EXPORTER_OTLP_HEADERS` em Production? | Adicionar via UI ou `vercel env add`. |
 | Header com formato inválido (Base64 corrompido) | UI Grafana → Connect Card → comparar valor exacto | Re-extrair valor original — NÃO recalcular. |
-| Build serverless não inclui `instrumentation.ts` | Build logs Vercel mencionam "instrumentation hook"? | Forçar redeploy. |
+| Build serverless não inclui `instrumentation.ts` | Build logs Vercel mencionam "instrumentation hook"? | Forçar redeploy. Em Next 15+ o ficheiro é detectado automaticamente sem flag — basta existir na raiz de `apps/web/`. |
 
 ### Sintoma: erros 5xx não aparecem em Sentry
 
