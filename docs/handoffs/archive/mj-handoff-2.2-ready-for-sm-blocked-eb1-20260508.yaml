@@ -12,8 +12,19 @@ handoff_id: mj-handoff-2.2-ready-for-sm-blocked-eb1-20260508
 from_agent: devops (Gage)
 to_agent: sm (River)
 created: 2026-05-08T18:30:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-08T20:00:00+01:00
+consumed_by: aiox-master (Orion — universal executor delegando para @sm tasks)
+consumed_notes: >
+  Orion executou `*draft 2.2` directamente como aiox-master (universal executor)
+  a pedido explícito do Eurico — em vez de transitar persona para @sm. Story
+  file `docs/stories/active/2.2.agent-package-provider-abstraction.md` criada
+  v1.0 Draft com 12 ACs + 12 Tasks, todos os 6 focus_points deste handoff
+  endereçados (Article IV, scope guard, observability reuse, PII redaction
+  3-camadas, mocks Vitest, EB1 visibility no header). _INDEX.md actualizado:
+  Story 2.2 entry linka para o ficheiro real. Sucessor handoff
+  `mj-handoff-story-2.2-ready-for-validation-20260508` criado para `@po`.
 priority: medium
 project_prefix: mj
 project_codename: meu-jarvis

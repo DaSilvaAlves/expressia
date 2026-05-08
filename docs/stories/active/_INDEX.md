@@ -104,7 +104,7 @@ A Epic 1 está Done quando:
 **Epic Goal:** Pipeline 3 estágios (Classifier GPT-4o-mini → Planner+Executor Claude Sonnet → atomicidade Postgres) capaz de aceitar prompt PT-PT, executar até 5 intents simultâneas em transacção atómica, com preview-then-confirm para confidence < 0,70, undo de 30s e telemetria fim-a-fim em Grafana.
 
 **Criado:** 2026-05-08
-**Actualizado:** 2026-05-08 (Story 2.1 v1.3 — **Done** ✅. `@architect` Aria gate **APPROVED 9.5/10 HIGH** (`docs/qa/gates/2.1-architect-gate.md`); 8 áreas validadas todas PASS; 0 issues bloqueantes; 3 nits non-blocking. `@devops` Gage push final + story movida `active/` → `completed/`. **Epic 2 — 1/11 stories Done.** Próximo: Story 2.2 (`packages/agent/` + provider abstraction) — `@sm *draft 2.2` pode arrancar em paralelo via handoff `mj-handoff-2.2-ready-for-sm-blocked-eb1-20260508`; `@dev *develop 2.2` bloqueado em EB1 (ANTHROPIC_API_KEY tier Sonnet + DPA UE) — Eurico provisiona.)
+**Actualizado:** 2026-05-08 (Story 2.2 v1.0 — **Draft** criado pelo `@aiox-master` Orion (universal executor delegando a `@sm`). Scope fundacional: package `@meu-jarvis/agent` + `ProviderInterface` Zod + adaptadores Anthropic Sonnet primary + OpenAI fallback flag-gated + retry/backoff + circuit breaker per-process + error taxonomy PT-PT + reuse `@meu-jarvis/observability` para tracing/PII. 12 ACs + 12 Tasks. Bloqueador EB1 (ANTHROPIC_API_KEY) impede `@dev *develop` mas não drafting/validation. Próximo: `@po *validate-story-draft 2.2` via handoff `mj-handoff-story-2.2-ready-for-validation-20260508`.)
 **Autor:** River (@sm)
 
 ---
@@ -114,7 +114,7 @@ A Epic 1 está Done quando:
 | Story | Ficheiro | Título | Status | Owner | Estimate | Bloqueadores |
 |-------|---------|--------|--------|-------|----------|-------------|
 | 2.1 | [2.1.agent-schema-rls.md](../completed/2.1.agent-schema-rls.md) | Schema agent: auditoria, RLS coverage e immutability NFR9 | **Done** ✅ (v1.3 — @architect APPROVED 9.5/10 HIGH) | @dev | M | ~~Nenhum~~ — entregue 2026-05-08 (migration 0005 + 8 tests + db-schema §4.4; gate `docs/qa/gates/2.1-architect-gate.md`) |
-| 2.2 | — | Package packages/agent + provider abstraction | Backlog | @dev | M | Depende 2.1 Done ✅ + **EB1 (Anthropic API key — pendente)** + EB2 (OpenAI API key — pendente). @sm pode draftar sem keys. |
+| 2.2 | [2.2.agent-package-provider-abstraction.md](./2.2.agent-package-provider-abstraction.md) | Package packages/agent + provider abstraction | **Draft** (v1.0) | @dev | M | Depende 2.1 Done ✅ + **EB1 (Anthropic API key — pendente)** + EB2 (OpenAI API key — pendente). Drafting/validação NÃO bloqueados. |
 | 2.3 | — | Tool Registry contract + 2 tools mínimas | Backlog | @dev | L | Depende 2.2 |
 | 2.4 | — | Classifier PT-PT (GPT-4o-mini) + Zod gate | Backlog | @dev | M | Depende 2.2 + EB2 |
 | 2.5 | — | Planner + Executor (Sonnet) + atomicidade Postgres | Backlog | @dev | L | Depende 2.3 + 2.4 + EB1 |
