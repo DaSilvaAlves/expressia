@@ -1,0 +1,126 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Story 2.1 Draft pronto para validação: @sm (River) → @po (Pax)
+# ═══════════════════════════════════════════════════════════════════════════
+# Pipeline: @pm kickoff Epic 2 ✅ → @sm *draft 2.1 ✅ → @po *validate-story-draft 2.1 (PRÓXIMO)
+
+handoff_id: mj-handoff-story-2.1-ready-for-validation-20260508
+from_agent: sm (River)
+to_agent: po (Pax)
+created: 2026-05-08T14:30:00+01:00
+status: pending
+consumed: false
+priority: medium
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  @sm River completou *draft 2.1 (Schema agent: auditoria, RLS coverage e
+  immutability NFR9). Story criada em docs/stories/active/2.1.agent-schema-rls.md
+  (v1.0, status Draft). Story NÃO cria tabelas — valida schema existente
+  (4 tabelas: agent_runs, intent_classifications, agent_reverse_ops, agent_quotas
+  criadas no bootstrap Story 1.3) + expande testes RLS cross-household + adiciona
+  immutability enforcement (trigger NFR9) se necessário. 10 ACs, 7 Tasks.
+  Quality gate: @architect. Estimate: M. Próximo passo: @po *validate-story-draft 2.1.
+
+# ───────────────────────────────────────────────────────────────────────────
+# NEXT ACTION
+# ───────────────────────────────────────────────────────────────────────────
+next_action:
+  command: "@po *validate-story-draft 2.1"
+  story_id: "2.1"
+  story_file: "docs/stories/active/2.1.agent-schema-rls.md"
+  story_version: "1.0"
+  checklist: "po-master-checklist.md"
+  expected_verdict: "GO (>=7/10)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# CONTEXTO PARA @po
+# ───────────────────────────────────────────────────────────────────────────
+context:
+  story_summary:
+    title: "Schema agent: auditoria, RLS coverage e immutability NFR9"
+    type: "Database/Schema/RLS/Tests"
+    executor: "@dev"
+    quality_gate: "@architect"
+    estimate: M
+    no_external_blockers: true
+    prd_trace: ["FR3", "FR6", "NFR5", "NFR9", "NFR20"]
+
+  descuberta_critica_pm:
+    note: >
+      Schema agent (4 tabelas) JÁ EXISTE desde Story 1.3 bootstrap. Story 2.1
+      é VALIDAÇÃO, não criação. @po deve confirmar que o scope está claramente
+      delimitado (ACs 1-4 = auditoria; AC5 = RLS gate; AC6-AC8 = imutabilidade
+      + TTL; AC9 = testes verdes; AC10 = documentação).
+    schema_file: "packages/db/src/schema/agent.ts"
+    rls_file: "packages/db/migrations/0001_rls_policies.sql (linhas 262-362)"
+
+  ajuste_nomenclatura:
+    note: >
+      O EPIC-2-EXECUTION.yaml referencia agent_intents e agent_tool_calls como
+      nomes de tabela. O schema real usa intent_classifications e tool_calls como
+      coluna JSONB em agent_runs. @sm adoptou os nomes reais (Constitution Article
+      IV — No Invention). @po deve validar que ACs usam nomenclatura correcta.
+
+  quality_gate_justificacao:
+    note: >
+      Quality gate é @architect (não @qa) porque a story envolve decisões de
+      enforcement de immutability (trigger vs policy), padrão RLS para audit logs,
+      e invariantes de dados do pipeline AI. @qa entra em stories funcionais (2.5+).
+    alinhado_com: "EPIC-2-EXECUTION.yaml entry 2.1 + handoff @pm"
+
+  testes_existentes:
+    note: >
+      packages/db-test/src/tests/ já tem ficheiros para todas as 4 tabelas agent.
+      Story 2.1 EXPANDE os existentes, não cria de raiz. @po deve verificar que
+      ACs 6-8 estão formulados como "expandir" e não como "criar".
+
+  migration_condicional:
+    note: >
+      Migration 0005_agent_immutability.sql é CONDICIONAL — criada apenas se o
+      audit (Task 1-3) detectar gaps reais. @po deve verificar que os ACs capturam
+      esta condicionalidade sem serem vagos.
+
+  predecessor_handoff:
+    consumed: "mj-handoff-epic2-kickoff-20260508 (pm Morgan → sm River)"
+    archive_path: "docs/handoffs/archive/mj-handoff-epic2-kickoff-20260508.yaml"
+
+# ───────────────────────────────────────────────────────────────────────────
+# PONTOS DE ATENÇÃO PARA CHECKLIST @po
+# ───────────────────────────────────────────────────────────────────────────
+po_checklist_hints:
+  - "Verificar que ACs 1-4 (auditoria de colunas) são verificáveis — @dev pode confirmar com grep/read do schema"
+  - "AC5 (pnpm check:rls) é mecanicamente verificável — CI gate já existe"
+  - "AC6 (immutability trigger) menciona opcionalidade correctamente (Task 3 decide)"
+  - "AC9 exige pnpm test exit 0 — confirmar que inclui db-test package"
+  - "AC10 (docs/db-schema.md actualizado) — verificar que é DoD claro e não vago"
+  - "Executor assignment: @dev ≠ @architect (regra validation: executor != quality_gate) — OK"
+  - "Dependências: 1.3, 1.4, 1.5 — todas Done. Sem bloqueadores externos."
+  - "File List estará vazia (Draft) — @dev preenche durante implementação — aceitar"
+
+# ───────────────────────────────────────────────────────────────────────────
+# CADEIA POSTERIOR
+# ───────────────────────────────────────────────────────────────────────────
+cascade_after_po_go:
+  - "@dev *develop 2.1 — implementar Tasks 1-7 (audit + testes + migration condicional + docs)"
+  - "@architect quality gate — validar decisão trigger vs policy + padrão RLS"
+  - "@devops *push — PR + merge"
+  - "@sm *draft 2.2 (Package packages/agent + provider abstraction) — aguarda EB1+EB2 desbloqueados por Eurico"
+
+# ───────────────────────────────────────────────────────────────────────────
+# REFS
+# ───────────────────────────────────────────────────────────────────────────
+refs:
+  story_file: "docs/stories/active/2.1.agent-schema-rls.md"
+  epic_execution: "docs/epics/EPIC-2-EXECUTION.yaml"
+  prd: "docs/prd.md"
+  db_schema: "docs/db-schema.md §4.4"
+  schema_agent: "packages/db/src/schema/agent.ts"
+  rls_policies: "packages/db/migrations/0001_rls_policies.sql (linhas 262-362)"
+  db_test_harness: "packages/db-test/src/rls-harness.ts"
+  db_test_agents: "packages/db-test/src/tests/agent_*.rls.test.ts"
