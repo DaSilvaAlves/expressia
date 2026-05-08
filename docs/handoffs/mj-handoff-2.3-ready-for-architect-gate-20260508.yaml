@@ -1,0 +1,399 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Story 2.3 v1.2 Ready for Review — `@architect *qa-gate 2.3`
+# Pipeline: Draft (River) → Ready (Pax GO 9.7/10) → Implementação (Dex)
+#           → Architect Gate (Aria) ← AQUI → Done (Gage push)
+# ═══════════════════════════════════════════════════════════════════════════
+
+handoff_id: mj-handoff-2.3-ready-for-architect-gate-20260508
+from_agent: dev (Dex)
+to_agent: architect (Aria)
+created: 2026-05-08T19:55:00+01:00
+status: pending
+consumed: false
+priority: medium
+
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Story 2.3 v1.2 implementação completa. Package `@meu-jarvis/tools` criado
+  com 16 ficheiros: 7 source (contracts, errors, tracing, registry, atomic,
+  index, __fixtures__/mock-tools) + 5 ficheiros de teste (57 unit tests
+  passing — quase 2× target ≥30) + README + package.json + tsconfig +
+  vitest.config.ts. Modificou apps/web/package.json + next.config.ts para
+  wire o package. Todas as 12 ACs cobertas. Gates: typecheck (7/7 packages),
+  lint (7/7 com `--max-warnings=0`), test (57 novos em tools + 103 db-test
+  + 9 web + 8 observability + 102 agent = 279+ passing), build (Next.js
+  production OK em 54s — `@meu-jarvis/tools` incluído via transpilePackages),
+  check:rls (26 tabelas / 104 policies — NFR5 inalterada). 6 decisões
+  arquitecturais documentadas em Dev Agent Record para review. 1 bug fix
+  intermédio durante test loop documentado (atomic.ts SQL insert error
+  path). 3 PO suggestions endereçadas inline com ponteiros directos.
+  EB1/EB2 NÃO foram necessários (Story 2.3 é 100% mockable conforme @po
+  validou).
+
+# ───────────────────────────────────────────────────────────────────────────
+# NEXT ACTION
+# ───────────────────────────────────────────────────────────────────────────
+next_action:
+  command: "@architect *qa-gate 2.3"
+  story_id: "2.3"
+  story_file: "docs/stories/active/2.3.tool-registry-foundation.md"
+  expected_output:
+    - "Gate report em docs/qa/gates/2.3-architect-gate.md"
+    - "Veredicto APPROVED / CONCERNS / FAIL com score x/10"
+    - "Story v1.3 com QA Results section populada"
+    - "Sucessor handoff `mj-handoff-2.3-ready-for-devops-close-20260508` (architect→devops) se APPROVED"
+
+# ───────────────────────────────────────────────────────────────────────────
+# 6 DECISÕES ARQUITECTURAIS PARA REVIEW @architect
+# ───────────────────────────────────────────────────────────────────────────
+architect_focus_points:
+  - id: D1
+    title: "Cross-package boundary: DrizzleDbClient estrutural local + SQL puro em vez de import de @meu-jarvis/db"
+    rationale: >
+      O TypeScript cross-package não consegue resolver os `paths` aliases
+      internos (`@/*`) do `@meu-jarvis/db` quando o package tools faz
+      typecheck — mesma limitação documentada em
+      `packages/agent/src/contracts.ts` linhas 7-13 (Story 2.2 D1) e em
+      uso em `apps/web/src/app/api/me/route.ts:49`. Solução consistente:
+      tipo `DrizzleDbClient` estrutural local em `contracts.ts` (apenas
+      `transaction`, `insert`, `execute`) + `executeAtomic` faz o INSERT
+      em `agent_reverse_ops` via SQL puro com `tx.execute(sql\`...\`)`
+      em vez de `tx.insert(agentReverseOps).values(...)`. Mantém
+      `expires_at = sql\`now() + interval '30 seconds'\`` server-side
+      (AC6 invariant preservado — o SQL é literal no template).
+    article_iv_compliance: >
+      Article IV (No Invention) preservado por SQL literal correspondente
+      ao schema real (`agent_reverse_ops` columns confirmed em
+      `packages/db/src/schema/agent.ts:188-218`). Divergência seria
+      detectada em runtime production.
+    alternatives_considered:
+      - "Refactor `packages/db/src/schema/index.ts` para usar imports relativos: rejeitado — out of scope desta story, afecta outros consumers"
+      - "Configurar `paths` no tools tsconfig para apontar para db: rejeitado — TS paths são per-project, não cross-project"
+      - "Usar `tx.insert(agentReverseOps)` com schema partial: rejeitado — propaga o problema cross-package"
+    risk: low
+    test_coverage: "atomic.test.ts 'insert SQL contém `expires_at = now() + interval` (não JS Date)' valida via mock que captura sqlText do template Drizzle"
+
+  - id: D2
+    title: "ReverseOpPayload composite guard: per-level recursivo (não top-level only) — endereça PO suggestion #2"
+    rationale: >
+      AC2 prescreve `composite.ops.length` máximo 10. PO suggestion #2 do
+      gate Pax 2026-05-08 pediu clarificação sobre se o guard é por
+      payload top-level ou em cada nível recursivo. Escolhi **per-level
+      recursivo** (defensivo) por 2 razões:
+      (1) Top-level only permitiria `10^depth` ops em aninhamento profundo
+          (ex: 1000 ops em 3 níveis composite-de-composite — payload jsonb
+          descontrolado em `agent_reverse_ops`).
+      (2) Per-level mantém payload bounded em `O(10^depth)` mas a
+          implementação Zod via `z.lazy(() => discriminatedUnion(...))`
+          aplica naturalmente — sem checks adicionais.
+      Uso real esperado ≤2 níveis (ex: `criar_parcelada` cria parent
+      transaction + 12 child installments → 1 composite com ~13 ops top-
+      level, sem aninhamento adicional). Documentado em README + JSDoc do
+      `COMPOSITE_REVERSE_OP_MAX_OPS` constant.
+    test_coverage:
+      - "contracts.test.ts 'composite com EXACTAMENTE 10 ops aceita (limite inclusivo)'"
+      - "contracts.test.ts 'composite com 11 ops é REJEITADO via ToolValidationError'"
+      - "contracts.test.ts 'guard per-level: composite com nested composite oversize falha'"
+      - "contracts.test.ts 'round-trip composite aninhado (1 nível) — guard per-level passa'"
+    risk: low
+    open_question: "Confirmar se @architect prefere top-level only — se sim, pequeno refactor em `ReverseOpPayloadSchema` para validar só na raiz. Decisão recursiva é a mais defensiva."
+
+  - id: D3
+    title: "ToolPlanGateError DEFINIDO aqui mas INVOCADO pela Story 2.5 — endereça PO suggestion #1"
+    rationale: >
+      AC8 lista `ToolPlanGateError` na taxonomia mas a story 2.3 não
+      contém lógica `assertPlanAllowed(tool, plan)`. PO suggestion #1
+      pediu clarificação. Documentado explicitamente no JSDoc do
+      `errors.ts` (35 linhas comment) + README secção "Locus de invocação":
+      a classe é DEFINIDA aqui (parte da taxonomia para `instanceof`
+      checks) mas INVOCADA pela Story 2.5 (Planner+Executor) ANTES de
+      chamar `executeAtomic`. Story 2.5 verifica `tool.requiredPlan`
+      contra plano do household no contexto e lança esta excepção se o
+      gate não passa. Story 2.3 só fornece a classe + teste de
+      instanciação + teste de propagação via AtomicFailure (ver
+      atomic.test.ts "ToolPlanGateError lançado pela tool propaga como
+      AtomicFailure" — confirma que se uma tool concreta lançar
+      ToolPlanGateError, executeAtomic propaga correctamente como
+      AtomicFailure com `error: ToolPlanGateError`).
+    test_coverage:
+      - "errors.test.ts (instanciação correcta com requiredPlan/actualPlan)"
+      - "atomic.test.ts (propagação como AtomicFailure)"
+    risk: low
+
+  - id: D4
+    title: "InternalAtomicAbort marker class privada para distinguir rollback intencional vs uncontrolled"
+    rationale: >
+      Drizzle's `transaction(fn)` faz rollback automático quando `fn`
+      throws. Mas precisamos distinguir 2 cenários:
+      (a) Tool falhou → controlled rollback → caller deve receber
+          AtomicFailure com `success: false, rolledBack: true, error:
+          ToolError`.
+      (b) Transacção falhou (deadlock, connection drop, raised exception
+          do Postgres) → uncontrolled → caller deve receber
+          ToolTransactionError com `retryable: true` (re-lançado).
+      Solução: class `InternalAtomicAbort extends Error` privada (não
+      exportada) que envolve o `ToolError` concreto + `failedToolName`.
+      Quando tool falha, throw deste marker → Drizzle rollback → catch
+      fora da transacção converte em AtomicFailure. Outros throws (não
+      InternalAtomicAbort) são wrapped em ToolTransactionError. Dispatch
+      via `instanceof`.
+    trade_off: "Cria 1 class privada extra. Alternativa seria sentinel value mas perderia type safety + stack trace."
+    test_coverage: "atomic.test.ts 'rollback quando tool 2 falha' + 'rollback quando input inválido' + 'AtomicResult shape'"
+    risk: low
+
+  - id: D5
+    title: "Tracing 2 níveis: `agent.tool.atomic` (1 por executeAtomic) + `agent.tool.call` (1 por tool individual)"
+    rationale: >
+      Permite Grafana queries por (a) tool individual — latência por
+      tool, success rate por tool, household_hash distribution; e (b)
+      execução completa — rollback rate por executeAtomic, tool_count
+      distribution. Whitelist total tem 10 keys (4+6 distribuídas pelos
+      2 spans), todas validadas em testes para excluir PII (não emite
+      tool.input, tool.output, tool.snapshot, tool.prompt, tool.message,
+      tool.amount, tool.titulo). `householdId` raw NUNCA emitido — sempre
+      via `hashForCorrelation` produzindo `tool.household_hash`. Pattern
+      consistente com `withProviderSpan` da Story 2.2 (10 attributes
+      whitelist, validado em tracing.test.ts da agent package).
+    test_coverage:
+      - "tracing.test.ts 'annotateToolMetrics aplica APENAS keys whitelisted (4 keys)'"
+      - "tracing.test.ts 'NÃO emite tool inputs/outputs/snapshots como attributes (PII guard)'"
+      - "tracing.test.ts 'household_hash usa hashForCorrelation (não expõe UUID raw)'"
+      - "tracing.test.ts 'TOOL_SPAN_ATTRIBUTE_KEYS contém exactamente 10 keys e nenhuma se chama input/output/snapshot'"
+    risk: low
+
+  - id: D6
+    title: "ToolRegistry.has() adicional além do AC + clear() exposto mas marcado @internal"
+    rationale: >
+      AC3 lista `register/get/list/getByDomain/getAnthropicToolDefinitions/clear`.
+      Adicionei `has(name): boolean` por utilidade — Story 2.5 (Planner)
+      pode querer verificar tool existence sem try/catch wrap em
+      `get()` (que lança ToolNotFoundError). Custo zero (Map.has é O(1)),
+      JSDoc completo. NÃO exportado por engano — está na class pública
+      e no barrel `index.ts`. Se @architect prefere remover, é uma linha.
+      `clear()` está marcado `@internal — apenas para testes` no JSDoc;
+      o linter TypeScript do Vitest aceita-o nos testes mas alertaria
+      se um caller produção tentasse usar (warning sob TSDoc strict).
+    risk: low
+    test_coverage: "registry.test.ts 'has() devolve true/false sem lançar' + 'clear() esvazia o Map interno'"
+
+# ───────────────────────────────────────────────────────────────────────────
+# CHECKLIST 7-POINT QA GATE (referência para @architect)
+# ───────────────────────────────────────────────────────────────────────────
+qa_gate_checklist_reference:
+  source: ".claude/rules/story-lifecycle.md (7 quality checks)"
+  to_validate:
+    - check_1_code_review: "Patterns, readability, maintainability — 7 source files + 5 test files + README + 3 config"
+    - check_2_unit_tests: "≥30 unit tests AC11 — entregues 57 (1.9× target)"
+    - check_3_acceptance_criteria: "12 ACs todos com Tasks completas — verificar coverage no AC map abaixo"
+    - check_4_no_regressions: "26 tabelas / 104 policies preservadas (check:rls), 102 agent tests inalterados, 103 db-test inalterados, 9 web inalterados, 8 observability inalterados"
+    - check_5_performance: "Não aplicável end-to-end nesta story (sem call real); compile + tests <2s; Next.js build 54s vs baseline ~1m23s — sem regressão; package source-only sem build step"
+    - check_6_security: "OWASP basics: PII redaction whitelist OTel + redactToolInputForLog + ToolError message sem PII; getServiceDb explicitly forbidden em executeAtomic; cross-household blocked por RLS server-side; no hardcoded keys"
+    - check_7_documentation: "README.md (~250 linhas), JSDoc em todas as interfaces públicas, comments TS PT-PT em todos os ficheiros novos, 3 PO suggestions endereçadas inline com ponteiros"
+
+# ───────────────────────────────────────────────────────────────────────────
+# AC COVERAGE MAP (12 ACs ↔ Tasks ↔ Tests)
+# ───────────────────────────────────────────────────────────────────────────
+ac_coverage:
+  AC1:
+    description: "Estrutura do package + transpile + workspace dep"
+    tasks: ["Task 1"]
+    files:
+      - "packages/tools/package.json"
+      - "packages/tools/tsconfig.json"
+      - "packages/tools/vitest.config.ts"
+      - "apps/web/next.config.ts (modified)"
+      - "apps/web/package.json (modified)"
+    tests: "Implícito — pnpm install + typecheck/build success"
+
+  AC2:
+    description: "ToolDefinition<I,O> + ToolDomain + PlanTier + ToolExecutionContext + ReverseOpPayload"
+    tasks: ["Task 2"]
+    files:
+      - "packages/tools/src/contracts.ts"
+    tests: "contracts.test.ts (16 tests)"
+
+  AC3:
+    description: "ToolRegistry com API idempotente + getAnthropicToolDefinitions"
+    tasks: ["Task 5"]
+    files: ["packages/tools/src/registry.ts"]
+    tests: "registry.test.ts (12 tests)"
+
+  AC4:
+    description: "serializeReverseOp + deserializeReverseOp com round-trip + composite guard"
+    tasks: ["Task 2 (subtask 2.4)"]
+    files: ["packages/tools/src/contracts.ts"]
+    tests: "contracts.test.ts (4 tests round-trip + 3 tests guards + 4 tests JSON inválido)"
+
+  AC5:
+    description: "executeAtomic — atomicidade transaccional Drizzle"
+    tasks: ["Task 7"]
+    files: ["packages/tools/src/atomic.ts"]
+    tests: "atomic.test.ts (13 tests cobrindo happy paths, failure modes, AtomicResult shape)"
+
+  AC6:
+    description: "Persistência agent_reverse_ops com expires_at = now() + 30s SQL puro"
+    tasks: ["Task 7 (subtask 7.3)"]
+    files: ["packages/tools/src/atomic.ts (linhas 245-256)"]
+    tests: "atomic.test.ts 'insert SQL contém `expires_at = now() + interval` (não JS Date)' + 'insert recebe agent_run_id, household_id e reverse_op via SQL placeholders'"
+
+  AC7:
+    description: "RLS — executeAtomic respeita household_id (NFR5)"
+    tasks: ["Task 7 (subtask 7.2)"]
+    files: ["packages/tools/src/atomic.ts (ctxWithTx pattern)"]
+    tests: "atomic.test.ts 'ctx.db nunca é substituído por getServiceDb internamente' valida que ctxSeenByTool.db é tx (não ctx.db) e os outros campos (householdId/userId/traceId/runId) são preservados"
+    notes: "executeAtomic recebe `ctx.db` (cliente authenticated) e nunca cria o seu próprio cliente. Documentado em README com warning explícito + JSDoc."
+
+  AC8:
+    description: "Taxonomia de erros — 6 subclasses + classe base"
+    tasks: ["Task 3"]
+    files: ["packages/tools/src/errors.ts"]
+    tests: "errors.test.ts (8 tests cobrindo hierarquia + retryable + PT-PT + PII guard + stack trace + campos específicos + redactToolInputForLog)"
+
+  AC9:
+    description: "OTel tracing whitelist (10 keys, zero PII)"
+    tasks: ["Task 4"]
+    files: ["packages/tools/src/tracing.ts"]
+    tests: "tracing.test.ts (8 tests cobrindo whitelist + zero PII + household_hash + ERROR span + invariante 10 keys)"
+
+  AC10:
+    description: "PII redaction nos tool inputs antes de log"
+    tasks: ["Task 3 (subtask 3.1 — redactToolInputForLog)"]
+    files: ["packages/tools/src/errors.ts (linhas 200-230)"]
+    tests: "errors.test.ts 'redactToolInputForLog retorna apenas { toolName, inputRedacted: true }' valida zero leak de PII em IBANs/montantes"
+
+  AC11:
+    description: "Cobertura de testes ≥ 30 (mocks Vitest, sem DB real)"
+    tasks: ["Tasks 2-7 todas com __tests__/"]
+    files: ["packages/tools/src/__tests__/*.test.ts (5 ficheiros)"]
+    actual_count: "57 tests (1.9× target ≥30); todos com mocks vitest, sem call real a Anthropic/OpenAI/Supabase production"
+
+  AC12:
+    description: "JSDoc + README do package + gates verdes"
+    tasks: ["Task 9", "Task 10"]
+    files:
+      - "packages/tools/README.md"
+      - "JSDoc em todos os src/*.ts"
+    actual_results:
+      typecheck: "exit 0 (7/7 packages)"
+      lint: "exit 0 (7/7 com --max-warnings=0)"
+      test: "exit 0 (57 novos em tools + 222+ existentes preservados)"
+      build: "exit 0 (Next.js 54s)"
+      check_rls: "exit 0 (26 tabelas / 104 policies — NFR5 inalterada)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# PO SUGGESTIONS ADDRESSED (gate Pax 2026-05-08 — 3 non-blocking)
+# ───────────────────────────────────────────────────────────────────────────
+po_suggestions_addressed:
+  - id: 1
+    suggestion: "ToolPlanGateError — definir locus de invocação"
+    resolution: |
+      Documentado explicitamente no JSDoc do `errors.ts` (35 linhas
+      comment dedicado a esta classe) + README secção "Locus de
+      invocação". Explicit "DEFINIDA aqui mas INVOCADA pela Story 2.5
+      Planner antes de executeAtomic". Story 2.3 só fornece a classe
+      + teste de instanciação + teste de propagação via AtomicFailure.
+    files_touched:
+      - "packages/tools/src/errors.ts (JSDoc do ToolPlanGateError)"
+      - "packages/tools/README.md (secção 'ToolPlanGateError — locus de invocação')"
+
+  - id: 2
+    suggestion: "composite recursivo — clarificar guard per-level vs top-level"
+    resolution: |
+      Decisão: per-level recursivo (defensivo). Documentado em README +
+      JSDoc do `COMPOSITE_REVERSE_OP_MAX_OPS` constant em contracts.ts.
+      Implementação via `z.lazy(() => discriminatedUnion(...))` aplica
+      naturalmente sem checks adicionais. Razão: top-level only permitia
+      10^depth ops em aninhamento; per-level mantém payload bounded.
+      Decisão D2 detalhada acima. 3 testes de guard cobrem o caso
+      (10 OK, 11 fail, nested oversize fail).
+    files_touched:
+      - "packages/tools/src/contracts.ts (JSDoc + Zod recursive)"
+      - "packages/tools/README.md (secção 'ReverseOpPayload — variantes')"
+      - "packages/tools/src/__tests__/contracts.test.ts (3 tests)"
+
+  - id: 3
+    suggestion: "Idempotência register() por referência — adicionar 1 teste explícito"
+    resolution: |
+      Test case dedicado em registry.test.ts: "register(toolA) duas
+      vezes com a MESMA referência é no-op (não lança)" + complementar
+      "DUAS instâncias diferentes com mesmo `name` lança
+      DuplicateToolError" (ambos no `describe('ToolRegistry —
+      idempotência por referência (PO suggestion #3)')`). Garantia
+      explícita do contrato AC3.
+    files_touched:
+      - "packages/tools/src/__tests__/registry.test.ts"
+
+# ───────────────────────────────────────────────────────────────────────────
+# REFERÊNCIAS
+# ───────────────────────────────────────────────────────────────────────────
+references:
+  predecessor_handoffs:
+    - "(implícito) mj-handoff-2.2-ready-for-devops-close-20260508 (Story 2.2 Done) → unblocked Story 2.3"
+  story_file: "docs/stories/active/2.3.tool-registry-foundation.md (v1.2 Ready for Review)"
+  story_index: "docs/stories/active/_INDEX.md"
+  high_confidence_review_files:
+    decisions_documented_in:
+      - "Story Dev Agent Record §Completion Notes (6 decisões D1-D6)"
+      - "Story Dev Agent Record §Debug Log References (1 bug fix iteração)"
+    architecture_critical:
+      - "packages/tools/src/contracts.ts (DrizzleDbClient estrutural decision D1 + composite per-level decision D2)"
+      - "packages/tools/src/errors.ts (ToolPlanGateError JSDoc decision D3)"
+      - "packages/tools/src/atomic.ts (InternalAtomicAbort decision D4 + SQL puro decision D1)"
+      - "packages/tools/src/tracing.ts (whitelist 10 keys decision D5)"
+      - "packages/tools/src/registry.ts (has() helper + clear() @internal decision D6)"
+    pii_safety:
+      - "packages/tools/src/errors.ts (redactToolInputForLog)"
+      - "packages/tools/src/atomic.ts (logger.warn com redactToolInputForLog)"
+      - "packages/tools/src/tracing.ts (whitelist + hashForCorrelation)"
+      - "packages/tools/src/__tests__/errors.test.ts (test 'redactToolInputForLog retorna apenas')"
+      - "packages/tools/src/__tests__/tracing.test.ts (whitelist validation + 'NÃO emite tool inputs/outputs/snapshots')"
+  story_2_2_reference:
+    note: "Padrão de gate report — ver docs/qa/gates/2.2-architect-gate.md (APPROVED 9.4/10 HIGH)"
+    pattern: "8 áreas validadas, score breakdown ponderado, doc fixes inline se necessário, 0/3 issues bloqueantes target"
+
+# ───────────────────────────────────────────────────────────────────────────
+# COMMITS NESTA STORY (4 sequenciais)
+# ───────────────────────────────────────────────────────────────────────────
+commits:
+  - hash: d38c0c8
+    message: "feat(tools): scaffold @meu-jarvis/tools package + wire apps/web [Story 2.3]"
+    files_count: 7
+    notes: "package.json + tsconfig + vitest config + apps/web wiring (transpilePackages + workspace dep) + lockfile + story creation"
+  - hash: eb1ae30
+    message: "feat(tools): contracts + registry + atomic + errors + tracing + fixtures [Story 2.3]"
+    files_count: 8
+    notes: "Core implementation — 7 src files + story progress checkboxes"
+  - hash: b745de2
+    message: "test(tools): 57 unit tests covering AC2/3/4/5/6/7/8/9/10/11 [Story 2.3]"
+    files_count: 6
+    notes: "5 test files + atomic.ts bug fix (SQL insert error path → AtomicFailure em vez de ToolTransactionError)"
+  - hash: d79fcef
+    message: "docs(tools): README + Dev Agent Record [Story 2.3]"
+    files_count: 2
+    notes: "README.md (~250 linhas) + Dev Agent Record completo + Change Log v1.2"
+
+# ───────────────────────────────────────────────────────────────────────────
+# CODERABBIT NOTE
+# ───────────────────────────────────────────────────────────────────────────
+coderabbit_skipped:
+  reason: "CodeRabbit CLI rejeitou a review com erro `Too many files! 260 > 150`. O working-tree diff vs main inclui pnpm-lock.yaml regenerado + todos os ficheiros tocados desde 2.2 (ainda no branch main). Limite infraestrutural do CodeRabbit free/usage tier."
+  mitigation: "@architect gate examina directamente os 16 ficheiros novos + 2 modificados durante o gate manual — suficiente para apanhar issues de qualidade que o CodeRabbit detectaria. Documentado em Dev Agent Record §Completion Notes."
+
+# ───────────────────────────────────────────────────────────────────────────
+# CONSUMPTION PROTOCOL
+# ───────────────────────────────────────────────────────────────────────────
+consumption_protocol:
+  - "Quem consome: @architect Aria ao executar `*qa-gate 2.3`"
+  - "Marca consumed: true + consumed_at + consumed_by quando concluir gate"
+  - "Move ficheiro de docs/handoffs/ → docs/handoffs/archive/ via `git mv`"
+  - "Cria gate report `docs/qa/gates/2.3-architect-gate.md` com decisão APPROVED/CONCERNS/FAIL"
+  - "Se APPROVED: cria sucessor `mj-handoff-2.3-ready-for-devops-close-20260508` (architect→devops)"
+  - "Se CONCERNS/FAIL: cria sucessor `mj-handoff-2.3-revision-needed-20260508` (architect→dev) com gaps específicos"
+  - "Story status Ready for Review → Done apenas após push @devops; @architect não muda status para Done"
