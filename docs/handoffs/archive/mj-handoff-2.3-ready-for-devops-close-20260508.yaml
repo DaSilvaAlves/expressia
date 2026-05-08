@@ -9,9 +9,34 @@ handoff_id: mj-handoff-2.3-ready-for-devops-close-20260508
 from_agent: architect (Aria)
 to_agent: devops (Gage)
 created: 2026-05-08T19:30:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-08T19:30:00+01:00
+consumed_by: devops
 priority: medium
+
+# ───────────────────────────────────────────────────────────────────────────
+# CONSUMPTION RECORD (preenchido pelo @devops Gage no fecho da Story 2.3)
+# ───────────────────────────────────────────────────────────────────────────
+consumption_record:
+  push_completed: true
+  push_range: "1264606..26af717"
+  push_target: "origin/main"
+  total_commits_pushed: 7
+  pre_push_gates_reverified:
+    typecheck: "exit 0 (full turbo cache)"
+    lint: "exit 0 (full turbo cache, --max-warnings=0)"
+    test: "exit 0 (full turbo cache; 103 db-test + 57 tools + restantes inalterados)"
+    check_rls: "exit 0 (26 tabelas / 104 policies — NFR5 PRESERVADA)"
+    build: "exit 0 (full turbo cache; apps/web build verde com transpilePackages)"
+  coderabbit_decision: "skipped — 262 files > 150 limit (idêntico a closure 2.2; gate report architect substitui review automatizado)"
+  housekeeping_completed:
+    - "Story file `docs/stories/active/2.3.tool-registry-foundation.md` movida via `git mv` para `docs/stories/completed/`"
+    - "_INDEX.md Epic 2 row 2.3 actualizada para Done com path `../completed/2.3.tool-registry-foundation.md`"
+    - "Header line _INDEX.md `Actualizado:` reescrita para registar push completo + Epic 2 estado 3/11 Done"
+    - "Este handoff marcado consumed: true + consumed_at + consumed_by"
+    - "Handoff movido para `docs/handoffs/archive/` via `git mv` no commit chore final"
+    - "HANDOFF-INDEX.md actualizado: pending row removida, archived row adicionada com referência aos commits"
 
 project_prefix: mj
 project_codename: meu-jarvis
