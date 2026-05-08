@@ -220,3 +220,10 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          # Sentry sourcemap upload (Story 1.7 AC3 + Task 3.6).
+          # Sem SENTRY_AUTH_TOKEN o plugin emite warning não-bloqueante mas
+          # stack traces ficam minificadas no Sentry — debug fica difícil.
+          # SENTRY_ORG/SENTRY_PROJECT identificam a aplicação na org `eurico-xw`.
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}

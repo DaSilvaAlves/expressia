@@ -1,0 +1,40 @@
+{
+  "name": "@meu-jarvis/observability",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Observabilidade Expressia (OTel via @vercel/otel + Sentry EU + Pino logger com PII redaction). Source-only package (sem build step), consumido via transpilePackages no Next.js.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./logger": "./src/logger.ts",
+    "./tracer": "./src/tracer.ts",
+    "./sentry": "./src/sentry.ts"
+  },
+  "scripts": {
+    "lint": "echo \"@meu-jarvis/observability: lint herdado do typecheck — ver typecheck script\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "echo \"@meu-jarvis/observability: package source-only (sem build step)\""
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@sentry/nextjs": "^8.45.0",
+    "@vercel/otel": "^1.10.0",
+    "pino": "^9.5.0"
+  },
+  "peerDependencies": {
+    "next": "^15.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "next": "^15.0.3",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

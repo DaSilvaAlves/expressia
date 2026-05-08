@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 
+import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
+
 import '@/app/globals.css';
 
 export const metadata: Metadata = {
@@ -32,7 +35,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-PT">
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* Vercel Observability (Story 1.7 AC4) — RUM/Web Vitals + Analytics. */}
+        {/* Both auto-noop em dev (NODE_ENV !== 'production'); ambos respeitam DNT. */}
+        <Analytics />
+        <SpeedInsights />
+      </body>
     </html>
   );
 }

@@ -17,8 +17,14 @@
   "dependencies": {
     "@meu-jarvis/auth": "workspace:*",
     "@meu-jarvis/db": "workspace:*",
+    "@meu-jarvis/observability": "workspace:*",
+    "@opentelemetry/api": "^1.9.0",
+    "@sentry/nextjs": "^8.45.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.0",
+    "@vercel/analytics": "^1.4.1",
+    "@vercel/otel": "^1.10.0",
+    "@vercel/speed-insights": "^1.1.0",
     "next": "^15.0.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

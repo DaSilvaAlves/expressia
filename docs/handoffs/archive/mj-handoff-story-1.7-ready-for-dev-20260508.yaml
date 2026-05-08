@@ -10,8 +10,10 @@ handoff_id: mj-handoff-story-1.7-ready-for-dev-20260508
 from_agent: po (Pax)
 to_agent: dev (Dex)
 created: 2026-05-08T00:30:00+01:00
-status: pending
-consumed: false
+consumed_at: 2026-05-08T01:15:00+01:00
+consumed_by: dev (Dex)
+status: consumed
+consumed: true
 priority: medium
 project_prefix: mj
 project_codename: meu-jarvis

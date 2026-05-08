@@ -20,11 +20,27 @@
  *   direct connection) com JWT injection para endpoints futuros — fora do
  *   scope desta story.
  *
- * Trace: Story 1.6 AC1-AC9, Architecture §5.1, §7.1, §7.3, ADR-002.
+ * Observability (Story 1.7 AC5):
+ *   - Span OTel por request com atributos `http.method`, `http.route`,
+ *     `http.status_code`, `user.id` (hashed), `household.id`.
+ *   - Logger Pino com PII redaction para correlação trace ↔ logs.
+ *   - Erros 5xx delegados a Sentry via `captureException` wrapper (com
+ *     contexto `householdId` + `userId` hashed).
+ *
+ * Trace: Story 1.6 AC1-AC9, Story 1.7 AC5, Architecture §5.1, §7.1, §7.3,
+ *        §9.1, ADR-002, ADR-004.
  */
 import { NextResponse } from 'next/server';
 
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
+import {
+  annotateSpan,
+  captureException,
+  childLogger,
+  hashForCorrelation,
+  recordSpanError,
+  withSpan,
+} from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
 
@@ -69,60 +85,98 @@ interface MeResponse {
   readonly role: HouseholdRole;
 }
 
+const ROUTE = '/api/me';
+
 export async function GET(): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
+  return withSpan(
+    'GET /api/me',
+    { method: 'GET', route: ROUTE },
+    async (span): Promise<NextResponse> => {
+      const log = childLogger({ route: ROUTE, method: 'GET' });
+      const supabase = await createServerSupabaseClient();
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-  if (authError || !user) {
-    return apiError(
-      'AUTH_REQUIRED',
-      'Sessão inválida ou expirada. Por favor inicie sessão novamente.',
-      401,
-    );
-  }
+      if (authError || !user) {
+        annotateSpan(span, { statusCode: 401 });
+        log.info({ status: 401, code: 'AUTH_REQUIRED' }, 'Pedido sem sessão válida');
+        return apiError(
+          'AUTH_REQUIRED',
+          'Sessão inválida ou expirada. Por favor inicie sessão novamente.',
+          401,
+        );
+      }
 
-  // Query via PostgREST — RLS-via-JWT activa automaticamente.
-  // `households.plan` é denormalizado (ver schema/tenancy.ts) — evita JOIN
-  // adicional com `subscriptions` para AC1.
-  const { data, error } = await supabase
-    .from('household_members')
-    .select('role, households (id, name, plan)')
-    .eq('user_id', user.id)
-    .limit(1)
-    .maybeSingle<MembershipRow>();
+      // Anotar span com user.id hashed assim que temos identidade autenticada.
+      annotateSpan(span, { userId: user.id });
 
-  if (error) {
-    return apiError(
-      'HOUSEHOLD_QUERY_FAILED',
-      'Não foi possível obter os dados do household. Tenta novamente.',
-      500,
-    );
-  }
+      // Query via PostgREST — RLS-via-JWT activa automaticamente.
+      // `households.plan` é denormalizado (ver schema/tenancy.ts) — evita JOIN
+      // adicional com `subscriptions` para AC1.
+      const { data, error } = await supabase
+        .from('household_members')
+        .select('role, households (id, name, plan)')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle<MembershipRow>();
 
-  if (!data || !data.households) {
-    return apiError(
-      'HOUSEHOLD_NOT_FOUND',
-      'Household não encontrado. Por favor complete o registo.',
-      404,
-    );
-  }
+      if (error) {
+        annotateSpan(span, { statusCode: 500 });
+        recordSpanError(span, error, 500);
+        log.error(
+          { status: 500, code: 'HOUSEHOLD_QUERY_FAILED', err: error },
+          'Falha a obter household do utilizador',
+        );
+        captureException(error, {
+          userId: user.id,
+          route: ROUTE,
+          tags: { error_code: 'HOUSEHOLD_QUERY_FAILED' },
+        });
+        return apiError(
+          'HOUSEHOLD_QUERY_FAILED',
+          'Não foi possível obter os dados do household. Tenta novamente.',
+          500,
+        );
+      }
 
-  const body: MeResponse = {
-    user: {
-      id: user.id,
-      email: user.email ?? null,
+      if (!data || !data.households) {
+        annotateSpan(span, { statusCode: 404 });
+        log.warn(
+          {
+            status: 404,
+            code: 'HOUSEHOLD_NOT_FOUND',
+            user_hash: hashForCorrelation(user.id),
+          },
+          'Household não encontrado para utilizador autenticado',
+        );
+        return apiError(
+          'HOUSEHOLD_NOT_FOUND',
+          'Household não encontrado. Por favor complete o registo.',
+          404,
+        );
+      }
+
+      // Sucesso: anotar span com household_id e statusCode 200
+      annotateSpan(span, { householdId: data.households.id, statusCode: 200 });
+
+      const body: MeResponse = {
+        user: {
+          id: user.id,
+          email: user.email ?? null,
+        },
+        household: {
+          id: data.households.id,
+          name: data.households.name,
+          plan: data.households.plan,
+        },
+        role: data.role,
+      };
+
+      log.info({ status: 200, household_id: data.households.id }, 'Pedido /api/me OK');
+      return NextResponse.json<MeResponse>(body);
     },
-    household: {
-      id: data.households.id,
-      name: data.households.name,
-      plan: data.households.plan,
-    },
-    role: data.role,
-  };
-
-  return NextResponse.json<MeResponse>(body);
+  );
 }

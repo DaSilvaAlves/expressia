@@ -1,0 +1,141 @@
+{
+  "__comment": "Grafana dashboard scaffold — Epic 1 (Story 1.7 AC7). Substituir por export completo após criação na UI Grafana (https://expressia.grafana.net) com dados reais de production. Workflow: Dashboard → Share → Export → Save to file → guardar aqui via git. Stack: expressia.grafana.net (eu-west-6 Ireland).",
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Expressia — Epic 1 essential observability (latency, error rate, RLS violations, DB latency). Story 1.7. Trace: Architecture §9.4, NFR14.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Latência p95 — /api/me",
+      "type": "timeseries",
+      "description": "Target: < 200ms (NFR15 escalado para canary endpoint).",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket{http_route=\"/api/me\"}[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 150 },
+              { "color": "red", "value": 200 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "title": "Error rate 5xx (todos os endpoints)",
+      "type": "timeseries",
+      "description": "Target: < 1% (NFR15).",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_response_count{http_status_code=~\"5..\"}[5m])) / sum(rate(http_server_response_count[5m]))",
+          "legendFormat": "error rate"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 0.005 },
+              { "color": "red", "value": 0.01 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "id": 3,
+      "title": "RLS policy violations (logs Loki)",
+      "type": "stat",
+      "description": "Target: 0. Qualquer valor > 0 é CRITICAL — investigar via Logs Loki.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count_over_time({job=\"expressia-web\"} |= \"rls_policy_violation\" [5m])",
+          "legendFormat": "violations"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "id": 4,
+      "title": "DB query latency p95",
+      "type": "timeseries",
+      "description": "Target: < 300ms sustained.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(db_client_operation_duration_milliseconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 250 },
+              { "color": "red", "value": 300 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["expressia", "epic1", "observability"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "Europe/Lisbon",
+  "title": "Expressia — Epic 1 Observability",
+  "uid": "expressia-epic1",
+  "version": 1,
+  "weekStart": ""
+}

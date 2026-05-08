@@ -3,7 +3,7 @@
 **Epic Goal:** Estabelecer fundação técnica do projecto: monorepo Next.js+TS, CI/CD com gates de qualidade, Postgres com RLS multi-tenant, autenticação básica, stack de observability — terminando com um endpoint canary autenticado que prova multi-tenancy fim-a-fim.
 
 **Criado:** 2026-05-04
-**Actualizado:** 2026-05-08 (Story 1.7 v1.2 — `@po *validate-story-draft 1.7` GO 9.5/10. Status transicionado Draft → Ready. 2 minor fixes aplicados: File List sincronizada com Tasks 3.3/3.6, Stack table corrigida para `@vercel/otel`. Próximo passo: `@dev *develop 1.7`.)
+**Actualizado:** 2026-05-08 (Story 1.7 v1.3 — `@dev *develop 1.7` em modo YOLO. Status Ready → InProgress → Ready for Review. Tasks 1-6+9 completas; Tasks 7-8 deferidas pós-deploy. Quality gates lint/typecheck/test/build exit 0. Próximo passo: `@architect` quality gate.)
 **Autor:** River (@sm)
 
 ---
@@ -18,7 +18,7 @@
 | 1.4 | [1.4.rls-helpers-test-suite.md](../completed/1.4.rls-helpers-test-suite.md) | Suite de Testes RLS Automatizada | **Done** ✅ | @dev | L | ~~Depende de 1.1, 1.3~~ — entregue 2026-05-05 (QA PASS 7/7, 86/86 testes verde) |
 | 1.5 | [1.5.supabase-auth-rls-integration.md](../completed/1.5.supabase-auth-rls-integration.md) | Supabase Auth + RLS Integration + custom_access_token_hook | **Done** ✅ | @dev | L | ~~Bloqueador B2 resolvido~~ |
 | 1.6 | [1.6.canary-endpoint-me.md](../completed/1.6.canary-endpoint-me.md) | Endpoint Canary `/api/me` + E2E RLS | **Done** ✅ (Reduced Scope) | @dev | M | ~~Depende de 1.5~~ — validated in production 2026-05-06 |
-| 1.7 | [1.7.observability-otel-sentry.md](./1.7.observability-otel-sentry.md) | Observabilidade OTel + Sentry EU + Grafana | **Ready** ✅ (v1.2) | @dev | M | ~~B3 Sentry EU + B4 Grafana Cloud EU~~ ✅ resolvidos 2026-05-07; @po validou GO 9.5/10 em 2026-05-08 |
+| 1.7 | [1.7.observability-otel-sentry.md](./1.7.observability-otel-sentry.md) | Observabilidade OTel + Sentry EU + Grafana | **Ready for Review** (v1.3) | @dev | M | ~~B3 Sentry EU + B4 Grafana Cloud EU~~ ✅ resolvidos 2026-05-07; @po validou GO 9.5/10 em 2026-05-08; @dev implementou Tasks 1-6+9 em 2026-05-08, Tasks 7-8 deferidas pós-deploy |
 
 ---
 
