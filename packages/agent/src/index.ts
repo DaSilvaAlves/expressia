@@ -16,6 +16,7 @@
 export { getProvider, resetProviderCache, isFallbackOpenAIEnabled, AnthropicProvider, OpenAIProvider } from './providers';
 export type { ProviderInterface } from './providers';
 export type { GetProviderOpts } from './providers';
+export type { OpenAIClientLike } from './providers/openai';
 
 export {
   ProviderCompleteInputSchema,
@@ -49,5 +50,7 @@ export {
   ContentPolicyError,
   MissingApiKeyError,
   CircuitOpenError,
+  mapOpenAIError,
+  sanitizeHint,
 } from './errors';
 export type { ProviderId } from './errors';

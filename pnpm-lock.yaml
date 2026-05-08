@@ -38,6 +38,9 @@ importers:
       '@meu-jarvis/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@meu-jarvis/classifier':
+        specifier: workspace:*
+        version: link:../../packages/classifier
       '@meu-jarvis/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -167,6 +170,34 @@ importers:
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
+
+  packages/classifier:
+    dependencies:
+      '@meu-jarvis/agent':
+        specifier: workspace:*
+        version: link:../agent
+      '@meu-jarvis/observability':
+        specifier: workspace:*
+        version: link:../observability
+      '@opentelemetry/api':
+        specifier: ^1.9.0
+        version: 1.9.1
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+      zod-to-json-schema:
+        specifier: ^3.23.5
+        version: 3.25.2(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.7.0
+        version: 22.19.17
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@22.19.17)(jsdom@25.0.1)(terser@5.47.1)
 
   packages/db:
     dependencies:

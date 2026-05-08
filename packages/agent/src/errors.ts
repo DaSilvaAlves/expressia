@@ -328,8 +328,11 @@ export function mapOpenAIError(err: unknown, timeoutMsHint = 30000): ProviderErr
  * Limita o tamanho do hint do provider e remove padrões que possam vazar PII.
  * Conservador: corta a 200 chars e elimina sequências longas de caracteres
  * alfanuméricos que possam ser tokens/IBAN/NIF.
+ *
+ * Exportada (Story 2.4 D10) para que `@meu-jarvis/classifier` reutilize a
+ * mesma sanitização nos seus erros (AC10 — PII redaction nos error messages).
  */
-function sanitizeHint(raw: string): string {
+export function sanitizeHint(raw: string): string {
   const trimmed = raw.replace(/\s+/g, ' ').trim().slice(0, 200);
   // Remove sequências longas (potenciais tokens/keys/IDs):
   //   - >= 10 chars alfanuméricos com símbolos (`_` / `-`) — captures most tokens
