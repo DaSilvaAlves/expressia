@@ -1,0 +1,287 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Session Pause após Story 2.1 Done
+# Cross-terminal resume artifact
+# ═══════════════════════════════════════════════════════════════════════════
+# Sessão produtiva 2026-05-08: fechou Story 1.7 Done end-to-end + corrigiu bug
+# pré-existente turbo.json (sourcemap upload) + arrancou Epic 2 com kickoff
+# completo + fechou Story 2.1 Done. 2 stories transitioned to Done numa única
+# sessão. Estado consolidado, pushed, documentado. Eurico parou aqui antes
+# de provisionar EB1 (Anthropic Sales) e fazer 4 acções UI Story 1.7.
+
+handoff_id: mj-handoff-session-pause-after-2.1-done-20260508
+from_agent: aiox-master (Orion)
+to_agent: any (Orion / @sm / @devops próxima sessão)
+created: 2026-05-08T19:00:00+01:00
+status: pending
+consumed: false
+priority: medium
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR (60 segundos para retomar)
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Sessão 2026-05-08 fechou **2 stories Done** (1.7 Observability + 2.1 Schema agent
+  RLS+immutability) e arrancou Epic 2 com kickoff @pm completo. Working tree
+  **limpo**, `origin/main` em `9985bb0`, zero commits pendentes. **Epic 1 = 7/7
+  Done**, **Epic 2 = 1/11 Done**. Próximo passo prático: Eurico provisiona
+  **EB1 ANTHROPIC_API_KEY** (Anthropic Sales para DPA UE + zero retention/no
+  training, não está em self-serve, 48-72h estimado). Em paralelo @sm pode
+  arrancar `*draft 2.2` SEM blocker (PRD-driven). Bug pré-existente apanhado
+  como bónus: `turbo.json` `tasks.build.env` listava só 6 vars — as 8 vars
+  Sentry/OTel/Grafana NUNCA chegavam ao build, sourcemap upload do Sentry
+  falhava silenciosamente em todos os deploys anteriores. Fix `08c0b44`
+  validado no deploy seguinte (3 runtimes uploaded chunks). Não há crise,
+  não há blocker técnico activo, não há working tree modificado.
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🟢 ESTADO GIT (verificado neste handoff)
+# ───────────────────────────────────────────────────────────────────────────
+git:
+  branch: main
+  head_local: 9985bb0
+  head_remote: 9985bb0
+  ahead_behind: 0/0
+  working_tree: clean
+  last_commit_message: 'chore(stories): close Story 2.1 Done + handoff Story 2.2 blocked on EB1 [Story 2.1]'
+  last_pushed_at: 2026-05-08T18:30:00+01:00
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📊 STORIES STATUS
+# ───────────────────────────────────────────────────────────────────────────
+epics:
+  epic_1:
+    title: Foundation & Multi-Tenant Core
+    status: 7/7 Done
+    deployed: https://expressia-black.vercel.app (region fra1 Frankfurt UE)
+    stories_completed:
+      - 1.1 monorepo + Next.js 15 + React 19
+      - 1.2 CI pipeline (3 jobs: quality + rls-gate + build)
+      - 1.3 Supabase + Drizzle bootstrap (27 tabelas, 104 RLS policies, 24 categorias PT)
+      - 1.4 Suite Testcontainers RLS
+      - 1.5 Auth Supabase
+      - 1.6 (Reduced Scope) /api/me canary
+      - 1.7 Observability OTel + Sentry EU + Grafana EU (gate APPROVED 9.4/10)
+
+  epic_2:
+    title: Cérebro AI Multi-Intent + Tarefas + Finanças
+    status: 1/11 Done
+    plan: docs/epics/EPIC-2-EXECUTION.yaml (v0.1 ratificado)
+    critical_path: '2.1 → 2.2 → 2.3 → 2.5 → 2.6'
+    stories_completed:
+      - 2.1 schema agent validation + RLS coverage + immutability NFR9 + TTL FR6 (gate APPROVED 9.5/10)
+    next_story: 2.2 (packages/agent/ + provider abstraction Anthropic Sonnet primary + OpenAI fallback)
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📥 HANDOFFS PENDING (pointers — não duplicar contexto)
+# ───────────────────────────────────────────────────────────────────────────
+pending_handoffs:
+  - id: mj-handoff-2.2-ready-for-sm-blocked-eb1-20260508
+    from: devops (Gage)
+    to: sm (River)
+    priority: medium
+    next_action: '@sm *draft 2.2'
+    blocker_for_dev: EB1 ANTHROPIC_API_KEY
+    note: '@sm pode arrancar SEM key (PRD-driven). @dev fica bloqueado em *develop até EB1.'
+
+  - id: mj-handoff-1.7-post-deploy-ui-tasks-20260508
+    from: devops (Gage)
+    to: any (Eurico humano via UI ou @devops futuro com browser auto)
+    priority: low
+    next_action: '4 acções UI manuais — importar dashboard Grafana, criar 2 alertas, smoke test 5xx Sentry, validar Vercel Analytics'
+    estimated: 25-35 min
+    pre_req_status: SOURCEMAP UPLOAD CONFIRMED 2026-05-08 12:00 (deploy 08c0b44 com 17+19+18 chunks Node/Edge/Client)
+    note: 'Non-blocking — Story 1.7 Done. Eurico decide quando fazer.'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🚧 EXTERNAL BLOCKERS (para @dev future stories)
+# ───────────────────────────────────────────────────────────────────────────
+external_blockers:
+  EB1:
+    name: ANTHROPIC_API_KEY
+    blocks: Story 2.2+ (todas as stories Epic 2 que usam Claude Sonnet)
+    requirement: tier Sonnet + DPA UE + zero retention + no training (NFR11 excepção Architecture §12.2)
+    self_serve: false
+    action: Eurico contacta Anthropic Sales directamente (sales@anthropic.com ou contact form)
+    estimated_eta: 48-72h (best case) a 1-2 semanas (pior caso)
+    runtime_destinations:
+      - GitHub Actions secret (gh secret set ANTHROPIC_API_KEY -R DaSilvaAlves/expressia)
+      - Vercel env (Production + Preview)
+      - turbo.json tasks.build.env (já tem 8 vars Sentry/OTel/Grafana, adicionar ANTHROPIC_API_KEY quando chegar)
+
+  EB2:
+    name: OPENAI_API_KEY
+    blocks: Story 2.4 (Classifier GPT-4o-mini PT-PT)
+    requirement: DPA UE + zero retention + no training
+    self_serve: parcial (key em self-serve, DPA precisa pedir a OpenAI)
+    action: Eurico cria conta OpenAI Org + activa DPA UE
+    estimated_eta: 24-48h
+    runtime_destinations: idem EB1
+
+  EB3:
+    name: Upstash Redis EU
+    blocks: Story 2.9 (Cost router + cache Anthropic prompt caching + quotas)
+    requirement: instance em região eu-west-1 ou eu-central-1
+    self_serve: true
+    action: Eurico cria instance Upstash region UE + extrai REST_URL + REST_TOKEN
+    estimated_eta: 30 min
+    runtime_destinations: idem EB1 (vars UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN)
+
+# ───────────────────────────────────────────────────────────────────────────
+# ❓ DECISION POINTS PENDENTES (Eurico GO necessário antes de detalhar stories)
+# ───────────────────────────────────────────────────────────────────────────
+decision_points:
+  reference: docs/epics/EPIC-2-EXECUTION.yaml §8
+  required_before_drafting:
+    DP1: 'Provider primary (Anthropic Sonnet) vs Anthropic Haiku para classifier — recomendação Morgan: Sonnet para planner, mini/Haiku para classifier. Eurico GO antes de Story 2.4.'
+    DP2: 'Tool registry scope inicial — 2 tools (create_task + create_transaction) para MVP Fase 1, ou mais? Recomendação Morgan: 2 tools mínimo. Eurico GO antes de Story 2.3.'
+    DP3: 'Hard cap ops/prompt — 5 ops parametrizável. Eurico GO antes de Story 2.5.'
+    DP4: 'Provider fallback OpenAI — flag-gated Fase 2 (não Fase 1). Eurico GO antes de Story 2.2.'
+    DP5: 'UI mínimo MVP — input box + preview + confirm/cancel + undo. Pode cair em pre-flight da Story 2.8.'
+    DP6: 'Inngest workers scope — recurrences Tarefas + Transacções recurring. Eurico GO antes de Story 2.9.'
+    DP7: 'Não-bloqueante — pode cair em pre-flight da story afectada.'
+    DP8: 'Não-bloqueante — pode cair em pre-flight da story afectada.'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🎯 RECOMMENDED NEXT ACTIONS POR CENÁRIO
+# ───────────────────────────────────────────────────────────────────────────
+recommended_next_actions:
+  scenario_a_eurico_provisionou_eb1:
+    description: 'Eurico já tem ANTHROPIC_API_KEY em runtime'
+    steps:
+      - '1. @sm consome mj-handoff-2.2-ready-for-sm-blocked-eb1-20260508 e arranca *draft 2.2'
+      - '2. Validação @po + implementação @dev podem fluir sem bloqueio'
+      - '3. Se EB2 também provisionada, Story 2.4 pode arrancar em paralelo'
+
+  scenario_b_eb1_ainda_pending:
+    description: 'EB1 ainda não provisionada (caso default)'
+    option_b1:
+      title: '@sm *draft 2.2 antecipado'
+      description: 'Draft é PRD-driven, não precisa de key. @sm cria story file, @po valida, story fica Ready aguardando @dev.'
+      benefit: 'Trabalho avança em paralelo enquanto Eurico contacta Anthropic Sales.'
+    option_b2:
+      title: 'Pausa Epic 2, focar 4 acções UI Story 1.7'
+      description: 'Eurico abre browser e executa as 4 tasks UI (Grafana import, alerts, Sentry smoke test, Vercel Analytics) em ~25-35min. Fecha Epic 1 a 100% incluindo DoD.'
+      benefit: 'Limpeza de pendência low-priority enquanto se aguarda EB1.'
+    option_b3:
+      title: 'Eurico valida DPs §8 do EPIC plan'
+      description: 'Lê docs/epics/EPIC-2-EXECUTION.yaml §8 e dá GO/REJECT a DP1-DP6. Refina decomposição se DP1/DP2/DP3/DP6 alterarem stories afectadas.'
+      benefit: 'Desbloqueia detalhamento de stories 2.3-2.9 antes de @sm draftar cada uma.'
+
+  scenario_c_pause_total:
+    description: 'Sem provisão de keys nem trabalho de UI — apenas retomar contexto'
+    steps:
+      - '1. Próxima sessão activa @aiox-master (Orion) que lê este handoff'
+      - '2. Orion oferece scenarios A / B (b1/b2/b3) consoante estado de EB1'
+      - '3. Eurico escolhe direcção'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📂 FICHEIROS CRÍTICOS PARA CONTEXTO
+# ───────────────────────────────────────────────────────────────────────────
+critical_files:
+  story_2_1_completed: docs/stories/completed/2.1.agent-schema-rls.md (v1.3 Done)
+  story_1_7_completed: docs/stories/completed/1.7.observability-otel-sentry.md (v1.4 Done)
+  epic_2_plan: docs/epics/EPIC-2-EXECUTION.yaml (v0.1 — 11 stories)
+  epic_2_brief: docs/epics/epic-2-cerebro-ai-multi-intent.md (plan v0.1 inalterado)
+
+  gate_reports:
+    - docs/qa/gates/1.7-architect-gate.md (APPROVED 9.4/10 HIGH)
+    - docs/qa/gates/2.1-architect-gate.md (APPROVED 9.5/10 HIGH)
+
+  schema_agent:
+    - packages/db/src/schema/agent.ts (4 tabelas reais — agent_runs + intent_classifications + agent_reverse_ops + agent_quotas)
+    - packages/db/migrations/0001_rls_policies.sql:262-362 (16 RLS policies agent)
+    - packages/db/migrations/0005_agent_immutability_and_ttl.sql (DEFAULT TTL 30s + trigger immutability)
+
+  observability:
+    - packages/observability/src/{logger,tracer,sentry,index}.ts
+    - apps/web/instrumentation.ts (registerOTel via @vercel/otel)
+    - apps/web/sentry.{server,client,edge}.config.ts
+    - apps/web/next.config.ts (withSentryConfig + transpilePackages)
+    - turbo.json (tasks.build.env com 8 vars Sentry/OTel/Grafana — fix 08c0b44)
+    - docs/runbooks/observability-setup.md
+    - docs/dashboards/grafana-epic1.json (scaffold completo, espera UI import)
+
+  context_files:
+    - CLAUDE.md (project instructions)
+    - docs/architecture.md (§3 data model + §4 AI pipeline + §9 observability + §12 compliance)
+    - docs/prd.md (v1.1 — FRs/NFRs)
+    - docs/HANDOFF-INDEX.md (este handoff é primeira entry Pending após adicionar)
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📊 SESSÃO 2026-05-08 — RECAP
+# ───────────────────────────────────────────────────────────────────────────
+session_recap:
+  start_state:
+    branch: main
+    head: 51efd58
+    pending_work: 'Story 1.7 Ready (v1.1) com handoff @sm → @po, 4 ficheiros docs uncommitted'
+
+  end_state:
+    branch: main
+    head: 9985bb0
+    pending_work: '0 ficheiros uncommitted, 2 handoffs Pending (2.2-blocked-eb1 + 1.7-ui-tasks)'
+
+  commits_pushed: 11
+  stories_transitioned_to_done: 2 (1.7 + 2.1)
+  gates_passed:
+    - 'Story 1.7 architect gate APPROVED 9.4/10 HIGH'
+    - 'Story 2.1 po validation GO 9.5/10 HIGH'
+    - 'Story 2.1 architect gate APPROVED 9.5/10 HIGH'
+
+  bugs_discovered_and_fixed:
+    - 'turbo.json missing 8 env vars Sentry/OTel/Grafana — sourcemap upload silenciosamente falhava em todos os deploys anteriores. Fix 08c0b44 + validation eb6f732 (3 runtimes uploaded chunks).'
+
+  autonomous_decisions_validated_by_architect:
+    - 'Story 1.7: experimental.instrumentationHook removido (Next 15 não tem types — comportamento default desde 15.0). Validado com Next 15 release notes + Sentry GH issue #13551.'
+    - 'Story 2.1: trigger bypass via current_user IN (service_role, postgres) com security invoker explícito. Validado com análise Supabase SET ROLE pattern + escalation paths.'
+
+  schema_discoveries:
+    - 'Schema agent já existia desde Story 1.3 bootstrap. EPIC plan referenciava agent_intents + agent_tool_calls como tabelas separadas; schema real tem intent_classification + tool_calls como JSONB columns de agent_runs. Story 2.1 adoptou nomes reais (Article IV — No Invention).'
+
+  handoffs_created_consumed_archived: 7
+    # consumed:
+    # - mj-handoff-secrets-configured-20260507 (consumed por @sm para draft 1.7)
+    # - mj-handoff-story-1.7-ready-for-dev-20260508 (consumed por @dev para implement)
+    # - mj-handoff-1.7-post-deploy-grafana-20260508 (consumed por @devops, descobriu turbo bug)
+    # - mj-handoff-epic2-kickoff-20260508 (consumed por @sm para draft 2.1)
+    # - mj-handoff-story-2.1-ready-for-validation-20260508 (consumed por @po)
+    # - mj-handoff-story-2.1-ready-for-dev-20260508 (consumed por @dev)
+    # - mj-handoff-2.1-ready-for-architect-gate-20260508 (consumed por @architect)
+
+# ───────────────────────────────────────────────────────────────────────────
+# ⚠️ PONTOS DE ATENÇÃO PARA PRÓXIMA SESSÃO
+# ───────────────────────────────────────────────────────────────────────────
+attention_points:
+  - id: AP1
+    topic: 'Stream timeout @dev'
+    detail: 'Sessão @dev na implementação 2.1 teve stream idle timeout aos ~25min e 55 tool calls. Recovery feito via spawn novo @dev focado em finalização — fechou em 8min. Para stories grandes (Story 2.5 Planner/Executor é L), considerar split em sub-tasks ou spawnar @dev com escopo menor.'
+
+  - id: AP2
+    topic: 'SendMessage não disponível neste harness'
+    detail: 'Tentei SendMessage para resumir @dev timed-out, mas tool não está nesta sessão Claude Code. Spawn novo agent foi alternativa funcional. Documentar limitação para evitar tentar de novo.'
+
+  - id: AP3
+    topic: 'Anthropic Sales timing'
+    detail: 'EB1 ANTHROPIC_API_KEY com DPA UE não está em self-serve. Eurico precisa abrir contact form (anthropic.com/contact-sales) ou email sales@anthropic.com. Resposta típica 24-48h, processo DPA assinado 5-10 dias. Pode justificar começar EB2 (OpenAI DPA self-serve UI) em paralelo.'
+
+  - id: AP4
+    topic: 'Grafana JSON scaffold é REAL (não vazio)'
+    detail: 'docs/dashboards/grafana-epic1.json tem 4 painéis configurados com queries OTel + thresholds + gridPos + timezone Europe/Lisbon. UI import vai gerar uid/id. NÃO inventar versão "populated" — a UI Grafana é fonte de verdade quando importada.'
+
+  - id: AP5
+    topic: 'Naming reality alignment'
+    detail: 'Documentação histórica (PRD v1.1, alguns handoffs antigos) refere agent_intents e agent_tool_calls como tabelas. Schema real (Story 1.3 bootstrap + Story 2.1 audit) confirmou que são intent_classification + tool_calls como JSONB columns de agent_runs + tabela separada intent_classifications (distinta). Stories 2.4 (Classifier) e 2.5 (Planner/Executor) precisam de UPDATE em colunas JSONB e/ou INSERT em intent_classifications, não INSERT em tabelas inexistentes.'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🔚 REGRAS DE CONSUMO
+# ───────────────────────────────────────────────────────────────────────────
+consumption_protocol:
+  - 'Quem consome: agente que retoma sessão (any pode ser Orion / @sm / @devops consoante direcção escolhida).'
+  - 'Marca consumed: true + consumed_at (ISO-8601) + consumed_by quando escolheres direcção.'
+  - 'Move ficheiro de docs/handoffs/ → docs/handoffs/archive/.'
+  - 'Actualiza docs/HANDOFF-INDEX.md (mover row de Pending → Archived).'
+  - 'Este handoff é META — aponta para 2 handoffs actionable (2.2-ready + 1.7-ui-tasks). NÃO substitui nem invalida esses dois — ambos continuam vivos depois de consumires este.'
