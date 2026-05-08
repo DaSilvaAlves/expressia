@@ -1,0 +1,296 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Story 1.7 Ready for @dev *develop
+# ═══════════════════════════════════════════════════════════════════════════
+# Sucessor de mj-handoff-secrets-configured-20260507 (consumed por @sm).
+# Pipeline: @sm *draft 1.7 ✅ → @po *validate-story-draft 1.7 ✅ GO 9.5/10
+# Próximo: @dev *develop 1.7 (este handoff prepara terminal novo)
+
+handoff_id: mj-handoff-story-1.7-ready-for-dev-20260508
+from_agent: po (Pax)
+to_agent: dev (Dex)
+created: 2026-05-08T00:30:00+01:00
+status: pending
+consumed: false
+priority: medium
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR (60 segundos)
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Story 1.7 (Observabilidade OTel + Sentry EU + Grafana EU) está **Ready** após
+  validação @po GO 9.5/10. Bloqueadores B3+B4 resolvidos (8 secrets em runtime
+  GitHub Actions + Vercel Production+Preview). Decisão arquitectural:
+  `@vercel/otel` (auto-instrumentação serverless) em vez de `@opentelemetry/sdk-node`
+  cru. Próximo passo: `@dev *develop 1.7` em terminal novo. Working tree tem
+  4 ficheiros docs modificados pendentes commit (refresh @sm + validação @po +
+  handoff close+new) — primeiro acto do @dev: commit destes docs antes de
+  arrancar implementação.
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🟢 ESTADO ACTUAL — VERIFIED
+# ───────────────────────────────────────────────────────────────────────────
+estado_actual:
+  story:
+    id: '1.7'
+    file: docs/stories/active/1.7.observability-otel-sentry.md
+    title: 'Observabilidade: OTel + Sentry EU + Grafana Cloud EU'
+    status: Ready
+    version: 1.2
+    epic: Epic 1 — Foundation & Multi-Tenant Core
+    estimate: M
+    executor: '@dev'
+    quality_gate: '@architect'
+    quality_gate_tools: ['typecheck', 'lint', 'vitest']
+
+  validation:
+    validator: 'Pax (@po)'
+    verdict: GO
+    score: 9.5/10
+    confidence: high
+    timestamp: 2026-05-08T00:00:00+01:00
+    issues_blocking: 0
+    issues_should_fix: 0 (2 minor fixes aplicados directamente pelo @po)
+    issues_nice_to_have: 0
+
+  production:
+    url: https://expressia-black.vercel.app
+    status: 200 OK (validado 2026-05-07 22:35)
+    region_runtime: cdg1 Paris UE
+    deployment_protection: OFF (público)
+
+  git:
+    branch: main
+    head_remote: 51efd58
+    head_local: 51efd58
+    ahead_behind: 0/0 (working tree NÃO committed ainda)
+    working_tree_modified:
+      - 'M  docs/HANDOFF-INDEX.md'
+      - 'RM docs/handoffs/mj-handoff-secrets-configured-20260507.yaml -> docs/handoffs/archive/...'
+      - 'M  docs/stories/active/1.7.observability-otel-sentry.md'
+      - 'M  docs/stories/active/_INDEX.md'
+      - '(este handoff: + docs/handoffs/mj-handoff-story-1.7-ready-for-dev-20260508.yaml)'
+
+  secrets_em_runtime:
+    github_actions:
+      repo: DaSilvaAlves/expressia
+      count: 8
+      verify: 'gh secret list -R DaSilvaAlves/expressia'
+    vercel:
+      project: euricojsalves-4744s-projects/expressia
+      environments: ['Production', 'Preview']
+      count: 13 (8 novos + 5 Supabase pré-existentes)
+      verify: 'vercel env ls'
+    nomes:
+      sentry: ['SENTRY_DSN', 'SENTRY_ORG', 'SENTRY_PROJECT', 'SENTRY_AUTH_TOKEN']
+      grafana: ['OTEL_EXPORTER_OTLP_ENDPOINT', 'OTEL_EXPORTER_OTLP_HEADERS', 'GRAFANA_API_TOKEN', 'GRAFANA_STACK_NAME']
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🎯 PRÓXIMO PASSO — Terminal Novo
+# ───────────────────────────────────────────────────────────────────────────
+next_action:
+  agent: '@dev'
+  command: '*develop 1.7'
+
+  passos_no_terminal_novo:
+    - '1. Activar @aiox-master (lê HANDOFF-INDEX automaticamente)'
+    - '2. Activar @dev (Dex) — consome este handoff e marca consumed=true'
+    - '3. Commit primeiro do estado actual (process docs):'
+    - '   git add docs/HANDOFF-INDEX.md docs/handoffs/ docs/stories/'
+    - '   git commit -m "chore(stories): close validation 1.7 GO + handoff close+new [Story 1.7]"'
+    - '4. @dev *develop 1.7 — implementação 9 Tasks'
+
+  alternativa_devops_push_primeiro: |
+    Se preferires terminal novo arrancar com working tree limpo:
+    1. @devops *push (empurra os 4 ficheiros docs antes do @dev arrancar)
+    2. Em terminal novo, @dev *develop 1.7 com tree limpo
+
+    Mas a opção primária (@dev faz commit dos docs e segue) é mais directa
+    e poupa um terminal switch.
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📋 RESUMO DAS 9 TASKS PARA @dev
+# ───────────────────────────────────────────────────────────────────────────
+tasks_summary:
+  task_1:
+    titulo: 'Criar package packages/observability/'
+    ac: AC1
+    deps_a_instalar: ['pino', '@vercel/otel', '@opentelemetry/api', '@sentry/nextjs']
+    pattern: 'source-only sem build step (igual a @meu-jarvis/db, consumido via transpilePackages)'
+
+  task_2:
+    titulo: 'OTel via @vercel/otel em apps/web/instrumentation.ts'
+    ac: AC2
+    config_critica:
+      - 'apps/web/instrumentation.ts: registerOTel({ serviceName: ''expressia-web'' })'
+      - 'apps/web/next.config.ts: experimental.instrumentationHook = true (OBRIGATÓRIO)'
+    nao_fazer: 'NÃO recalcular nem decodificar OTEL_EXPORTER_OTLP_HEADERS — Base64 + %20 já formatado pela UI Grafana, SDK OTel decodifica automaticamente'
+
+  task_3:
+    titulo: 'Sentry EU (3 runtimes: server + client + edge)'
+    ac: AC3
+    files:
+      - apps/web/sentry.server.config.ts
+      - apps/web/sentry.client.config.ts
+      - apps/web/sentry.edge.config.ts (Edge runtime para middleware)
+    next_config_wrap: 'withSentryConfig(nextConfig, { org: SENTRY_ORG, project: SENTRY_PROJECT, authToken: SENTRY_AUTH_TOKEN, silent: !CI })'
+    ci_change: 'Adicionar env SENTRY_AUTH_TOKEN ao job de build em .github/workflows/ci.yaml para sourcemap upload (warning não-bloqueante se omitido)'
+
+  task_4:
+    titulo: 'Vercel Speed Insights + Analytics em layout.tsx'
+    ac: AC4
+    deps_a_instalar: ['@vercel/analytics', '@vercel/speed-insights']
+
+  task_5:
+    titulo: 'Instrumentar /api/me com span OTel + sentry captureException'
+    ac: AC5
+    file: apps/web/src/app/api/me/route.ts
+    atributos: ['http.method', 'http.route', 'http.status_code', 'user.id (hashed)', 'household.id']
+
+  task_6:
+    titulo: 'Logger Pino com PII redaction'
+    ac: AC6
+    redact_paths: ['email', 'password', 'nif', 'iban', 'prompt_text', '*.email', '*.password', 'req.headers.authorization', 'req.headers.cookie']
+
+  task_7:
+    titulo: 'Dashboard Grafana 4 painéis'
+    ac: AC7
+    location: 'https://expressia.grafana.net (stack expressia eu-west-6)'
+    paineis: ['p95 /api/me <200ms', 'error rate 5xx', 'rls.policy_violations_total =0', 'DB query latency p95 <300ms']
+    export: docs/dashboards/grafana-epic1.json
+
+  task_8:
+    titulo: 'Alertas Grafana'
+    ac: AC9
+    alertas: ['error rate >1% em 5min', 'p95 >200ms em 5min para /api/me']
+
+  task_9:
+    titulo: 'Documentação + verificação final'
+    ac: [AC8, AC10]
+    passos:
+      - 'docs/runbooks/observability-setup.md'
+      - 'transpilePackages: [''@meu-jarvis/db'', ''@meu-jarvis/observability''] em next.config.ts'
+      - 'pnpm lint && pnpm typecheck && pnpm test && pnpm build (todos exit 0)'
+
+# ───────────────────────────────────────────────────────────────────────────
+# ⚠️ PONTOS DE ATENÇÃO CRÍTICOS (read before code)
+# ───────────────────────────────────────────────────────────────────────────
+pontos_de_atencao:
+  - regra: 'Base64 OTLP_HEADERS imutável'
+    detalhe: 'OTEL_EXPORTER_OTLP_HEADERS já tem Authorization=Basic%20<base64> formatado pela UI Grafana. SDKs OTel decodificam %20 (URL-encoded space) automaticamente. NÃO recalcular nem decodificar.'
+
+  - regra: 'experimental.instrumentationHook obrigatório'
+    detalhe: 'Sem experimental.instrumentationHook = true em next.config.ts, instrumentation.ts é IGNORADO em build serverless. Spans nunca chegam ao Grafana.'
+
+  - regra: 'Sourcemap upload Sentry'
+    detalhe: 'CI build precisa de env SENTRY_AUTH_TOKEN no job. Sem este, plugin Sentry emite warning (não bloqueante) mas stack traces ficam minificadas no Sentry — debug fica difícil.'
+
+  - regra: 'Vercel free plan log limit'
+    detalhe: '1024 MB log per function execution. Evitar logger.info verbose em hot paths produção — manter em logger.debug quando aplicável.'
+
+  - regra: 'Sentry OTLP nativo NÃO usar (decisão arquitectural registada)'
+    detalhe: 'Sentry expõe agora endpoint OTLP nativo (o4510848200278016.ingest.de.sentry.io/api/4510848213581904/integration/otlp). Permitiria emitir traces directos para Sentry. DECISÃO: NÃO usar — manter dual-emission (Sentry para errors via SDK, Grafana para tudo via @vercel/otel) conforme PRD original. Re-avaliar em Epic 2.'
+
+  - regra: 'PII redaction em 3 camadas'
+    detalhe: '(1) Pino redact paths em logger; (2) Sentry beforeSend hook scrub event.user.email + headers; (3) Sentry replayIntegration com maskAllText: true + blockAllMedia: true. Nunca logar prompt_text, email, NIF, IBAN, tokens.'
+
+  - regra: 'data residency confirmado'
+    detalhe: 'Sentry DSN tem .de. (Frankfurt EU). Grafana stack em eu-west-6 (Ireland). Region é IMUTÁVEL após criação — já validado pelo @devops 2026-05-07.'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📁 FILE LIST PRELIMINAR (story.md tem versão completa)
+# ───────────────────────────────────────────────────────────────────────────
+file_list:
+  criar:
+    - packages/observability/package.json
+    - packages/observability/tsconfig.json
+    - packages/observability/src/logger.ts
+    - packages/observability/src/tracer.ts
+    - packages/observability/src/sentry.ts
+    - packages/observability/src/index.ts
+    - apps/web/instrumentation.ts
+    - apps/web/sentry.server.config.ts
+    - apps/web/sentry.client.config.ts
+    - apps/web/sentry.edge.config.ts
+    - docs/runbooks/observability-setup.md
+    - docs/dashboards/grafana-epic1.json
+
+  actualizar:
+    - apps/web/next.config.ts
+    - apps/web/src/app/layout.tsx
+    - apps/web/package.json
+    - .github/workflows/ci.yaml
+    - pnpm-lock.yaml (auto)
+
+# ───────────────────────────────────────────────────────────────────────────
+# ✅ DEFINITION OF DONE (esperado no final)
+# ───────────────────────────────────────────────────────────────────────────
+dod:
+  - 'packages/observability/ exporta logger, tracer, captureException'
+  - 'OTel via @vercel/otel activo em Next.js 15 (instrumentation.ts + experimental.instrumentationHook)'
+  - 'Sentry configurado em 3 runtimes (server/client/edge) com data residency EU + PII redaction'
+  - 'Vercel Observability activo em layout.tsx'
+  - '/api/me emite spans OTel com 5 atributos'
+  - 'Logger Pino com redaction de 9+ paths'
+  - 'Dashboard Grafana 4 painéis exportado para grafana-epic1.json'
+  - 'Alertas error rate + latência configurados'
+  - 'docs/runbooks/observability-setup.md criado'
+  - 'pnpm lint && pnpm typecheck && pnpm test && pnpm build → exit 0'
+  - '@architect quality gate APPROVED (story tem quality_gate=@architect, não @qa)'
+  - 'Pronto para @devops *push'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🔗 REFERÊNCIAS
+# ───────────────────────────────────────────────────────────────────────────
+referencias:
+  story: docs/stories/active/1.7.observability-otel-sentry.md
+  story_index: docs/stories/active/_INDEX.md
+  handoff_secrets_devops: docs/handoffs/archive/mj-handoff-secrets-configured-20260507.yaml
+  handoff_index: docs/HANDOFF-INDEX.md
+  architecture_section: docs/architecture.md §9 (Observability stack)
+  prd_nfrs: ['NFR4 (Vercel RUM)', 'NFR12 (PII redaction)', 'NFR13 (OTel desde Epic 1)', 'NFR14 (dashboards)', 'NFR15 (alertas)']
+  production_url: https://expressia-black.vercel.app
+  vercel_dashboard: https://vercel.com/euricojsalves-4744s-projects/expressia
+  sentry_dashboard: https://eurico-xw.sentry.io/projects/expressia-web/
+  grafana_dashboard: https://expressia.grafana.net
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📝 NOTAS PARA O @dev
+# ───────────────────────────────────────────────────────────────────────────
+notas_dev: |
+  Esta story tem quality_gate = @architect (não @qa). Razão: implementação é
+  fortemente arquitectural (instrumentação serverless cross-runtime, decisões
+  de stack OTel vs Sentry-OTLP, PII boundary em 3 camadas). @architect (Aria)
+  vai rever profundidade arquitectural, não cobertura de testes.
+
+  Modos sugeridos para *develop:
+  - YOLO se queres implementar tudo de uma vez sem checkpoints (story tem
+    contexto completo, é deterministic)
+  - Interactive (default) se preferes pausa entre Tasks 1-3 (package + OTel +
+    Sentry — núcleo) e Tasks 4-9 (Vercel + dashboards + docs — periferia)
+
+  Ordem sugerida de execução:
+  Task 1 (package) → Task 6 (logger Pino, sub-task de package) → Task 2 (OTel
+  config Next.js) → Task 3 (Sentry config 3 runtimes) → Task 4 (Vercel) →
+  Task 5 (instrumentar /api/me usando o tracer) → Task 9 (transpilePackages +
+  lint + typecheck + test + build) → Task 7 (dashboard Grafana via UI) →
+  Task 8 (alertas via UI Grafana) → Task 9.1 (runbook).
+
+  Tasks 7 e 8 são feitas via UI Grafana (https://expressia.grafana.net) e
+  requerem deploy production verde primeiro para gerar dados reais nos
+  painéis. Podes fazer estas duas tasks DEPOIS do build verde + push @devops,
+  iterando em production. Não bloqueiam o gate @architect das outras tasks.
+
+  Se algum problema bloqueador aparecer (build falha, sourcemap upload erro,
+  spans não chegam ao Grafana), pausa e cria handoff com diagnóstico antes
+  de tentar workarounds. Padrão da Story 1.6 mostrou que diagnose-first é
+  mais rápido que tentar-e-falhar.
+
+  Working tree tem 4 ficheiros docs por committer. Antes de arrancar code:
+  git add docs/HANDOFF-INDEX.md docs/handoffs/ docs/stories/
+  git commit -m "chore(stories): close 1.7 validation GO + close handoff [Story 1.7]"
+
+  Custos esperados implementação: 0 EUR adicional (free tier Sentry + Grafana).

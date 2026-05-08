@@ -3,7 +3,7 @@
 **Epic Goal:** Estabelecer fundação técnica do projecto: monorepo Next.js+TS, CI/CD com gates de qualidade, Postgres com RLS multi-tenant, autenticação básica, stack de observability — terminando com um endpoint canary autenticado que prova multi-tenancy fim-a-fim.
 
 **Criado:** 2026-05-04
-**Actualizado:** 2026-05-07 (Story 1.4 → Done formalmente reconhecida e movida para `completed/`. Implementação real estava em main desde 2026-05-05 mas o ficheiro tinha ficado em `active/` — housekeeping pós-1.6.)
+**Actualizado:** 2026-05-08 (Story 1.7 v1.2 — `@po *validate-story-draft 1.7` GO 9.5/10. Status transicionado Draft → Ready. 2 minor fixes aplicados: File List sincronizada com Tasks 3.3/3.6, Stack table corrigida para `@vercel/otel`. Próximo passo: `@dev *develop 1.7`.)
 **Autor:** River (@sm)
 
 ---
@@ -18,7 +18,7 @@
 | 1.4 | [1.4.rls-helpers-test-suite.md](../completed/1.4.rls-helpers-test-suite.md) | Suite de Testes RLS Automatizada | **Done** ✅ | @dev | L | ~~Depende de 1.1, 1.3~~ — entregue 2026-05-05 (QA PASS 7/7, 86/86 testes verde) |
 | 1.5 | [1.5.supabase-auth-rls-integration.md](../completed/1.5.supabase-auth-rls-integration.md) | Supabase Auth + RLS Integration + custom_access_token_hook | **Done** ✅ | @dev | L | ~~Bloqueador B2 resolvido~~ |
 | 1.6 | [1.6.canary-endpoint-me.md](../completed/1.6.canary-endpoint-me.md) | Endpoint Canary `/api/me` + E2E RLS | **Done** ✅ (Reduced Scope) | @dev | M | ~~Depende de 1.5~~ — validated in production 2026-05-06 |
-| 1.7 | [1.7.observability-otel-sentry.md](./1.7.observability-otel-sentry.md) | Observabilidade OTel + Sentry EU + Grafana | Draft | @dev | M | **BLOQUEADOR: Sentry EU + Grafana Cloud EU API keys** |
+| 1.7 | [1.7.observability-otel-sentry.md](./1.7.observability-otel-sentry.md) | Observabilidade OTel + Sentry EU + Grafana | **Ready** ✅ (v1.2) | @dev | M | ~~B3 Sentry EU + B4 Grafana Cloud EU~~ ✅ resolvidos 2026-05-07; @po validou GO 9.5/10 em 2026-05-08 |
 
 ---
 
@@ -67,8 +67,8 @@ Story 1.7 pode correr em paralelo após 1.1 (assim que as credenciais de Sentry 
 |---|-----------|---------------|-----------------|
 | B1 | Supabase project criado em `eu-central-1` | 1.3, 1.5 | Criar projecto Supabase → fornecer `DATABASE_URL`, `DATABASE_URL_DIRECT`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PROJECT_REF` |
 | B2 | Supabase Auth Hook configurado no Dashboard | 1.5 | Após 1.3: Supabase Dashboard → Auth → Hooks → registar `custom_access_token_hook` |
-| B3 | Sentry EU project | 1.7 | Criar projecto Sentry com EU data residency → fornecer `SENTRY_DSN`, `SENTRY_AUTH_TOKEN` |
-| B4 | Grafana Cloud EU account | 1.7 | Criar conta Grafana Cloud com EU region → fornecer `OTEL_EXPORTER_OTLP_ENDPOINT` + token |
+| B3 | ~~Sentry EU project~~ ✅ | 1.7 | ~~Criar projecto Sentry com EU data residency~~ — **resolvido 2026-05-07** (org `eurico-xw` Frankfurt, project `expressia-web`, 4 secrets em runtime: `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`) |
+| B4 | ~~Grafana Cloud EU account~~ ✅ | 1.7 | ~~Criar conta Grafana Cloud com EU region~~ — **resolvido 2026-05-07** (stack `expressia.grafana.net` eu-west-6 Ireland, 4 secrets em runtime: `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `GRAFANA_API_TOKEN`, `GRAFANA_STACK_NAME`) |
 
 ---
 
