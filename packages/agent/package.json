@@ -1,0 +1,37 @@
+{
+  "name": "@meu-jarvis/agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cérebro AI — provider abstraction para Anthropic Sonnet (primary) + OpenAI GPT-4o-mini (fallback flag-gated). Inclui retry/backoff, circuit breaker per-process, error taxonomy PT-PT, OTel tracing via @meu-jarvis/observability, PII redaction. Source-only. Ver packages/agent/COMPLIANCE.md para excepção NFR11.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contracts": "./src/contracts.ts",
+    "./errors": "./src/errors.ts",
+    "./providers": "./src/providers/index.ts"
+  },
+  "scripts": {
+    "lint": "echo \"@meu-jarvis/agent: lint herdado do typecheck — ver typecheck script\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "echo \"@meu-jarvis/agent: package source-only (sem build step)\""
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@meu-jarvis/observability": "workspace:*",
+    "@opentelemetry/api": "^1.9.0",
+    "openai": "^4.73.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -12,8 +12,30 @@ handoff_id: mj-handoff-story-2.2-ready-for-validation-20260508
 from_agent: aiox-master (Orion — universal executor exercendo authority @sm via Constitution Article II override)
 to_agent: po (Pax)
 created: 2026-05-08T20:00:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-08T20:30:00+01:00
+consumed_by: po (Pax)
+consumed_notes: >
+  Pax executou `*validate-story-draft 2.2` em modo Interactive. **Veredicto:
+  GO 9.5/10 high confidence**. 11 áreas validadas (UI/Frontend e CodeRabbit
+  Integration N/A — backend infrastructure story sem UI; CodeRabbit não
+  activo em core-config.yaml). 2 minor fixes aplicados inline pelo @po:
+  (1) refinou snippet de mock Vitest em Dev Notes — substituído pattern
+  aspiracional `__mocks__: { messagesCreate }` (não existe oficialmente
+  em Vitest) por pattern canónico `vi.hoisted()` + `vi.mock()` standalone
+  com exemplo happy-path + erro `mockRejectedValueOnce`; (2) clarificada
+  secção BLOQUEADORES EXTERNOS — predecessor handoff dizia "@dev *develop
+  bloqueado em EB1" mas AC10 explicita "NENHUM teste faz call real" →
+  TODAS as 12 Tasks executáveis 100% com mocks Vitest; EB1+EB2 são
+  requisitos de runtime para produção (call real falhará com
+  `MissingApiKeyError`) e bloqueiam Stories 2.4+2.5+2.10 — NÃO bloqueiam
+  Story 2.2 implementação. Story header reescrito para reflectir realidade:
+  `@dev *develop 2.2` está UNBLOCKED. Cross-checks anti-hallucination todos
+  PASS (enum `llm_model` em packages/db/src/schema/agent.ts:59 confirmado;
+  observability exports verificados; architecture §4.3 e §12.2 confirmadas).
+  Status transicionado Draft → Ready. Story v1.1. Sucessor handoff
+  `mj-handoff-story-2.2-ready-for-dev-20260508` criado para `@dev *develop`.
 priority: medium
 project_prefix: mj
 project_codename: meu-jarvis

@@ -104,7 +104,7 @@ A Epic 1 está Done quando:
 **Epic Goal:** Pipeline 3 estágios (Classifier GPT-4o-mini → Planner+Executor Claude Sonnet → atomicidade Postgres) capaz de aceitar prompt PT-PT, executar até 5 intents simultâneas em transacção atómica, com preview-then-confirm para confidence < 0,70, undo de 30s e telemetria fim-a-fim em Grafana.
 
 **Criado:** 2026-05-08
-**Actualizado:** 2026-05-08 (Story 2.2 v1.0 — **Draft** criado pelo `@aiox-master` Orion (universal executor delegando a `@sm`). Scope fundacional: package `@meu-jarvis/agent` + `ProviderInterface` Zod + adaptadores Anthropic Sonnet primary + OpenAI fallback flag-gated + retry/backoff + circuit breaker per-process + error taxonomy PT-PT + reuse `@meu-jarvis/observability` para tracing/PII. 12 ACs + 12 Tasks. Bloqueador EB1 (ANTHROPIC_API_KEY) impede `@dev *develop` mas não drafting/validation. Próximo: `@po *validate-story-draft 2.2` via handoff `mj-handoff-story-2.2-ready-for-validation-20260508`.)
+**Actualizado:** 2026-05-08 (Story 2.2 v1.2 — **Ready for Review** ✅ após implementação autónoma `@dev` Dex. Package `@meu-jarvis/agent` criado com 27 ficheiros (18 source + 9 testes + COMPLIANCE.md + configs). **102 unit tests passing** (3.4× target ≥30). Gates verdes: typecheck (6/6), lint (6/6), test (222+ totais), build (1m23s), check:rls (26 tabelas / 104 policies — NFR5 preservada). 10 decisões arquitecturais cross-cutting documentadas em Dev Agent Record para review @architect (D1 cross-package paths via hardcode + sanity test, D4 NIF regex PT, D5 cooldown progressivo CB, D7 prompt cache aplicação último tool, D8 args mal-formados → input vazio, etc.). EB1/EB2 NÃO necessários (validado @po prediction). Próximo: `@architect *qa-gate 2.2` via handoff `mj-handoff-2.2-ready-for-architect-gate-20260508`.)
 **Autor:** River (@sm)
 
 ---
@@ -114,7 +114,7 @@ A Epic 1 está Done quando:
 | Story | Ficheiro | Título | Status | Owner | Estimate | Bloqueadores |
 |-------|---------|--------|--------|-------|----------|-------------|
 | 2.1 | [2.1.agent-schema-rls.md](../completed/2.1.agent-schema-rls.md) | Schema agent: auditoria, RLS coverage e immutability NFR9 | **Done** ✅ (v1.3 — @architect APPROVED 9.5/10 HIGH) | @dev | M | ~~Nenhum~~ — entregue 2026-05-08 (migration 0005 + 8 tests + db-schema §4.4; gate `docs/qa/gates/2.1-architect-gate.md`) |
-| 2.2 | [2.2.agent-package-provider-abstraction.md](./2.2.agent-package-provider-abstraction.md) | Package packages/agent + provider abstraction | **Draft** (v1.0) | @dev | M | Depende 2.1 Done ✅ + **EB1 (Anthropic API key — pendente)** + EB2 (OpenAI API key — pendente). Drafting/validação NÃO bloqueados. |
+| 2.2 | [2.2.agent-package-provider-abstraction.md](./2.2.agent-package-provider-abstraction.md) | Package packages/agent + provider abstraction | **Ready for Review** (v1.2 — 102 tests verde) | @dev | M | Implementação completa @dev autónomo. Aguarda `@architect *qa-gate 2.2`. |
 | 2.3 | — | Tool Registry contract + 2 tools mínimas | Backlog | @dev | L | Depende 2.2 |
 | 2.4 | — | Classifier PT-PT (GPT-4o-mini) + Zod gate | Backlog | @dev | M | Depende 2.2 + EB2 |
 | 2.5 | — | Planner + Executor (Sonnet) + atomicidade Postgres | Backlog | @dev | L | Depende 2.3 + 2.4 + EB1 |

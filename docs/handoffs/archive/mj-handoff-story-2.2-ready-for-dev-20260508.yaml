@@ -1,0 +1,247 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Story 2.2 Ready (v1.1) — `@dev *develop 2.2` UNBLOCKED
+# Pipeline: 2.1 Done → 2.2 Draft (Orion) → 2.2 Ready (Pax GO 9.5/10) → @dev
+# ═══════════════════════════════════════════════════════════════════════════
+# Sucessor de `mj-handoff-story-2.2-ready-for-validation-20260508` (consumed
+# 2026-05-08 20:30 — @po Pax GO 9.5/10 high confidence; 2 minor fixes inline).
+# **Descoberta crítica @po: Story 2.2 está UNBLOCKED — não esperar EB1.**
+
+handoff_id: mj-handoff-story-2.2-ready-for-dev-20260508
+from_agent: po (Pax)
+to_agent: dev (Dex)
+created: 2026-05-08T20:30:00+01:00
+status: consumed
+consumed: true
+consumed_at: 2026-05-08T21:30:00+01:00
+consumed_by: dev (Dex)
+consumed_notes: >
+  Dex executou `*develop 2.2` em modo autónomo. Tasks 1-12 todas completas.
+  Package `@meu-jarvis/agent` criado com 27 ficheiros (18 source + 9 testes
+  + COMPLIANCE.md + package.json + tsconfig + vitest config). 102 unit
+  tests passing. Gates verdes: typecheck (6/6), lint (6/6), test (102 agent
+  + 103 db-test + 9 web + 8 observability), build (1m23s), check:rls (26/104
+  NFR5 preservada). 2 fixes intermédios documentados em completion notes:
+  (i) `LLM_MODEL_VALUES` hardcoded em vez de import de `@meu-jarvis/db`
+  (cross-package paths limitation), (ii) `sanitizeHint` regex composto para
+  NIFs PT. 10 decisões arquitecturais cross-cutting registadas em Dev Agent
+  Record para review @architect. Story v1.2 status InProgress → Ready for
+  Review. Sucessor `mj-handoff-2.2-ready-for-architect-gate-20260508`
+  criado para `@architect *qa-gate 2.2`.
+priority: medium
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR (60 segundos para retomar)
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Story 2.2 v1.1 **Ready** após @po GO 9.5/10 high confidence (10/10 critérios
+  PASS no checklist 11-step; UI/Frontend + CodeRabbit N/A). Scope fundacional:
+  package `@meu-jarvis/agent` + ProviderInterface Zod + adaptador Anthropic
+  Sonnet primary com prompt caching + adaptador OpenAI fallback flag-gated +
+  retry/backoff exponencial + circuit breaker per-process + error taxonomy 9
+  classes PT-PT + reuse `@meu-jarvis/observability` (Story 1.7). 12 ACs + 12
+  Tasks + ≥30 unit tests com mocks Vitest. **DESCOBERTA @po**: predecessor
+  handoff (devops) dizia "@dev *develop bloqueado em EB1" mas AC10 explicita
+  "NENHUM teste faz call real" → TODAS as 12 Tasks executáveis 100% com mocks.
+  EB1+EB2 são requisitos de runtime (production) e bloqueiam Stories 2.4+2.5+
+  2.10 (call real autêntico) — NÃO bloqueiam Story 2.2 implementação. **Story
+  2.2 está UNBLOCKED — `@dev *develop 2.2` pode arrancar IMEDIATAMENTE sem
+  esperar Eurico provisionar Anthropic Sales DPA UE.**
+
+# ───────────────────────────────────────────────────────────────────────────
+# NEXT ACTION
+# ───────────────────────────────────────────────────────────────────────────
+next_action:
+  command: "@dev *develop 2.2"
+  story_id: "2.2"
+  story_title: "Package packages/agent + provider abstraction"
+  story_file: "docs/stories/active/2.2.agent-package-provider-abstraction.md"
+  expected_output:
+    - "packages/agent/ package criado com 12 Tasks completas"
+    - "≥30 unit tests Vitest passing"
+    - "Gates verdes: pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm check:rls"
+    - "Story v1.2 status Ready → Ready for Review"
+    - "Sucessor handoff `mj-handoff-2.2-ready-for-architect-gate-20260508` (dev→architect)"
+  estimated_duration: "M (1-2 dev days estimate)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# QUE TAREFAS PODES ARRANCAR JÁ (sem qualquer dependência externa)
+# ───────────────────────────────────────────────────────────────────────────
+unblocked_tasks_summary:
+  total_tasks: 12
+  blocked_by_eb1: 0
+  blocked_by_eb2: 0
+  blocked_internal: 0
+  all_executable_now: true
+  notes: |
+    AC10 explicita: "NENHUM teste faz call real a Anthropic ou OpenAI.
+    Smoke E2E real fica para Story 2.10 (benchmark) que requer EB1+EB2."
+
+    Em runtime production, `AnthropicProvider` lança `MissingApiKeyError`
+    se env var vazia — comportamento desejado e validado por unit test
+    (AC3 via mock). Não há "smoke do happy-path" nesta story.
+
+# ───────────────────────────────────────────────────────────────────────────
+# 6 PONTOS DE ATENÇÃO PARA @dev (carry-over do @sm + reforço @po)
+# ───────────────────────────────────────────────────────────────────────────
+dev_focus_points:
+  - title: "Article IV — naming reality"
+    detail: >
+      Usar SEMPRE nomes reais do schema agent (carry-over Story 2.1):
+      - `intent_classifications` (NÃO `agent_intents`)
+      - `agent_runs.tool_calls` JSONB (NÃO tabela `agent_tool_calls`)
+      - `agent_runs.intents_detected` JSONB
+      Cross-check: `packages/db/src/schema/agent.ts` (linhas 36-61 enums).
+      Derivar `LlmModel` do enum real exportado de `@meu-jarvis/db` —
+      NUNCA duplicar valores literais.
+
+  - title: "Resistir a alargar scope (NÃO entregar nesta story)"
+    detail: >
+      ❌ Pipeline lógica (Classifier 2.4, Planner+Executor 2.5)
+      ❌ Tool registry contract definitivo (Story 2.3)
+      ❌ Endpoint /api/agent/prompt (Story 2.6)
+      ❌ Tools concretas (`create_task`, etc. — Stories 2.3, 3.x, 4.x)
+      ❌ Real E2E API calls (Story 2.10 benchmark)
+      ❌ Distributed circuit breaker via Upstash (Story 2.9)
+      Esta story entrega APENAS contracts + 2 adaptadores + retry/CB
+      in-memory + errors + tracing reuse + tests com mocks.
+
+  - title: "Reuse `@meu-jarvis/observability` — não duplicar"
+    detail: >
+      AC8/AC9 obrigam uso dos exports de `packages/observability/src/index.ts`:
+      - `withSpan` para tracing
+      - `annotateSpan` para attributes
+      - `recordSpanError` para errors
+      - `logger`/`childLogger` para logs estruturados
+      - `hashForCorrelation` para correlation IDs sem PII
+      - `PII_REDACT_PATHS` para reuse na redaction layer
+      NUNCA criar novo logger Pino, novo tracer OTel, ou redefinir
+      `PII_REDACT_PATHS`. EPIC-2-EXECUTION ED3.
+
+  - title: "PII redaction obrigatória"
+    detail: >
+      AC9: prompt content, messages, tools input_schema NUNCA aparecem em
+      logs/Sentry/span attributes. Helper `redactProviderPayload` shallow
+      copy + `householdHash = hashForCorrelation(householdId)`. AC8: span
+      attributes WHITELIST (provider, model, tokens, cost, latency, cache,
+      retry_count, fallback_used, trace_id) — sem prompt/messages/tools.
+      Errors `message`/`userMessage` PT-PT sem PII.
+
+  - title: "Pattern de mock Vitest (refinado pelo @po)"
+    detail: >
+      Dev Notes secção "Padrão de mock Vitest para SDK Anthropic" tem o
+      pattern canónico actualizado pelo @po: usar `vi.hoisted()` para
+      criar `messagesCreate` ANTES de `vi.mock()` (evita race em hoisting).
+      `beforeEach(() => { messagesCreate.mockReset(); })`. Para erros usar
+      `mockRejectedValueOnce(Object.assign(new Error('...'), { status: 429 }))`.
+      Pattern análogo para `openai` SDK com `chat.completions.create`.
+
+  - title: "Imports absolutos + PT-PT"
+    detail: >
+      CON5/NFR19: `@/contracts`, `@/errors`, `@/providers/anthropic`. NUNCA
+      relativos `../../`. Comments + error messages + doc strings em PT-PT.
+      No `any` em TS — usar `unknown` + type guards para SDK errors.
+      No `console.log` — sempre Pino via observability.
+
+# ───────────────────────────────────────────────────────────────────────────
+# ORDEM DE EXECUÇÃO SUGERIDA (do Dev Notes da story)
+# ───────────────────────────────────────────────────────────────────────────
+execution_order:
+  - phase: 1
+    task: "Task 1 — Setup do package"
+    rationale: "Unblocks todo o resto"
+  - phase: 2
+    parallel_tasks:
+      - "Task 4 — Errors hierarchy (depende-de-nada, base para retry/providers/CB)"
+      - "Task 3 — Pricing/redaction helpers (depende-de-nada)"
+      - "Task 2 — Contratos Zod (depende-de-nada)"
+  - phase: 3
+    task: "Task 5 — Retry + Circuit Breaker"
+    depends_on: ["Task 4"]
+  - phase: 4
+    task: "Task 6 — Tracing helper"
+    depends_on: ["Task 1 (test setup)"]
+    note: "Mock @meu-jarvis/observability nos tests"
+  - phase: 5
+    task: "Task 7 — AnthropicProvider"
+    depends_on: ["Tasks 2, 3, 4, 5, 6"]
+  - phase: 6
+    task: "Task 8 — OpenAIProvider"
+    depends_on: ["Tasks 2, 3, 4, 5, 6"]
+    parallel_with: "Task 7 (executores diferentes ou mesma sessão sequencial)"
+  - phase: 7
+    task: "Task 9 — Factory + selection"
+    depends_on: ["Tasks 7, 8"]
+  - phase: 8
+    task: "Task 10 — Public API surface"
+    depends_on: ["Tasks 7, 8, 9"]
+  - phase: 9
+    task: "Task 11 — Compliance doc COMPLIANCE.md"
+    parallel_with: "Qualquer fase >=2"
+  - phase: 10
+    task: "Task 12 — Validação final + gates"
+    depends_on: "Todas anteriores"
+
+# ───────────────────────────────────────────────────────────────────────────
+# COMANDO FINAL OBRIGATÓRIO (antes de status Ready for Review)
+# ───────────────────────────────────────────────────────────────────────────
+final_validation_command: |
+  pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm check:rls
+
+  # Esperado:
+  # - typecheck: 5/5 packages exit 0 (agent + restantes inalterados)
+  # - lint: 5/5 exit 0 com --max-warnings=0
+  # - test: ≥30 novos tests no agent + 103 db-test + 9 web = ≥142 passing
+  # - build: Next.js build inclui agent via transpilePackages, exit 0
+  # - check:rls: 26 tabelas / 104 policies (invariante NFR5 PRESERVADA — esta story NÃO toca DB)
+
+# ───────────────────────────────────────────────────────────────────────────
+# REFERÊNCIAS CRÍTICAS
+# ───────────────────────────────────────────────────────────────────────────
+references:
+  predecessor_handoffs:
+    - "mj-handoff-story-2.2-ready-for-validation-20260508 (consumed 2026-05-08 20:30 — @po GO 9.5/10)"
+  story_file: "docs/stories/active/2.2.agent-package-provider-abstraction.md (v1.1 Ready)"
+  story_index: "docs/stories/active/_INDEX.md"
+  high_confidence_files_to_read:
+    - "packages/db/src/schema/agent.ts (lines 36-61 enums llm_model/agent_run_status/agent_intent)"
+    - "packages/observability/src/index.ts (11 exports a reutilizar)"
+    - "packages/observability/src/logger.ts (PII_REDACT_PATHS pattern)"
+    - "packages/observability/src/tracer.ts (withSpan + annotateSpan)"
+    - "tsconfig.base.json (paths config a estender em agent)"
+    - "apps/web/next.config.ts (transpilePackages array — adicionar @meu-jarvis/agent)"
+    - "apps/web/package.json (workspace deps pattern)"
+    - "packages/db/package.json (source-only package pattern)"
+    - "packages/observability/package.json (source-only + vitest config pattern)"
+  conditional_files:
+    - "docs/architecture.md §4.1-4.6 + §9 + §12.2 (referência arquitectural)"
+    - "docs/prd.md §6 Epic 2 + NFR11 + NFR21 + CON5"
+    - "docs/epics/EPIC-2-EXECUTION.yaml (Story 2.2 entry + ED3+ED5+ED6)"
+  story_2_1_reference:
+    note: "Padrão de execução: ver Story 2.1 v1.3 Done — mesmo formato Dev Agent Record + completion notes para guia"
+    completed_file: "docs/stories/completed/2.1.agent-schema-rls.md"
+  external_blockers_runtime_only:
+    - "EB1 (ANTHROPIC_API_KEY) — não bloqueia esta story; bloqueia 2.5+2.10"
+    - "EB2 (OPENAI_API_KEY) — não bloqueia esta story; bloqueia 2.4+2.10"
+
+# ───────────────────────────────────────────────────────────────────────────
+# AUTOCLAUDE / CODE INTELLIGENCE / CODERABBIT — STATUS
+# ───────────────────────────────────────────────────────────────────────────
+auto_claude_status:
+  qaLoop: "disabled (story flow uses @architect quality gate, not @qa)"
+  codeRabbit: "disabled (core-config.yaml — coderabbit_integration not enabled in this project)"
+  selfHealing: "manual review by @architect at quality gate"
+
+# ───────────────────────────────────────────────────────────────────────────
+# CONSUMPTION PROTOCOL
+# ───────────────────────────────────────────────────────────────────────────
+consumption_protocol:
+  - "Quem consome: @dev Dex ao executar `*develop 2.2`"
+  - "Marca consumed: true + consumed_at + consumed_by quando concluir implementação OR session-pause"
+  - "Move ficheiro de docs/handoffs/ → docs/handoffs/archive/ via `git mv`"
+  - "Actualiza docs/HANDOFF-INDEX.md (mover row de Pending → Archived)"
+  - "Cria sucessor `mj-handoff-2.2-ready-for-architect-gate-20260508` (dev→architect) com decisões arquitecturais tomadas durante implementação"
+  - "Status story Ready → Ready for Review (autoridade @dev em conclusão); push final pelo @devops após @architect APPROVED"

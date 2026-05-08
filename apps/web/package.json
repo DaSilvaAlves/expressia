@@ -15,6 +15,7 @@
     "clean": "rm -rf .next .turbo"
   },
   "dependencies": {
+    "@meu-jarvis/agent": "workspace:*",
     "@meu-jarvis/auth": "workspace:*",
     "@meu-jarvis/db": "workspace:*",
     "@meu-jarvis/observability": "workspace:*",
