@@ -19,6 +19,7 @@
     "@meu-jarvis/auth": "workspace:*",
     "@meu-jarvis/db": "workspace:*",
     "@meu-jarvis/observability": "workspace:*",
+    "@meu-jarvis/tools": "workspace:*",
     "@opentelemetry/api": "^1.9.0",
     "@sentry/nextjs": "^8.45.0",
     "@supabase/ssr": "^0.5.2",

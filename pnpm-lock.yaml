@@ -44,6 +44,9 @@ importers:
       '@meu-jarvis/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@meu-jarvis/tools':
+        specifier: workspace:*
+        version: link:../../packages/tools
       '@opentelemetry/api':
         specifier: ^1.9.0
         version: 1.9.1
@@ -248,6 +251,37 @@ importers:
       next:
         specifier: ^15.0.3
         version: 15.5.15(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@22.19.17)(jsdom@25.0.1)(terser@5.47.1)
+
+  packages/tools:
+    dependencies:
+      '@meu-jarvis/db':
+        specifier: workspace:*
+        version: link:../db
+      '@meu-jarvis/observability':
+        specifier: workspace:*
+        version: link:../observability
+      '@opentelemetry/api':
+        specifier: ^1.9.0
+        version: 1.9.1
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+      zod-to-json-schema:
+        specifier: ^3.23.5
+        version: 3.25.2(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.7.0
+        version: 22.19.17
+      drizzle-orm:
+        specifier: ^0.34.0
+        version: 0.34.1(@opentelemetry/api@1.9.1)(@types/pg@8.6.1)(@types/react@19.2.14)(postgres@3.4.9)(react@19.2.5)
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -4939,6 +4973,11 @@ packages:
   zip-stream@6.0.1:
     resolution: {integrity: sha512-zK7YHHz4ZXpW89AHXUPbQVGKI7uvkd3hzusTdotCg1UxyaVtg0zFJSTfW/Dq5f7OBBVnq6cZIaC8Ti4hb6dtCA==}
     engines: {node: '>= 14'}
+
+  zod-to-json-schema@3.25.2:
+    resolution: {integrity: sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==}
+    peerDependencies:
+      zod: ^3.25.28 || ^4
 
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
@@ -9793,5 +9832,9 @@ snapshots:
       archiver-utils: 5.0.2
       compress-commons: 6.0.2
       readable-stream: 4.7.0
+
+  zod-to-json-schema@3.25.2(zod@3.25.76):
+    dependencies:
+      zod: 3.25.76
 
   zod@3.25.76: {}
