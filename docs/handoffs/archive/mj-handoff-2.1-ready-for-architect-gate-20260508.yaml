@@ -9,9 +9,35 @@ handoff_id: mj-handoff-2.1-ready-for-architect-gate-20260508
 from_agent: dev (Dex)
 to_agent: architect (Aria)
 created: 2026-05-08T16:30:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-08T17:30:00+01:00
+consumed_by: architect (Aria)
 priority: medium
+
+# ───────────────────────────────────────────────────────────────────────────
+# CONSUMPTION RESULT
+# ───────────────────────────────────────────────────────────────────────────
+consumption_result:
+  agent: architect (Aria)
+  verdict: APPROVED
+  score: 9.5/10
+  confidence: HIGH
+  gate_report: docs/qa/gates/2.1-architect-gate.md
+  next_handoff: none required (story Done after @devops push)
+  next_action: "@devops *push (commit 6b44a83 -> origin/main; após CI verde, fechar story active->completed)"
+  decisions_validated:
+    - "D1 (trigger bypass via current_user): PASS — security invoker explícito, current_user resolve correctamente em todos os 3 caminhos (authenticated/service_role/postgres); asimetria block-list defensável para suportar migration runner + DBA ops."
+    - "D2 (status terminal scope): PASS — alinhado com agentRunStatusEnum (success/reverted/failed), pre-terminais correctamente não bloqueados."
+    - "D3 (DEFAULT TTL 30s): PASS — alter column adiciona DEFAULT, NOT NULL preservado, comment SQL trace FR6."
+    - "D4 (bootstrap test harness service_role grants): PASS — alinhamento com produção Supabase, não introduz divergência runtime."
+    - "D5 (naming reality): PASS — 5 fontes coerentes, Article IV preservado."
+  non_blocking_concerns:
+    - "[DOC-001-NB] Comment obsoleto na policy agent_runs_update_self em 0001_rls_policies.sql (não-bloqueante; endereçar em story futura que toque no ficheiro)"
+    - "[DOC-002-NB] Drizzle schema TS não reflecte DEFAULT do expires_at (não-bloqueante; migrations são fonte de verdade)"
+    - "[ARCH-001-NB] Doc §4.4 line 141 'agent_quotas append-once' — factualmente correcta, sem acção"
+  test_coverage_gaps:
+    - "Cenário 3 (UPDATE de status pre-terminal -> terminal via authenticated) não tem teste autónomo — semântica garantida pelo WHEN clause baseado em OLD.status. Não bloqueante; sugestão para futuro."
 project_prefix: mj
 project_codename: meu-jarvis
 project_public_name: Expressia
