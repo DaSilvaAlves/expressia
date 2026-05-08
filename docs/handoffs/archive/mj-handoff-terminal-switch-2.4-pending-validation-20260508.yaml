@@ -1,0 +1,622 @@
+# =============================================================================
+# HANDOFF — TERMINAL SWITCH | Story 2.4 Draft v1.0 pending @po validation
+# =============================================================================
+# CONTEXTO: Eurico migrou terminal por causa de "Auto-update failed" do Claude
+# Code (mensagem: "Try claude doctor or npm i -g @anthropic-ai/claude-code").
+# Sessão anterior estava a meio do Epic 2 com Story 2.4 acabada de ser draftada
+# pelo @aiox-sm. Próximo passo é @po *validate-story-draft 2.4.
+# =============================================================================
+
+handoff:
+  id: mj-handoff-terminal-switch-2.4-pending-validation-20260508
+  from_agent: aiox-master (Orion como orquestrador da sessão anterior)
+  to_agent: any (próximo terminal — preferencialmente @po para acção primária)
+  created: "2026-05-08T20:00:00+01:00"
+  status: consumed
+  consumed: true
+  consumed_at: "2026-05-08T21:00:00+01:00"
+  consumed_by: "@aiox-po (Pax)"
+  priority: high
+
+consumption_record:
+  actions_taken:
+    - "Pax leu HANDOFF-INDEX, este handoff completo, story 2.4 Draft v1.0, checklist validate-next-story.md"
+    - "Cross-check Article IV contra 3 fontes: enum DB agent_intent (packages/db/src/schema/agent.ts:46-55), architecture.md §4.2, PRD FR1/FR3/FR4/CON3"
+    - "Cross-check executor assignment: @dev ≠ @architect ✅; quality_gate_tools válido ✅; type-to-executor consistency (Code/Features/Logic) → @dev quality_gate=@architect ✅"
+    - "10-point checklist execution: 10/10 PASS"
+    - "1 minor fix inline aplicado: AC3 trace correction — `intents.max(5)` originalmente traceia FR3 mas FR3 é audit log; reescrito como [AUTO-DECISION D8] guardrail anti-hallucination com nota para @architect validar no gate"
+    - "Status Draft → Ready em story file (autoridade @po em GO verdict per story-lifecycle.md)"
+    - "Change Log v1.1 registado"
+    - "_INDEX.md actualizado: Story 2.4 row Draft → Ready; cabeçalho Epic 2 updated"
+    - "Successor handoff criado: mj-handoff-2.4-ready-for-dev-20260508.yaml (po→dev, @dev *develop 2.4 em modo mockado)"
+  outcome: "GO 9.4/10 high confidence — Story 2.4 v1.1 Ready. @dev *develop 2.4 unblocked imediatamente em modo mockado (NÃO depende de EB2 para drafting/dev)."
+  successor_handoff: "mj-handoff-2.4-ready-for-dev-20260508.yaml"
+  auto_decisions_review_outcome:
+    D1: "PASS — 8 intents alinhadas com enum DB (Article IV preservado contra expansão a 15)"
+    D2: "PASS — prompt em packages/classifier/src/prompts/ defensável (coesão package source-only)"
+    D3: "PASS — regex conservadora (determinística, testável, poupa tokens; PRD não pede 100% accuracy lang detection)"
+    D4: "PASS — sem ClassifierConfidenceError (confidence baixa é sinal needs_confirmation, não erro)"
+    D5: "PASS — retry 1× alinhado com 2.2 + architecture.md:333"
+    D6: "ACCEPT WITH NOTE — maxInputLength 1000 sem rastreabilidade FR explícita; decisão prudencial @po aceita; @architect pode rever no gate"
+    D7: "PASS — severity warn para language gate (input non-PT-PT é comportamento esperado, não erro de sistema)"
+    D8: "ADDED BY PO — max(5) intents guardrail anti-hallucination (architecture.md só impõe min(1); PRD não fixa máximo; rationale explícito documentado em AC3)"
+  project_prefix: mj-
+  project_codename: meu-jarvis
+  project_brand: Expressia (expressia.pt)
+  reason_for_handoff: |
+    Auto-update do Claude Code falhou no terminal anterior. Eurico decidiu
+    migrar para outro terminal em vez de debugar update no meio de trabalho
+    em curso. Este handoff é o ponto de retomada cross-terminal.
+
+# -----------------------------------------------------------------------------
+# 1. PRÉ-REQUISITOS DO NOVO TERMINAL — fazer ANTES de retomar trabalho
+# -----------------------------------------------------------------------------
+preflight_new_terminal:
+  - step: 1
+    action: "Garantir que Claude Code está actualizado e funcional"
+    commands:
+      - "claude doctor                         # diagnostico"
+      - "npm i -g @anthropic-ai/claude-code    # update global se necessário"
+    expected: "Claude Code arranca sem warning de Auto-update failed"
+
+  - step: 2
+    action: "Confirmar working directory correcto"
+    commands:
+      - "cd C:\\Users\\XPS\\Documents\\meu-jarvis"
+    expected: "Pwd retorna C:\\Users\\XPS\\Documents\\meu-jarvis (NÃO docs/handoffs)"
+
+  - step: 3
+    action: "Sanity check git state"
+    commands:
+      - "git status"
+      - "git log --oneline -3"
+    expected: |
+      Branch: main
+      HEAD: 0c187639fcf6799fc5ec1314428fd30fa0cd3cf5
+      Up to date com origin/main
+      Modified: docs/stories/active/_INDEX.md (uncommitted, pelo @sm draft)
+      Untracked: docs/stories/active/2.4.classifier-pt-pt.md (novo, pelo @sm)
+
+  - step: 4
+    action: "Ler regra global Handoff Central"
+    file: "~/.claude/rules/handoff-central.md"
+    purpose: "Confirmar protocolo de consume + archive"
+
+  - step: 5
+    action: "Ler este handoff completo + INDEX"
+    files:
+      - "docs/HANDOFF-INDEX.md"
+      - "docs/handoffs/mj-handoff-terminal-switch-2.4-pending-validation-20260508.yaml (este ficheiro)"
+
+# -----------------------------------------------------------------------------
+# 2. ESTADO REAL DO PROJECTO (snapshot 2026-05-08 20:00)
+# -----------------------------------------------------------------------------
+current_state:
+  branch: main
+  head_sha: 0c187639fcf6799fc5ec1314428fd30fa0cd3cf5
+  origin_main_sha: 0c187639fcf6799fc5ec1314428fd30fa0cd3cf5
+  ahead: 0
+  behind: 0
+  working_tree:
+    modified:
+      - "docs/stories/active/_INDEX.md (alterado pelo @sm ao registar Story 2.4 Draft)"
+    untracked:
+      - "docs/stories/active/2.4.classifier-pt-pt.md (Draft v1.0 acabada de criar)"
+    staged: []
+
+  epics:
+    epic_1_foundation:
+      status: "7/7 Done — COMPLETO"
+      stories_done: ["1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7"]
+    epic_2_ai_brain:
+      status: "3/11 Done — em progresso"
+      stories_done:
+        - "2.1 Schema agent (RLS+immutability NFR9+TTL) — Done v1.3 (architect 9.5/10)"
+        - "2.2 packages/agent provider abstraction — Done v1.3 (architect 9.4/10)"
+        - "2.3 packages/tools Tool Registry Foundation — Done v1.3 (architect 9.5/10)"
+      stories_in_progress: []
+      stories_pending_validation:
+        - id: "2.4"
+          slug: classifier-pt-pt
+          status: "Draft v1.0"
+          path: "docs/stories/active/2.4.classifier-pt-pt.md"
+          drafted_by: "@aiox-sm (River)"
+          next_agent: "@aiox-po (Pax) — *validate-story-draft 2.4"
+          blockers_for_implementation: ["EB2 (OpenAI DPA UE)"]
+          blockers_for_validation: []  # NENHUM — drafting/validação podem prosseguir
+      stories_backlog:
+        - "2.5 Planner+Executor Sonnet — depende 2.3 ✓ + 2.4 + EB1"
+        - "2.6 Endpoint POST /api/agent/prompt — depende 2.5 + EB3 (Upstash Redis)"
+        - "2.7 Preview-then-confirm flow (FR4) — depende 2.6"
+        - "2.8 Undo (FR6) + endpoint — depende 2.6 + EB4 (Inngest)"
+        - "2.9 Cost router + cache + quotas — depende 2.6 + EB3"
+        - "2.10 LLM Benchmark Suite — depende 2.5 + EB1 + EB2"
+        - "2.11 Observability dashboards Agent Health — depende 2.6 + 2.10"
+
+# -----------------------------------------------------------------------------
+# 3. PRÓXIMA ACÇÃO IMEDIATA (escolher 1)
+# -----------------------------------------------------------------------------
+next_actions:
+  primary:
+    command: "@aiox-po *validate-story-draft 2.4"
+    description: |
+      Validar Story 2.4 Draft v1.0 com 10-point checklist. PO retorna
+      GO (≥7/10) → status Draft → Ready, ou NO-GO → required fixes.
+
+    expected_inputs_for_po:
+      - "Story file: docs/stories/active/2.4.classifier-pt-pt.md"
+      - "PRD: docs/prd.md (focar FR3 max 5 intents, FR4 preview-then-confirm)"
+      - "Architecture: docs/architecture.md §4 (AI pipeline 3-stage)"
+      - "Stories completed para referência de qualidade: 2.2 (9.4/10), 2.3 (9.5/10)"
+      - "Schema enum agent_intent em packages/db/src/schema/agent.ts (Article IV — fonte de verdade dos 8 intents)"
+
+    auto_decisions_to_review:
+      - "D1: 8 intents alinhadas com enum agent_intent (não 15 inventadas)"
+      - "D2: Localização prompt em packages/classifier/src/prompts/"
+      - "D3: Language gate via regex conservadora (sem ML)"
+      - "D4: ClassifierConfidenceError NÃO incluído (confidence baixa não é erro — sinaliza needs_confirmation)"
+      - "D5: Retry 1× para ClassifierOutputError (alinhado com 2.2)"
+      - "D6: maxInputLength default 1000 chars (PRD não especifica)"
+      - "D7: ClassifierLanguageError severity warn (não error)"
+
+    after_po_go:
+      next: "@aiox-dev *develop 2.4 — IMPLEMENTAÇÃO BLOQUEADA por EB2 até OpenAI Enterprise responder"
+      mitigation: |
+        Eurico pode arrancar implementação mockada antes de EB2 resolver
+        (toda a story foi desenhada para ser 100% mockable, padrão das
+        Stories 2.2/2.3). Decisão estratégica: vale a pena começar @dev
+        sem credenciais reais ou esperar?
+
+  alternatives:
+    - command: "@aiox-pm *strategize-epic2-blocked"
+      description: "Re-priorizar Epic 2 enquanto EB1/EB2 pendem"
+      when: "Eurico decidir não arrancar 2.4 mockado"
+
+    - command: "Trabalho Epic 1 follow-up"
+      description: "Ver mj-handoff-1.7-post-deploy-ui-tasks-20260508 — 4 acções UI manuais ~25-35min"
+      when: "Quiser limpar follow-ups antes de avançar Epic 2"
+
+    - command: "@aiox-pm *draft-epic Epic 3 (Tarefas) ou Epic 4 (Finanças)"
+      description: "Spec/research de epics independentes de LLM APIs"
+      when: "Trabalho preparatório enquanto LLM blockers pendem"
+
+# -----------------------------------------------------------------------------
+# 4. REGRAS CRÍTICAS — ler ANTES de qualquer acção (não-negociáveis)
+# -----------------------------------------------------------------------------
+critical_rules:
+
+  language:
+    - rule: "TODO o output em PT-PT (português europeu)"
+    - rule: "PROIBIDO PT-BR — mesmo se utilizador escrever em PT-BR, agentes respondem PT-PT"
+    - vocabulary:
+        proibido_correcto:
+          "usar": "utilizar"
+          "deletar": "eliminar/apagar"
+          "setar": "definir/configurar"
+          "checar": "verificar"
+          "você": "tu / o utilizador"
+          "buildar": "compilar/construir"
+    - rule: "Termos técnicos sem equivalente PT-PT (deploy, build, commit, pull request, etc.) ficam em inglês"
+    - reference: "~/.claude/rules/language-standards.md"
+
+  agent_authority:
+    push_exclusive:
+      who: "@aiox-devops (Gage) APENAS"
+      blocked_for: "@dev, @sm, @po, @architect, @qa, @pm, @analyst — TODOS bloqueados"
+      operations: ["git push", "git push --force", "gh pr create", "gh pr merge", "MCP add/remove"]
+
+    story_creation:
+      who: "@aiox-sm (River)"
+      command: "*draft / *create-story"
+
+    story_validation:
+      who: "@aiox-po (Pax)"
+      command: "*validate-story-draft (10-point checklist)"
+
+    implementation:
+      who: "@aiox-dev (Dex)"
+      can_commit: true
+      can_push: false  # delegate a @devops
+      command: "*develop"
+
+    quality_gates:
+      who_for_2_4: "@aiox-architect (Aria) — pattern usado em 2.1/2.2/2.3 (decisões arquitecturais críticas)"
+      command: "*qa-gate"
+      verdicts: ["APPROVED ≥9.0", "APPROVED WITH CONCERNS 8.0-8.9", "NEEDS WORK <8.0"]
+
+    epic_orchestration:
+      who: "@aiox-pm (Morgan)"
+      command: "*execute-epic / *create-epic"
+
+    schema_db:
+      who: "@aiox-data-engineer (Dara)"
+      delegate_from: "@aiox-architect"
+      operations: ["DDL detalhado", "RLS policies", "migration planning"]
+
+    reference: "~/.claude/rules/agent-authority.md + .claude/rules/agent-authority.md"
+
+  constitution:
+    article_I:
+      name: "CLI First"
+      severity: NON-NEGOTIABLE
+      rule: "CLI > Observability > UI. UI nunca é requisito. Dashboards observam, nunca controlam."
+
+    article_II:
+      name: "Agent Authority"
+      severity: NON-NEGOTIABLE
+      rule: "Cada agente tem autoridade exclusiva sobre o seu domínio. Push é EXCLUSIVO @devops."
+
+    article_III:
+      name: "Story-Driven Development"
+      severity: MUST
+      rule: "Todo trabalho começa com uma story. Workflow: @sm draft → @po validate → @dev develop → @architect/@qa gate → @devops push."
+
+    article_IV:
+      name: "No Invention"
+      severity: MUST
+      rule: "Cada AC deve traceiar a FR/NFR/CON do PRD ou architecture. Zero features inventadas. Story 2.4 reduzida de 15 → 8 intents porque enum agent_intent (Postgres) é a fonte de verdade."
+
+    article_V:
+      name: "Quality First"
+      severity: MUST
+      rule: "Quality gates bloqueiam merge: lint --max-warnings=0, typecheck strict, test, check:rls, build."
+
+    article_VI:
+      name: "Absolute Imports"
+      severity: SHOULD
+      rule: "@meu-jarvis/... e @/... (NUNCA ../../). Enforced em NFR19."
+
+  multi_tenancy_rls:
+    rule: "TODA a tabela de domínio tem household_id + 4 RLS policies (select/insert/update/delete)"
+    enforcement: "scripts/check-rls-coverage.ts (NFR5 gate em CI)"
+    state_atual: "26 tabelas / 104 policies — preservar inalterado"
+    clients:
+      authenticated: "getDb() — usar SEMPRE em routes/RSC/Server Actions com utilizador final"
+      service_role: "getServiceDb() — SÓ em migrations/jobs/admin scripts (IGNORA RLS)"
+    rule_critical: "NUNCA usar getServiceDb() em executeAtomic ou code paths de utilizador final"
+
+  framework_protection:
+    L1_never_modify:
+      - ".aiox-core/core/**"
+      - ".aiox-core/constitution.md"
+      - "bin/aiox.js"
+      - "bin/aiox-init.js"
+
+    L2_never_modify:
+      - ".aiox-core/development/tasks/**"
+      - ".aiox-core/development/templates/**"
+      - ".aiox-core/development/checklists/**"
+      - ".aiox-core/development/workflows/**"
+      - ".aiox-core/infrastructure/**"
+
+    L3_mutable_with_exceptions:
+      - ".aiox-core/data/**"
+      - "agents/*/MEMORY.md"
+      - "core-config.yaml"
+
+    L4_always_modify:
+      - "docs/stories/**"
+      - "packages/**"
+      - "apps/**"
+      - "tests/**"
+      - ".github/**"
+      - "scripts/**"
+
+    enforcement: ".claude/settings.json deny rules — bloqueio determinístico"
+
+  pt_pt_market_exclusive:
+    rule: "Mercado PT-PT EXCLUSIVO Portugal continental. NUNCA escrever copy/UI em PT-BR. Sem i18n no MVP."
+    currency: "EUR único, formato PT-PT (€8,88, €1.234,56, vírgula decimal)"
+    data_residency: "UE obrigatória — Vercel fra1 (Frankfurt) + Supabase eu-central-1"
+
+  commit_protocol:
+    format: "Conventional Commits + trailers OMC"
+    trailers_relevant:
+      - "Constraint: ..."
+      - "Rejected: alternative | reason"
+      - "Confidence: high|medium|low"
+      - "Scope-risk: narrow|moderate|broad"
+      - "Not-tested: edge case"
+      - "Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+    story_reference: "Sempre [Story X.Y] no fim da subject line"
+    rule: "NUNCA --amend (sempre NEW commit em caso de hook failure). NUNCA --no-verify."
+
+# -----------------------------------------------------------------------------
+# 5. STORY 2.4 — DETALHE COMPLETO PARA @po VALIDATION
+# -----------------------------------------------------------------------------
+story_2_4_detail:
+  path: "docs/stories/active/2.4.classifier-pt-pt.md"
+  status: "Draft v1.0"
+  drafted_by: "@aiox-sm (River)"
+  drafted_at: "2026-05-08T19:50:00+01:00"
+
+  scope_summary: |
+    Classifier PT-PT que recebe input do utilizador, detecta language gate
+    (rejeita PT-BR/EN/ES sem chamar LLM), invoca GPT-4o-mini com structured
+    outputs (json_schema = IntentSchema Zod), valida output, e devolve
+    ClassifierOutput com array de intents (max 5 por FR3) + confidence
+    calibrada (0-1 por FR4 preview-then-confirm threshold 0.70).
+
+  package_to_create: "@meu-jarvis/classifier (source-only, padrão 2.2/2.3)"
+
+  acceptance_criteria_count: 13
+  tasks_count: 11
+  subtasks_count: 43
+  test_target: "≥35 (mocks Vitest, 46 test cases mapeados)"
+
+  intents_enumerated:
+    source_of_truth: "enum agent_intent em packages/db/src/schema/agent.ts (Story 2.1)"
+    list:
+      - "task.create"
+      - "task.update"
+      - "task.complete"
+      - "finance.expense.create"
+      - "finance.income.create"
+      - "agent.help"
+      - "agent.undo"
+      - "meta.unknown"
+    rationale: "Article IV — Postgres enum é fonte de verdade. @sm rejeitou expansão para 15 intents proposta no prompt original."
+
+  auto_decisions_to_review_in_validation:
+    - id: D1
+      decision: "8 intents alinhadas com enum agent_intent"
+      rationale: "Article IV — fonte de verdade Postgres"
+      review_required: true
+
+    - id: D2
+      decision: "Localização prompt em packages/classifier/src/prompts/"
+      rationale: "Coesão — package source-only contém o seu próprio prompt"
+      review_required: false
+
+    - id: D3
+      decision: "Language gate via regex conservadora (sem ML)"
+      rationale: "Determinística, testável, poupa tokens; PRD não pede 100% accuracy"
+      review_required: true
+
+    - id: D4
+      decision: "ClassifierConfidenceError NÃO incluído"
+      rationale: "Confidence baixa não é erro — sinaliza needs_confirmation: true (FR4)"
+      review_required: false
+
+    - id: D5
+      decision: "Retry 1× para ClassifierOutputError"
+      rationale: "Alinhado com pattern 2.2"
+      review_required: false
+
+    - id: D6
+      decision: "maxInputLength default 1000 chars"
+      rationale: "Conservador; PRD não especifica — validável por PO/architect"
+      review_required: true  # decisão sem rastreabilidade exacta a FR
+
+    - id: D7
+      decision: "ClassifierLanguageError severity warn (não error)"
+      rationale: "Input non-PT-PT é comportamento esperado de gate"
+      review_required: false
+
+  blockers:
+    drafting_validation: []  # NENHUM — pode prosseguir
+    implementation:
+      - id: EB2
+        name: "OPENAI_API_KEY com DPA UE"
+        status: "pending Eurico contactar OpenAI Enterprise"
+        affects: ["2.4 implementation real", "2.10 benchmark"]
+        mitigation: "Story 100% mockable — @dev pode arrancar implementação mockada antes de EB2 resolver"
+
+# -----------------------------------------------------------------------------
+# 6. BLOQUEADORES EXTERNOS GLOBAIS — Epic 2
+# -----------------------------------------------------------------------------
+external_blockers:
+  EB1:
+    name: "ANTHROPIC_API_KEY com DPA UE"
+    status: pending
+    contact: "Eurico → Anthropic Sales"
+    affects:
+      - "Story 2.5 Planner+Executor (Sonnet)"
+      - "Story 2.10 Benchmark"
+    workaround_for_drafting: "Usar mocks no @dev como Stories 2.2/2.3 fizeram"
+
+  EB2:
+    name: "OPENAI_API_KEY com DPA UE"
+    status: pending
+    contact: "Eurico → OpenAI Enterprise"
+    affects:
+      - "Story 2.4 Classifier"
+      - "Story 2.10 Benchmark"
+    workaround_for_drafting: "Story 2.4 é 100% mockable"
+
+  EB3:
+    name: "Upstash Redis EU"
+    status: not_started
+    affects:
+      - "Story 2.6 Endpoint /api/agent/prompt"
+      - "Story 2.9 Cost router"
+
+  EB4:
+    name: "Inngest function setup"
+    status: not_started
+    affects:
+      - "Story 2.8 Undo mechanism (FR6)"
+
+# -----------------------------------------------------------------------------
+# 7. ARQUITECTURA — resumo essencial
+# -----------------------------------------------------------------------------
+architecture_summary:
+  monorepo:
+    tooling: "pnpm workspaces + turbo task graph"
+    packages:
+      - "@meu-jarvis/web (apps/web/) — Next.js 15 App Router + React 19, porta 3000"
+      - "@meu-jarvis/db (packages/db/) — Drizzle schema, migrations SQL, postgres-js client"
+      - "@meu-jarvis/agent (packages/agent/) — Provider abstraction Anthropic+OpenAI"
+      - "@meu-jarvis/tools (packages/tools/) — Tool Registry Foundation (Story 2.3)"
+      - "@meu-jarvis/observability (packages/observability/) — Pino + OTel + Sentry"
+      - "@meu-jarvis/classifier (a criar em Story 2.4)"
+
+  database:
+    provider: "Supabase eu-central-1 (Frankfurt)"
+    pooler:
+      runtime_url: "DATABASE_URL @ aws-0-eu-west-1.pooler.supabase.com:6543 (pgbouncer transaction-mode, prepare:false)"
+      direct_url: "DIRECT_URL @ aws-0-eu-west-1.pooler.supabase.com:5432 (session-mode, migrations)"
+    rls_state: "26 tabelas / 104 policies (NFR5 preserved)"
+    enforcement: "scripts/check-rls-coverage.ts em CI"
+
+  ai_pipeline:
+    stages:
+      - "Stage 1 Classifier: GPT-4o-mini, output Zod-typed (IntentSchema), confidence calibrado (Story 2.4)"
+      - "Stage 2 Planner: Sonnet, tool calling sobre toolRegistry tipado (Story 2.5)"
+      - "Stage 3 Executor: Sonnet, atomicidade Postgres single transaction (Story 2.5)"
+    atomicity: "Tools de um prompt correm em transacção única; reverse_op declarativo persistido em agent_reverse_ops com expires_at = now() + 30s (FR6 undo)"
+    preview_confirm: "FR4 — confidence < 0.70 dispara preview-then-confirm UI"
+
+  ci_pipeline:
+    workflow: ".github/workflows/ci.yaml"
+    jobs:
+      - "quality (10min): lint + typecheck + test sequencial"
+      - "rls-gate (8min): Postgres 16 service + db:migrate + check:rls"
+      - "build (10min): pnpm build Next.js (depends on quality)"
+
+# -----------------------------------------------------------------------------
+# 8. COMANDOS COMUNS — reference rápida
+# -----------------------------------------------------------------------------
+common_commands:
+  dev:
+    install: "pnpm install --frozen-lockfile"
+    dev: "pnpm dev"
+    web_dev: "pnpm --filter @meu-jarvis/web dev"
+
+  quality_gates_pre_push:
+    lint: "pnpm lint                    # --max-warnings=0"
+    typecheck: "pnpm typecheck"
+    test: "pnpm test"
+    rls: "pnpm check:rls               # NFR5 gate"
+    build: "pnpm build"
+
+  database:
+    generate: "pnpm --filter @meu-jarvis/db db:generate"
+    migrate: "pnpm --filter @meu-jarvis/db db:migrate"
+    seed: "pnpm --filter @meu-jarvis/db db:seed"
+
+  format:
+    write: "pnpm format"
+    check: "pnpm format:check"
+
+  testing_single:
+    web: "pnpm --filter @meu-jarvis/web test -- src/path/file.test.tsx"
+    db: "pnpm --filter @meu-jarvis/db test -- -t \"test name pattern\""
+
+  coderabbit_pre_commit:
+    cmd: "wsl bash -c 'cd /mnt/c/Users/XPS/Documents/meu-jarvis && ~/.local/bin/coderabbit --prompt-only -t uncommitted'"
+    note: "Skipped quando file count > 150 (limite CodeRabbit) — registar [AUTO-DECISION]"
+
+# -----------------------------------------------------------------------------
+# 9. FICHEIROS RELEVANTES (paths absolutos Windows)
+# -----------------------------------------------------------------------------
+relevant_files:
+  story_alvo_validacao:
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\stories\\active\\2.4.classifier-pt-pt.md"
+
+  stories_completed_referencia:
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\stories\\completed\\2.2.agent-package-provider-abstraction.md"
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\stories\\completed\\2.3.tool-registry-foundation.md"
+
+  packages_existentes_referencia:
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\packages\\agent\\src\\"
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\packages\\tools\\src\\"
+
+  schema_enum_intents_source_of_truth:
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\packages\\db\\src\\schema\\agent.ts (linha ~59 enum agent_intent)"
+
+  prd_architecture:
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\prd.md"
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\architecture.md"
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\db-schema.md"
+
+  stories_index:
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\stories\\active\\_INDEX.md (modificado, uncommitted)"
+
+  handoff_index:
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\HANDOFF-INDEX.md"
+
+  rules_globais:
+    - "C:\\Users\\XPS\\.claude\\rules\\agent-authority.md"
+    - "C:\\Users\\XPS\\.claude\\rules\\handoff-central.md"
+    - "C:\\Users\\XPS\\.claude\\rules\\language-standards.md"
+    - "C:\\Users\\XPS\\.claude\\rules\\workflow-execution.md"
+
+  rules_projecto:
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\CLAUDE.md"
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\.claude\\rules\\agent-authority.md"
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\.claude\\rules\\workflow-execution.md"
+
+# -----------------------------------------------------------------------------
+# 10. SESSÃO ANTERIOR — resumo do que foi feito (cadeia de agentes)
+# -----------------------------------------------------------------------------
+session_history:
+  date: "2026-05-08"
+  scope: "Story 2.2 close + Story 2.3 full cycle + Story 2.4 draft"
+  agent_chain:
+    - step: 1
+      agent: "@aiox-architect (Aria)"
+      action: "*qa-gate 2.2 — APPROVED 9.4/10 HIGH"
+    - step: 2
+      agent: "@aiox-devops (Gage)"
+      action: "*push Story 2.2 — 4 commits → origin/main + housekeeping"
+    - step: 3
+      agent: "@aiox-sm (River)"
+      action: "*draft 2.3 — Tool Registry Foundation v1.0"
+    - step: 4
+      agent: "@aiox-po (Pax)"
+      action: "*validate-story-draft 2.3 — GO 9.7/10 HIGH"
+    - step: 5
+      agent: "@aiox-dev (Dex)"
+      action: "*develop 2.3 — 6 commits, 57 tests, 16 ficheiros novos"
+    - step: 6
+      agent: "@aiox-architect (Aria)"
+      action: "*qa-gate 2.3 — APPROVED 9.5/10 HIGH"
+    - step: 7
+      agent: "@aiox-devops (Gage)"
+      action: "*push Story 2.3 — 7 commits → origin/main + housekeeping"
+    - step: 8
+      agent: "@aiox-sm (River)"
+      action: "*draft 2.4 — Classifier PT-PT v1.0 (esta sessão termina aqui)"
+
+  pushes_total: 11  # 4 (2.2) + 7 (2.3)
+  ci_runs_green: 4
+  handoffs_consumed: 7  # 2.2 architect, 2.2 devops, 2.3 dev, 2.3 architect, 2.3 devops, 2.3 housekeeping, plus 1
+  stories_done: 2  # 2.2 + 2.3
+
+# -----------------------------------------------------------------------------
+# 11. CONSUMPTION PROTOCOL — como marcar este handoff consumed
+# -----------------------------------------------------------------------------
+consumption_instructions:
+  who_should_consume: |
+    O agente que executar a próxima acção primária (preferencialmente @aiox-po
+    ao executar *validate-story-draft 2.4). Se outro agente intervir antes,
+    esse marca consumed.
+
+  how_to_consume:
+    - "Editar este YAML: status: pending → consumed"
+    - "Adicionar campos: consumed: true, consumed_at: <ISO-8601>, consumed_by: <agent-id>"
+    - "Adicionar bloco consumption_record: { actions_taken: [...], outcome: ..., successor_handoff: ... }"
+    - "git mv docs/handoffs/mj-handoff-terminal-switch-2.4-pending-validation-20260508.yaml docs/handoffs/archive/"
+    - "Editar docs/HANDOFF-INDEX.md: remover linha pending, adicionar linha archived"
+
+  successor_handoff_expected: |
+    Se @po valida GO → criar mj-handoff-2.4-ready-for-dev-20260508.yaml (po→dev, blocked EB2)
+    Se @po valida NO-GO → criar mj-handoff-2.4-fixes-required-20260508.yaml (po→sm)
+
+# -----------------------------------------------------------------------------
+# 12. CHECKLIST RÁPIDA — primeiro minuto no novo terminal
+# -----------------------------------------------------------------------------
+quick_start_checklist:
+  - "[ ] claude doctor (verificar update Claude Code OK)"
+  - "[ ] cd C:\\Users\\XPS\\Documents\\meu-jarvis"
+  - "[ ] git status → confirmar HEAD 0c18763, modified _INDEX.md, untracked 2.4.md"
+  - "[ ] Ler docs/HANDOFF-INDEX.md (linha pending deste handoff)"
+  - "[ ] Ler este ficheiro completo"
+  - "[ ] Decidir: avançar com @aiox-po validation OU alternativa"
+  - "[ ] Se avançar: invocar @aiox-po *validate-story-draft 2.4"
+  - "[ ] Após acção: marcar este handoff consumed + criar successor"
+
+# -----------------------------------------------------------------------------
+# FIM DO HANDOFF
+# -----------------------------------------------------------------------------

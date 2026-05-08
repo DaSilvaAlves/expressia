@@ -1,0 +1,321 @@
+# =============================================================================
+# HANDOFF — Story 2.4 Ready (v1.1) → @dev *develop 2.4 (modo mockado)
+# =============================================================================
+# CONTEXTO: @po (Pax) executou *validate-story-draft 2.4 e validou GO 9.4/10
+# high confidence. 1 minor fix inline aplicado em AC3 (trace correction).
+# Status Draft → Ready. @dev pode arrancar imediatamente em modo mockado —
+# bloqueador EB2 (OpenAI DPA UE) NÃO afecta drafting/dev (story 100% mockable
+# como Stories 2.2 e 2.3). Integração real com OpenAI fica diferida para
+# Story 2.10 (LLM Benchmark Suite).
+# =============================================================================
+
+handoff:
+  id: mj-handoff-2.4-ready-for-dev-20260508
+  from_agent: "@aiox-po (Pax)"
+  to_agent: "@aiox-dev (Dex)"
+  created: "2026-05-08T21:00:00+01:00"
+  status: pending
+  priority: medium
+  project_prefix: mj-
+  project_codename: meu-jarvis
+  project_brand: Expressia (expressia.pt)
+  predecessor: "mj-handoff-terminal-switch-2.4-pending-validation-20260508 (consumed por @po)"
+
+# -----------------------------------------------------------------------------
+# 1. RESUMO PARA O @dev
+# -----------------------------------------------------------------------------
+summary: |
+  Story 2.4 (Classifier PT-PT GPT-4o-mini) está Ready v1.1 para desenvolvimento.
+  Cria package source-only @meu-jarvis/classifier com 13 ACs, 11 tasks, 43 subtasks,
+  target ≥35 testes Vitest mockados (46 mapeados em test plan). Toda a story foi
+  desenhada para ser implementável SEM credenciais OpenAI reais — usa
+  OpenAIClientLike mockado (interface da Story 2.2) em todos os testes.
+
+  Comando:    @aiox-dev *develop 2.4
+  Modo sugerido: YOLO (autónomo) — padrão Stories 2.2 e 2.3.
+  Estimate:   M (estimado pelo @sm)
+
+# -----------------------------------------------------------------------------
+# 2. STORY DETALHE (paths absolutos Windows)
+# -----------------------------------------------------------------------------
+story:
+  path: "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\stories\\active\\2.4.classifier-pt-pt.md"
+  status: Ready
+  version: 1.1
+  acceptance_criteria_count: 13
+  tasks_count: 11
+  subtasks_count: 43
+  test_target: ">=35 (46 mapeados em test plan)"
+  package_to_create: "@meu-jarvis/classifier (source-only)"
+
+  po_validation:
+    verdict: GO
+    score: 9.4
+    confidence: high
+    validated_at: "2026-05-08T21:00:00+01:00"
+    validator: "@aiox-po (Pax)"
+    fixes_applied_inline:
+      - location: "AC3"
+        description: |
+          Corrigida trace de `intents.max(5)` que reclamava traceiabilidade a FR3
+          (FR3 é audit log no PRD, não limite de intents). Reescrito para
+          [AUTO-DECISION D8] explícita anti-hallucination guardrail com nota para
+          @architect validar no gate. Architecture.md:327 só impõe `min(1)`; PRD
+          AC1 Epic 2 ilustra cenário canónico com 2 intents simultâneas; max(5)
+          fica defensável como prudência mas alternativas são max(10) ou remoção.
+
+# -----------------------------------------------------------------------------
+# 3. ORDEM DE EXECUÇÃO SUGERIDA (11 Tasks)
+# -----------------------------------------------------------------------------
+execution_order:
+  - task: 1
+    description: "Scaffold package @meu-jarvis/classifier (AC1)"
+    blocking_for: "Tasks 2-10"
+    estimate: "10-15 min"
+    notes: "Padrão Stories 2.2 e 2.3 — package source-only sem build step"
+
+  - task: 2
+    description: "Schemas Zod (AC2, AC3, AC5)"
+    depends_on: [1]
+    estimate: "20-30 min"
+    notes: "Sanity-check test contra enum DB obrigatório (Article IV)"
+
+  - task: 3
+    description: "System prompt PT-PT (AC4)"
+    depends_on: [1]
+    estimate: "30-45 min"
+    notes: "4-5 exemplos few-shot em PT-PT incluindo `cancelar_ultima` + `consultar_dados`"
+
+  - task: 4
+    description: "Language gate PT-PT regex (AC6)"
+    depends_on: [1]
+    estimate: "20-30 min"
+    notes: "Lista CONSERVADORA — 10+ frases PT-PT legítimas devem passar"
+
+  - task: 5
+    description: "Classe Classifier (AC7)"
+    depends_on: [2, 3, 4]
+    estimate: "45-60 min"
+    notes: "Integra OpenAIClientLike de @meu-jarvis/agent + zod-to-json-schema"
+
+  - task: 6
+    description: "Taxonomia de erros (AC8)"
+    depends_on: [1]
+    estimate: "20-30 min"
+    notes: "4 subclasses: Validation, Language, LLM (wraps ProviderError 2.2), Output"
+
+  - task: 7
+    description: "OTel tracing whitelist (AC9)"
+    depends_on: [5, 6]
+    estimate: "20-30 min"
+    notes: "10 atributos exactos. ZERO payload. Reutilizar withSpan/annotateSpan de @meu-jarvis/observability"
+
+  - task: 8
+    description: "PII redaction (AC10)"
+    depends_on: [6]
+    estimate: "15-20 min"
+    notes: "Reutilizar sanitizeHint de @meu-jarvis/agent. Tests: NIF, email, telefone PT"
+
+  - task: 9
+    description: "Testes principais (AC11)"
+    depends_on: [2, 3, 4, 5, 6, 7, 8]
+    estimate: "60-90 min"
+    notes: "12+ cenários classifier.test.ts + schemas.test.ts + language-gate.test.ts + errors.test.ts + tracing.test.ts + prompts.test.ts + contract.test.ts. Mock OpenAIClientLike em __fixtures__/"
+
+  - task: 10
+    description: "Exports + README (AC12, AC13)"
+    depends_on: [9]
+    estimate: "20-30 min"
+
+  - task: 11
+    description: "Quality gates finais"
+    depends_on: [10]
+    estimate: "10-15 min"
+    commands: |
+      pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:rls
+
+# -----------------------------------------------------------------------------
+# 4. PONTOS DE ATENÇÃO CRÍTICOS PARA @dev
+# -----------------------------------------------------------------------------
+critical_points:
+
+  article_iv_no_invention:
+    description: |
+      O enum Postgres `agent_intent` é a fonte de verdade dos 8 valores.
+      Sanity-check test em __tests__/schemas.test.ts deve importar o enum DB
+      e verificar que o array bate exactamente. Padrão LLM_MODEL_VALUES da 2.2.
+    fonte_verdade: "packages/db/src/schema/agent.ts:46-55"
+    valores_obrigatorios:
+      - criar_tarefa
+      - criar_financa_variavel
+      - criar_financa_recorrente
+      - criar_cartao
+      - criar_parcelada
+      - consultar_dados
+      - cancelar_ultima
+      - unknown
+
+  no_real_openai_calls:
+    description: |
+      ZERO chamadas reais à API OpenAI nos testes. `pnpm test` deve passar
+      sem `OPENAI_API_KEY` no ambiente. Toda a injecção é via OpenAIClientLike
+      mockado em __fixtures__/mock-openai-client.ts.
+    rationale: "EB2 pending. Story é 100% mockável (padrão 2.2 e 2.3)."
+
+  reuse_libraries:
+    description: |
+      Reutilizar SEMPRE de packages existentes — não duplicar:
+    reuse:
+      - "OpenAIClientLike → @meu-jarvis/agent"
+      - "ProviderError, RateLimitError, mapOpenAIError → @meu-jarvis/agent"
+      - "OPENAI_GPT4O_MINI_DEFAULT, LlmModel, LLM_MODEL_VALUES → @meu-jarvis/agent"
+      - "sanitizeHint → @meu-jarvis/agent (re-export ou import directo)"
+      - "withSpan, annotateSpan, recordSpanError, hashForCorrelation, logger → @meu-jarvis/observability"
+
+  pii_redaction_3_layers:
+    description: |
+      AC10 obrigatório — 3 camadas de defesa:
+    layers:
+      - "L1: error messages NUNCA contêm input.text bruto"
+      - "L2: sanitizeHint para qualquer hint vindo do provider"
+      - "L3: hashForCorrelation(householdId/userId) em spans, NUNCA raw"
+    test_dedicated: "__tests__/errors.test.ts assertions com NIF, email, telefone PT"
+
+  pt_pt_user_messages:
+    description: "TODOS os userMessage das 4 subclasses de erro DEVEM estar em PT-PT (não PT-BR, não EN)"
+    examples:
+      good: '"Texto inválido — não pode estar vazio."'
+      bad_pt_br: '"Texto inválido — você precisa fornecer texto."'
+      bad_en: '"Invalid text — must not be empty."'
+
+  language_gate_conservatism:
+    description: |
+      A lista de palavras PT-BR/EN/ES deve ser CONSERVADORA (não tentar
+      cobertura 100%). Falsos negativos (PT-PT enviado ao LLM) são aceites;
+      falsos positivos (PT-PT rejeitado) NÃO são aceites. Suite de 10+
+      frases PT-PT legítimas deve passar todas.
+
+  zod_to_json_schema_dep:
+    description: |
+      Antes de adicionar `zod-to-json-schema` como dep, verificar:
+      1. Já está no monorepo (pnpm-lock.yaml)?
+      2. Zod 3.24+ tem `z.toJSON()` nativo? (verificar package.json/pnpm-lock)
+    fallback: "Conversão manual para JSON Schema se ambos falharem"
+
+  d6_max_input_length:
+    description: |
+      maxInputLength default 1000 chars é decisão @sm sem rastreabilidade FR
+      explícita. @po aceitou no validation com nota. Se @architect quiser
+      reduzir/aumentar no gate, ajustar — mas justificar explicitamente em
+      Dev Agent Record.
+
+  d8_max_5_intents_guardrail:
+    description: |
+      AC3 max(5) é guardrail anti-hallucination [AUTO-DECISION D8] adicionada
+      pelo @po. Architecture.md só especifica `min(1)`. Se @architect rejeitar
+      no gate, alternativas:
+      a) max(10) — mais permissivo
+      b) remover max — só min(1) (architecture literal)
+      c) max(5) confirmado — manter como está
+    decision_at_gate: "@architect tem autoridade final"
+
+# -----------------------------------------------------------------------------
+# 5. FICHEIROS A CRIAR (AC1)
+# -----------------------------------------------------------------------------
+files_to_create:
+  package_root:
+    - "packages/classifier/package.json"
+    - "packages/classifier/tsconfig.json"
+    - "packages/classifier/vitest.config.ts"
+    - "packages/classifier/README.md"
+
+  source:
+    - "packages/classifier/src/index.ts"
+    - "packages/classifier/src/schemas.ts"
+    - "packages/classifier/src/classifier.ts"
+    - "packages/classifier/src/language-gate.ts"
+    - "packages/classifier/src/prompts/classifier-system.ts"
+    - "packages/classifier/src/errors.ts"
+    - "packages/classifier/src/tracing.ts"
+
+  tests:
+    - "packages/classifier/src/__fixtures__/mock-openai-client.ts"
+    - "packages/classifier/src/__tests__/schemas.test.ts"
+    - "packages/classifier/src/__tests__/classifier.test.ts"
+    - "packages/classifier/src/__tests__/language-gate.test.ts"
+    - "packages/classifier/src/__tests__/errors.test.ts"
+    - "packages/classifier/src/__tests__/tracing.test.ts"
+    - "packages/classifier/src/__tests__/prompts.test.ts"
+    - "packages/classifier/src/__tests__/contract.test.ts"
+
+  files_to_modify:
+    - "apps/web/next.config.ts (transpilePackages array)"
+    - "apps/web/package.json (workspace dep @meu-jarvis/classifier)"
+
+# -----------------------------------------------------------------------------
+# 6. QUALITY GATES OBRIGATÓRIOS (Task 11)
+# -----------------------------------------------------------------------------
+quality_gates_pre_review:
+  required_all_exit_0:
+    - "pnpm lint                # --max-warnings=0"
+    - "pnpm typecheck            # TypeScript strict"
+    - "pnpm test                 # >=35 passing, ZERO real OpenAI calls"
+    - "pnpm build                # Next.js + transpilePackages"
+    - "pnpm check:rls            # NFR5 — classifier não adiciona tabelas com household_id"
+
+  expected_test_count: ">=35 (46 mapeados em test plan)"
+  rls_coverage_baseline: "26 tabelas / 104 policies (deve ficar inalterado)"
+
+# -----------------------------------------------------------------------------
+# 7. CONSTITUTION COMPLIANCE — recordatório
+# -----------------------------------------------------------------------------
+constitution_compliance:
+  article_I_cli_first: "Package backend/library — sem UI. ✅ trivial."
+  article_II_agent_authority: "@dev implementa, NÃO faz git push (@devops apenas). ✅"
+  article_III_story_driven: "Esta story governa toda a implementação. ✅"
+  article_IV_no_invention: "Sanity-check enum DB obrigatório. D8 max(5) marcada como AUTO-DECISION. ✅"
+  article_V_quality_first: "5 gates pre-review (lint/typecheck/test/build/check:rls). ✅"
+  article_VI_absolute_imports: "@meu-jarvis/* + @/*. NUNCA ../../. ✅"
+
+# -----------------------------------------------------------------------------
+# 8. APÓS @dev COMPLETAR
+# -----------------------------------------------------------------------------
+after_dev_complete:
+  next_action: "@aiox-architect *qa-gate 2.4"
+  rationale: |
+    Padrão Stories 2.1, 2.2, 2.3 — quality gate é arquitectural (decisões de
+    structured output, confidence calibration, language gate, defense-in-depth
+    PII). @qa entrará em Stories 2.5+ (funcionais end-to-end testáveis).
+  next_handoff_expected: "mj-handoff-2.4-ready-for-architect-gate-20260508 (dev→architect)"
+
+# -----------------------------------------------------------------------------
+# 9. CONSUMPTION PROTOCOL
+# -----------------------------------------------------------------------------
+consumption_instructions:
+  who_should_consume: "@aiox-dev (Dex) ao iniciar *develop 2.4"
+  how_to_consume:
+    - "Ler este YAML completo + story 2.4 + 2.2/2.3 completed (referência de qualidade)"
+    - "Editar este YAML: status: pending → consumed; consumed: true; consumed_at: <ISO-8601>; consumed_by: @aiox-dev"
+    - "Adicionar consumption_record com tasks completed, decisões @dev, files modified"
+    - "Mover docs/handoffs/mj-handoff-2.4-ready-for-dev-20260508.yaml → docs/handoffs/archive/"
+    - "Editar docs/HANDOFF-INDEX.md: remover linha pending; adicionar linha archived"
+    - "Criar successor: mj-handoff-2.4-ready-for-architect-gate-20260508.yaml (dev→architect)"
+
+# -----------------------------------------------------------------------------
+# 10. CHECKLIST RÁPIDA — primeiro minuto do @dev
+# -----------------------------------------------------------------------------
+quick_start_checklist:
+  - "[ ] cd C:\\Users\\XPS\\Documents\\meu-jarvis"
+  - "[ ] git status (deve mostrar working tree com docs alterados — story v1.1, _INDEX, INDEX, handoff archive move, este novo handoff)"
+  - "[ ] Ler docs/stories/active/2.4.classifier-pt-pt.md COMPLETA (13 ACs)"
+  - "[ ] Ler para referência: docs/stories/completed/2.2.agent-package-provider-abstraction.md (provider abstraction)"
+  - "[ ] Ler para referência: docs/stories/completed/2.3.tool-registry-foundation.md (executeAtomic)"
+  - "[ ] Verificar packages/db/src/schema/agent.ts:46-55 (enum agent_intent — 8 valores SoT)"
+  - "[ ] Verificar packages/agent/src/ (OpenAIClientLike, ProviderError, mapOpenAIError, sanitizeHint)"
+  - "[ ] Decidir modo: YOLO autónomo (recomendado, padrão 2.2/2.3) ou Interactive"
+  - "[ ] Iniciar Task 1 (scaffold)"
+  - "[ ] Após Task 11 verde: marcar este handoff consumed + criar successor architect-gate"
+
+# -----------------------------------------------------------------------------
+# FIM DO HANDOFF
+# -----------------------------------------------------------------------------
