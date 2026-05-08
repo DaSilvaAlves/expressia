@@ -18,6 +18,52 @@ project_codename: meu-jarvis
 project_public_name: Expressia
 
 # ───────────────────────────────────────────────────────────────────────────
+# ✅ PRE-REQUISITE STATUS — validação do deploy pós fix turbo.json
+# ───────────────────────────────────────────────────────────────────────────
+# Adicionado em 2026-05-08 ~12:00 pela sessão @devops sucessora ao consumir
+# este handoff parcialmente para validar o pré-requisito da Acção 4 (smoke
+# test). Confirma que o fix turbo.json funcionou e desbloqueia Acção 4.
+pre_requisite_status:
+  verified_at: 2026-05-08T12:00:00+01:00
+  verified_by: devops (Gage)
+  deploy_sha: 08c0b44
+  deploy_id: dpl_9hUCSo9rif7SELmyepCL3F18JTyH
+  deploy_url: https://expressia-8p84rrze0-euricojsalves-4744s-projects.vercel.app
+  deploy_alias: https://expressia-black.vercel.app
+  deploy_status: Ready
+  deploy_region: fra1 (Frankfurt UE)
+  deploy_duration: ~1m37s (build start 02:07:36Z → deploy completed 02:09:13Z)
+  build_machine: 'Washington D.C. iad1, 2 cores 8GB'
+  turbo_warning_resolved: true
+  turbo_warning_evidence: 'grep -i "missing from" nos build logs → ZERO matches. Antes do fix aparecia "the following environment variables are set on your Vercel project, but missing from turbo.json"'
+  sentry_sourcemap_upload: confirmed
+  sentry_sourcemap_evidence: |
+    3 uploads sucessivos pelo @sentry/nextjs SDK no build:
+    1. Node.js runtime: "Successfully uploaded source maps to Sentry" (02:08:13.100Z) — 17 chunks com debug IDs
+    2. Edge runtime: "Successfully uploaded source maps to Sentry" (02:08:22.497Z) — 19 chunks com debug IDs
+    3. Client runtime: "Successfully uploaded source maps to Sentry" (02:08:33.252Z) — 18 chunks com debug IDs
+    Antes do fix: 3x "No auth token provided. Will not upload source maps".
+  production_health:
+    root_status: 200
+    api_me_status: 401 (esperado — endpoint protegido sem JWT, NÃO 5xx)
+    entrar_status: 200
+    response_time_ms: 1573
+  build_completion: '"Tasks: 4 successful, 4 total" + "Build Completed" + "Deployment completed". Zero ocorrências de Error: ou FATAL nos logs.'
+  notes: |
+    Fix turbo.json (commit 08c0b44) confirmado plenamente eficaz. Sourcemap
+    upload do Sentry está agora activo nas 3 runtimes (server/edge/client).
+    Pre-requisito da Acção 4 (smoke test) DESBLOQUEADO — quando alguém
+    executar a Acção 4, o stack trace em Sentry estará legível com nomes
+    de ficheiros e linhas reais, não minificado.
+
+    Warnings benignos não-bloqueantes nos logs:
+    - "no output files found for task @meu-jarvis/auth/db/observability#build"
+      → esperado (source-only packages via transpilePackages, ver CLAUDE.md)
+    - "It seems like you don't have a global error handler set up"
+      → recomendação Sentry para React Server Components, fora do scope
+      desta validação.
+
+# ───────────────────────────────────────────────────────────────────────────
 # TL;DR (60 segundos)
 # ───────────────────────────────────────────────────────────────────────────
 summary: >
