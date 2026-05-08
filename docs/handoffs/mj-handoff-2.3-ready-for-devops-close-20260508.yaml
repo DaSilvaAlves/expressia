@@ -1,0 +1,196 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Story 2.3 v1.3 Architect APPROVED 9.5/10 — `@devops *push`
+# Pipeline: Draft (River) → Ready (Pax GO 9.7/10) → Implementação (Dex)
+#           → Architect Gate (Aria APPROVED 9.5/10) ← CONSUMED → Done (Gage push) ← AQUI
+# ═══════════════════════════════════════════════════════════════════════════
+
+handoff_id: mj-handoff-2.3-ready-for-devops-close-20260508
+from_agent: architect (Aria)
+to_agent: devops (Gage)
+created: 2026-05-08T19:30:00+01:00
+status: pending
+consumed: false
+priority: medium
+
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Story 2.3 v1.3 — `@architect *qa-gate` APPROVED 9.5/10 HIGH confidence.
+  Gate report `docs/qa/gates/2.3-architect-gate.md` (~750 linhas). 6 decisões
+  D1-D6 todas PASS; 12/12 ACs PASS; 7-point checklist all PASS; defense-in-depth
+  PII 3 camadas validada; NFR5 RLS preservada (26/104 inalterado). 5 gates
+  re-verificados independentemente neste gate (CodeRabbit skipped por
+  file-count limit 260>150). 0 issues bloqueantes; 3 nits non-blocking
+  (DOC-001-NB, ARCH-001-NB, TEST-001-NB) — todos endereçáveis em stories
+  futuras, não-bloqueantes para este push. Sem doc fixes inline. Branch
+  `main` 6 commits ahead de `origin/main` — pronto para `@devops *push`.
+
+# ───────────────────────────────────────────────────────────────────────────
+# NEXT ACTION
+# ───────────────────────────────────────────────────────────────────────────
+next_action:
+  command: "@devops *push"
+  story_id: "2.3"
+  story_file: "docs/stories/active/2.3.tool-registry-foundation.md"
+  expected_output:
+    - "Push verde para `origin/main` com 6 commits"
+    - "CI verde no GitHub Actions (jobs: quality + rls-gate + build)"
+    - "Story 2.3 status Ready for Review → **Done** (formal pós CI verde)"
+    - "`git mv docs/stories/active/2.3.tool-registry-foundation.md → docs/stories/completed/`"
+    - "_INDEX.md Epic 2 actualizado: Story 2.3 entry **Done ✅** com path correcto + score 9.5/10 + path do gate report"
+    - "Header line `Epic 2 — N/11 stories Done` actualizada para 2/11"
+    - "Marcar este handoff (architect→devops) consumed + mover para archive/"
+    - "HANDOFF-INDEX.md actualizado (remove pending, adiciona archived)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# COMMITS PARA PUSH (6 sequenciais, branch `main`)
+# ───────────────────────────────────────────────────────────────────────────
+commits:
+  - hash: d38c0c8
+    message: "feat(tools): scaffold @meu-jarvis/tools package + wire apps/web [Story 2.3]"
+    files_count: 7
+    notes: "package.json + tsconfig + vitest config + apps/web wiring (transpilePackages + workspace dep) + lockfile + story creation"
+  - hash: eb1ae30
+    message: "feat(tools): contracts + registry + atomic + errors + tracing + fixtures [Story 2.3]"
+    files_count: 8
+    notes: "Core implementation — 7 src files + story progress checkboxes"
+  - hash: b745de2
+    message: "test(tools): 57 unit tests covering AC2/3/4/5/6/7/8/9/10/11 [Story 2.3]"
+    files_count: 6
+    notes: "5 test files + atomic.ts bug fix (SQL insert error path → AtomicFailure em vez de ToolTransactionError)"
+  - hash: d79fcef
+    message: "docs(tools): README + Dev Agent Record [Story 2.3]"
+    files_count: 2
+    notes: "README.md (~340 linhas) + Dev Agent Record completo + Change Log v1.2"
+  - hash: cc06fd0
+    message: "chore(handoffs): handoff dev→architect Story 2.3 ready for qa-gate [Story 2.3]"
+    files_count: 2
+    notes: "Handoff YAML (dev→architect) + INDEX update"
+  - hash: 5088f17
+    message: "chore(stories): _INDEX.md Epic 2 row for 2.3 Ready for Review [Story 2.3]"
+    files_count: 1
+    notes: "Epic 2 INDEX row update for Story 2.3 v1.2 Ready for Review"
+
+# Adicional ao push: commit pelo @architect com gate report + story v1.3 +
+# handoff consumed + INDEX update (o @devops cria este commit antes de push,
+# ou o @architect já o criou antes de chamar @devops — ver instrução abaixo).
+post_gate_commit_pending:
+  files:
+    - "docs/qa/gates/2.3-architect-gate.md (NEW — ~750 linhas)"
+    - "docs/stories/active/2.3.tool-registry-foundation.md (status v1.2 → v1.3 + QA Results)"
+    - "docs/handoffs/archive/mj-handoff-2.3-ready-for-architect-gate-20260508.yaml (renamed from /handoffs/)"
+    - "docs/handoffs/mj-handoff-2.3-ready-for-devops-close-20260508.yaml (NEW — este ficheiro)"
+    - "docs/HANDOFF-INDEX.md (consumed→archived + new pending row)"
+  proposed_commit_message: |
+    chore(docs): architect gate Story 2.3 APPROVED 9.5/10 + handoff to devops [Story 2.3]
+
+    Architect gate report `docs/qa/gates/2.3-architect-gate.md` ~750 linhas
+    documenta APPROVED HIGH 9.5/10 com 6 decisões D1-D6 PASS, 12/12 ACs PASS,
+    7-point checklist PASS, defense-in-depth PII 3 camadas, NFR5 preservada
+    (26/104), 0 blocking, 3 non-blocking nits. Story v1.3 com QA Results
+    populada. Handoff dev→architect consumed + arquivado. Novo handoff
+    architect→devops criado (this).
+
+    Constraint: CodeRabbit skipped por file-count limit (260>150) — gate
+                manual examinou directamente 16 ficheiros novos + 4 modificados
+    Confidence: high
+    Scope-risk: narrow
+
+# ───────────────────────────────────────────────────────────────────────────
+# QUALITY GATES (todos exit 0 — re-verificados pelo @architect neste gate)
+# ───────────────────────────────────────────────────────────────────────────
+gates_results:
+  typecheck:
+    command: "pnpm typecheck"
+    result: "exit 0 (7/7 packages, 3.529s, 6 cached + tools novo)"
+  lint:
+    command: "pnpm lint"
+    result: "exit 0 (7/7 packages, --max-warnings=0, 497ms, 6 cached + tools novo)"
+  test_isolated:
+    command: "pnpm --filter @meu-jarvis/tools test"
+    result: "exit 0 (57 tests em 5 ficheiros: contracts 16, registry 12, atomic 13, errors 8, tracing 8 — 1.00s)"
+  test_monorepo:
+    command: "pnpm test"
+    result: "exit 0 (7/7 packages, 2.088s; 57 tools + 222+ existentes preservados — 102 agent + 103 db-test + 9 web + 8 observability inalterados)"
+  check_rls:
+    command: "pnpm check:rls"
+    result: "exit 0 (26 tabelas / 104 policies — NFR5 PRESERVADA inalterada)"
+  build:
+    command: "pnpm build"
+    result: "exit 0 (7/7 packages, 32.205s; 5 cached + apps/web build incluindo @meu-jarvis/tools via transpilePackages)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# CODERABBIT NOTE — Skipped por file-count limit
+# ───────────────────────────────────────────────────────────────────────────
+coderabbit:
+  status: skipped
+  reason: "CodeRabbit CLI rejeitou a review com erro `Too many files! 260 > 150`. O working-tree diff vs main inclui pnpm-lock.yaml regenerado + todos os ficheiros tocados desde 2.2 ainda no branch main. Limite infraestrutural do CodeRabbit free/usage tier."
+  mitigation: "@architect gate examinou directamente os 16 ficheiros novos + 4 modificados durante o gate manual — suficiente para apanhar issues de qualidade que o CodeRabbit detectaria. Documentado em gate report secção 'Sumário executivo'."
+  pre_push_recommendation: "@devops pode considerar correr CodeRabbit pre-push apenas sobre os commits da Story 2.3 via `--base HEAD~6` (ou similar) para limitar scope. Se ainda exceder limit, skip novamente — gate report substitui."
+
+# ───────────────────────────────────────────────────────────────────────────
+# 3 NITS NON-BLOCKING (registados para tracking — não bloqueiam push)
+# ───────────────────────────────────────────────────────────────────────────
+nits_non_blocking:
+  - id: DOC-001-NB
+    file: "docs/stories/active/2.3.tool-registry-foundation.md:170"
+    issue: "AC6 menciona campo `reverted_at: null` mas o schema real em `agent_reverse_ops` é `executed_at` (`reverted_at` existe na tabela `agent_runs` diferente)"
+    impact: "Zero impacto técnico — `executeAtomic` não toca em nenhum dos 2 campos no INSERT (só `agent_run_id`, `household_id`, `reverse_op`, `expires_at`)"
+    follow_up_story: "Story 2.7 (cancelar_ultima — quando ler `executed_at` para determinar reversão)"
+
+  - id: ARCH-001-NB
+    file: "packages/tools/README.md (Exports principais — linhas 19-58)"
+    issue: "`ToolRegistry.has()` adicional fora do AC não está enumerado na lista pública do README"
+    impact: "Cosmético — JSDoc completo em registry.ts:91-96 + 1 teste em registry.test.ts:82-87"
+    follow_up_story: "Story 2.5 Planner+Executor (que vai usar `has()` activamente — actualiza README quando exercitar o pattern)"
+
+  - id: TEST-001-NB
+    file: "packages/tools/src/__tests__/atomic.test.ts"
+    issue: "Cenário (b) do `InternalAtomicAbort` dispatch (re-throw como `ToolTransactionError` retryable) não exercitado directamente — `MockDbState.shouldThrowInTransaction` existe (linha 65) mas não é usado"
+    impact: "Lógica trivialmente verificável por inspecção — 3 linhas em atomic.ts:323"
+    follow_up_story: "Story 2.5 ou bonus 1.4 Testcontainers — adicionar 1 teste com `state.shouldThrowInTransaction = new Error('deadlock')` → expect ToolTransactionError"
+
+# ───────────────────────────────────────────────────────────────────────────
+# REFERÊNCIAS
+# ───────────────────────────────────────────────────────────────────────────
+references:
+  predecessor_handoff: "docs/handoffs/archive/mj-handoff-2.3-ready-for-architect-gate-20260508.yaml (consumed)"
+  gate_report: "docs/qa/gates/2.3-architect-gate.md"
+  story_file: "docs/stories/active/2.3.tool-registry-foundation.md (v1.3)"
+  story_index: "docs/stories/active/_INDEX.md"
+  pattern_reference: "docs/qa/gates/2.2-architect-gate.md (Story 2.2 APPROVED 9.4/10 HIGH — pattern de gate report idêntico)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# CONSUMPTION PROTOCOL
+# ───────────────────────────────────────────────────────────────────────────
+consumption_protocol:
+  - "Quem consome: @devops Gage ao executar `*push`"
+  - "Verificar pre-push: lint + typecheck + test + check:rls + build (todos já verificados pelo @architect; re-correr defensivamente)"
+  - "git push origin main → 6 commits + commit chore(docs) do @architect"
+  - "Aguardar CI verde no GitHub Actions (3 jobs: quality + rls-gate + build)"
+  - "Após CI verde: fechar Story 2.3 — git mv active→completed/ + _INDEX.md update"
+  - "Marca consumed: true + consumed_at + consumed_by quando completar push + close"
+  - "Move ficheiro de docs/handoffs/ → docs/handoffs/archive/ via `git mv`"
+  - "HANDOFF-INDEX.md update: remove pending row deste, adiciona archived row"
+
+# ───────────────────────────────────────────────────────────────────────────
+# UNBLOCKED STORIES
+# ───────────────────────────────────────────────────────────────────────────
+unblocks:
+  - story: "Story 2.5 Planner+Executor"
+    blocked_by: ["Story 2.3 Done", "Story 2.4 Done", "EB1 ANTHROPIC_API_KEY DPA UE"]
+    note: "Consumirá `executeAtomic` + `toolRegistry.getAnthropicToolDefinitions()` + `ToolPlanGateError` (helper assertPlanAllowed)"
+
+  - story: "Story 2.6 Endpoint POST /api/agent/prompt"
+    blocked_by: ["Story 2.5 Done", "EB3 Upstash Redis"]
+    note: "Consumirá tool definitions para compor `tools[]` do Sonnet"
+
+  - story: "Stories 2.6 / 2.7 / 2.8 — tools concretas (Tarefas / Finanças / Consultas)"
+    blocked_by: ["Story 2.3 Done"]
+    note: "Implementarão tools concretas via `ToolDefinition<I,O>` interface + registar em `toolRegistry`"
