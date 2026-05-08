@@ -8,8 +8,10 @@ handoff_id: mj-handoff-story-2.1-ready-for-validation-20260508
 from_agent: sm (River)
 to_agent: po (Pax)
 created: 2026-05-08T14:30:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-08T15:00:00+01:00
+consumed_by: po (Pax)
 priority: medium
 project_prefix: mj
 project_codename: meu-jarvis

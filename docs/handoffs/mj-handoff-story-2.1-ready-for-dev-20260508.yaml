@@ -1,0 +1,231 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Story 2.1 Ready for dev: @po (Pax) → @dev (Dex)
+# ═══════════════════════════════════════════════════════════════════════════
+# Pipeline: @sm *draft 2.1 ✅ → @po *validate-story-draft 2.1 ✅ → @dev *develop 2.1 (PRÓXIMO)
+
+handoff_id: mj-handoff-story-2.1-ready-for-dev-20260508
+from_agent: po (Pax)
+to_agent: dev (Dex)
+created: 2026-05-08T15:00:00+01:00
+status: pending
+consumed: false
+priority: medium
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  @po Pax validou Story 2.1 com veredicto GO 9.5/10 (high confidence). Status
+  transicionado Draft → Ready (v1.1, autoridade @po). 2 minor fixes aplicados
+  inline (AC3 clarificado com estado verificado do schema; changelog v1.1).
+  Story pronta para implementação YOLO. Schema agent já existe desde Story 1.3
+  bootstrap — esta story é validação + RLS coverage gate + immutability NFR9
+  trigger condicional + expansão de testes existentes em packages/db-test/.
+  Quality gate: @architect (decisões arquitecturais sobre trigger vs policy).
+  10 ACs, 7 Tasks, estimate M.
+
+# ───────────────────────────────────────────────────────────────────────────
+# NEXT ACTION
+# ───────────────────────────────────────────────────────────────────────────
+next_action:
+  command: "@dev *develop 2.1"
+  story_id: "2.1"
+  story_file: "docs/stories/active/2.1.agent-schema-rls.md"
+  story_version: "1.1"
+  story_status: "Ready"
+  mode_recomendado: "YOLO (story é validação + testes, baixo risco arquitectural)"
+  quality_gate_target: "@architect (decisão sobre trigger immutability)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# VALIDAÇÃO @po — RESULTADOS COMPLETOS
+# ───────────────────────────────────────────────────────────────────────────
+po_validation:
+  verdict: GO
+  score: 9.5
+  confidence: high
+  checklist_size: 10
+
+  ten_points:
+    - point: "1. Story title clara"
+      verdict: PASS
+      note: "Title descreve quê (auditoria + RLS coverage + immutability NFR9) e domínio (schema agent)"
+    - point: "2. User story format"
+      verdict: PASS
+      note: "As/I want/so that bem formulada — ângulo developer + benefício explícito (fundações Epic 2)"
+    - point: "3. Acceptance Criteria"
+      verdict: PASS
+      note: "10 ACs testáveis e verificáveis. AC1-4 mecânicos (grep schema). AC5 = pnpm check:rls. AC6-8 testes Vitest. AC9-10 binários (exit 0 + doc updated)."
+    - point: "4. Tasks decomposed"
+      verdict: PASS
+      note: "7 Tasks com 5-6 sub-tasks cada. Ordem lógica: audit (1+2+3.1-3.2) → decisão (3.3) → implement (4+5) → docs+validate (6+7)."
+    - point: "5. Dev Notes — paths, files, padrões, gotchas"
+      verdict: PASS
+      note: "Tabela de 9 ficheiros de referência; padrão de teste RLS com exemplo Vitest; análise da policy agent_runs_update_self existente; decisão Opção A trigger documentada."
+    - point: "6. References — PRD/architecture/epic"
+      verdict: PASS
+      note: "Trace AC→FR/NFR completo (10 linhas). Referências exactas (architecture §4.1/§4.2/§4.5/§4.6, db-schema.md §4.4, 0001_rls_policies.sql linhas 266-362)."
+    - point: "7. Quality Gate — escolhido com justificação"
+      verdict: PASS
+      note: "@architect (não @qa) com justificação: decisão arquitectural trigger vs policy. Aligned com EPIC-2-EXECUTION.yaml + handoff @pm."
+    - point: "8. Estimate"
+      verdict: PASS
+      note: "M (Medium) com racional implícito: audit + 1 migration + expansão de 4 ficheiros de teste + doc update. Sem racional CONCERN — ver should-fix."
+    - point: "9. Constitutional compliance"
+      verdict: PASS
+      note: "Article IV (No Invention) ✅ — descoberta nomenclatura tratada explicitamente; usa nomes reais do schema. Article V (Quality First) ✅ — Task 7 cobre lint+typecheck+test+build+check:rls. PT-PT em todo o documento. RLS pattern preservado (NFR5)."
+    - point: "10. Definition of Done"
+      verdict: PASS
+      note: "Implícita mas clara: AC9 + AC10 + Task 7.5 (File List). Story tem secção Testing explícita com comando final único: pnpm check:rls && pnpm typecheck && pnpm lint && pnpm test."
+
+  discovery_validation_naming:
+    confirmed_via_direct_read: true
+    schema_file_read: "packages/db/src/schema/agent.ts (256 linhas inteiras)"
+    finding: >
+      Schema real tem 4 tabelas (agent_runs, intent_classifications,
+      agent_reverse_ops, agent_quotas). NÃO existe agent_intents nem
+      agent_tool_calls como tabelas. tool_calls é coluna JSONB em agent_runs
+      (linha 91). intents_detected é coluna JSONB (linha 84). Story 2.1 está
+      perfeitamente alinhada com a realidade do schema. Article IV (No
+      Invention) totalmente respeitado pelo @sm — divergência do EPIC-2-EXECUTION
+      .yaml é correcção legítima do @sm, não uma reescrita do plan.
+    rls_file_read: "packages/db/migrations/0001_rls_policies.sql linhas 262-362 confirmadas"
+    test_files_existence_check:
+      tests_found_in_packages_db_test_src_tests:
+        - agent_runs.rls.test.ts
+        - agent_quotas.rls.test.ts
+        - agent_reverse_ops.rls.test.ts
+        - intent_classifications.rls.test.ts
+      conclusion: "Os 4 ficheiros existem. Story corretamente diz 'expandir', não 'criar'."
+
+  ac_specific_findings:
+    AC3_expires_at:
+      verified_state: "0000_initial_schema.sql linha 390: 'expires_at timestamptz not null' SEM default"
+      drizzle_schema: "agent.ts linha 201: notNull() sem .default() — confirma migration"
+      action_for_dev: "Task 5.3 já cobre — adicionar DEFAULT em 0005_agent_immutability.sql"
+      po_clarification_applied: "AC3 enriquecido inline com estado verificado para zero ambiguidade"
+    AC6_immutability_trigger:
+      current_state: "Policy agent_runs_update_self (linha 288-294) PERMITE UPDATE por authenticated sem restrição de status"
+      action_for_dev: "Task 3.3 — criar trigger BEFORE UPDATE WHEN OLD.status IN ('success','reverted','failed'). Dev Notes recomenda Opção A trigger; Opção B (column-level RLS) não viável em Postgres."
+      service_role_exception: "Trigger DEVE permitir UPDATE via service_role (Inngest jobs purge NFR9 + reverted_at marker)"
+    AC7_agent_quotas:
+      current_state: "agent_quotas_update_blocked + agent_quotas_delete_blocked já existem (linhas 356-361). Teste existente cobre INSERT bloqueado mas não UPDATE/DELETE."
+      action_for_dev: "Task 4.2 — adicionar testes UPDATE+DELETE bloqueados em agent_quotas.rls.test.ts"
+    AC8_reverse_ops_ttl:
+      current_state: "expires_at NOT NULL sem default (confirmado em 2 fontes). Schema Drizzle e migration alinhados."
+      action_for_dev: "Task 4.3 — testar INSERT sem expires_at (NOT NULL constraint) + TTL query expires_at > now()"
+
+  issues:
+    blocking: []
+    should_fix: []
+    minor_fixes_applied_inline:
+      - description: "AC3 enriquecido com estado verificado (NOT NULL sem DEFAULT confirmado em 0000_initial_schema.sql linha 390)"
+        rationale: "Remove qualquer ambiguidade sobre se @dev deve adicionar DEFAULT ou não — agora é explicito"
+        version_bump: "v1.0 → v1.1"
+      - description: "Status Draft → Ready"
+        rationale: "Autoridade @po em GO verdict (rule story-lifecycle.md). Story pronta para *develop."
+        version_bump: "v1.0 → v1.1"
+
+  decision_log:
+    - "GO porque 10/10 critérios PASS, descoberta nomenclatura validada por leitura directa do schema, e os 4 ficheiros de teste existem todos."
+    - "Score 9.5 (não 10) porque ponto 8 (Estimate) tem racional implícito mas não documentado explicitamente — não é blocking, mas seria preferível ter linha 'Estimate M porque: 1 migration + 4 expansões testes + doc update + audit'."
+    - "Confidence high porque o @sm fez auditoria do schema antes de redigir os ACs e isso reflecte-se na precisão dos paths e linhas referenciados."
+
+# ───────────────────────────────────────────────────────────────────────────
+# CONTEXTO PARA @dev
+# ───────────────────────────────────────────────────────────────────────────
+context:
+  story_summary:
+    title: "Schema agent: auditoria, RLS coverage e immutability NFR9"
+    type: "Database/Schema/RLS/Tests (validação + hardening, NÃO criação)"
+    executor: "@dev"
+    quality_gate: "@architect"
+    quality_gate_tools: ["pnpm check:rls", "pnpm test", "pnpm typecheck", "pnpm lint"]
+    estimate: M
+    no_external_blockers: true
+    prd_trace: ["FR3", "FR6", "NFR5", "NFR9", "NFR20"]
+
+  pontos_atencao_codigo:
+    - "Schema agent JÁ EXISTE — NÃO criar tabelas. Audit primeiro (Task 1+2+3.1-3.2), só depois decidir migration 0005 condicional"
+    - "Migration 0005 é CONDICIONAL — se Tasks 1-3 não detectarem gaps, documentar conclusão e não criar (Task 5.5)"
+    - "Trigger immutability: Opção A é a recomendação do @sm (Dev Notes). Submeter ao @architect no quality gate se houver dúvida"
+    - "service_role exception no trigger é OBRIGATÓRIO (Inngest purge job NFR9 + setting reverted_at)"
+    - "expires_at default: 0000_initial_schema.sql linha 390 confirma SEM default. Adicionar em 0005 Task 5.3"
+    - "agent_quotas: testar UPDATE+DELETE bloqueados (Task 4.2 — actualmente só INSERT está testado)"
+    - "intent_classifications.rls.test.ts EXISTE — verificar cobertura cross-household antes de assumir que precisa criar"
+    - "Convenção do harness: admin() = service_role bypass. asUser() = authenticated com JWT household_id. expectRlsBlocks() = retorna true se RLS bloquear."
+    - "RLS policies actuais (0001_rls_policies.sql 262-362): 16 policies = 4 por tabela. agent_quotas tem INSERT/UPDATE/DELETE blocked; agent_reverse_ops tem CRUD member-scoped."
+
+  ordem_execucao_sugerida:
+    - "1. Task 1 — audit do schema (read-only, ~20min)"
+    - "2. Task 2 — pnpm check:rls + read 0001_rls_policies.sql (~10min)"
+    - "3. Task 3.1-3.2 — análise immutability gaps (read-only, ~15min)"
+    - "4. Task 3.3 (decisão) + Task 5 (criar 0005 SE necessária) (~30min)"
+    - "5. Task 4 — expandir 4 ficheiros de teste em packages/db-test/ (~45min — maior chunk)"
+    - "6. Task 6 — sincronizar docs/db-schema.md §4.4 (~15min)"
+    - "7. Task 7 — validação final (4 comandos: lint, typecheck, test, check:rls) (~10min)"
+
+  ficheiros_a_alterar:
+    high_confidence:
+      - "packages/db-test/src/tests/agent_runs.rls.test.ts (expandir)"
+      - "packages/db-test/src/tests/agent_quotas.rls.test.ts (expandir UPDATE+DELETE blocked)"
+      - "packages/db-test/src/tests/agent_reverse_ops.rls.test.ts (expandir TTL query)"
+      - "docs/db-schema.md (§4.4 sincronizar)"
+      - "docs/stories/active/2.1.agent-schema-rls.md (File List + status InProgress)"
+    conditional:
+      - "packages/db/migrations/0005_agent_immutability.sql (CRIAR se Task 3 detectar gap)"
+      - "packages/db-test/src/tests/intent_classifications.rls.test.ts (expandir SE cobertura insuficiente — verificar primeiro)"
+
+  estado_git_entrada:
+    branch: "main"
+    commits_ahead_origin: 1
+    commit_local_pendente: "3dc382e (feat: draft Story 2.1)"
+    working_tree_after_po_commit: "limpo (depois deste commit @po)"
+    pre_dev_actions:
+      - "Working tree estará limpo quando @dev arrancar"
+      - "@dev NÃO faz git push — exclusivo @devops no fim"
+      - "@dev pode fazer git add+commit local múltiplas vezes durante implementação"
+
+  testing_setup:
+    framework: "Vitest + Testcontainers (Postgres 16 efémero)"
+    pre_req: "Docker Desktop a correr"
+    comando_focado: "pnpm --filter @meu-jarvis/db-test test -- agent"
+    comando_total: "pnpm --filter @meu-jarvis/db-test test"
+    comando_final_obrigatorio: "pnpm check:rls && pnpm typecheck && pnpm lint && pnpm test"
+
+  predecessor_handoff:
+    consumed: "mj-handoff-story-2.1-ready-for-validation-20260508 (sm Pax → po Pax)"
+    archive_path: "docs/handoffs/archive/mj-handoff-story-2.1-ready-for-validation-20260508.yaml"
+
+# ───────────────────────────────────────────────────────────────────────────
+# CADEIA POSTERIOR
+# ───────────────────────────────────────────────────────────────────────────
+cascade_after_dev_done:
+  - "@architect quality gate — validar decisão trigger vs policy + padrão RLS audit log + service_role exception"
+  - "@devops *push — PR + merge"
+  - "@sm *draft 2.2 (Package packages/agent + provider abstraction) — aguarda EB1+EB2 desbloqueados por Eurico"
+  - "Eurico: validar DPs DP1-DP6 do plan epic-2-cerebro-ai-multi-intent.md (decisões product-level pendentes)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# REFS
+# ───────────────────────────────────────────────────────────────────────────
+refs:
+  story_file: "docs/stories/active/2.1.agent-schema-rls.md"
+  epic_execution: "docs/epics/EPIC-2-EXECUTION.yaml"
+  prd: "docs/prd.md"
+  architecture: "docs/architecture.md §4 (pipeline AI) + §4.5 (undo)"
+  db_schema: "docs/db-schema.md §4.4 (a actualizar pelo @dev)"
+  schema_agent: "packages/db/src/schema/agent.ts"
+  rls_policies: "packages/db/migrations/0001_rls_policies.sql linhas 262-362"
+  initial_schema: "packages/db/migrations/0000_initial_schema.sql linha 390 (expires_at NOT NULL sem DEFAULT)"
+  rls_coverage_gate: "scripts/check-rls-coverage.ts"
+  db_test_harness: "packages/db-test/src/rls-harness.ts"
+  db_test_fixtures: "packages/db-test/src/helpers/fixtures.ts (insertAgentRun, insertAgentReverseOp, insertAgentQuota)"
+  test_files_existing:
+    - "packages/db-test/src/tests/agent_runs.rls.test.ts"
+    - "packages/db-test/src/tests/agent_quotas.rls.test.ts"
+    - "packages/db-test/src/tests/agent_reverse_ops.rls.test.ts"
+    - "packages/db-test/src/tests/intent_classifications.rls.test.ts"

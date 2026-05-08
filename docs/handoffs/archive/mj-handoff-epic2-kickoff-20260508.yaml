@@ -11,8 +11,10 @@ handoff_id: mj-handoff-epic2-kickoff-20260508
 from_agent: pm (Morgan)
 to_agent: sm (River)
 created: 2026-05-08T13:00:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-08T14:30:00+01:00
+consumed_by: sm (River)
 priority: medium
 project_prefix: mj
 project_codename: meu-jarvis

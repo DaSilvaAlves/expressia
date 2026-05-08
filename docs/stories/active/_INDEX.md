@@ -104,7 +104,7 @@ A Epic 1 está Done quando:
 **Epic Goal:** Pipeline 3 estágios (Classifier GPT-4o-mini → Planner+Executor Claude Sonnet → atomicidade Postgres) capaz de aceitar prompt PT-PT, executar até 5 intents simultâneas em transacção atómica, com preview-then-confirm para confidence < 0,70, undo de 30s e telemetria fim-a-fim em Grafana.
 
 **Criado:** 2026-05-08
-**Actualizado:** 2026-05-08 (Story 2.1 v1.0 — Draft. `@sm` River. `@po *validate-story-draft 2.1` pendente.)
+**Actualizado:** 2026-05-08 (Story 2.1 v1.1 — **Ready**. `@po` Pax validou GO 9.5/10 high confidence; 10/10 critérios PASS; descoberta nomenclatura cross-confirmada via leitura directa do schema; 2 minor fixes aplicados inline. Próximo: `@dev *develop 2.1`.)
 **Autor:** River (@sm)
 
 ---
@@ -113,7 +113,7 @@ A Epic 1 está Done quando:
 
 | Story | Ficheiro | Título | Status | Owner | Estimate | Bloqueadores |
 |-------|---------|--------|--------|-------|----------|-------------|
-| 2.1 | [2.1.agent-schema-rls.md](./2.1.agent-schema-rls.md) | Schema agent: auditoria, RLS coverage e immutability NFR9 | **Draft** | @dev | M | Nenhum (schema existe desde Story 1.3) |
+| 2.1 | [2.1.agent-schema-rls.md](./2.1.agent-schema-rls.md) | Schema agent: auditoria, RLS coverage e immutability NFR9 | **Ready** ✅ (v1.1 — @po GO 9.5/10) | @dev | M | Nenhum (schema existe desde Story 1.3) |
 | 2.2 | — | Package packages/agent + provider abstraction | Backlog | @dev | M | Depende 2.1 Done + EB1 (Anthropic API key) + EB2 (OpenAI API key) |
 | 2.3 | — | Tool Registry contract + 2 tools mínimas | Backlog | @dev | L | Depende 2.2 |
 | 2.4 | — | Classifier PT-PT (GPT-4o-mini) + Zod gate | Backlog | @dev | M | Depende 2.2 + EB2 |
