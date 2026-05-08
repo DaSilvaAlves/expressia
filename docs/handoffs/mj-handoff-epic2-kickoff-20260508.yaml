@@ -1,0 +1,300 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Epic 2 Kickoff: @pm (Morgan) → @sm (River)
+# ═══════════════════════════════════════════════════════════════════════════
+# Sucessor lógico de mj-handoff-1.7-post-deploy-ui-tasks-20260508 (UI tasks
+# residuais Story 1.7 são non-blocking e correm em paralelo).
+#
+# Pipeline: Epic 1 ✅ 7/7 Done → @pm kickoff Epic 2 ✅ → @sm *draft 2.1 (PRÓXIMO)
+
+handoff_id: mj-handoff-epic2-kickoff-20260508
+from_agent: pm (Morgan)
+to_agent: sm (River)
+created: 2026-05-08T13:00:00+01:00
+status: pending
+consumed: false
+priority: medium
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR (60 segundos)
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Epic 1 (Foundation & Multi-Tenant Core) fechado 7/7 Done — último deploy
+  08c0b44 validado em fra1 com Sentry sourcemap upload CONFIRMED. @pm Morgan
+  fez kickoff do Epic 2 (Cérebro AI Multi-Intent, MVP Fase 1): EPIC-2-EXECUTION.yaml
+  criado com 11 stories enumeradas, dependencies, success criteria PRD AC1-AC6,
+  6 decision log entries (3 aguardam validação Eurico). Plan macro v0.1 já
+  existia em docs/epics/epic-2-cerebro-ai-multi-intent.md (2026-05-06) com 8
+  decisões pendentes (§8). Próximo passo: `@sm *draft 2.1` (Schema agent +
+  migrations + RLS coverage). Story 2.1 NÃO tem dependências externas
+  (schema já existe em packages/db/src/schema/agent.ts desde Story 1.3
+  bootstrap — é validação + RLS coverage, não criação from scratch).
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🟢 ESTADO ACTUAL — VERIFIED
+# ───────────────────────────────────────────────────────────────────────────
+estado_actual:
+  epic_1:
+    status: Done
+    stories_done: 7
+    stories_total: 7
+    last_deploy:
+      sha: 08c0b44
+      region: fra1
+      sentry_sourcemap_upload: CONFIRMED
+      verified_at: 2026-05-08T12:00:00+01:00
+    pending_residual:
+      - "Story 1.7 — 4 acções UI manuais (mj-handoff-1.7-post-deploy-ui-tasks-20260508). Non-blocking, paralelo."
+      - "Stories 1.1/1.2/1.3 ainda em active/ com status Draft (trabalho entregue, housekeeping para completed/ pendente — non-blocking)."
+
+  epic_2:
+    status: kickoff
+    plan_doc: docs/epics/epic-2-cerebro-ai-multi-intent.md
+    plan_version: v0.1 (2026-05-06, Bob/Morgan)
+    execution_doc: docs/epics/EPIC-2-EXECUTION.yaml (criado nesta sessão)
+    stories_planned: 11
+    stories_drafted: 0
+    stories_done: 0
+
+  git:
+    branch: main
+    head_remote: eb6f732
+    head_local: eb6f732
+    ahead_behind: 0/0
+    working_tree_modified:
+      - "M  docs/HANDOFF-INDEX.md (será actualizado para incluir este handoff)"
+      - "?? docs/epics/EPIC-2-EXECUTION.yaml (novo)"
+      - "?? docs/handoffs/mj-handoff-epic2-kickoff-20260508.yaml (este handoff)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🎯 NEXT ACTION
+# ───────────────────────────────────────────────────────────────────────────
+next_action:
+  command: "@sm *draft 2.1"
+  story_id: "2.1"
+  story_title: "Schema agent + migrations + RLS coverage"
+  estimate: M
+  executor: "@dev"
+  quality_gate: "@architect"
+
+  why_this_first: >
+    Story 2.1 é a única do Epic 2 sem dependências externas (Anthropic/OpenAI/
+    Upstash keys ainda vazias em .env). Schema agent JÁ existe em
+    packages/db/src/schema/agent.ts (4 tabelas: agent_runs, intent_classifications,
+    agent_reverse_ops, agent_quotas) com RLS policies em
+    packages/db/migrations/0001_rls_policies.sql linhas 266+. Story 2.1
+    transforma "criar do zero" em "validar + ajustes mínimos + cobertura
+    de testes RLS cross-household + immutability enforcement". Pode arrancar
+    imediatamente; em paralelo Eurico desbloqueia EB1-EB3 para Story 2.2 cascata.
+
+  scope_summary: >
+    1. Validar RLS coverage gate (pnpm check:rls) verde para 4 tabelas agent
+       (16 policies esperadas: 4 × select/insert/update/delete).
+    2. Diff packages/db/src/schema/agent.ts vs db-schema.md §4.4 — ajustes
+       mínimos se gaps detectados (criar 0005_agent_*.sql se necessário).
+    3. Testes RLS cross-household com Testcontainers (reuse harness Story 1.4):
+       - cenário cross-household leak attempt SELECT em agent_runs
+       - cenário user_a tenta INSERT em agent_runs com household_id de user_b
+       - cenário UPDATE/DELETE em agent_runs (deve falhar — immutability NFR9)
+       - cenário undo via reverse_op respeita RLS (não permite undo cross-household)
+    4. Immutability enforcement: REVOKE UPDATE, DELETE em agent_runs para
+       role authenticated (já feito na migration? — verificar).
+    5. Test "agent_quotas atomic increment" via row-level lock (R3 mitigation).
+
+  prd_traceability:
+    - "FR3 — Audit log com prompt original (hash), intents, parâmetros, decisão, utilizador"
+    - "NFR5 — RLS Postgres activa em agent_runs, intent_classifications, agent_reverse_ops, agent_quotas (gate CI obrigatório)"
+    - "NFR9 — Audit log imutável retido 12 meses"
+
+  artefacts_expected:
+    - "docs/stories/active/2.1.agent-schema-rls.md (story file v1.0)"
+    - "(eventual) Migration 0005_agent_immutability.sql se REVOKE UPDATE/DELETE faltar"
+    - "packages/db/test/rls-agent.test.ts (4+ cenários cross-household)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📚 CONTEXTO QUE @sm PRECISA
+# ───────────────────────────────────────────────────────────────────────────
+contexto:
+  prd_relevant_sections:
+    - section: "§2.1 FRs"
+      lines: "40-45"
+      relevance: "FR1-FR6 — audit, classifier, multi-intent, preview, undo"
+    - section: "§2.2 NFRs"
+      lines: "92-105"
+      relevance: "NFR5 (RLS gate), NFR9 (audit imutável 12m)"
+    - section: "§6 Epic 2"
+      lines: "264-287"
+      relevance: "Goal + 9 stories abstractas + AC1-AC6 + quality gates"
+
+  architecture_relevant_sections:
+    - section: "§3 Arquitectura de Dados"
+      lines: "130-267"
+      relevance: "Schema lógico + RLS pattern (template policy 4-row aplicado às 4 tabelas agent)"
+    - section: "§4 Arquitectura do Cérebro AI"
+      lines: "268-438"
+      relevance: "Pipeline 3 estágios, Classifier, Planner+Executor, Preview, Undo, Cost Router"
+
+  db_schema_relevant_sections:
+    - section: "§4.4 Cérebro AI"
+      file: "docs/db-schema.md"
+      relevance: "Detalhe de cada tabela agent_*. Source of truth para Story 2.1 validar contra schema actual."
+
+  existing_artefacts:
+    - path: "packages/db/src/schema/agent.ts"
+      status: "EXISTS — criado no Story 1.3 bootstrap"
+      contents: "agent_runs, intent_classifications, agent_reverse_ops, agent_quotas + 3 enums (agentRunStatusEnum, agentIntentEnum, llmModelEnum)"
+    - path: "packages/db/migrations/0001_rls_policies.sql"
+      status: "EXISTS — RLS policies para agent tables"
+      contents: "Linhas 266+ contêm enable RLS + 4 policies por tabela agent"
+
+  blocked_external_for_later_stories:
+    - id: EB1
+      title: "ANTHROPIC_API_KEY (tier Sonnet 4.5/5 + DPA UE)"
+      blocks: ["2.2", "2.5", "2.6", "2.7", "2.10"]
+      action: "Eurico — pedir tier Sonnet + DPA UE + zero retention/no training"
+    - id: EB2
+      title: "OPENAI_API_KEY (tier GPT-4o-mini + DPA UE)"
+      blocks: ["2.2", "2.4", "2.10"]
+      action: "Eurico — pedir DPA + zero retention"
+    - id: EB3
+      title: "Upstash Redis EU (eu-west-1)"
+      blocks: ["2.6", "2.7", "2.9"]
+      action: "Eurico → @devops criar projecto Upstash EU"
+    - id: EB4
+      title: "Inngest function cleanup_expired_reverse_ops"
+      blocks: ["2.8"]
+      action: "@devops registar quando Story 2.8 chegar (Inngest provisionado em Epic 1)"
+
+  decisions_pending_eurico:
+    note: >
+      8 DPs em §8 do plan v0.1 aguardam validação Eurico. @sm pode draftar
+      2.1 sem isto (story não toca em DPs), MAS para detalhar 2.2-2.9 a
+      validação é necessária. Pelo menos DP1, DP2, DP3, DP4, DP6 devem ser
+      decididas antes de @sm chegar a essas stories. DP5/DP7/DP8 podem cair
+      em pre-flight da story.
+    summary:
+      - "DP1 — Modelo undo (rec: A 30s só) → afecta 2.8"
+      - "DP2 — Threshold preview (rec: C toggle, default 0.70) → afecta 2.7"
+      - "DP3 — Multi-intent hard-cap (rec: B 5 ops) → afecta 2.5+2.6"
+      - "DP4 — Provider lock-in (rec: B abstraction + fallback flag) → afecta 2.2"
+      - "DP6 — Tools mínimas Story 2.3 (rec: A create_task_minimal + query_tasks_minimal) → afecta 2.3"
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🛡️ CONSTRAINTS QUE @sm DEVE RESPEITAR
+# ───────────────────────────────────────────────────────────────────────────
+constraints:
+  carry_over_epic_1:
+    - "Toda tabela com household_id = 4 RLS policies obrigatórias (NFR5 — pnpm check:rls bloqueia merge)"
+    - "Imports absolutos @meu-jarvis/* — nunca relativos (NFR19, CON5)"
+    - "TypeScript strict, sem any (use unknown + type guards)"
+    - "Comments em PT-PT"
+    - "Valores monetários *_cents integer, currency fixo EUR (CON9)"
+    - "@vercel/otel para instrumentação OTel (não @opentelemetry/sdk-node cru) — herdado Story 1.7"
+
+  story_2_1_specific:
+    - "NÃO criar tabelas novas — schema agent já existe; story é VALIDAR + COBRIR com tests"
+    - "Migration apenas se gaps reais detectados vs db-schema.md §4.4 (ex: REVOKE UPDATE/DELETE em agent_runs se faltar)"
+    - "Tests RLS reuse Testcontainers harness da Story 1.4 (não recriar setup)"
+    - "Quality gate é @architect (não @qa) — story é arquitectural/schema, não feature funcional"
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📋 PROTOCOLO @sm
+# ───────────────────────────────────────────────────────────────────────────
+protocolo_sm:
+  pre_check:
+    - "Confirmar branch main + working tree clean (este handoff + EPIC-2-EXECUTION + INDEX update já committed pelo @pm antes de passar)"
+    - "Ler este handoff completo + EPIC-2-EXECUTION.yaml + plan epic-2-cerebro-ai-multi-intent.md §3+§4+§5+§7"
+    - "Ler docs/db-schema.md §4.4 (source of truth para schema agent)"
+    - "Ler packages/db/src/schema/agent.ts + grep agent_runs em 0001_rls_policies.sql para verificar estado actual"
+
+  draft_command: "@sm *draft 2.1"
+
+  story_template:
+    - "Reuse template usado em Stories 1.4-1.7 (estrutura provada)"
+    - "File path: docs/stories/active/2.1.agent-schema-rls.md"
+    - "Status inicial: Draft"
+    - "Version: 1.0"
+
+  acceptance_criteria_minimum:
+    - "AC1: pnpm check:rls passa com 4 tabelas agent x 4 policies = 16 policies registadas"
+    - "AC2: Test cross-household RLS — user_a SELECT agent_runs de household_b → 0 rows (não erro)"
+    - "AC3: Test agent_runs immutability — UPDATE/DELETE como role authenticated → erro permission denied"
+    - "AC4: Test agent_quotas atomic increment — 100 incrementos concorrentes → 100 rows finais (sem races)"
+    - "AC5: Test reverse_op TTL — INSERT com expires_at = now()+30s; depois de 31s, undo endpoint retorna 410 Gone (Story 2.8 valida endpoint, 2.1 valida apenas estrutura DB)"
+    - "AC6: Schema diff vs db-schema.md §4.4 = zero gaps (ou gaps documentados + migration aplicada)"
+
+  next_handoff:
+    - "Após @sm draft Done → handoff `mj-handoff-story-2.1-ready-for-validation-{date}.yaml` para @po"
+    - "Cadeia: @sm draft → @po validate-story-draft → @dev develop → @architect gate → @devops push"
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🚨 RISCOS / CLARIFICAÇÕES
+# ───────────────────────────────────────────────────────────────────────────
+riscos_clarificacoes:
+  riscos_imediatos:
+    - id: K1
+      risk: "Story 2.1 descobrir gaps significativos vs db-schema.md §4.4 — schema actual pode estar incompleto"
+      probability: low
+      impact: medium
+      mitigation: "Se gaps grandes (>30% das colunas), escalar para @architect/@data-engineer antes de migration. Se gaps pequenos, aplicar migration 0005_agent_*.sql na Story 2.1."
+
+    - id: K2
+      risk: "Testcontainers harness Story 1.4 pode não suportar custom_access_token_hook (Story 1.5) — testes RLS precisam de JWT com household_id"
+      probability: medium
+      impact: medium
+      mitigation: "Reuse pattern de Story 1.4 + helper de Story 1.5 (`packages/db/test/helpers/auth.ts` se existir). Se não existir, story scope pode escalar — flag @po na validação."
+
+  clarificacoes_pendentes_eurico:
+    note: "@sm pode arrancar 2.1 sem estas, mas precisa pendentes resolvidas até chegar a 2.2-2.9."
+    items:
+      - "DP1-DP6 (5 decisões) — recomendações Morgan no plan §8, mas requer GO Eurico"
+      - "EB1-EB3 (3 keys/serviços externos) — Eurico provisionar antes de 2.2"
+
+  no_blockers_for_2_1: true
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📎 REFS
+# ───────────────────────────────────────────────────────────────────────────
+refs:
+  epic_plan: docs/epics/epic-2-cerebro-ai-multi-intent.md
+  epic_execution: docs/epics/EPIC-2-EXECUTION.yaml
+  prd: docs/prd.md
+  architecture: docs/architecture.md
+  db_schema: docs/db-schema.md
+  schema_agent_file: packages/db/src/schema/agent.ts
+  rls_migration: packages/db/migrations/0001_rls_policies.sql
+  predecessor_handoff: docs/handoffs/mj-handoff-1.7-post-deploy-ui-tasks-20260508.yaml (sibling — Story 1.7 UI residual non-blocking)
+  related_handoff: docs/handoffs/archive/mj-handoff-session-pause-after-1.5-done-20260506.yaml (Epic 2 plan v0.1 created here)
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📜 PROVENANCE
+# ───────────────────────────────────────────────────────────────────────────
+provenance:
+  pm_session:
+    by: pm (Morgan / Bob)
+    date: 2026-05-08
+    inputs_consulted:
+      - "docs/HANDOFF-INDEX.md (estado real handoffs)"
+      - "docs/stories/active/_INDEX.md (Epic 1 Done verified)"
+      - "docs/stories/completed/ (1.4-1.7 confirmed)"
+      - "docs/epics/epic-2-cerebro-ai-multi-intent.md (plan v0.1)"
+      - "docs/prd.md §6 Epic 2"
+      - "docs/architecture.md §4 (AI pipeline)"
+      - "packages/db/src/schema/agent.ts (verified existence)"
+      - "packages/db/migrations/0001_rls_policies.sql (verified RLS coverage agent_runs)"
+      - ".env / .env.example (verified EB1-EB3 keys empty)"
+    outputs_produced:
+      - "docs/epics/EPIC-2-EXECUTION.yaml (orchestration doc, v0.1)"
+      - "docs/handoffs/mj-handoff-epic2-kickoff-20260508.yaml (este handoff)"
+      - "(pendente) docs/HANDOFF-INDEX.md update — adicionar linha pending"
+
+  audit_trail: >
+    Stories detalhadas só podem ser criadas (`@sm *draft 2.X`) depois de:
+    (1) Eurico validar DPs §8 do plan (mínimo DP1-DP6 antes das stories afectadas).
+    (2) Epic 1 Done — VERIFIED 2026-05-08T12:00.
+    (3) Anthropic + OpenAI + Upstash provisionados (apenas para 2.2+, NÃO para 2.1).
+    Toda decisão técnica é rastreável a FR/NFR/CON do PRD ou ADR da Architecture
+    (Constitution Article IV — No Invention).

@@ -1,0 +1,533 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# EPIC-2-EXECUTION — Cérebro AI Multi-Intent
+# ═══════════════════════════════════════════════════════════════════════════
+# Ficheiro de orquestração do Epic 2. Complementa o plan v0.1 em
+# `docs/epics/epic-2-cerebro-ai-multi-intent.md` (Bob/Morgan, 2026-05-06).
+#
+# Autoridade: @pm (Morgan) — exclusiva para epic orchestration
+# (rule `agent-authority.md` — `*execute-epic` / EPIC-{ID}-EXECUTION.yaml).
+#
+# Status: kickoff (planning ratificado, aguarda validação Eurico em §8 do plan
+# antes de @sm arrancar com `*draft 2.1`).
+
+epic_id: 2
+epic_title: "Cérebro AI Multi-Intent"
+epic_goal: >
+  Pipeline 3 estágios (Classifier GPT-4o-mini → Planner+Executor Claude Sonnet
+  → atomicidade Postgres) capaz de aceitar prompt PT-PT, executar até 5
+  intents simultâneas em transacção atómica, com preview-then-confirm para
+  confidence < 0,70, undo de 30s e telemetria fim-a-fim em Grafana.
+
+mvp_phase: 1
+created: 2026-05-08T13:00:00+01:00
+created_by: pm (Morgan)
+plan_doc: docs/epics/epic-2-cerebro-ai-multi-intent.md
+plan_version: v0.1 (2026-05-06)
+prd_section: "§6 Epic 2 (linhas 264-287)"
+architecture_section: "§4 Arquitectura do Cérebro AI (linhas 268-438)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# DEPENDENCIES
+# ───────────────────────────────────────────────────────────────────────────
+depends_on:
+  epics:
+    - epic_id: 1
+      title: "Foundation & Multi-Tenant Core"
+      status: Done
+      stories_done: ["1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7"]
+      verified: 2026-05-08T12:00:00+01:00
+      verification_notes: >
+        7/7 stories Done. Last deploy 08c0b44 in fra1 verified Sentry sourcemap
+        upload CONFIRMED (3 runtimes: Node/Edge/Client). Production 200 OK.
+        Único item DoD pendente é "Dashboard Grafana activo com dados reais"
+        (deferido via mj-handoff-1.7-post-deploy-ui-tasks-20260508 — non-blocking).
+
+  external_blockers:
+    - id: EB1
+      title: "Anthropic API key tier Sonnet 4.5/5 com DPA UE"
+      status: PENDING
+      blocking_stories: ["2.2", "2.5", "2.6", "2.7", "2.10"]
+      action_owner: Eurico
+      notes: ".env line 23 ANTHROPIC_API_KEY= (vazio). Pedir tier Sonnet + DPA UE + zero retention/no training."
+
+    - id: EB2
+      title: "OpenAI API key tier GPT-4o-mini com DPA UE"
+      status: PENDING
+      blocking_stories: ["2.2", "2.4", "2.10"]
+      action_owner: Eurico
+      notes: ".env line 26 OPENAI_API_KEY= (vazio). Pedir DPA + zero retention."
+
+    - id: EB3
+      title: "Upstash Redis EU project (eu-west-1)"
+      status: PENDING
+      blocking_stories: ["2.6", "2.7", "2.9"]
+      action_owner: "Eurico → @devops"
+      notes: ".env.example linhas 61-62 UPSTASH_REDIS_REST_URL/TOKEN vazios. Necessário para cache 5min + rate limit + quota cache."
+
+    - id: EB4
+      title: "Inngest function cleanup_expired_reverse_ops"
+      status: DEFERRED
+      blocking_stories: ["2.8"]
+      action_owner: "@devops"
+      notes: "Inngest já provisionado em Epic 1 §11.3 (architecture). Função registada quando Story 2.8 chegar."
+
+  decisions_pending:
+    note: >
+      As 8 decisões pendentes (DP1-DP8) em §8 do plan precisam de validação
+      Eurico ANTES de @sm detalhar stories afectadas. Recomendações Morgan
+      preliminares já no plan. Validação pode ser por handoff sucessor ou
+      sessão dedicada.
+    must_validate_before_sm_drafts:
+      - dp_id: DP1
+        topic: "Modelo de undo (30s vs histórico 5)"
+        affects_stories: ["2.8"]
+        recommendation: "A — 30s só (KISS, FR6 spec actual)"
+      - dp_id: DP2
+        topic: "Threshold preview-then-confirm (0.70 fixo vs toggle user)"
+        affects_stories: ["2.7"]
+        recommendation: "C — toggle com default 0.70 (FR4)"
+      - dp_id: DP3
+        topic: "Multi-intent hard-cap (sem limite vs 5 vs 3)"
+        affects_stories: ["2.5", "2.6"]
+        recommendation: "B — hard-cap 5 ops/prompt (parametrizável via env)"
+      - dp_id: DP4
+        topic: "Provider lock-in (Anthropic exclusivo vs abstraction)"
+        affects_stories: ["2.2"]
+        recommendation: "B — abstraction + fallback flag-gated Fase 2"
+      - dp_id: DP6
+        topic: "Tools mínimas Story 2.3 (Tarefas vs Finanças vs mock)"
+        affects_stories: ["2.3"]
+        recommendation: "A — create_task_minimal + query_tasks_minimal"
+
+    can_defer_to_pre_flight:
+      - dp_id: DP5
+        topic: "Prompt cache budget (standard vs extended vs none)"
+        recommendation: "A — cache standard, 5k token budget para tool defs (Story 2.3 enforce)"
+      - dp_id: DP7
+        topic: "Trial 14d quota tier"
+        recommendation: "A — Trial=Família com quota Família (consistente com Architecture §6.4)"
+      - dp_id: DP8
+        topic: "Logging do prompt (hash apenas vs cifrado)"
+        recommendation: "A — hash apenas (NFR12, GDPR-friendly)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# STORIES BREAKDOWN (alinhado com plan §5 — 11 stories)
+# ───────────────────────────────────────────────────────────────────────────
+stories:
+  - id: "2.1"
+    title: "Schema agent + migrations + RLS coverage"
+    estimate: M
+    executor: "@dev"
+    quality_gate: "@architect"
+    depends_on: ["epic-1.3", "epic-1.4", "epic-1.5"]
+    blocked_by_external: []
+    scope_summary: >
+      Tabelas `agent_runs`, `intent_classifications`, `agent_reverse_ops`,
+      `agent_quotas` JÁ desenhadas em packages/db/src/schema/agent.ts (criadas
+      no bootstrap Story 1.3). Story 2.1 valida: (a) RLS coverage gate verde
+      (4 policies × 4 tabelas = 16 policies), (b) ajustes mínimos derivados
+      do plan §4 + db-schema.md §4.4, (c) testes RLS cross-household via
+      Testcontainers harness (reuse da Story 1.4), (d) immutability de
+      agent_runs (REVOKE UPDATE/DELETE).
+    mapping_prd: ["FR3", "NFR5", "NFR9"]
+    artefacts_expected:
+      - "Migration adicional se gaps detectados (0005_agent_*.sql)"
+      - "packages/db/test/rls-agent.test.ts (4 cenários cross-household)"
+      - "Story file 2.1.agent-schema-rls.md em docs/stories/active/"
+
+  - id: "2.2"
+    title: "Package packages/agent + provider abstraction"
+    estimate: M
+    executor: "@dev"
+    quality_gate: "@architect"
+    depends_on: ["2.1"]
+    blocked_by_external: ["EB1", "EB2"]
+    scope_summary: >
+      Criar package `packages/agent` (não existe ainda). Adaptadores tipados
+      Anthropic + OpenAI com retry/timeout/circuit-breaker, secrets via env,
+      OTel instrumentation usando wrapper `@vercel/otel` herdado da Story 1.7.
+      Provider interface agnostic (DP4 recomendação B).
+    mapping_prd: ["NFR21", "NFR11 (excepção documentada §12.2)"]
+    architectural_decisions:
+      - "Provider interface deve ser provider-agnostic para suportar fallback OpenAI futuro"
+      - "Anthropic prompt caching activo (DP5: cache standard 5min, ~5k token budget)"
+      - "Reuse `@vercel/otel` da Story 1.7 (não introduzir novo SDK OTel)"
+
+  - id: "2.3"
+    title: "Tool Registry contract + 2 tools mínimas"
+    estimate: L
+    executor: "@dev"
+    quality_gate: "@architect"
+    depends_on: ["2.2"]
+    blocked_by_external: []
+    scope_summary: >
+      Definir `ToolDefinition<I,O>` com Zod schemas, `execute(input,ctx,tx)` +
+      `reverse(output)`. ctx.householdId DERIVADO do JWT (R4 mitigation).
+      Implementar 2 tools mínimas: `create_task_minimal` + `query_tasks_minimal`
+      (DP6: A). Tool definitions JSON ≤5k tokens (DP5 enforce).
+      Tabela `tasks` mínima em packages/db/src/schema/tasks.ts (Epic 3 estende sem rework).
+    mapping_prd: ["FR1", "FR2", "CON5"]
+    risk_mitigation: ["R4 (RLS leak via tool execute)"]
+
+  - id: "2.4"
+    title: "Classifier PT-PT (GPT-4o-mini) + Zod gate"
+    estimate: M
+    executor: "@dev"
+    quality_gate: "@architect"
+    depends_on: ["2.2"]
+    blocked_by_external: ["EB2"]
+    scope_summary: >
+      Implementar classifier com `ClassificationSchema` (intents[], confidence,
+      language='pt-PT', needs_confirmation). Retry temperature=0 em deriva
+      de schema. Fallback `unknown` em invalid output. Mensagens erro PT-PT.
+    mapping_prd: ["FR1", "FR4", "CON3"]
+    risk_mitigation: ["R1 (precisão classifier <90%)"]
+
+  - id: "2.5"
+    title: "Planner + Executor (Sonnet) + atomicidade Postgres"
+    estimate: L
+    executor: "@dev"
+    quality_gate: "@architect"
+    depends_on: ["2.3", "2.4"]
+    blocked_by_external: ["EB1"]
+    scope_summary: >
+      Pipeline tool calling Sonnet → wrapper transacção Postgres. BEGIN tx,
+      for each tool_call: execute + insert agent_reverse_ops {expires_at = now() + 30s},
+      COMMIT. Anthropic prompt cache no system prompt + tool definitions.
+      Hard-cap 5 ops/prompt (DP3: B). Test integration "explode tool 2 de 3"
+      → rollback as 3.
+    mapping_prd: ["FR2", "FR4", "FR6", "NFR1"]
+    risk_mitigation: ["R2 (latência p95)", "R7 (cache hit rate)", "R9 (atomicidade falha)"]
+
+  - id: "2.6"
+    title: "Endpoint POST /api/agent/prompt autenticado"
+    estimate: M
+    executor: "@dev"
+    quality_gate: "@architect"
+    depends_on: ["2.5"]
+    blocked_by_external: ["EB3"]
+    scope_summary: >
+      Route handler em apps/web/src/app/api/agent/prompt/route.ts. RLS context
+      via JWT (reuse pattern Story 1.6 /api/me). Rate limit Upstash. OTel traces
+      + métricas. Error handling padronizado PT-PT (helper apiError reuse Story 1.6).
+      Resposta { runId, summary[], undoToken, expiresAt }.
+    mapping_prd: ["FR1", "FR2", "NFR1", "NFR5", "NFR13"]
+    architectural_decisions:
+      - "Reuse pattern auth + RLS de /api/me (Story 1.6 — provado em prod)"
+      - "Rate limit por household_id (não user_id) — alinha com quota model"
+
+  - id: "2.7"
+    title: "Preview-then-confirm flow (FR4)"
+    estimate: M
+    executor: "@dev"
+    quality_gate: "@architect"
+    depends_on: ["2.6"]
+    blocked_by_external: []
+    scope_summary: >
+      Quando confidence<0,70 OU `users_prefs.always_preview=true` (DP2: C):
+      gerar plan + previewToken (HMAC, 5min TTL) e endpoint
+      POST /api/agent/confirm-preview/{token}. Schema: adicionar coluna
+      `users_prefs.always_preview boolean default false`.
+    mapping_prd: ["FR4"]
+
+  - id: "2.8"
+    title: "Undo mechanism (FR6) + endpoint"
+    estimate: M
+    executor: "@dev"
+    quality_gate: "@architect"
+    depends_on: ["2.6"]
+    blocked_by_external: ["EB4"]
+    scope_summary: >
+      POST /api/agent/undo/{runId}. Validação ownership (RLS) + expires_at > now()
+      + reverted_at IS NULL. BEGIN tx → execute reverse_ops em ordem reversa →
+      COMMIT. Update agent_reverse_ops.reverted_at + agent_runs.status='reverted'.
+      Inngest cleanup_expired_reverse_ops job (cron diário). Modelo: 30s só (DP1: A).
+    mapping_prd: ["FR6"]
+    risk_mitigation: ["R5 (undo race condition)"]
+
+  - id: "2.9"
+    title: "Cost router + cache + quotas"
+    estimate: M
+    executor: "@dev"
+    quality_gate: "@architect"
+    depends_on: ["2.6"]
+    blocked_by_external: ["EB3"]
+    scope_summary: >
+      Upstash cache 5min (key=sha256(prompt+household)). Routing especial
+      `consultar_dados` → direct DB query sem executor (Architecture §4.6).
+      Atomic quota increment em agent_quotas. Hard-stop 110% com mensagem
+      PT-PT ("Limite de prompts atingido. Próxima janela em N min."). Trial=Família
+      quota=Família (DP7: A).
+    mapping_prd: ["NFR20"]
+    risk_mitigation: ["R3 (custo LLM > 35% MRR)", "R7 (cache hit rate)"]
+
+  - id: "2.10"
+    title: "LLM Benchmark Suite (200 prompts PT-PT)"
+    estimate: L
+    executor: "@dev"
+    quality_gate: "@qa"
+    depends_on: ["2.5"]
+    blocked_by_external: ["EB1", "EB2"]
+    scope_summary: >
+      Criar package `packages/agent-bench`. Dataset 200 prompts curated PT-PT:
+      estratificar por intent (FR1: 6 intents), dialecto regional (Norte/Lisboa/Açores),
+      complexidade (single-intent → multi-intent até 5). Harness precision/recall
+      por intent. CI nightly (.github/workflows/agent-bench.yaml). Alarme <88%.
+      Revisão @qa antes de aceitar como ground truth (R8 mitigation).
+    mapping_prd: ["NFR1 (p95<6s)", "Epic 2 AC5", "Epic 2 AC6 (precisão >=90%)"]
+    risk_mitigation: ["R1", "R8 (dataset enviesado)"]
+
+  - id: "2.11"
+    title: "Observability dashboards Agent Health"
+    estimate: S
+    executor: "@dev"
+    quality_gate: "@architect"
+    depends_on: ["2.6", "2.10"]
+    blocked_by_external: []
+    scope_summary: >
+      Painel Grafana "Agent Health" (latência p95, custo eur_per_household_24h,
+      intent_accuracy nightly, RLS denials, cache hit rates Upstash + Anthropic).
+      Reuse infra da Story 1.7 (OTel + Grafana eu-west-6). Alarmes:
+      p95>10s, custo>35% MRR rolling 7d, accuracy<88%. Dashboard JSON
+      versionado em docs/dashboards/.
+    mapping_prd: ["NFR13", "NFR14", "NFR15"]
+
+# ───────────────────────────────────────────────────────────────────────────
+# DEPENDENCY GRAPH
+# ───────────────────────────────────────────────────────────────────────────
+dependency_graph: |
+  ```mermaid
+  graph LR
+    E1[Epic 1 ✅] --> S21[2.1 Schema+RLS]
+    S21 --> S22[2.2 Package agent + provider]
+    S22 --> S23[2.3 Tool Registry + 2 tools]
+    S22 --> S24[2.4 Classifier PT-PT]
+    S23 --> S25[2.5 Planner+Executor + atomicidade]
+    S24 --> S25
+    S25 --> S26[2.6 Endpoint /api/agent/prompt]
+    S26 --> S27[2.7 Preview-then-confirm]
+    S26 --> S28[2.8 Undo + endpoint]
+    S26 --> S29[2.9 Cost router + cache + quotas]
+    S25 --> S210[2.10 Benchmark 200 prompts]
+    S26 --> S211[2.11 Dashboards Agent Health]
+    S210 --> S211
+  ```
+
+critical_path: ["2.1", "2.2", "2.3", "2.5", "2.6"]
+
+parallelization_opportunities:
+  - "2.3 e 2.4 podem correr em paralelo após 2.2 (executores diferentes ou mesmo dev em sequência)"
+  - "2.7, 2.8, 2.9 podem correr em paralelo após 2.6"
+  - "2.10 pode correr em paralelo com 2.6 (depende só de 2.5)"
+  - "2.11 entra no fim (S, baixo esforço)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# ESTIMATES SUMMARY
+# ───────────────────────────────────────────────────────────────────────────
+estimates_summary:
+  total_stories: 11
+  by_size:
+    S: 1   # 2.11
+    M: 7   # 2.1, 2.2, 2.4, 2.6, 2.7, 2.8, 2.9
+    L: 3   # 2.3, 2.5, 2.10
+  total_effort: "≈ 11 stories — 1S + 7M + 3L"
+  estimated_sprints: "5-6 sprints (1 dev, com bloqueadores externos resolvidos antes de 2.2)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# SUCCESS CRITERIA (epic-level — alinhados com PRD §6 Epic 2 ACs)
+# ───────────────────────────────────────────────────────────────────────────
+success_criteria:
+  prd_acceptance_criteria:
+    - id: AC1
+      criterion: 'Prompt "amanhã reunião às 15h, paguei €78,70 no supermercado" cria 1 evento + 1 finança numa única chamada'
+      validates_in_story: "2.10 (benchmark) + smoke test 2.6"
+    - id: AC2
+      criterion: "Prompt ambíguo (confidence<0,70) dispara preview de confirmação"
+      validates_in_story: "2.7"
+    - id: AC3
+      criterion: "agent_runs regista cada execução com prompt hash, intents, params, resultado"
+      validates_in_story: "2.1 (schema) + 2.5 (insert)"
+    - id: AC4
+      criterion: "Undo reverte última operação dentro de 30s"
+      validates_in_story: "2.8"
+    - id: AC5
+      criterion: "Latência p95 < 6s em 200 prompts PT-PT"
+      validates_in_story: "2.10"
+    - id: AC6
+      criterion: "Precisão classificação >= 90% em conjunto de 200 prompts curated"
+      validates_in_story: "2.10"
+
+  operational_metrics:
+    - "Custo LLM médio por household activo Família ≤ €2,66/mês (30% MRR — NFR20)"
+    - "Cache hit rate Upstash ≥ 15% após 7 dias prod (re-avaliar)"
+    - "Cache hit rate Anthropic prompt cache ≥ 60% em horário de pico"
+    - "Zero RLS leaks em testes integration cross-household (NFR5)"
+    - "Zero secrets expostos em logs (NFR8, NFR12)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# DECISION LOG (epic-level decisions taken at kickoff)
+# ───────────────────────────────────────────────────────────────────────────
+decision_log:
+  - id: ED1
+    date: 2026-05-08
+    by: pm (Morgan)
+    decision: "Decompor em 11 stories (vs 9 do PRD §6)"
+    rationale: >
+      PRD §6 Epic 2 propõe 9 stories abstractas. Plan v0.1 (2026-05-06)
+      decompõe em 11 mais granulares: separa benchmark suite (2.10) de
+      pipeline core (2.5), e adiciona dashboards (2.11) como peça final.
+      Granularidade L max por story alinha com diretiva "entrega incremental".
+    alternatives_considered:
+      - "Manter 9 stories do PRD (rejeitado: 2.4 Classifier seria L+ misturado com 2.5 Executor)"
+      - "Quebrar em 13+ stories (rejeitado: overhead de validação @po sem ganho real)"
+
+  - id: ED2
+    date: 2026-05-08
+    by: pm (Morgan)
+    decision: "Story 2.1 = validar schema existente (não criar do zero)"
+    rationale: >
+      Schema agent já existe em packages/db/src/schema/agent.ts (Story 1.3
+      bootstrap criou 27 tabelas, incluindo agent_runs/intent_classifications/
+      agent_reverse_ops/agent_quotas). RLS já tem 4 policies por tabela em
+      0001_rls_policies.sql linhas 266-340+. Story 2.1 foca em (a) RLS coverage
+      gate verificação, (b) ajustes mínimos vs db-schema.md §4.4, (c) testes
+      cross-household, (d) immutability de agent_runs.
+    evidence: "ls packages/db/src/schema/agent.ts + grep agent_runs em 0001_rls_policies.sql"
+
+  - id: ED3
+    date: 2026-05-08
+    by: pm (Morgan)
+    decision: "Reuse @vercel/otel da Story 1.7 (não introduzir novo OTel SDK)"
+    rationale: >
+      Story 1.7 padronizou em @vercel/otel (Sentry sourcemap upload confirmado
+      em deploy 08c0b44 — Node + Edge + Client). Epic 2 usa o mesmo wrapper
+      para instrumentação do pipeline 3-stage. Handoff
+      mj-handoff-1.7-post-deploy-grafana-20260508 explicitamente recomendou
+      "tomar nota para Epic 2 (Cérebro AI) instrumentar o pipeline 3-stage
+      usando o mesmo wrapper".
+    refs: ["docs/runbooks/observability-setup.md", "Story 1.7 v1.4 Done"]
+
+  - id: ED4
+    date: 2026-05-08
+    by: pm (Morgan)
+    decision: "Manter dual-emission Sentry+OTel (não migrar para Sentry OTLP nativo)"
+    rationale: >
+      Story 1.7 descobriu Sentry OTLP nativo (endpoint
+      o4510848200278016.ingest.de.sentry.io/api/.../integration/otlp) mas
+      decidiu manter dual-emission (Sentry para errors via SDK, Grafana para
+      tudo via OTel). Re-avaliar duplicação em Story 2.11 se houver
+      observability fatigue.
+    refs: ["mj-handoff-secrets-configured-20260507 line 157"]
+
+  - id: ED5
+    date: 2026-05-08
+    by: pm (Morgan)
+    decision: "Hard-cap 5 ops/prompt (DP3: B) parametrizável via env"
+    rationale: >
+      Recomendação Morgan (plan §8 DP3 B). >5 ops indica intent ambíguo ou
+      abuso. Cobre 99% casos reais ("compras hoje: pão, leite, ovos, queijo,
+      fruta"). Threshold em env (`AGENT_MAX_OPS_PER_PROMPT=5`) permite
+      ajuste sem deploy.
+    aguarda_validacao_eurico: true
+
+  - id: ED6
+    date: 2026-05-08
+    by: pm (Morgan)
+    decision: "Provider abstraction com fallback OpenAI flag-gated Fase 2 (DP4: B)"
+    rationale: >
+      MVP usa Anthropic Sonnet exclusivo (KISS, prompt caching nativo). Story 2.2
+      entrega abstraction provider-agnostic; Story 2.5 usa Sonnet. Fallback OpenAI
+      em outage = Fase 2 atrás de feature flag, activado por circuit breaker.
+    aguarda_validacao_eurico: true
+
+# ───────────────────────────────────────────────────────────────────────────
+# RISKS (resumo dos R1-R10 do plan §6 — full detail no plan doc)
+# ───────────────────────────────────────────────────────────────────────────
+risks_summary:
+  total: 10
+  high_impact: 4   # R1, R2, R3, R6
+  by_priority:
+    - "R1 — Precisão classifier <90% (Média/Alto) — mitigação Story 2.10 nightly"
+    - "R2 — Latência p95 >6s (Média/Alto) — mitigação prompt cache + Upstash + alarme 2.11"
+    - "R3 — Custo LLM >35% MRR (Média/Alto) — mitigação quotas hard-stop 110% Story 2.9"
+    - "R4 — RLS leak via tool execute (Baixa/Crítico) — mitigação contract enforce ctx.householdId Story 2.3"
+  full_detail: "docs/epics/epic-2-cerebro-ai-multi-intent.md §6"
+
+# ───────────────────────────────────────────────────────────────────────────
+# FRs/NFRs COVERAGE
+# ───────────────────────────────────────────────────────────────────────────
+requirements_coverage:
+  functional:
+    - { fr: FR1, story: "2.1+2.4+2.6", coverage: full }
+    - { fr: FR2, story: "2.5", coverage: full }
+    - { fr: FR3, story: "2.1", coverage: full }
+    - { fr: FR4, story: "2.4+2.7", coverage: full }
+    - { fr: FR5, story: "2.9 (consultar_dados direct-DB)", coverage: full }
+    - { fr: FR6, story: "2.5+2.8", coverage: full }
+  non_functional:
+    - { nfr: NFR1, story: "2.5+2.10+2.11 (alarmes)", coverage: full }
+    - { nfr: NFR5, story: "2.1", coverage: full }
+    - { nfr: NFR9, story: "2.1 (audit imutável)", coverage: full }
+    - { nfr: NFR11, story: "2.2 (Anthropic/OpenAI documentar excepção §12.2)", coverage: full }
+    - { nfr: NFR12, story: "2.5 (hash apenas, DP8: A)", coverage: full }
+    - { nfr: NFR13, story: "2.6", coverage: full }
+    - { nfr: NFR14, story: "2.11", coverage: full }
+    - { nfr: NFR15, story: "2.11", coverage: full }
+    - { nfr: NFR20, story: "2.9", coverage: full }
+    - { nfr: NFR21, story: "2.2+2.4+2.5", coverage: full }
+  constraints:
+    - { con: CON3, story: "2.4+2.10 (PT-PT exclusivo)", coverage: full }
+    - { con: CON5, story: "2.2+2.3 (imports absolutos)", coverage: full }
+    - { con: CON8, story: "all (gate @po antes de @dev)", coverage: full }
+    - { con: CON9, story: "2.3 (EUR cents, formato PT-PT)", coverage: full }
+
+# ───────────────────────────────────────────────────────────────────────────
+# OUT OF SCOPE (deferido para Epics posteriores)
+# ───────────────────────────────────────────────────────────────────────────
+out_of_scope:
+  - "UI do chat (panel, streaming SSE, preview card UI, undo toast UI) → Epic 5"
+  - "Tools cheias de Tarefas (create_task, complete_task full features) → Epic 3"
+  - "Tools cheias de Finanças (create_finance_variable, recurrente, cartão, parcelada) → Epic 4"
+  - "Voz e OCR — fora MVP"
+  - "Histórico prompts conversacional / multi-turn → Fase 2"
+  - "Re-do após undo — KISS"
+  - "Provider fallback OpenAI activo (atrás de flag, Fase 2)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# NEXT STEPS
+# ───────────────────────────────────────────────────────────────────────────
+next_steps:
+  immediate:
+    - step: 1
+      action: "Eurico validar DPs §8 do plan (mínimo DP1, DP2, DP3, DP4, DP6)"
+      blocking: "Detalhamento de stories afectadas (2.7, 2.8, 2.5, 2.2, 2.3)"
+
+    - step: 2
+      action: "Eurico provisionar API keys: ANTHROPIC_API_KEY + OPENAI_API_KEY + UPSTASH_REDIS"
+      blocking: "Story 2.2 begin (e cascata 2.4-2.11)"
+
+    - step: 3
+      action: "@sm *draft 2.1 (Schema agent + migrations + RLS coverage)"
+      blocking: "Story 2.1 não tem dependências externas — pode arrancar imediatamente"
+      handoff: "mj-handoff-epic2-kickoff-20260508.yaml"
+
+  cascade:
+    - "@po *validate-story-draft 2.1 → @dev *develop 2.1 → @architect quality gate → @devops *push"
+    - "Em paralelo (após Eurico desbloquear EBs): @sm *draft 2.2 (depende 2.1 Done)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# CHANGE LOG
+# ───────────────────────────────────────────────────────────────────────────
+change_log:
+  - version: v0.1
+    date: 2026-05-08
+    by: pm (Morgan)
+    changes: >
+      Kickoff inicial. EPIC-2-EXECUTION criado a partir do plan v0.1
+      (epic-2-cerebro-ai-multi-intent.md de 2026-05-06). 11 stories enumeradas
+      com dependencies, blocked_by_external mapping, success criteria PRD AC1-AC6,
+      decision log ED1-ED6 (3 dependentes de validação Eurico nas DPs §8).
+      Epic 1 confirmado 7/7 Done (verified 2026-05-08T12:00 deploy 08c0b44).
+      Bloqueadores externos EB1-EB4 inventariados. Próximo passo:
+      `@sm *draft 2.1`.
