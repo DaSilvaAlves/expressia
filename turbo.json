@@ -11,7 +11,15 @@
         "DATABASE_URL_DIRECT",
         "NEXT_PUBLIC_SUPABASE_URL",
         "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-        "SUPABASE_SERVICE_ROLE_KEY"
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "SENTRY_DSN",
+        "SENTRY_ORG",
+        "SENTRY_PROJECT",
+        "SENTRY_AUTH_TOKEN",
+        "OTEL_EXPORTER_OTLP_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_HEADERS",
+        "GRAFANA_API_TOKEN",
+        "GRAFANA_STACK_NAME"
       ]
     },
     "dev": {

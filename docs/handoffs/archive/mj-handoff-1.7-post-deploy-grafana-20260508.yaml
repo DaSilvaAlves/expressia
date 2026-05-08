@@ -10,9 +10,46 @@ handoff_id: mj-handoff-1.7-post-deploy-grafana-20260508
 from_agent: devops (Gage)
 to_agent: devops (Gage)
 created: 2026-05-08T02:00:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: 2026-05-08T02:58:53+01:00
+consumed_by: devops (Gage)
 priority: low
+consumption_notes: |
+  Sessão @devops 02:50–03:00 consumiu este handoff em modo CLI-only (Opção A do
+  spawn prompt). Resultado:
+
+  CLI-completed (PASS):
+  - Acção 1 — Vercel deploy verde CONFIRMADO (commit 310e813, status Ready,
+    aliasado a expressia-black.vercel.app, region fra1, build 29s).
+  - Descoberta CRÍTICA durante Acção 1: build logs mostram que `turbo.json` não
+    declarava SENTRY_DSN/SENTRY_ORG/SENTRY_PROJECT/SENTRY_AUTH_TOKEN/
+    OTEL_EXPORTER_OTLP_ENDPOINT/OTEL_EXPORTER_OTLP_HEADERS/GRAFANA_API_TOKEN/
+    GRAFANA_STACK_NAME no `tasks.build.env`. Turbo emitia warning explícito:
+    "the following environment variables are set on your Vercel project, but
+    missing from turbo.json. These variables WILL NOT be available to your
+    application". Resultado: Sentry SDK reporta "No auth token provided. Will
+    not upload source maps" → sourcemaps em production estavam **a falhar
+    silenciosamente**.
+  - FIX aplicado nesta sessão: `turbo.json` actualizado com 8 env vars (4 Sentry
+    + 2 OTel + 2 Grafana). Próximo deploy auto-trigger pelo push terá sourcemap
+    upload activo.
+
+  Pending UI humano (deferred → handoff sucessor):
+  - Acção 2 — Importar dashboard Grafana e re-exportar populated (UI Grafana,
+    sem browser automation MCP disponível na sessão).
+  - Acção 3 — Criar 2 alertas via UI Grafana.
+  - Acção 4 — Smoke test 5xx contra Sentry Frankfurt (precisa primeiro do deploy
+    com sourcemap fix; depois UI Sentry).
+  - Acção 5 — Validar Vercel Analytics activo (UI Vercel).
+
+  Decisão honesta: 4 das 5 acções dependem de UI manual. Sessão CLI seguiu
+  Opção A do spawn prompt: fixar bug detectado durante CLI-doable Acção 1, e
+  passar UI-only acções para handoff sucessor `mj-handoff-1.7-post-deploy-ui-tasks-20260508`.
+
+  Story 1.7 continua Done (não-bloqueante). O fix de `turbo.json` é um bug
+  real corrigido, não cosmético — sem ele, Sentry production não tinha
+  sourcemaps mesmo com SENTRY_AUTH_TOKEN em Vercel.
 project_prefix: mj
 project_codename: meu-jarvis
 project_public_name: Expressia

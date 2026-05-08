@@ -1,0 +1,237 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# HANDOFF — Story 1.7 follow-up: 4 acções UI humano + smoke test pós sourcemap fix
+# ═══════════════════════════════════════════════════════════════════════════
+# Sucessor de mj-handoff-1.7-post-deploy-grafana-20260508 (consumed CLI-only).
+# Não-bloqueante para Story 1.7 (já Done). Acções operacionais que requerem UI
+# manual (Grafana, Sentry, Vercel Analytics).
+
+handoff_id: mj-handoff-1.7-post-deploy-ui-tasks-20260508
+from_agent: devops (Gage)
+to_agent: any (Eurico humano via UI; ou @devops em sessão futura com browser automation)
+created: 2026-05-08T02:58:53+01:00
+status: pending
+consumed: false
+priority: low
+project_prefix: mj
+project_codename: meu-jarvis
+project_public_name: Expressia
+
+# ───────────────────────────────────────────────────────────────────────────
+# TL;DR (60 segundos)
+# ───────────────────────────────────────────────────────────────────────────
+summary: >
+  Sucessor do handoff `mj-handoff-1.7-post-deploy-grafana-20260508`. A sessão
+  @devops anterior (02:50–03:00) executou em modo CLI-only e descobriu durante
+  a Acção 1 (confirmar Vercel deploy) um bug real: `turbo.json` não declarava
+  os 8 env vars Sentry/OTel/Grafana no `tasks.build.env`, pelo que Turbo nunca
+  os passava ao build do Next.js. Resultado: Sentry SDK em production estava
+  a falhar silenciosamente com "No auth token provided. Will not upload source
+  maps". Fix aplicado: `turbo.json` agora inclui `SENTRY_DSN`, `SENTRY_ORG`,
+  `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`, `OTEL_EXPORTER_OTLP_ENDPOINT`,
+  `OTEL_EXPORTER_OTLP_HEADERS`, `GRAFANA_API_TOKEN`, `GRAFANA_STACK_NAME`.
+  Próximo deploy auto-trigger pelo push desta sessão terá sourcemap upload
+  activo. Restam 4 acções UI manuais para Eurico (ou sessão futura @devops com
+  browser automation): importar dashboard Grafana, criar 2 alertas, smoke test
+  Sentry, validar Vercel Analytics. Estimated 25-35 min UI work.
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🟢 ESTADO ACTUAL
+# ───────────────────────────────────────────────────────────────────────────
+estado_actual:
+  story_1_7:
+    status: Done
+    version: v1.4
+    file: docs/stories/completed/1.7.observability-otel-sentry.md
+
+  vercel:
+    project: euricojsalves-4744s-projects/expressia
+    region: fra1 (Frankfurt UE — actualizado de cdg1 anterior)
+    deploy_actual:
+      sha: 310e813
+      url: https://expressia-dh9e45wtr-euricojsalves-4744s-projects.vercel.app
+      alias: https://expressia-black.vercel.app
+      status: Ready
+      duration: 29s
+      created: '2026-05-08T01:55:03Z (build start)'
+      sentry_sourcemap_upload: 'NÃO — SENTRY_AUTH_TOKEN não chegava ao build via Turbo (FIX APLICADO nesta sessão; próximo deploy terá)'
+
+  fix_aplicado:
+    ficheiro: turbo.json
+    seccao: tasks.build.env
+    diff: |
+      Antes — 6 env vars (NODE_ENV + 5 Supabase/DB).
+      Depois — 14 env vars (acrescentadas: SENTRY_DSN, SENTRY_ORG, SENTRY_PROJECT,
+      SENTRY_AUTH_TOKEN, OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_HEADERS,
+      GRAFANA_API_TOKEN, GRAFANA_STACK_NAME).
+    impacto: |
+      Sourcemap upload Sentry vai funcionar a partir do próximo deploy. Sem isto,
+      stack traces em Sentry production seriam minificados (ilegíveis). NFR16
+      (PII redaction) não afectada — essa lógica é runtime, não build-time.
+
+  vercel_secrets_validados:
+    total: 13 (8 observability + 5 Supabase/DB)
+    via: 'vercel env ls production (output validado)'
+
+  observability_stack:
+    sentry_eu:
+      org: eurico-xw
+      project: expressia-web
+      data_residency: 'European Union (Frankfurt)'
+    grafana_cloud_eu:
+      stack: expressia.grafana.net
+      region: eu-west-6 (Ireland)
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🎯 NEXT ACTION — 4 acções UI manuais (humano ou sessão com browser auto)
+# ───────────────────────────────────────────────────────────────────────────
+next_action: >
+  Aguardar que o push desta sessão @devops dispare auto-deploy Vercel verde
+  com SENTRY_AUTH_TOKEN agora a chegar ao build (sourcemap upload activo).
+  Depois executar as 4 acções UI abaixo. Eurico humano pode fazer manualmente
+  (~25-35 min). Sessão futura @devops com playwright MCP disponível pode
+  automatizar parte.
+
+next_action_steps:
+  - id: 2
+    label: 'Importar dashboard Grafana e re-exportar populated'
+    description: |
+      Levar `docs/dashboards/grafana-epic1.json` para a UI Grafana, ajustar
+      datasources reais, confirmar que os 4 painéis renderizam, depois re-exportar
+      e substituir o scaffold no repo.
+    como: |
+      1. Browser: https://expressia.grafana.net → Dashboards → New → Import
+      2. Upload `docs/dashboards/grafana-epic1.json`
+      3. Mapear datasources placeholder para datasources reais da stack expressia
+      4. Save → confirmar 4 painéis: latência p95 /api/me, error rate 5xx,
+         RLS violations, DB query latency p95
+      5. Dashboard → Share → Export → Save to file (with values JSON populated)
+      6. Substituir `docs/dashboards/grafana-epic1.json` pelo export final
+      7. Commit local + push em commit `chore(observability): grafana dashboard populated`
+    estimated_minutes: 10
+    referencia: 'docs/runbooks/observability-setup.md §5 (queries por painel)'
+    automação_possível_via_API: |
+      Alternativa CLI: POST /api/dashboards/db da Grafana HTTP API com payload
+      JSON do scaffold, bearer GRAFANA_API_TOKEN. Não testado nesta sessão.
+      Vantagem: idempotente, repo-driven. Desvantagem: datasource UID resolution
+      precisa de ser feita primeiro via GET /api/datasources.
+
+  - id: 3
+    label: 'Criar 2 alertas via UI Grafana'
+    description: |
+      Implementar os 2 alertas documentados no runbook §6. Queries idênticas ao
+      dashboard.
+    como: |
+      Alerta 1 — Error rate >1% em janela 5min:
+        Query: PromQL sobre http_server_response_count filtrado status_code 5xx
+        Threshold: > 0.01 (1%)
+        Window: last 5m
+        Notification: contact point email euricojsalves@gmail.com
+        Severity: critical
+
+      Alerta 2 — Latência p95 /api/me >200ms em janela 5min:
+        Query: histogram_quantile(0.95, http_server_duration_milliseconds_bucket)
+        Threshold: > 200
+        Window: last 5m
+        Notification: contact point email euricojsalves@gmail.com
+        Severity: warning
+
+      Para cada alerta: Save → Test → confirmar contact point recebe notificação.
+    estimated_minutes: 10
+    referencia: 'docs/runbooks/observability-setup.md §6 (queries completas)'
+    automação_possível_via_API: |
+      Alternativa CLI: POST /api/v1/provisioning/alert-rules com payload JSON.
+      Os YAML/JSON dos alertas podem ser versionados em docs/dashboards/alerts/*.json
+      e aplicados idempotentemente. Não criado nesta sessão.
+
+  - id: 4
+    label: 'Smoke test pós-deploy — erro 5xx contra Sentry'
+    description: |
+      Forçar evento de erro intencional para validar que: (a) Sentry recebe
+      o evento com banner "European Union (Frankfurt)", (b) sourcemap aplicado
+      (stack trace legível), (c) PII redaction `beforeSend` activa.
+    pré-requisito: |
+      O deploy auto-trigger por esta sessão TEM de estar Ready com sourcemap
+      upload bem-sucedido (verificar nos logs: ausência de "No auth token
+      provided. Will not upload source maps" e presença de "Source maps
+      uploaded successfully"). Só depois faz sentido fazer o smoke test.
+    como: |
+      Opção A (recomendada — preserva production limpa):
+        Criar branch curta com endpoint `/api/_smoke` que faz `throw new Error("Sentry EU smoke test")`.
+        Deploy preview, hit GET, depois apagar branch.
+
+      Opção B (menos invasiva):
+        Forjar JWT inválido em request a /api/me production:
+          curl -H "Authorization: Bearer broken.jwt.token" https://expressia-black.vercel.app/api/me
+        captureException no error path já existente capta erros 5xx.
+
+      Verificação:
+        1. https://eurico-xw.sentry.io/issues → ver issue novo
+        2. Issue → Details → confirmar banner "Stored in: European Union (Frankfurt)"
+        3. Stack trace → confirmar nomes de ficheiros legíveis (sourcemap aplicado)
+        4. Event payload → confirmar zero PII (sem email/Authorization/Cookie)
+    estimated_minutes: 10
+    bloqueador: 'aguardar deploy verde com sourcemap upload (após push desta sessão)'
+
+  - id: 5
+    label: 'Validar Vercel Analytics activo'
+    description: |
+      Confirmar que Vercel Analytics está a recolher dados RUM em production.
+    como: |
+      1. Visitar https://expressia-black.vercel.app (gerar pageview real)
+      2. Esperar ~1-2 min para data ingestion
+      3. https://vercel.com/euricojsalves-4744s-projects/expressia/analytics
+      4. Confirmar: contagem de visitors >0, Web Vitals (LCP/FID/CLS) presentes
+      5. Speed Insights tab — confirmar runtime metrics presentes
+    estimated_minutes: 5
+
+  - id: 6
+    label: 'Fechar handoff'
+    description: |
+      Após acções 2-5 concluídas, marcar este handoff como consumed e arquivar.
+    estimated_minutes: 5
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📚 REFERÊNCIAS
+# ───────────────────────────────────────────────────────────────────────────
+referencias:
+  predecessor:
+    file: docs/handoffs/archive/mj-handoff-1.7-post-deploy-grafana-20260508.yaml
+    consumo: 'CLI-only (Opção A do spawn prompt). Acção 1 PASS (deploy Ready) + bug turbo.json descoberto e fixado. Acções 2-5 deferidas para este sucessor.'
+  story:
+    file: docs/stories/completed/1.7.observability-otel-sentry.md
+    versao: v1.4
+    status: Done
+  runbook: docs/runbooks/observability-setup.md
+  dashboard_scaffold: docs/dashboards/grafana-epic1.json
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🚧 BLOCKERS / DEPENDÊNCIAS
+# ───────────────────────────────────────────────────────────────────────────
+blockers:
+  - id: deploy-pos-fix-turbo-json
+    descricao: 'Acção 4 (smoke test) só faz sentido depois do auto-deploy disparado pelo push desta sessão estar Ready, com sourcemap upload bem-sucedido nos build logs.'
+    estado: 'aguarda push + deploy verde'
+    accao: 'verificar `vercel inspect --logs <url>` antes de Acção 4 — procurar ausência de "No auth token provided" e presença de "Source maps uploaded successfully"'
+  - id: ui-manual-vs-automacao
+    descricao: 'Acções 2/3/5 são UI Grafana/Vercel. Sessão CLI sem playwright MCP não pode executar. Eurico humano ou sessão futura com browser automation.'
+    estado: 'pending humano'
+    accao: 'Eurico executa quando tiver tempo, ou abrir sessão @devops futura com playwright MCP activo'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 📝 NOTAS PARA O CONSUMIDOR
+# ───────────────────────────────────────────────────────────────────────────
+notas_para_consumidor:
+  - 'Não-bloqueante para Story 1.7 — esta está Done formalmente desde 2026-05-08 02:00.'
+  - 'O fix em `turbo.json` é a contribuição não-óbvia desta sessão CLI: sem ele, todos os deploys anteriores a 2026-05-08 02:58 não tinham sourcemaps em Sentry, mesmo com SENTRY_AUTH_TOKEN configurado em Vercel.'
+  - 'Antes da Acção 4, validar nos build logs do deploy mais recente que sourcemap upload funcionou. Se ainda falhar, debug: confirmar que `turbo.json` foi efectivamente puxado pelo build (cache do Vercel pode mascarar). Forçar re-build se preciso (`vercel --force` ou empty commit).'
+  - 'Se Sentry não receber evento (Acção 4) ou banner não disser Frankfurt, criar handoff de diagnóstico — possíveis causas: SENTRY_DSN errado, beforeSend a swallow eventos, Vercel runtime sem var no contexto runtime (vs build).'
+  - 'O export final do dashboard JSON pode ter datasource UIDs específicos da stack expressia.grafana.net — guardar como está, qualquer importação futura permite remap. Não normalizar UIDs.'
+
+# ───────────────────────────────────────────────────────────────────────────
+# 🎓 LIÇÕES (para próximas sessões)
+# ───────────────────────────────────────────────────────────────────────────
+licoes:
+  - 'Quando uma toolchain monorepo (Turbo/Nx/etc.) gere o build, env vars do PaaS (Vercel) não chegam automaticamente — TÊM de ser declarados em `tasks.<task>.env`. Validar SEMPRE em build logs procurando warnings tipo "missing from turbo.json".'
+  - 'Sentry SDK falha "soft": warning visível mas build conclui com sucesso. Sourcemaps em production em silêncio é uma armadilha comum. Adicionar smoke test pós-deploy ao DoD de stories de observability.'
+  - 'Handoff CLI-only com fallback para handoff sucessor (UI humano) é um padrão legítimo quando a sessão não tem browser automation disponível. Documentar honestamente o que foi feito vs o que ficou pendente.'
