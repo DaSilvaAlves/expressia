@@ -239,21 +239,40 @@ export async function executeAtomic(
               //    limitação de paths aliases documentada em contracts.ts).
               const serialized = serializeReverseOp(reversePayload);
 
-              const insertResult = (await tx.execute(sql`
-                insert into agent_reverse_ops
-                  (agent_run_id, household_id, reverse_op, expires_at)
-                values
-                  (${ctx.runId}, ${ctx.householdId}, ${serialized}::jsonb, now() + interval '30 seconds')
-                returning id
-              `)) as ReadonlyArray<ReverseOpInsertResult>;
+              let reverseOpRow: ReverseOpInsertResult | undefined;
+              try {
+                const insertResult = (await tx.execute(sql`
+                  insert into agent_reverse_ops
+                    (agent_run_id, household_id, reverse_op, expires_at)
+                  values
+                    (${ctx.runId}, ${ctx.householdId}, ${serialized}::jsonb, now() + interval '30 seconds')
+                  returning id
+                `)) as ReadonlyArray<ReverseOpInsertResult>;
+                reverseOpRow = insertResult[0];
+              } catch (err) {
+                const insertErr = new ToolExecutionError(definition.name, err);
+                annotateToolMetrics(toolSpan, {
+                  durationMs: Date.now() - start,
+                  success: false,
+                  householdId: ctx.householdId,
+                  traceId: ctx.traceId,
+                });
+                return { failure: insertErr };
+              }
 
-              const reverseOpRow = insertResult[0];
               if (!reverseOpRow) {
                 // Defensivo — Postgres deveria sempre devolver a row inserida.
-                throw new ToolExecutionError(
+                const emptyErr = new ToolExecutionError(
                   definition.name,
                   new Error('insert into agent_reverse_ops returned no row'),
                 );
+                annotateToolMetrics(toolSpan, {
+                  durationMs: Date.now() - start,
+                  success: false,
+                  householdId: ctx.householdId,
+                  traceId: ctx.traceId,
+                });
+                return { failure: emptyErr };
               }
 
               annotateToolMetrics(toolSpan, {
