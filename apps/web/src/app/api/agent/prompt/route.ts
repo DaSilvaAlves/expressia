@@ -24,6 +24,7 @@
  *
  * Trace: Story 2.6 AC1-AC16, Architecture §4.1 + §4.4 + §4.5 + §7.1 + §7.2.
  */
+import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 
@@ -243,6 +244,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         db,
       );
 
+      // ─── 5b. Ler user_prefs.always_preview (Story 2.7 FR4) ────────
+      // Lazy-init em /api/conta/preferencias GET — se row não existir aqui
+      // (race), tratar como `false` (não crash). RLS-isolated via getDb().
+      let alwaysPreview = false;
+      try {
+        const prefsRows = await db.execute<{ always_preview: boolean }>(sql`
+          select always_preview from public.user_prefs
+          where user_id = ${user.id}::uuid
+          limit 1
+        `);
+        alwaysPreview = prefsRows[0]?.always_preview ?? false;
+      } catch (err) {
+        log.warn({ err }, 'user_prefs lookup falhou — assumindo always_preview=false');
+      }
+
+      annotateAgentPromptSpan(span, { always_preview_active: alwaysPreview });
+
       // ─── 6. Classifier ────────────────────────────────────────────
       let classification: ClassificationResult;
       try {
@@ -272,7 +290,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
 
       // ─── 7. Branch FR4 — preview vs executed ──────────────────────
-      if (classification.needs_confirmation) {
+      // Story 2.7: gate adicional `alwaysPreview` (user pref) força preview
+      // mesmo com confidence ≥ 0.70.
+      if (classification.needs_confirmation || alwaysPreview) {
         const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5min D20
         await updatePreviewState(runId, expiresAt, db);
 

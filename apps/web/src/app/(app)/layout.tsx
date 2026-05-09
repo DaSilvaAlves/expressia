@@ -21,9 +21,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-black/10 dark:border-white/10">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link href="/visao" className="text-lg font-semibold">
-            Expressia
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link href="/visao" className="text-lg font-semibold">
+              Expressia
+            </Link>
+            <nav className="flex items-center gap-4 text-sm">
+              <Link href="/visao" className="hover:underline">
+                Visão
+              </Link>
+              <Link href="/jarvis" className="hover:underline">
+                Jarvis
+              </Link>
+              <Link href="/conta/preferencias" className="hover:underline">
+                Conta
+              </Link>
+            </nav>
+          </div>
           <form action={logoutAction}>
             <button
               type="submit"

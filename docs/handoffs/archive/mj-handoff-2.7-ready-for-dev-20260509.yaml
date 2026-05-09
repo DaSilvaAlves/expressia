@@ -187,6 +187,67 @@ review_focus_areas_for_architect:
   - "(d) Validar AC11+T12 RLS isolation cross-household test cobre cenário: user A em household X tenta GET/PATCH user B em household Y → 0 rows."
   - "(e) UX edge case AC8 PreviewCard countdown: timer expira durante user a clicar Confirmar (race) — server-side check `confirm_expires_at > now()` já existe Story 2.6, UI mostra disabled state quando `expiresAt < now()` ou loading."
 
-consumed: false
-consumed_at: null
-consumed_by: null
+consumed: true
+consumed_at: "2026-05-09T18:30:00+01:00"
+consumed_by: "dev (Dex)"
+status: consumed
+
+consumption_record:
+  summary: |
+    `@dev *develop 2.7` YOLO mockable-only completo. Story v1.1 → v1.2
+    Ready for Review. 14/14 Tasks done. 5/5 quality gates GREEN.
+    Total 543 tests (480 preservados + 63 novos — supera target ≥45).
+    16 ficheiros novos + 8 modificados = 24 tocados.
+
+  tasks_completed:
+    - "T1 — migration 0007_user_prefs.sql (CREATE TABLE + INDEX + trigger set_updated_at reusing helper de 0000:90)"
+    - "T1b — 0001_rls_policies.sql append DO block $rls_user_prefs$ condicional + 4 policies (PO_FIX_INLINE 2+3 honrados)"
+    - "T2 — packages/db/src/schema/prefs.ts criado (preferred isolation) + export em index.ts"
+    - "T3 — apps/web/src/app/api/conta/preferencias/route.ts (GET lazy-init UPSERT D32; PATCH com Zod + UPSERT) com withSpan + Pino"
+    - "T4 — refactor /api/agent/prompt route.ts (lê user_prefs.always_preview entre INSERT agent_runs e Classifier; gate `if (needs_confirmation || alwaysPreview) → preview`; tracing attr always_preview_active)"
+    - "T-MIDDLEWARE — middleware.ts APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta'] array (PO_FIX_INLINE 4)"
+    - "T-LAYOUT — layout (app)/layout.tsx nav links Visão/Jarvis/Conta"
+    - "T5 — page /jarvis Server Component shell + <JarvisChat />"
+    - "T6 — _components/jarvis-chat.tsx Client orchestrator (state + branching mode + error 401/429/5xx)"
+    - "T7 — _components/chat-input.tsx (Enter submits, Shift+Enter newline, max 2000)"
+    - "T8 — _components/preview-card.tsx (countdown 1s tick, badge cor, fetch /confirm)"
+    - "T9 — _components/result-message.tsx (Feito ✓ + lista operations + placeholder undo disabled)"
+    - "T10 — page /conta/preferencias Server Component (cookie-injected fetch) + <PrefsToggle />"
+    - "T11 — _components/prefs-toggle.tsx Client (optimistic + revert + banner)"
+    - "T12 — backend tests: route conta/preferencias 16 + route agent/prompt 22 (19 + 3 always_preview) + middleware 6"
+    - "T13 — UI tests: chat-input 6 + preview-card 9 + result-message 5 + jarvis-chat 9 + jarvis page 4 + conta page 5 = 38 UI tests"
+    - "T14 — quality gates 5/5 GREEN: typecheck 9/9, lint 9/9 0 warnings, test 543, check:rls 28/120, build Next.js 6 routes Story 2.7"
+
+  auto_decisions_dev:
+    - id: D35
+      title: "RLS coverage final 28/120 (não 28/112 como handoff PO esperava)"
+      rationale: "Parser heuristic em check-rls-coverage.ts conta linhas EXECUTE+POLICY strings dentro de DO blocks. Gate PASS (todas as tabelas têm SELECT/INSERT/UPDATE/DELETE coverage). Não-bloqueante para architect gate."
+    - id: D36
+      title: "Audit log INSERT em PATCH /api/conta/preferencias diferido"
+      rationale: "audit_action enum em packages/db/src/schema/audit.ts NÃO inclui valor 'user_prefs.updated'; adicionar exigia migration 0008_audit_action_user_prefs (fora do scope). NFR16 satisfeito via Pino structured logger (action='user_prefs.updated' + user_hash + always_preview). Story follow-up = enum extension + INSERT real."
+    - id: D37
+      title: "0001_rls_policies.sql re-apply em prod via 0008 idempotente OR manual"
+      rationale: "pnpm db:migrate é idempotente por filename em __schema_migrations; 0001 já registado não re-aplica DO block novo. Em prod necessário ou (a) manual re-execute, ou (b) migration 0008 com mesmo DO block (idempotente). CI/dev fresh: sem impacto. Architect ratifica caminho."
+
+  debug_incidents_resolved:
+    - id: DI1
+      issue: "JarvisChat passava results com unknown[] para ResultMessageProps que tinha readonly ResultOperation[]"
+      fix: "ResultMessageProps.results.results tornou-se readonly unknown[] com narrow guard inline"
+    - id: DI2
+      issue: "Tests .tsx usavam .toBeInTheDocument(), .toBeDisabled() — não estavam tipados (typecheck FAIL)"
+      fix: "Adicionado `\"types\": [\"vitest/globals\", \"@testing-library/jest-dom\"]` em apps/web/tsconfig.json"
+    - id: DI3
+      issue: "Middleware tests inicialmente usavam Request standard que não tem nextUrl.pathname"
+      fix: "Importado NextRequest de next/server no test factory"
+    - id: DI4
+      issue: "INSERT em audit_log com action 'user_prefs.updated' + columns errados — schema real usa enum audit_action sem esse valor + columns user_id/entity_table/entity_id"
+      fix: "Decisão D36 — remover INSERT inline, satisfazer NFR16 via Pino structured logger; follow-up = enum extension"
+
+  quality_gates_evidence:
+    typecheck: "exit 0 · 9/9 packages"
+    lint: "exit 0 · 9/9 packages · 0 warnings"
+    test: "543 tests passed (15 web suites · 102 agent · 78 classifier · 53 planner-executor · 8 observability · 57 tools · 6 db · 103 db-test · 136 web)"
+    check_rls: "exit 0 · 28 tabelas / 120 policies · ✅ Todas as tabelas multi-tenant têm coverage completa"
+    build: "exit 0 · /jarvis static · /conta/preferencias dynamic · /api/conta/preferencias dynamic · sourcemap Sentry 3 runtimes"
+
+  successor_handoff: "mj-handoff-2.7-ready-for-architect-20260509 (dev → architect *qa-gate 2.7 com 6 concerns documentados)"

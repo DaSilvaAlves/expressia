@@ -21,7 +21,19 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const APP_PATH_PREFIX = '/visao'; // primeira rota do route group (app)/
+/**
+ * Prefixos de rotas do route group `(app)/` que requerem auth gate.
+ *
+ * Route groups Next.js (`(app)/`) são VIRTUAIS — não mapeiam automaticamente
+ * para o auth gate. Cada rota nova autenticada DEVE ser adicionada aqui.
+ *
+ * Story 2.7 PO_FIX_INLINE 4: refactor de literal `'/visao'` para array.
+ * Sem isto, novas rotas (`/jarvis`, `/conta/preferencias`) ficavam
+ * publicamente acessíveis (regression NFR8 / Story 1.5 AC2).
+ *
+ * Trace: Story 1.5 AC2 + Story 2.7 PO_FIX_INLINE 4.
+ */
+const APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta'] as const;
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   let supabaseResponse = NextResponse.next({ request });
@@ -54,7 +66,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   } = await supabase.auth.getUser();
 
   // Auth gate: bloquear rotas (app)/** se sem sessão.
-  if (!user && request.nextUrl.pathname.startsWith(APP_PATH_PREFIX)) {
+  const pathname = request.nextUrl.pathname;
+  const isAppPath = APP_PATH_PREFIXES.some((p) => pathname.startsWith(p));
+  if (!user && isAppPath) {
     const url = request.nextUrl.clone();
     url.pathname = '/entrar';
     url.searchParams.set('next', request.nextUrl.pathname);

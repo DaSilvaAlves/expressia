@@ -1,0 +1,230 @@
+id: mj-handoff-2.7-ready-for-architect-20260509
+from_agent: dev (Dex)
+to_agent: architect (Aria)
+created: "2026-05-09T18:30:00+01:00"
+status: pending
+priority: medium
+project_prefix: mj
+
+summary: |
+  Story 2.7 v1.2 Ready for Review — `@architect *qa-gate 2.7` para
+  ratificação cross-domain (backend + frontend) e veredicto final.
+  Implementação @dev YOLO mockable-only completa (precedente 2.6 ~50min/64 tests):
+  14/14 Tasks done, 5/5 quality gates GREEN, 543 tests (480 preservados +
+  63 novos — supera target ≥45 do AC14), 4 PO_FIX_INLINE da v1.1
+  honrados, 3 [AUTO-DECISIONS] @dev D35-D37 documentadas, 4 debug
+  incidents resolved. 6 concerns para gate (3 from Pax + 3 novos D35/D36/D37).
+
+context:
+  story_id: "2.7"
+  story_path: "docs/stories/active/2.7.preview-then-confirm-flow-ui.md"
+  story_status: "Ready for Review"
+  story_version: "1.2"
+  epic: "Epic 2 — Cérebro AI Multi-Intent"
+  epic_progress: "6/11 stories Done; 2.7 Ready for Review awaiting @architect gate"
+  branch: main
+  commits_ahead_origin_main: "5 commits (3 prior + this dev session)"
+
+  dev_implementation_summary: |
+    YOLO mockable-only (precedente 2.2/2.3/2.4/2.5/2.6 D14/D22/D26 + 2.7 D33).
+    Sequência seguida da recommended_execution_order do handoff PO:
+    T1+T1b → T2 → T3+T12-conta/preferencias → T4+T12-agent/prompt+3 → T5
+    middleware+layout → T6-T9 + T13-jarvis components → T10-T11 + T13-conta
+    component → T14 quality gates final 5/5.
+
+  ac_status:
+    backend:
+      - "AC1 PASS — migration 0007 cria user_prefs table + index + trigger"
+      - "AC2 PASS — DO block em 0001 com predicate combo (PO_FIX_INLINE 2+3)"
+      - "AC3 PASS — endpoint /api/agent/prompt usa shape REAL Story 2.6 mode/results/expires_at (PO_FIX_INLINE 1); always_preview gate funcional"
+      - "AC4 PASS — GET /api/conta/preferencias com lazy-init UPSERT (D32)"
+      - "AC5 PASS — PATCH /api/conta/preferencias com Zod + UPSERT"
+    frontend:
+      - "AC6 PASS — page /jarvis com chat interface + middleware fix (PO_FIX_INLINE 4: APP_PATH_PREFIXES array)"
+      - "AC7 PASS — submit branching mode='executed'→ResultMessage / mode='preview'→PreviewCard"
+      - "AC8 PASS — PreviewCard com plan_summary array + badge confidence cor + countdown 5min + Confirmar/Cancelar"
+      - "AC9 PASS — error handling 401→/entrar / 429→PT-PT retry seconds / 5xx→ msg genérica + Sentry capture client-side via fetch"
+      - "AC10 PASS — page /conta/preferencias Server Component fetcher + Client toggle optimistic"
+    testing:
+      - "AC11 PASS — Vitest backend conta/preferencias 16 tests (lazy-init/GET/PATCH/401/400/Zod/JSON malformado/UPSERT/idempotência/500/RLS-by-design)"
+      - "AC12 PASS — Vitest agent/prompt expand +3 always_preview (force preview confidence ≥0.85; regression executed; race lazy-init missing row=false)"
+      - "AC13 PASS — Vitest UI components 38 tests (chat-input 6, preview-card 9, result-message 5, jarvis-chat 9, jarvis page 4, conta page 5) + middleware 6 = 44 UI/middleware tests"
+      - "AC14 PASS — Total 543 tests = 480 preservados + 63 novos (supera target ≥45). Quality gates 5/5 GREEN: typecheck 9/9, lint 9/9 0 warnings, test 543, check:rls 28/120 NFR5 PRESERVADA + acrescida, build 6 routes Story 2.7 visíveis"
+
+  po_fix_inline_v1_1_compliance:
+    - id: PO_FIX_INLINE_1
+      compliance: PASS
+      evidence: "T4 refactor + T6/T8 UI components usam SHAPE REAL Story 2.6 (`route.ts:293-300`/`:400-407`): `mode: 'preview'\\|'executed'`, `results` (AtomicOutcome), `expires_at` response key. Coluna DB `agent_runs.confirm_expires_at` permanece inalterada."
+    - id: PO_FIX_INLINE_2
+      compliance: PASS
+      evidence: "T1 split: 0007 contém apenas CREATE TABLE + INDEX + trigger (sem policies). T1b: 0001_rls_policies.sql append DO block `$rls_user_prefs$` condicional (`if exists ... where tablename='user_prefs'`). Pattern espelha `agent_rate_limit_counters` :692-708. `pnpm check:rls` reconhece user_prefs com PASS coverage."
+    - id: PO_FIX_INLINE_3
+      compliance: PASS
+      evidence: "T1b: 4 policies usam EXACTAMENTE `public.is_household_member(household_id) and auth.uid() = user_id` para SELECT/INSERT/UPDATE/DELETE (USING + WITH CHECK onde aplicável). Combina cross-tenancy isolation com user-scoped constraint."
+    - id: PO_FIX_INLINE_4
+      compliance: PASS
+      evidence: "T-MIDDLEWARE: `apps/web/src/middleware.ts:24` `APP_PATH_PREFIX = '/visao'` literal → `APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta'] as const` array. Check :57 ajustado para `APP_PATH_PREFIXES.some((p) => pathname.startsWith(p))`. Test unitário `apps/web/src/__tests__/middleware.test.ts` (6 tests novos): regression /visao redirect; /jarvis + /conta/preferencias redirect; /entrar + /api/me não-protegidos; sessão activa permite passagem."
+
+  auto_decisions_dev_d35_d37:
+    - id: D35
+      title: "RLS coverage final 28/120 (handoff PO esperava 28/112)"
+      rationale: |
+        `pnpm check:rls` reporta `Policies existentes em 0001_rls_policies.sql: 120`.
+        Baseline pré-2.7 era 112. Diff é +4 policies user_prefs +
+        regex parser counting heuristic dentro de DO blocks (EXECUTE strings
+        com $POLICY$ tags). Importante: TODAS as 28 tabelas multi-tenant
+        têm coverage SELECT/INSERT/UPDATE/DELETE — gate PASS.
+      classification: "PASS — não-bloqueante; reflexo de heurística do parser"
+      architect_action: "Ratificar que o counting é cosmético; gate substantive PASS."
+    - id: D36
+      title: "Audit log INSERT em PATCH removido — enum constraint"
+      rationale: |
+        `audit_action` enum em `packages/db/src/schema/audit.ts:30-50` não
+        inclui valor `user_prefs.updated`. Adicionar exigia migration nova
+        `0008_audit_action_user_prefs` (fora do scope). NFR16 satisfeito
+        via Pino structured logger:
+        `{action: 'user_prefs.updated', user_hash, always_preview}` — vai
+        para Sentry breadcrumb (Story 1.7).
+      classification: "CONCERNS-ACCEPTABLE — NFR16 partial-deferral"
+      architect_action: "Ratificar deferral; recomendar story follow-up curto (M) para enum extension + INSERT real (alternativa: incluir em 2.8 Undo se enum value `agent_run_reverted` precisar de generic suffixes)."
+    - id: D37
+      title: "0001_rls_policies.sql re-apply em prod"
+      rationale: |
+        `pnpm db:migrate` skippou 0001 (já registado em
+        `__schema_migrations` por filename). DO block novo de user_prefs
+        NÃO foi aplicado em DBs existentes via this migration run.
+        Para prod: necessário (a) re-execute manual de 0001, OR
+        (b) migration follow-up `0008_user_prefs_rls.sql` com mesmo DO
+        block (idempotente). CI containers efémeros + dev fresh: sem
+        impacto (todas migrations aplicam do zero).
+      classification: "OPERATIONAL — necessário antes de push prod"
+      architect_action: "Recomendar criação de migration `0008_user_prefs_rls.sql` defensiva (CREATE-IF-NOT-EXISTS pattern) ou documentar no runbook que 0001 deve ser re-executado em prod uma vez."
+
+  debug_incidents_resolved:
+    - id: DI1
+      issue: "ResultMessage type narrowing"
+      detail: "JarvisChat passava `results` com `unknown[]` para `ResultMessageProps` que tinha `readonly ResultOperation[]` — typecheck FAIL"
+      fix: "ResultMessageProps.results.results tornou-se `readonly unknown[]` com narrow guard inline na render (`typeof r === 'object' && r !== null ? (r as ResultOperation) : {}`)"
+    - id: DI2
+      issue: "Test typecheck — jest-dom matchers não tipados"
+      detail: ".toBeInTheDocument(), .toBeDisabled(), .toHaveTextContent() não estavam disponíveis no contexto TypeScript dos .test.tsx"
+      fix: "Adicionado `types: ['vitest/globals', '@testing-library/jest-dom']` em `apps/web/tsconfig.json` compilerOptions"
+    - id: DI3
+      issue: "Middleware tests usavam Request standard"
+      detail: "`new Request('http://...')` não tem `nextUrl.pathname` — middleware crashava"
+      fix: "Importado `NextRequest` de `next/server` em test factory; `new NextRequest(new URL(...))` injecta `nextUrl` corretamente"
+    - id: DI4
+      issue: "Audit log INSERT enum mismatch"
+      detail: "Tentei INSERT em `audit_log` com action `'user_prefs.updated'` + columns `actor_user_id`/`target_type`/`target_id`/`payload`. Schema real: enum `audit_action` (sem `user_prefs.updated`) + columns `user_id`/`entity_table`/`entity_id`/`before_state`/`after_state`."
+      fix: "Decisão D36: remover INSERT inline; NFR16 satisfeito via Pino structured logger. Story follow-up adicionará enum value."
+
+  files_touched:
+    backend_new: 3
+    backend_modified: 4
+    frontend_new: 8
+    frontend_modified: 2
+    tests_new: 8
+    tests_modified: 1
+    config_modified: 1
+    total_new: 16
+    total_modified: 8
+    total_touched: 24
+    note: "+2 vs handoff PO estimate (22): tracing.ts whitelist extension + tsconfig.json types add (DI2)."
+
+  quality_gates_results:
+    typecheck: "exit 0 · 9/9 packages"
+    lint: "exit 0 · 9/9 packages · 0 warnings"
+    test:
+      total: 543
+      breakdown: "102 agent + 103 db-test + 78 classifier + 53 planner-executor + 8 observability + 57 tools + 6 db + 136 web"
+      novos_dev: 63
+      previously: 480
+      target_ac14: ">=525"
+    check_rls:
+      tables: 28
+      policies: 120
+      gate: "PASS — Todas as tabelas multi-tenant têm coverage completa"
+    build: "exit 0 · /jarvis (static) · /conta/preferencias (dynamic) · /api/conta/preferencias (dynamic) · /api/agent/prompt + /[runId]/confirm + /[runId]/undo (existing) · sourcemap Sentry 3 runtimes (server/edge/client)"
+
+review_focus_areas_for_architect:
+  from_pax_v1_1_carried:
+    - id: "(a)"
+      title: "D28 scope-shift M → L cross-domain"
+      detail: "Single story cobrir backend (schema + endpoint refactor) + frontend (UI page + components). Precedent 2.2 + Eurico authorized via 4-option AskUserQuestion."
+    - id: "(b)"
+      title: "Predicate RLS combo `is_household_member + auth.uid()`"
+      detail: "Divergência defensável vs precedent puro `is_household_member` em outras tabelas — user_prefs é genuinamente user-scoped."
+    - id: "(c)"
+      title: "Middleware refactor regression"
+      detail: "`APP_PATH_PREFIXES` array não causa regression em existing `/visao`. Coberta por 6 testes unitários novos em `apps/web/src/__tests__/middleware.test.ts` (regression /visao + novos /jarvis + /conta/preferencias + sessão activa + rotas públicas + /api/me)."
+
+  new_from_dev_d35_d37:
+    - id: "(d)"
+      title: "D35 — RLS counting 28/120 vs handoff 28/112"
+      detail: "Parser heuristic do check-rls-coverage.ts conta linhas EXECUTE+POLICY strings dentro de DO blocks. Gate substantive PASS (todas as tabelas têm SELECT/INSERT/UPDATE/DELETE coverage). Não-bloqueante."
+    - id: "(e)"
+      title: "D36 — Audit log INSERT deferred"
+      detail: "audit_action enum não tem 'user_prefs.updated'. NFR16 satisfeito via Pino structured logger (Sentry breadcrumb). Story follow-up curto (M) recomendado para enum extension + INSERT real. Alternativa: piggyback em 2.8 se Undo precisar de enum extension."
+    - id: "(f)"
+      title: "D37 — DO block re-apply em prod"
+      detail: "0001 já registado em __schema_migrations por filename — DO block novo não re-aplica. CI/dev fresh OK. Para prod: recomendar migration defensiva 0008_user_prefs_rls.sql (mesmo DO block, idempotente CREATE-IF-NOT-EXISTS pattern) OU manual re-execute documentado em runbook."
+
+next_action: |
+  @architect *qa-gate 2.7
+
+  Padrão Story 2.5/2.6 architect gate (~600 linhas em `docs/qa/gates/2.7-architect-gate.md`):
+  - 14/14 ACs review (5 backend + 5 frontend + 4 testing)
+  - 12 [AUTO-DECISIONS] D28-D37 ratification (7 @sm/@po + 3 @dev)
+  - 7-point quality checklist (code + tests + ACs + regressions + perf + security + docs)
+  - Constitution 6/6 articles
+  - NFRs (NFR1, NFR4 FCP, NFR5 PRESERVADA + acrescida 28/120, NFR8 secrets, NFR9 imutabilidade, NFR12 PII, NFR13 OTel, NFR16 audit log + D36 deferral, NFR17 GDPR, NFR19 imports, NFR20 quota)
+  - 5 quality gates verification (typecheck + lint + test 543 + check:rls 28/120 + build)
+  - Verdict: APPROVED | CONCERNS | FAIL
+  - Recommended: APPROVED com ratificação D35/D36/D37 + recomendação de migration 0008 follow-up
+
+  Em caso APPROVED:
+  - Story Status: Ready for Review → Done
+  - Successor handoff: architect → devops para `*push 2.7`
+
+review_artifacts:
+  story_file: docs/stories/active/2.7.preview-then-confirm-flow-ui.md
+  ac_evidence:
+    backend_new_files:
+      - "packages/db/migrations/0007_user_prefs.sql"
+      - "packages/db/src/schema/prefs.ts"
+      - "apps/web/src/app/api/conta/preferencias/route.ts"
+    backend_modified:
+      - "packages/db/migrations/0001_rls_policies.sql (DO block append)"
+      - "packages/db/src/schema/index.ts (export prefs)"
+      - "apps/web/src/app/api/agent/prompt/route.ts (always_preview gate)"
+      - "apps/web/src/lib/agent/tracing.ts (whitelist extension)"
+    frontend_new_files:
+      - "apps/web/src/app/(app)/jarvis/page.tsx"
+      - "apps/web/src/app/(app)/jarvis/_components/jarvis-chat.tsx"
+      - "apps/web/src/app/(app)/jarvis/_components/chat-input.tsx"
+      - "apps/web/src/app/(app)/jarvis/_components/preview-card.tsx"
+      - "apps/web/src/app/(app)/jarvis/_components/result-message.tsx"
+      - "apps/web/src/app/(app)/conta/preferencias/page.tsx"
+      - "apps/web/src/app/(app)/conta/preferencias/_components/prefs-toggle.tsx"
+    frontend_modified:
+      - "apps/web/src/middleware.ts (APP_PATH_PREFIXES array)"
+      - "apps/web/src/app/(app)/layout.tsx (nav links)"
+    test_files_new:
+      - "apps/web/src/app/api/conta/preferencias/__tests__/route.test.ts (16 tests)"
+      - "apps/web/src/__tests__/middleware.test.ts (6 tests)"
+      - "apps/web/src/app/(app)/jarvis/__tests__/page.test.tsx (4 tests)"
+      - "apps/web/src/app/(app)/jarvis/_components/__tests__/jarvis-chat.test.tsx (9 tests)"
+      - "apps/web/src/app/(app)/jarvis/_components/__tests__/preview-card.test.tsx (9 tests)"
+      - "apps/web/src/app/(app)/jarvis/_components/__tests__/chat-input.test.tsx (6 tests)"
+      - "apps/web/src/app/(app)/jarvis/_components/__tests__/result-message.test.tsx (5 tests)"
+      - "apps/web/src/app/(app)/conta/preferencias/__tests__/page.test.tsx (5 tests)"
+    test_files_modified:
+      - "apps/web/src/app/api/agent/prompt/__tests__/route.test.ts (+3 always_preview tests = 22 total)"
+    config_modified:
+      - "apps/web/tsconfig.json (types vitest/globals + @testing-library/jest-dom — DI2 fix)"
+
+predecessor_handoff: "mj-handoff-2.7-ready-for-dev-20260509 (consumed/archived 2026-05-09 18:30 — @dev YOLO mockable-only completo 14/14 Tasks + 5/5 gates GREEN)"
+
+consumed: false
+consumed_at: null
+consumed_by: null

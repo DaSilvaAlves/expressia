@@ -708,5 +708,52 @@ begin
 end$rls_arl$;
 
 -- =====================================================================
+-- user_prefs (Story 2.7 — tabela criada via 0007)
+-- =====================================================================
+-- 4 policies (SELECT/INSERT/UPDATE/DELETE) com predicate combo:
+--   public.is_household_member(household_id) AND auth.uid() = user_id
+--
+-- Razão da split (PO_FIX_INLINE 2 da Story 2.7 v1.1):
+--   `scripts/check-rls-coverage.ts:33` lê APENAS 0001_rls_policies.sql como
+--   fonte de verdade do gate NFR5. Policies em 0007 não seriam detectadas.
+--   Pattern espelha agent_rate_limit_counters (Story 2.6 D17 — bloco acima).
+--
+-- Razão do predicate combo (PO_FIX_INLINE 3):
+--   Combina cross-tenancy isolation (`is_household_member` — pattern Story
+--   2.6) com user-scoped constraint (`auth.uid() = user_id` — específico
+--   desta tabela 1:1 user). Evita que owner do household consiga ler prefs
+--   cognitivas de outros membros.
+--
+-- Bloco condicional `if exists ...` permite re-run idempotente mesmo se
+-- 0007 ainda não correu (caso edge em CI sem migrations aplicadas).
+--
+-- Comentários abaixo são placeholders linters — as policies efectivas são
+-- criadas via EXECUTE strings dentro do DO block, com $POLICY$ tags para
+-- evitar conflito com o $rls_user_prefs$ outer block (idem agent_rate_limit_counters).
+--
+-- create policy "user_prefs_select_self" on public.user_prefs for select to authenticated
+-- create policy "user_prefs_insert_self" on public.user_prefs for insert to authenticated
+-- create policy "user_prefs_update_self" on public.user_prefs for update to authenticated
+-- create policy "user_prefs_delete_self" on public.user_prefs for delete to authenticated
+
+do $rls_user_prefs$
+begin
+  if exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'user_prefs') then
+    execute 'alter table public.user_prefs enable row level security';
+    execute 'alter table public.user_prefs force row level security';
+
+    execute 'drop policy if exists "user_prefs_select_self" on public.user_prefs';
+    execute 'drop policy if exists "user_prefs_insert_self" on public.user_prefs';
+    execute 'drop policy if exists "user_prefs_update_self" on public.user_prefs';
+    execute 'drop policy if exists "user_prefs_delete_self" on public.user_prefs';
+
+    execute $POLICY$create policy "user_prefs_select_self" on public.user_prefs for select to authenticated using (public.is_household_member(household_id) and auth.uid() = user_id)$POLICY$;
+    execute $POLICY$create policy "user_prefs_insert_self" on public.user_prefs for insert to authenticated with check (public.is_household_member(household_id) and auth.uid() = user_id)$POLICY$;
+    execute $POLICY$create policy "user_prefs_update_self" on public.user_prefs for update to authenticated using (public.is_household_member(household_id) and auth.uid() = user_id) with check (public.is_household_member(household_id) and auth.uid() = user_id)$POLICY$;
+    execute $POLICY$create policy "user_prefs_delete_self" on public.user_prefs for delete to authenticated using (public.is_household_member(household_id) and auth.uid() = user_id)$POLICY$;
+  end if;
+end$rls_user_prefs$;
+
+-- =====================================================================
 -- FIM DA MIGRAÇÃO 0001
 -- =====================================================================

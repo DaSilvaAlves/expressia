@@ -46,6 +46,8 @@ export interface AgentPromptSpanAttributes {
   readonly executor_model?: string;
   readonly cache_hit?: boolean;
   readonly status_code?: number;
+  /** Story 2.7 FR4 — `user_prefs.always_preview` activo para esta run. */
+  readonly always_preview_active?: boolean;
 }
 
 /**
@@ -92,6 +94,7 @@ export function annotateAgentPromptSpan(
   if (attributes.executor_model !== undefined) safe['executor_model'] = attributes.executor_model;
   if (attributes.cache_hit !== undefined) safe['cache_hit'] = attributes.cache_hit;
   if (attributes.status_code !== undefined) safe['status_code'] = attributes.status_code;
+  if (attributes.always_preview_active !== undefined) safe['always_preview_active'] = attributes.always_preview_active;
 
   for (const [key, value] of Object.entries(safe)) {
     span.setAttribute(`agent.prompt.${key}`, value);

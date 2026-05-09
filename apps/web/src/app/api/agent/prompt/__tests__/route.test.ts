@@ -531,3 +531,132 @@ describe('POST /api/agent/prompt — audit log + PII (AC10+AC11)', () => {
     expect(text).not.toContain('leak@expressia.pt');
   });
 });
+
+// ─── Story 2.7 — always_preview gate (FR4) ───────────────────────────
+describe('POST /api/agent/prompt — Story 2.7 always_preview gate (FR4)', () => {
+  it('AC3 — always_preview=true força mode=preview mesmo com confidence ≥ 0.85', async () => {
+    let callIndex = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callIndex++;
+      switch (callIndex) {
+        case 1:
+          return [{ count: 1 }]; // rate limit
+        case 2:
+          return []; // quota
+        case 3:
+          return [{ id: 'run-uuid-test', created_at: new Date().toISOString() }];
+        case 4:
+          return [{ always_preview: true }]; // user_prefs SELECT — FORCE PREVIEW
+        default:
+          return [];
+      }
+    });
+
+    mocks.classifyMock.mockResolvedValue({
+      intents: [{ intent: 'criar_tarefa', confidence: 0.92, raw_span: 'criar tarefa' }],
+      language: 'pt-PT',
+      needs_confirmation: false,
+      overall_confidence: 0.92, // alta confiança
+    });
+
+    const res = await POST(makeRequest({ prompt: 'criar tarefa amanhã 15h' }) as never);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { mode: string; confirmation_url?: string };
+    expect(body.mode).toBe('preview'); // forçado pelo always_preview, não pelo confidence
+    expect(body.confirmation_url).toContain('/confirm');
+    // Planner+Executor NÃO devem ser chamados
+    expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('AC3 — always_preview=false + confidence ≥ 0.70 mantém mode=executed (regression)', async () => {
+    let callIndex = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callIndex++;
+      switch (callIndex) {
+        case 1:
+          return [{ count: 1 }];
+        case 2:
+          return [];
+        case 3:
+          return [{ id: 'run-uuid-test', created_at: new Date().toISOString() }];
+        case 4:
+          return [{ always_preview: false }];
+        default:
+          return [];
+      }
+    });
+
+    mocks.classifyMock.mockResolvedValue({
+      intents: [{ intent: 'criar_tarefa', confidence: 0.85, raw_span: 'criar tarefa' }],
+      language: 'pt-PT',
+      needs_confirmation: false,
+      overall_confidence: 0.85,
+    });
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [{ toolName: 'create_task', input: { title: 'X' }, intent: 'criar_tarefa' }],
+      planReasoning: null,
+      latencyMs: 100,
+      tokensInput: 50,
+      tokensOutput: 20,
+      costEur: 0.0001,
+      cacheHit: false,
+    });
+    mocks.executorExecuteMock.mockResolvedValue({
+      success: true,
+      results: [{ toolName: 'create_task', output: { id: 'task-1' }, reverseOpId: 'rop-1' }],
+    });
+
+    const res = await POST(makeRequest({ prompt: 'criar tarefa amanhã' }) as never);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { mode: string };
+    expect(body.mode).toBe('executed');
+    // Planner+Executor DEVEM ser chamados
+    expect(mocks.plannerPlanMock).toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).toHaveBeenCalled();
+  });
+
+  it('AC3 — race condition lazy-init: user_prefs row vazio trata como always_preview=false', async () => {
+    let callIndex = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callIndex++;
+      switch (callIndex) {
+        case 1:
+          return [{ count: 1 }];
+        case 2:
+          return [];
+        case 3:
+          return [{ id: 'run-uuid-test', created_at: new Date().toISOString() }];
+        case 4:
+          return []; // user_prefs SELECT vazio (race entre /api/agent/prompt e GET /api/conta/preferencias lazy-init)
+        default:
+          return [];
+      }
+    });
+
+    mocks.classifyMock.mockResolvedValue({
+      intents: [{ intent: 'criar_tarefa', confidence: 0.85, raw_span: 'criar tarefa' }],
+      language: 'pt-PT',
+      needs_confirmation: false,
+      overall_confidence: 0.85,
+    });
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [{ toolName: 'create_task', input: { title: 'X' }, intent: 'criar_tarefa' }],
+      planReasoning: null,
+      latencyMs: 100,
+      tokensInput: 50,
+      tokensOutput: 20,
+      costEur: 0.0001,
+      cacheHit: false,
+    });
+    mocks.executorExecuteMock.mockResolvedValue({
+      success: true,
+      results: [{ toolName: 'create_task', output: { id: 'task-1' }, reverseOpId: 'rop-1' }],
+    });
+
+    const res = await POST(makeRequest({ prompt: 'criar tarefa' }) as never);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { mode: string };
+    expect(body.mode).toBe('executed'); // não crash; assume false; segue executed normal
+  });
+});
