@@ -14,12 +14,35 @@ handoff:
   from_agent: "@aiox-dev (Dex)"
   to_agent: "@aiox-architect (Aria)"
   created: "2026-05-09T01:30:00+01:00"
-  status: pending
+  status: consumed
+  consumed: true
+  consumed_at: "2026-05-09T02:30:00+01:00"
+  consumed_by: "@aiox-architect (Aria)"
   priority: medium
   project_prefix: mj-
   project_codename: meu-jarvis
   project_brand: Expressia (expressia.pt)
   predecessor: "mj-handoff-2.4-ready-for-dev-20260508 (consumed por @dev)"
+
+consumption_record:
+  actions_taken:
+    - "Re-verificadas 5 quality gates independentemente: typecheck 8/8 (20.286s, 7 cached), lint 8/8 (539ms 0 warnings), test 78/78 classifier + 222+ inalterados (22.061s), check:rls 26 tabelas / 104 policies NFR5 PRESERVADA, build Next.js 9 routes (1m22.694s, 6 cached)"
+    - "Análise das 9 review_focus_areas — todas PASS"
+    - "AC-by-AC trace coverage — 13/13 PASS (AC11 EXCEEDS 78 vs 35)"
+    - "7-point quality checklist — all PASS"
+    - "Constitution compliance — 6/6 articles"
+    - "NFR compliance — 9 NFRs (NFR1, NFR5 preserved, NFR9 N/A, NFR11, NFR12 3 camadas, NFR13, NFR16 EXCEEDS, NFR17, NFR19)"
+    - "12 decisões revisadas (D1-D7 @sm + D8 @po + D9-D12 @dev) — todas PASS"
+    - "1 doc fix MINOR aplicado inline pelo @architect: schemas.ts:30-37 JSDoc actualizado para reflectir D11 (NIT-004 endereçada)"
+    - "Gate report criado: docs/qa/gates/2.4-architect-gate.md (~720 linhas)"
+    - "Story v1.3 actualizada: Status Ready for Review → InReview, Architect Gate Results section preenchida, Change Log v1.3"
+  outcome: |
+    APPROVED 9.4/10 HIGH confidence. 0 issues bloqueantes. 4 nits non-blocking
+    deferíveis (NIT-001 void cleanup → 2.5/2.6, NIT-002 path absoluto → futuro
+    refactor, NIT-003 FR/IT/DE coverage → 2.5, NIT-004 doc inconsistency →
+    APLICADO INLINE NESTE GATE). Decisão D8 max(5) PASS com nota para validar
+    empiricamente em telemetry Story 2.11.
+  successor_handoff: "mj-handoff-2.4-ready-for-devops-close-20260509.yaml"
 
 # -----------------------------------------------------------------------------
 # 1. RESUMO PARA O @architect

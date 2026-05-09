@@ -21,8 +21,19 @@ handoff:
   from_agent: "@aiox-dev (Dex) [última agente activa]"
   to_agent: "any (próximo terminal — preferencialmente @aiox-architect Aria para acção primária)"
   created: "2026-05-09T01:35:00+01:00"
-  status: pending
+  status: consumed
+  consumed: true
+  consumed_at: "2026-05-09T02:30:00+01:00"
+  consumed_by: "@aiox-architect (Aria) — Opção A executada"
   priority: medium
+
+consumption_record:
+  actions_taken:
+    - "Eurico escolheu Opção A — @architect *qa-gate 2.4"
+    - "Aria invocada e executou gate (consumption_record detalhado em mj-handoff-2.4-ready-for-architect-gate-20260509)"
+    - "Veredicto: APPROVED 9.4/10 HIGH"
+  outcome: "Opção A executada com sucesso. Story 2.4 InReview. Sucessor architect→devops criado."
+  successor_handoff: "mj-handoff-2.4-ready-for-devops-close-20260509.yaml"
   project_prefix: mj-
   project_codename: meu-jarvis
   project_brand: Expressia (expressia.pt)

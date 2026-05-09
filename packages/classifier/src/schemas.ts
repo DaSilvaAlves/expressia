@@ -27,9 +27,12 @@ import type { LlmModel } from '@meu-jarvis/agent';
  * `agent_intent` (Story 2.1, migration 0005). NÃO modificar sem actualizar
  * simultaneamente o enum DB e correr `db:migrate`.
  *
- * Sanity-check em runtime (test): `__tests__/schemas.test.ts` importa
- * `agentIntentEnum` de `@meu-jarvis/db` e verifica `INTENT_VALUES.toSorted()`
- * matches `agentIntentEnum.enumValues.toSorted()`.
+ * Sanity-check em runtime (test): `__tests__/schemas.test.ts` LÊ o ficheiro
+ * `packages/db/src/schema/agent.ts` via `fs.readFile` + regex sobre
+ * `pgEnum('agent_intent', [...])` (Story 2.4 D11 — TypeScript não resolve
+ * `@/*` aliases internos do `@meu-jarvis/db` cross-package no nosso setup).
+ * O test FAILS deterministicamente se alguém alterar o enum DB sem
+ * actualizar `INTENT_VALUES`.
  */
 export const INTENT_VALUES = [
   'criar_tarefa',

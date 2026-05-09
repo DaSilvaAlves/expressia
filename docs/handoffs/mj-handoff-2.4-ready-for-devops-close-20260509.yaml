@@ -1,0 +1,176 @@
+# =============================================================================
+# HANDOFF — Story 2.4 InReview → @devops *push 2.4 (close ciclo)
+# =============================================================================
+# CONTEXTO: @architect (Aria) executou *qa-gate 2.4 com veredicto APPROVED
+# 9.4/10 HIGH confidence. Gate report ~720 linhas em docs/qa/gates/. Story
+# 2.4 status Ready for Review → InReview. Próximo passo: @devops *push para
+# fechar Story 2.4 Done + housekeeping (active→completed). Padrão de Stories
+# 2.1, 2.2, 2.3.
+# =============================================================================
+
+handoff:
+  id: mj-handoff-2.4-ready-for-devops-close-20260509
+  from_agent: "@aiox-architect (Aria)"
+  to_agent: "@aiox-devops (Gage)"
+  created: "2026-05-09T02:30:00+01:00"
+  status: pending
+  priority: medium
+  project_prefix: mj-
+  project_codename: meu-jarvis
+  project_brand: Expressia (expressia.pt)
+  predecessor: "mj-handoff-2.4-ready-for-architect-gate-20260509 (consumed por @architect)"
+
+# -----------------------------------------------------------------------------
+# 1. RESUMO PARA O @devops
+# -----------------------------------------------------------------------------
+summary: |
+  Story 2.4 (Classifier PT-PT GPT-4o-mini) APPROVED pelo @architect com
+  9.4/10 HIGH confidence. 0 issues bloqueantes. 4 nits non-blocking
+  deferíveis. 1 doc fix inline já aplicado pelo @architect (NIT-004 schemas.ts
+  JSDoc). Gate report ~720 linhas.
+
+  Comando: @aiox-devops *push 2.4
+  Estimate: ~10-15 min (push + housekeeping + INDEX update + close handoffs)
+
+# -----------------------------------------------------------------------------
+# 2. ESTADO ACTUAL — pré-push
+# -----------------------------------------------------------------------------
+current_state:
+  branch: main
+  head_sha: bc84343  # último antes do gate; @architect ainda não commitou gate report
+  ahead_of_origin: 4  # b78529a + adc57d7 + 18664b0 + bc84343
+  pending_commit_architect_gate: true  # gate report + story v1.3 + schemas.ts fix + handoff transitions
+
+  commits_to_push_after_architect_commit:
+    - sha: b78529a
+      type: chore(stories)
+      summary: "Story 2.4 Draft v1.0 → Ready v1.1 via PO validation"
+      author: "@aiox-po (Pax)"
+    - sha: adc57d7
+      type: feat(classifier)
+      summary: "@meu-jarvis/classifier package — Estágio 1 pipeline AI"
+      author: "@aiox-dev (Dex) YOLO"
+    - sha: 18664b0
+      type: chore(handoffs)
+      summary: "consume po→dev + handoff dev→architect Story 2.4"
+      author: "@aiox-dev (Dex)"
+    - sha: bc84343
+      type: chore(handoffs)
+      summary: "meta session-pause cross-terminal pós Story 2.4 Ready"
+      author: "@aiox-dev (Dex)"
+    - sha: "<pending>"
+      type: chore(docs)
+      summary: "Story 2.4 close — architect gate APPROVED 9.4/10 + handoff to devops"
+      author: "@aiox-architect (Aria) [creates this commit]"
+      includes:
+        - "docs/qa/gates/2.4-architect-gate.md (~720 linhas, novo)"
+        - "docs/stories/active/2.4.classifier-pt-pt.md (v1.3 — Architect Gate Results section + Change Log)"
+        - "packages/classifier/src/schemas.ts (NIT-004 doc fix inline — D11 reference)"
+        - "docs/handoffs/archive/mj-handoff-2.4-ready-for-architect-gate-20260509.yaml (consumed)"
+        - "docs/handoffs/archive/mj-handoff-session-pause-after-2.4-ready-for-review-20260509.yaml (consumed)"
+        - "docs/handoffs/mj-handoff-2.4-ready-for-devops-close-20260509.yaml (este handoff, novo)"
+        - "docs/HANDOFF-INDEX.md (pending → archived rows)"
+
+# -----------------------------------------------------------------------------
+# 3. CHECKLIST OPERATIVO @devops
+# -----------------------------------------------------------------------------
+operational_checklist:
+  pre_push_local_verification:
+    - "[ ] cd C:\\Users\\XPS\\Documents\\meu-jarvis"
+    - "[ ] git status — confirmar working tree (após este handoff committed)"
+    - "[ ] git log --oneline -6 — ver os 5 commits a pushar"
+    - "[ ] git rev-list origin/main..HEAD --count — esperado: 5"
+    - "[ ] pnpm typecheck — esperado FULL TURBO 8/8 cached"
+    - "[ ] pnpm lint — esperado FULL TURBO 8/8 0 warnings"
+    - "[ ] pnpm test — esperado FULL TURBO 8/8 (78 classifier + 222+ existentes)"
+    - "[ ] pnpm check:rls — esperado 26 tabelas / 104 policies preservadas"
+    - "[ ] pnpm build — esperado 9 routes Next.js + Sentry sourcemap upload"
+
+  coderabbit_pre_push:
+    decision: "OPCIONAL — file count baixo (~25 ficheiros mexidos)"
+    cmd: "wsl bash -c 'cd /mnt/c/Users/XPS/Documents/meu-jarvis && ~/.local/bin/coderabbit --prompt-only -t uncommitted'"
+    rationale: |
+      [AUTO-DECISION D12] @dev skipped pre-commit; @architect aceitou.
+      @devops pode optar por:
+      a) Skip também (alinhado com 2.2/2.3) — gate report já fez review profunda
+      b) Run pre-push para safety net antes de origin/main
+      Recomendação: SKIP (consistente com 2.2/2.3 + gate report exhaustivo).
+      Registar como [AUTO-DECISION] no commit message se skip.
+
+  push_command:
+    cmd: "git push origin main"
+    expected: "5 commits pushed: b78529a..<gate-commit>"
+    ci_url: "https://github.com/DaSilvaAlves/expressia/actions"
+    ci_runs_expected: "1 (quality + rls-gate + build paralelo) — esperado verde"
+
+  housekeeping_post_push:
+    - "[ ] Após CI verde: git mv docs/stories/active/2.4.classifier-pt-pt.md docs/stories/completed/"
+    - "[ ] Editar docs/stories/active/_INDEX.md: row 2.4 InReview → Done + path correcto"
+    - "[ ] Actualizar header _INDEX.md: Epic 2 — 4/11 Done"
+    - "[ ] Editar docs/HANDOFF-INDEX.md: marcar este handoff devops consumed + archived"
+    - "[ ] Criar successor housekeeping handoff (opcional — pattern 2.3): mj-handoff-2.4-housekeeping-close-20260509"
+    - "[ ] git commit + git push (commit chore stories)"
+
+# -----------------------------------------------------------------------------
+# 4. ARCHITECT GATE — sumário executivo
+# -----------------------------------------------------------------------------
+architect_gate_summary:
+  verdict: APPROVED
+  score: 9.4
+  confidence: HIGH
+  report_path: "docs/qa/gates/2.4-architect-gate.md"
+  report_size: "~720 linhas"
+
+  highlights:
+    - "13/13 ACs PASS (AC11 EXCEEDS — 78 tests vs target 35)"
+    - "9 review_focus_areas todas PASS"
+    - "12 decisões PASS (D1-D7 @sm + D8 @po + D9-D12 @dev)"
+    - "Constitution 6/6 articles compliant"
+    - "9 NFRs cobertos (NFR1/5/9-N.A./11/12/13/16/17/19)"
+    - "0 issues bloqueantes"
+    - "4 nits non-blocking deferíveis (NIT-001 cleanup, NIT-002 path, NIT-003 FR/IT/DE, NIT-004 — APLICADO INLINE)"
+
+  doc_fixes_inline_applied:
+    - file: "packages/classifier/src/schemas.ts:30-37"
+      description: "JSDoc actualizado para reflectir D11 (fs.readFile + regex em vez de import directo de @meu-jarvis/db)"
+      impact: "zero comportamental — apenas documentação"
+
+  d8_max5_telemetry_note: |
+    Decisão @po D8 (intents.max(5) anti-hallucination guardrail) PASS no gate
+    com nota: validar empiricamente em telemetry Story 2.11
+    (`classifier.intent_count` p50/p95/p99 distribuição). Se p99 < 4 em
+    produção, max(5) está confortável. Se misclassifications a chocar o teto,
+    escalar para max(10) com bumping de CLASSIFIER_SYSTEM_PROMPT_VERSION.
+
+# -----------------------------------------------------------------------------
+# 5. PRÓXIMOS PASSOS APÓS PUSH (Epic 2)
+# -----------------------------------------------------------------------------
+next_in_epic_2:
+  immediately_unblocked:
+    - "Story 2.5 Planner+Executor (Sonnet) — depende 2.3 ✓ + 2.4 ✓ + EB1 (Anthropic DPA UE pending)"
+  still_blocked:
+    - "Story 2.10 Benchmark — depende 2.5 + EB1 + EB2"
+    - "Story 2.6 Endpoint /api/agent/prompt — depende 2.5 + EB3 (Upstash Redis)"
+    - "Stories 2.7-2.9, 2.11 — dependem 2.6"
+
+  decision_eurico:
+    - "Opção 1: Aguardar EB1 (Anthropic DPA UE — best case 48-72h, worst 1-2 semanas) antes de @sm draft 2.5"
+    - "Opção 2: @sm draft 2.5 mockable-only (padrão 2.2/2.3/2.4). @dev pode arrancar implementação mockada antes de EB1 resolver."
+    - "Opção 3: Pivot para Epic 3 (Tarefas) ou Epic 4 (Finanças) — independentes de LLM blockers"
+
+# -----------------------------------------------------------------------------
+# 6. CONSUMPTION PROTOCOL
+# -----------------------------------------------------------------------------
+consumption_instructions:
+  who_should_consume: "@aiox-devops (Gage) ao executar *push 2.4"
+  how_to_consume:
+    - "Ler este YAML completo + executar checklist operativo"
+    - "Editar este YAML: status pending → consumed; consumed: true; consumed_at: <ISO-8601>; consumed_by: @aiox-devops"
+    - "Adicionar consumption_record (push range, CI run id, gates re-verified, housekeeping done)"
+    - "git mv para archive/"
+    - "Editar HANDOFF-INDEX: pending row remove + archived row add"
+    - "Successor opcional: mj-handoff-2.4-housekeeping-close-20260509 (se @devops separar push de housekeeping em 2 commits)"
+
+# -----------------------------------------------------------------------------
+# FIM DO HANDOFF
+# -----------------------------------------------------------------------------
