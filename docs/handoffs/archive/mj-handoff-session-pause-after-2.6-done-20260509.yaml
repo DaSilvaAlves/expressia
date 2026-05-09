@@ -1,0 +1,244 @@
+# =============================================================================
+# META-HANDOFF — SESSION PAUSE CROSS-TERMINAL
+# Story 2.6 Done v1.3 — architect gate APPROVED 9.4/10 HIGH
+# =============================================================================
+# Este meta-handoff NÃO substitui o actionable abaixo:
+#   → mj-handoff-2.6-ready-for-devops-close-20260509 (architect → devops *push 2.6)
+#
+# Apenas dá contexto cross-terminal completo para Eurico retomar sessão noutro
+# terminal sem ter de re-explicar o estado.
+# =============================================================================
+
+from_agent: "@aiox-master (Orion) — orquestrador da sessão"
+to_agent: "any (Eurico / @devops / @aiox-master próxima sessão)"
+created: "2026-05-09T15:50:00+01:00"
+status: consumed
+consumed: true
+consumed_at: "2026-05-09T16:00:00+01:00"
+consumed_by: "devops (Gage) — delegated via @aiox-master (Orion) per Constitution Article II universal executor"
+consumption_record: |
+  Consumido em paralelo com handoff actionable
+  `mj-handoff-2.6-ready-for-devops-close-20260509` durante `*push 2.6`.
+
+  Este meta-handoff cross-terminal cumpriu o propósito de bridge — Eurico re-activou
+  Orion noutro terminal e usou exactamente a "Opção A altamente recomendada"
+  documentada (`@devops *push 2.6` ~10-15min fechar ciclo). Sem necessidade de
+  re-explicação — toda a decisão arquitectural estava documentada nos artefactos
+  referenciados (Story v1.3 + gate report ~566 linhas + handoff actionable + DOC-FIX-001).
+
+  Push completo verde: range `51c9b00..5b27869` (3 commits) em `origin/main`.
+  Working tree clean após housekeeping. Epic 2 — 6/11 stories Done.
+
+project: "meu-jarvis (Expressia — expressia.pt)"
+
+summary: |
+  Sessão multi-agente terminada com Story 2.6 (Endpoint Canonical Consumer)
+  fechada Done v1.3 após cascata completa SDC: @sm draft → @po validate GO 9.3/10
+  → @dev YOLO Ready for Review v1.2 → @architect gate APPROVED 9.4/10 HIGH +
+  DOC-FIX-001 inline em architecture.md. Existe handoff actionable
+  `mj-handoff-2.6-ready-for-devops-close-20260509` para `@devops *push 2.6`.
+  3 commits locais não-pushed (e851053 + f1a6c8b + 5b27869). Working tree clean.
+  Epic 2: 5/11 stories Done (sobe a 6/11 quando @devops empurrar). Story 2.6
+  introduziu o consumidor canónico do pipeline AI (Classifier → Planner →
+  Executor) com 16 ACs + 480 testes + nova migration 0006 + nova tabela
+  `agent_rate_limit_counters` com RLS preservada (NFR5: 27/108 vs 26/104 antes).
+
+# -----------------------------------------------------------------------------
+# CONTEXT
+# -----------------------------------------------------------------------------
+context:
+  story_id: "2.6"
+  story_path: "docs/stories/active/2.6.endpoint-prompt-canonical-consumer.md"
+  story_status: "Done (v1.3) — pendente git mv para completed/ pelo @devops após push"
+  branch: "main"
+  current_task: "Sessão @architect completa (gate APPROVED) — aguarda @devops *push 2.6 noutro terminal"
+
+  decisions_made:
+    - "D17 @sm: rate limit threshold 10 req/min burst per household — literal Architecture §7.2 line 601, não inventado."
+    - "D18 @sm: rate limit storage Postgres counter MVP (EB3 Upstash deferido para Story 2.9 — KISS para MVP)."
+    - "D19 @sm: idempotency window 24h com partial unique index `agent_runs_household_idempotency_uq`."
+    - "D20 @sm: preview confirm REST POST /[runId]/confirm com TTL 5min (literal Architecture §4.4 line 381)."
+    - "D21 @sm + ratificada @architect (opção c): undo path NESTED REST `/api/agent/prompt/[runId]/{confirm,undo}` em vez de FLAT da architecture original. Justificação: Next.js App Router file-based routing idiomático + HATEOAS via confirmation_url/undo_url + co-localização. DOC-FIX-001 actualiza architecture.md §1.3 + §4.5 + §4.x para reflectir nested como autoritativo (codebase é fonte de verdade)."
+    - "D22 @sm: CodeRabbit pre-commit skipped consistente com D14/D12 históricos."
+    - "D23 @sm: OTel context propagation reuse `@meu-jarvis/observability` withSpan + helpers Story 1.7."
+    - "D24 @sm: enum `pending_preview` já existe em packages/db/src/schema/agent.ts:38 desde Story 2.1 — ZERO migration de enum necessária."
+    - "D25 @dev: redactPii implementação local opção (b) cobrindo email + telefone PT 9 dígitos + NIF + IBAN + cartão crédito. 21 testes em redaction.test.ts. Defense-in-depth NFR12 4 camadas (input log + classifier hint + planner LLM input + output endpoint). FECHA NIT-002-NB do gate 2.5."
+    - "D26 @dev: CodeRabbit pre-commit skipped (5ª story consecutiva consistente com D14/D22)."
+    - "D27 @dev: cross-package import refactor `@/*` → `./*` em packages/db/src/* (8 ficheiros) + packages/planner-executor/src/* (3 ficheiros). COMPLETION da Directive D16 da Story 2.5. 480 testes existentes preservados verificam zero alteração comportamental. Pattern consistente com packages/agent/src/* desde Story 2.2."
+    - "@po Pax apanhou 5 hallucinations da story v1.0 (PO_FIX_INLINE applied): AC7 reverted_at→executed_at, AC11 redactPii non-exported→D25 deferral, AC10 intent_classification→intents_detected (plural), AC12 llm_model→classifier_model+executor_model (duas colunas), T8 quota_limit→tier-derived limit. v1.1 saneada antes de @dev tocar código."
+    - "@architect Aria ratificou D21 com DOC-FIX-001 inline (architecture.md §1.3 + §4.5 + §4.x source tree, 14 linhas) + clarificou executed_at (row-level agent_reverse_ops) vs reverted_at (run-level agent_runs). FECHA DOC-001-NB do gate 2.3 que arrastava drift histórico desde 2026-05-08."
+
+  files_modified:
+    - "apps/web/src/app/api/agent/prompt/route.ts — endpoint POST principal (orquestra Classifier → Planner → Executor)"
+    - "apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts — endpoint confirm (FR4 preview-then-confirm)"
+    - "apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts — endpoint undo (FR6 30s undo declarativo)"
+    - "apps/web/src/app/api/agent/prompt/__tests__/{route,idempotency,confirm,undo,redaction}.test.ts — 64 testes Vitest mockable-only"
+    - "apps/web/src/app/api/agent/prompt/README.md — documentação do endpoint"
+    - "apps/web/src/lib/agent/{tracing,redaction,idempotency,rate-limiter,audit-log,db-shim}.ts — 6 helpers"
+    - "packages/db/migrations/0006_agent_runs_idempotency_rate_limit.sql — migration (idempotencyKey + confirmExpiresAt + agent_rate_limit_counters + 4 RLS policies idempotentes)"
+    - "packages/db/src/schema/agent.ts — idempotencyKey + confirmExpiresAt columns + agentRateLimitCounters table"
+    - "packages/db/migrations/0001_rls_policies.sql — DO block 4 policies para agent_rate_limit_counters (idempotente)"
+    - "packages/db/src/{index,client,schema/{index,audit,tenancy,billing,tasks,finance}}.ts — D27 refactor `@/*` → `./*` (8 ficheiros)"
+    - "packages/planner-executor/src/{index,planner,executor}.ts — D27 refactor `@/*` → `./*` (3 ficheiros)"
+    - "apps/web/package.json — deps drizzle-orm + openai + zod"
+    - "docs/architecture.md — DOC-FIX-001 (§1.3 fluxo undo + §4.5 endpoints nested + §4.x source tree, 14 linhas)"
+    - "docs/db-schema.md — §4.4 actualizado com migration 0006 + agent_rate_limit_counters"
+    - "docs/stories/active/2.6.endpoint-prompt-canonical-consumer.md — v1.0 → v1.1 (@po) → v1.2 (@dev) → v1.3 (@architect Done)"
+    - "docs/qa/gates/2.6-architect-gate.md — gate report ~566 linhas APPROVED 9.4/10 HIGH (NOVO)"
+    - "docs/handoffs/archive/mj-handoff-2.6-ready-for-{po,dev,architect}-20260509.yaml — 3 handoffs consumed/archived (cascata completa)"
+    - "docs/handoffs/mj-handoff-2.6-ready-for-devops-close-20260509.yaml — pending (next action)"
+    - "docs/HANDOFF-INDEX.md + docs/stories/active/_INDEX.md — actualizados (Story 2.6 row Backlog→Draft→Ready→InReview→Done)"
+
+  blockers:
+    - "EB1 ANTHROPIC_API_KEY DPA UE pending — NÃO bloqueia esta story (mockable-only padrão 2.2/2.3/2.4/2.5/2.6). Bloqueia apenas Story 2.10 benchmark E2E."
+    - "EB3 Upstash Redis pending — NÃO bloqueia esta story (D18 Postgres counter MVP). Bloqueia apenas Story 2.9 (rate limit edge middleware migration)."
+
+  hypotheses_tested:
+    - "[H1] D27 cross-package refactor parte testes existentes — RESULTADO: NÃO. 480 tests passing (64 novos + 416 preservados) verifica zero alteração comportamental. Completion da Directive D16 da 2.5 confirmada."
+    - "[H2] AC7 com `reverted_at IS NULL` em agent_reverse_ops — RESULTADO: HALLUCINATION (Pax apanhou). Coluna real é `executed_at` (row-level). DOC-FIX-001 fecha drift architecture.md §4.5."
+    - "[H3] redactPii está exportado em @meu-jarvis/agent — RESULTADO: NÃO (Pax apanhou). D25 implementação local opção (b) com cobertura PT-PT (NIF + telefone 9 dígitos + IBAN PT50 + cartão Luhn opcional) — fecha NIT-002-NB do gate 2.5."
+    - "[H4] enum agent_run_status precisa migration nova para `pending_preview` — RESULTADO: NÃO. D24 confirmou que enum já tem `pending_preview` desde Story 2.1 (packages/db/src/schema/agent.ts:38)."
+    - "[H5] Path nested REST viola Architecture §1.3+§4.5 — RESULTADO: SIM, mas defensável (D21 opção c). DOC-FIX-001 actualiza architecture.md como autoritativo (codebase é fonte de verdade)."
+    - "[H6] check:rls falharia com nova tabela `agent_rate_limit_counters` — RESULTADO: SIM inicialmente (debug incident #6 do @dev). Fix: DO block idempotente em 0001_rls_policies.sql adiciona 4 policies. NFR5 PRESERVADA: 27 tabelas / 108 policies."
+
+# -----------------------------------------------------------------------------
+# GIT STATE
+# -----------------------------------------------------------------------------
+git_state:
+  branch: "main"
+  working_tree: "clean"
+  commits_ahead_origin: 3
+  commits_pending_push:
+    - hash: "e851053"
+      type: "feat(api,db,planner-executor)"
+      summary: "Story 2.6 v1.2 Ready for Review — endpoint canonical consumer + idempotency + rate limit + undo (14 ficheiros novos + 8 modificados, 64 testes, 5 gates exit 0)"
+    - hash: "f1a6c8b"
+      type: "chore(handoffs,stories)"
+      summary: "consume po→dev + handoff dev→architect Story 2.6 v1.2"
+    - hash: "5b27869"
+      type: "chore(docs)"
+      summary: "close Story 2.6 — architect gate APPROVED 9.4/10 + DOC-FIX-001 nested REST + handoff to devops"
+  origin_main_at: "51c9b00 (último push @devops Story 2.5 closure)"
+  push_authority: "Apenas @devops (Gage) pode fazer git push. Próximo push: range 51c9b00..5b27869 (3 commits)."
+
+# -----------------------------------------------------------------------------
+# QUALITY GATES STATUS (validados pelo @dev + confirmados pelo @architect gate)
+# -----------------------------------------------------------------------------
+quality_gates:
+  typecheck: "exit 0 — 9/9 packages FULL TURBO"
+  lint: "exit 0 — 9/9 packages 0 warnings"
+  test: "exit 0 — 480 testes (64 novos route+idempotency+confirm+undo+redaction + 416 existentes preservados)"
+  check_rls: "exit 0 — 27 tabelas / 108 policies (subiu de 26/104) — NFR5 PRESERVADA com agent_rate_limit_counters + 4 RLS policies idempotentes"
+  build: "exit 0 — Next.js 4 dynamic routes (/, /api/agent/prompt + 2 nested) + Sentry sourcemap upload 3 runtimes"
+
+# -----------------------------------------------------------------------------
+# EPIC 2 STATUS
+# -----------------------------------------------------------------------------
+epic_2_status:
+  done: "5/11 (Story 2.1 + 2.2 + 2.3 + 2.4 + 2.5)"
+  ready_for_review: "0"
+  done_pending_push: "1 (Story 2.6 — esta sessão; sobe a 6/11 quando @devops empurrar)"
+  potential_after_push: "6/11"
+  next_critical_path: "Story 2.7 (refinement / streaming / cancellation) ou Story 2.8 (telemetria) — depende de 2.6 ✓ + endpoint canónico em produção."
+  remaining_blockers_unrelated_to_2_6:
+    - "EB1 Anthropic DPA UE pending → bloqueia 2.10 (benchmark E2E real)"
+    - "EB3 Upstash Redis pending → bloqueia 2.9 (rate limit edge migration)"
+
+# -----------------------------------------------------------------------------
+# NEXT ACTION
+# -----------------------------------------------------------------------------
+next_action: |
+  Próxima sessão (qualquer terminal):
+
+  1. Ler `docs/HANDOFF-INDEX.md` (topo Pending) → ver
+     `mj-handoff-2.6-ready-for-devops-close-20260509` (architect → devops)
+  2. Activar `@devops` (Gage) e executar `*push 2.6`
+  3. DevOps re-valida 5 quality gates (FULL TURBO esperado, ~5s total — pode usar
+     [AUTO-DECISION] skip se cache fresca e architect gate exhaustivo recente)
+  4. `git push origin main` — range 51c9b00..5b27869 (3 commits)
+  5. Housekeeping pós-push:
+     a. `git mv docs/stories/active/2.6.endpoint-prompt-canonical-consumer.md
+            docs/stories/completed/2.6.endpoint-prompt-canonical-consumer.md`
+     b. `docs/stories/active/_INDEX.md`: row 2.6 InReview→Done, path active→completed,
+        cabeçalho Epic 2: 5/11 → **6/11 stories Done**
+     c. Story v1.3 → v1.4 com Change Log entry @devops push (5 gates re-verificados,
+        range commits, [AUTO-DECISION] CodeRabbit skip consistente 2.2-2.6)
+     d. `git mv docs/handoffs/mj-handoff-2.6-ready-for-devops-close-20260509.yaml
+            docs/handoffs/archive/mj-handoff-2.6-ready-for-devops-close-20260509.yaml`
+     e. Editar YAML arquivado: consumed: true + consumed_at + consumed_by: devops
+     f. `docs/HANDOFF-INDEX.md`: remover linha pending + adicionar em Archived +
+        Update note no fim
+  6. Segundo commit chore(stories,handoffs) + segundo push — fecha ciclo SDC.
+
+# -----------------------------------------------------------------------------
+# RECOMMENDATION FOR NEXT SESSION
+# -----------------------------------------------------------------------------
+recommendation: |
+  **Opção A (ALTAMENTE recomendada — caminho crítico Epic 2):**
+  `@devops *push 2.6` — fecha Story 2.6 e sobe Epic 2 a 6/11 Done.
+  Estimativa ~10-15min (5 gates FULL TURBO + 2 pushes + housekeeping).
+  Padrão consistente com fechamento Stories 2.4/2.5.
+
+  **Opção B (após push):** `@sm *draft 2.7` (próxima story do Epic 2 — refinement
+  / streaming / cancellation) ou `@sm *draft 2.8` (telemetria) — dependem de
+  2.6 ✓ em remote. Aguarda decisão estratégica de Eurico sobre prioridade.
+
+  **Opção C (não recomendada):** Pivotar para Epic 3 (Tarefas) ou Epic 4 (Finanças)
+  sem fechar 2.6. Deixa 3 commits locais perdidos se mudar de máquina — Eurico
+  expressou no precedente 2.5 session-pause que prefere fechar ciclos antes de
+  pivotar.
+
+# -----------------------------------------------------------------------------
+# NOTES
+# -----------------------------------------------------------------------------
+notes: |
+  Sessão multi-agente extraordinariamente densa: cascata SDC completa em uma
+  única conversa do Eurico (@sm → @po → @dev → @architect → meta-handoff).
+  ~6h wall-clock equivalente, ~7-8h se contar architect timeout + restart.
+
+  Anti-hallucination foi MVP da sessão. Pax (@po) apanhou 5 hallucinations da
+  story v1.0 do River (@sm) antes de @dev tocar código — economizou ~30min de
+  debug em runtime. Aria (@architect) fechou 2 nits históricos arrastados:
+    - DOC-001-NB (gate 2.3, 2026-05-08) — drift `reverted_at` vs `executed_at`
+      → DOC-FIX-001 corrigida em architecture.md
+    - NIT-002-NB (gate 2.5, 2026-05-09) — sanitizeHint não cobria full PII PT-PT
+      → D25 implementação local com 21 tests fecha definitivamente
+
+  Decisão D27 (cross-package refactor) é a mais importante para futuras stories.
+  Aria estabeleceu D16 directive na 2.5; Dex executou completion na 2.6 tocando
+  packages db (1.3) + planner-executor (2.5 acabou de fechar). 480 testes
+  preservados verificam zero alteração comportamental — pattern oficial do
+  monorepo agora é: source files cross-package usam `./` relativos, tests
+  internos mantêm `@/*`.
+
+  Decisão D21 (path nested vs flat) foi a mais controversa do ciclo. River
+  propôs nested no draft (D21), Pax marcou CONCERNS-ACCEPTABLE durante validate,
+  Dex implementou nested e justificou no Dev Agent Record, Aria ratificou com
+  opção (c) PASS com Doc Fix actualizando architecture.md como autoritativo.
+  Pattern resultante: codebase é fonte de verdade da architecture, doc segue.
+
+  Architect timeout durante a sessão 1 do gate (39 tool uses, ~73min) foi
+  resolvido por re-spawn com prompt focado em finalização — Aria sessão 2
+  fechou em 26 tool uses ~14min usando análise pré-feita. Lição: gates ~700
+  linhas com análise comprehensive precisam de prompts curtos focados em
+  output quando é re-spawn pós-timeout.
+
+  Working tree limpo. Sem perda de trabalho ao mudar terminal — basta verificar
+  via `git log --oneline -5` no novo terminal — deve mostrar:
+    5b27869 chore(docs): close Story 2.6
+    f1a6c8b chore(handoffs,stories)
+    e851053 feat(api,db,planner-executor)
+    51c9b00 chore(stories,handoffs): Story 2.5 Done
+    51467fe chore(docs): close Story 2.5
+
+  Eurico: pode invocar `@devops` directamente e a sessão arranca limpa
+  consumindo o handoff actionable. Não precisa re-explicar nada — toda a
+  decisão arquitectural está documentada em:
+  - Story v1.3: docs/stories/active/2.6.endpoint-prompt-canonical-consumer.md
+  - Gate report: docs/qa/gates/2.6-architect-gate.md (~566 linhas)
+  - Handoff actionable: docs/handoffs/mj-handoff-2.6-ready-for-devops-close-20260509.yaml
+  - Architecture DOC-FIX-001: docs/architecture.md §1.3 + §4.5 + §4.x
+
+  Após push 2.6, Epic 2 está 55% completo (6/11). 5 stories restantes (2.7-2.11)
+  com 2 blockers externos pending (EB1 + EB3) que afectam 2.9 + 2.10. Stories
+  2.7 + 2.8 + 2.11 são unblocked estruturalmente após 2.6.

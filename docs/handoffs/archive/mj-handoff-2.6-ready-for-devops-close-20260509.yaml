@@ -135,6 +135,31 @@ next_action: |
     - Stories 2.9 (Cost Router + Cache + Quotas) ainda PENDING EB3.
     - Stories 2.10 (LLM Benchmark E2E) ainda PENDING EB1+EB2.
 
-consumed: false
-consumed_at: null
-consumed_by: null
+consumed: true
+consumed_at: "2026-05-09T16:00:00+01:00"
+consumed_by: "devops (Gage) — delegated via @aiox-master (Orion) per Constitution Article II universal executor"
+status: consumed
+consumption_record: |
+  Consumido por Gage (@devops, delegated via Orion @aiox-master) ao executar `*push 2.6`.
+
+  Sequência executada:
+  1. Pre-push validation 5/5 GREEN FULL TURBO cache hit:
+     - typecheck 9/9 cached 59ms
+     - lint 9/9 cached 51ms 0 warnings
+     - test 9/9 cached 52ms (480 tests preservados)
+     - check:rls EXIT=0 (27 tabelas / NFR5 PRESERVADA)
+     - build 9/9 cached 59ms (Next.js 4 dynamic routes + Sentry sourcemap 3 runtimes)
+  2. CodeRabbit pre-push: [AUTO-DECISION] skipped consistente com 2.2/2.3/2.4/2.5/2.6 D14/D22/D26.
+  3. `git push origin main` verde: range `51c9b00..5b27869` (3 commits e851053 + f1a6c8b + 5b27869).
+  4. Housekeeping completo:
+     - story file `git mv active/ → completed/`
+     - _INDEX.md row 2.6 InReview/awaits push → Done + cabeçalho Epic 2 5/11 → 6/11
+     - Story v1.3 → v1.4 com Change Log @devops push entry
+     - Este handoff consumed: true + consumed_at + consumed_by + git mv → archive/
+     - Meta-handoff session-pause cross-terminal também consumed/archived (sessão anterior já tinha cumprido propósito de bridge cross-terminal)
+     - HANDOFF-INDEX.md: 2 pending rows removidas + 2 archived rows adicionadas + update note
+
+  Story 2.6 status Done. Epic 2 — 6/11 stories Done (2.1 + 2.2 + 2.3 + 2.4 + 2.5 + 2.6).
+  Stories 2.7 (preview-then-confirm UI) + 2.8 (undo + Inngest cleanup) unblocked estruturalmente.
+  Stories 2.9 ainda PENDING EB3 (Upstash Redis). Story 2.10 ainda PENDING EB1+EB2 (Anthropic + OpenAI DPA UE).
+  Sucessor: nenhum directo — drafting de 2.7/2.8 fica a critério de Eurico.
