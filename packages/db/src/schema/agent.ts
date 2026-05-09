@@ -26,8 +26,8 @@ import {
   check,
 } from 'drizzle-orm/pg-core';
 
-import { authUsers } from '@/schema/auth';
-import { households, planTierEnum } from '@/schema/tenancy';
+import { authUsers } from './auth';
+import { households, planTierEnum } from './tenancy';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Enums
@@ -104,6 +104,16 @@ export const agentRuns = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     revertedAt: timestamp('reverted_at', { withTimezone: true }),
+    /**
+     * Idempotency-Key header opcional (Story 2.6 D19) — janela 24h replay
+     * determinístico de runs terminais. NULL = sem idempotency. Migration 0006.
+     */
+    idempotencyKey: text('idempotency_key'),
+    /**
+     * TTL da janela de confirmação preview-then-confirm (Story 2.6 D20 — 5min).
+     * Apenas populado quando status='pending_preview' (FR4). Migration 0006.
+     */
+    confirmExpiresAt: timestamp('confirm_expires_at', { withTimezone: true }),
   },
   (t) => ({
     householdIdx: index('agent_runs_household_idx').on(t.householdId),
@@ -253,3 +263,38 @@ export const agentQuotas = pgTable(
 
 export type AgentQuota = typeof agentQuotas.$inferSelect;
 export type NewAgentQuota = typeof agentQuotas.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// agent_rate_limit_counters — rate limit MVP Postgres (Story 2.6 D18)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Rate limit counter MVP per household — janela de 1 minuto.
+ *
+ * - Architecture §7.2 documenta literal "10 req/min burst" para `/api/agent/prompt`.
+ * - PK composta `(household_id, window_start)` permite múltiplas janelas
+ *   históricas (cleanup por job futuro Inngest — fora do scope MVP).
+ * - Migração para Upstash Redis EU em Story 2.9 (EB3 desbloqueado).
+ *
+ * Migration 0006. RLS activa com 4 policies (NFR5).
+ */
+export const agentRateLimitCounters = pgTable(
+  'agent_rate_limit_counters',
+  {
+    householdId: uuid('household_id')
+      .notNull()
+      .references(() => households.id, { onDelete: 'cascade' }),
+    /** Início da janela de 1 minuto — truncado a `date_trunc('minute', now())`. */
+    windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+    count: integer('count').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: unique('agent_rate_limit_counters_pkey').on(t.householdId, t.windowStart),
+    windowIdx: index('agent_rate_limit_counters_window_idx').on(t.windowStart.desc()),
+  }),
+);
+
+export type AgentRateLimitCounter = typeof agentRateLimitCounters.$inferSelect;
+export type NewAgentRateLimitCounter = typeof agentRateLimitCounters.$inferInsert;

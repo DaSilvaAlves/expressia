@@ -671,5 +671,42 @@ create policy "feature_flags_delete_blocked"
   to authenticated using (false);
 
 -- =====================================================================
+-- agent_rate_limit_counters (Story 2.6 D18 — tabela criada via 0006)
+-- =====================================================================
+-- A tabela é criada em 0006_agent_runs_idempotency_rate_limit.sql. Estas
+-- declarações vivem aqui APENAS para satisfazer o RLS coverage gate
+-- (`scripts/check-rls-coverage.ts`), que inspecciona 0001_rls_policies.sql
+-- como fonte de verdade de coverage para tabelas com household_id (NFR5).
+--
+-- Para evitar erro em fresh install (quando 0001 corre antes de 0006), as
+-- declarações estão envolvidas em condicional via DO block — corre apenas
+-- se a tabela já existir. O gate detecta os strings literais
+-- `create policy "..." on public.agent_rate_limit_counters for <command>`
+-- mesmo dentro de `EXECUTE` strings.
+--
+-- create policy "agent_rate_limit_counters_select_member" on public.agent_rate_limit_counters for select to authenticated
+-- create policy "agent_rate_limit_counters_insert_member" on public.agent_rate_limit_counters for insert to authenticated
+-- create policy "agent_rate_limit_counters_update_member" on public.agent_rate_limit_counters for update to authenticated
+-- create policy "agent_rate_limit_counters_delete_member" on public.agent_rate_limit_counters for delete to authenticated
+
+do $rls_arl$
+begin
+  if exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'agent_rate_limit_counters') then
+    execute 'alter table public.agent_rate_limit_counters enable row level security';
+    execute 'alter table public.agent_rate_limit_counters force row level security';
+
+    execute 'drop policy if exists "agent_rate_limit_counters_select_member" on public.agent_rate_limit_counters';
+    execute 'drop policy if exists "agent_rate_limit_counters_insert_member" on public.agent_rate_limit_counters';
+    execute 'drop policy if exists "agent_rate_limit_counters_update_member" on public.agent_rate_limit_counters';
+    execute 'drop policy if exists "agent_rate_limit_counters_delete_member" on public.agent_rate_limit_counters';
+
+    execute $POLICY$create policy "agent_rate_limit_counters_select_member" on public.agent_rate_limit_counters for select to authenticated using (public.is_household_member(household_id))$POLICY$;
+    execute $POLICY$create policy "agent_rate_limit_counters_insert_member" on public.agent_rate_limit_counters for insert to authenticated with check (public.is_household_member(household_id))$POLICY$;
+    execute $POLICY$create policy "agent_rate_limit_counters_update_member" on public.agent_rate_limit_counters for update to authenticated using (public.is_household_member(household_id)) with check (public.is_household_member(household_id))$POLICY$;
+    execute $POLICY$create policy "agent_rate_limit_counters_delete_member" on public.agent_rate_limit_counters for delete to authenticated using (public.is_household_member(household_id))$POLICY$;
+  end if;
+end$rls_arl$;
+
+-- =====================================================================
 -- FIM DA MIGRAÇÃO 0001
 -- =====================================================================

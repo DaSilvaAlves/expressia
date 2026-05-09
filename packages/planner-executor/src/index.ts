@@ -23,11 +23,16 @@
  */
 
 // Classes principais
-export { Planner, DEFAULT_PLANNER_MAX_TOKENS, DEFAULT_PLANNER_TEMPERATURE, DEFAULT_PLANNER_TIMEOUT_MS } from '@/planner';
-export type { PlannerOpts } from '@/planner';
+//
+// NOTA (Story 2.6 fix): imports relativos `./` em vez de `@/*` para que
+// consumers cross-package (apps/web/typecheck) consigam resolver tipos sem
+// depender de paths internos do package. Pattern alinhado com 2.2/2.3/2.4
+// (D16 directive da 2.5 — "source files cross-package usar relativos `./`").
+export { Planner, DEFAULT_PLANNER_MAX_TOKENS, DEFAULT_PLANNER_TEMPERATURE, DEFAULT_PLANNER_TIMEOUT_MS } from './planner';
+export type { PlannerOpts } from './planner';
 
-export { Executor } from '@/executor';
-export type { ExecutorOpts, DbResolver } from '@/executor';
+export { Executor } from './executor';
+export type { ExecutorOpts, DbResolver } from './executor';
 
 // Schemas e tipos
 export {
@@ -35,16 +40,16 @@ export {
   PlanResultSchema,
   PlannerInputSchema,
   ExecutorInputSchema,
-} from '@/schemas';
+} from './schemas';
 export type {
   PlanToolCall,
   PlanResult,
   PlannerInput,
   ExecutorInput,
-} from '@/schemas';
+} from './schemas';
 
 // System prompt — apenas versão (texto raw NÃO exportado)
-export { PLANNER_SYSTEM_PROMPT_VERSION } from '@/prompts/planner-system';
+export { PLANNER_SYSTEM_PROMPT_VERSION } from './prompts/planner-system';
 
 // Errors
 export {
@@ -55,18 +60,18 @@ export {
   PlannerOutputError,
   PlannerEmptyPlanError,
   ExecutorValidationError,
-} from '@/errors';
-export type { PlannerErrorSeverity } from '@/errors';
+} from './errors';
+export type { PlannerErrorSeverity } from './errors';
 
 // Tracing — apenas keys públicas (whitelist)
 export {
   PLANNER_SPAN_ATTRIBUTE_KEYS,
   EXECUTOR_SPAN_ATTRIBUTE_KEYS,
-} from '@/tracing';
+} from './tracing';
 export type {
   PlannerSpanAttributeKey,
   ExecutorSpanAttributeKey,
-} from '@/tracing';
+} from './tracing';
 
 // Re-exports de @meu-jarvis/tools para conveniência (consumers do endpoint
 // 2.6 não precisam de importar de 2 packages diferentes)

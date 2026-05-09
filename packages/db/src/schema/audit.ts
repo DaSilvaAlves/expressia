@@ -18,8 +18,8 @@ import {
   boolean,
 } from 'drizzle-orm/pg-core';
 
-import { authUsers } from '@/schema/auth';
-import { households } from '@/schema/tenancy';
+import { authUsers } from './auth';
+import { households } from './tenancy';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Enums

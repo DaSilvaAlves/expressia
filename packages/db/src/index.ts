@@ -6,6 +6,7 @@
  *   - Schema completo (tabelas + enums + relations)
  *   - Tipos partilhados
  */
-export * from '@/client';
-export * from '@/schema';
-export * from '@/types';
+// Story 2.6 fix: relative imports cross-package compat (D16 directive 2.5)
+export * from './client';
+export * from './schema';
+export * from './types';

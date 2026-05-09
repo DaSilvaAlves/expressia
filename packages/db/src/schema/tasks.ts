@@ -25,8 +25,8 @@ import {
   check,
 } from 'drizzle-orm/pg-core';
 
-import { authUsers } from '@/schema/auth';
-import { households, kanbanColumns } from '@/schema/tenancy';
+import { authUsers } from './auth';
+import { households, kanbanColumns } from './tenancy';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Enums

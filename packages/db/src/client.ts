@@ -18,7 +18,10 @@
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
-import * as schema from '@/schema';
+// Story 2.6 fix: relative import (era `@/schema`) para resolver cross-package
+// quando consumido por apps/web via webpack/Next.js. Pattern alinhado com
+// 2.2/2.3/2.4 (D16 directive da 2.5).
+import * as schema from './schema';
 
 export type Database = PostgresJsDatabase<typeof schema>;
 

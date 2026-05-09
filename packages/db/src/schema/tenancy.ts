@@ -20,7 +20,7 @@ import {
   check,
 } from 'drizzle-orm/pg-core';
 
-import { authUsers } from '@/schema/auth';
+import { authUsers } from './auth';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Enums

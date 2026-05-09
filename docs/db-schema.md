@@ -119,10 +119,11 @@ erDiagram
 
 | Tabela | FRs | Notas |
 |--------|-----|-------|
-| `agent_runs` | FR1-FR5, NFR9 | Audit log imutável por run. Inclui `prompt_hash` (não texto claro — NFR12), `intents_detected` JSONB, `tool_calls` JSONB, latência, custo EUR, modelo usado. **Imutável após estado terminal** (success/reverted/failed) via trigger `trg_agent_runs_immutability` (migration 0005) — só `service_role` pode mutar para purge mensal e setter de `reverted_at`. |
+| `agent_runs` | FR1-FR5, NFR9 | Audit log imutável por run. Inclui `prompt_hash` (não texto claro — NFR12), `intents_detected` JSONB, `tool_calls` JSONB, latência, custo EUR, modelo usado. **Imutável após estado terminal** (success/reverted/failed) via trigger `trg_agent_runs_immutability` (migration 0005) — só `service_role` pode mutar para purge mensal e setter de `reverted_at`. **Migration 0006 adicionou:** `idempotency_key text` (NFR9 D19 — janela 24h replay) + `confirm_expires_at timestamptz` (FR4 D20 — TTL 5min preview). |
 | `intent_classifications` | FR1-FR2 | 1:N de `agent_runs`. Cada intent detectada com confidence + params + entity criada. DELETE bloqueado para `authenticated`. |
 | `agent_reverse_ops` | FR6 | Undo declarativo: `reverse_op` JSONB tipado + `expires_at` NOT NULL com `DEFAULT now() + interval '30 seconds'` (migration 0005). Job Inngest diário limpa rows com `expires_at < now() - interval '1 hour'`. |
 | `agent_quotas` | NFR20 | Contadores rolling do mês corrente (prompts, tokens, custo €). PK = `household_id`. **Write-only via service_role** — INSERT/UPDATE/DELETE bloqueados a `authenticated` (race conditions). SELECT visível ao household para `/conta/plano`. |
+| `agent_rate_limit_counters` | NFR13 (Story 2.6 D18) | Counter MVP Postgres-based — janela 1min per household. Architecture §7.2: 10 req/min burst para `/api/agent/prompt`. Migração para Upstash Redis EU em Story 2.9 (EB3 desbloqueado). PK composta `(household_id, window_start)`. **Migration 0006.** |
 
 **Enums Postgres:**
 
@@ -139,6 +140,9 @@ erDiagram
 - `agent_runs.language = 'pt-PT'` fixo (CHECK — CON3).
 - `agent_reverse_ops.expires_at = now() + interval '30 seconds'` por DEFAULT (FR6); janela de undo activa enquanto `expires_at > now() AND executed_at IS NULL`.
 - `agent_quotas` é **append-once** (INSERT pelo trigger de criação de household via service_role) e **update-only** via `service_role` (atomicidade dos contadores).
+- `agent_runs.idempotency_key` é nullable; **partial unique index** `agent_runs_idempotency_household_uq` em `(household_id, idempotency_key)` onde `idempotency_key IS NOT NULL` permite múltiplos runs sem header (NULL não viola unique). **Janela 24h** (D19): lookup filtra `created_at > now() - interval '24 hours'`.
+- `agent_runs.confirm_expires_at` apenas populado quando `status='pending_preview'`; flag implícita de "preview pending dentro do TTL" via `confirm_expires_at > now()`.
+- `agent_rate_limit_counters` usa UPSERT atómico Postgres `INSERT ... ON CONFLICT (household_id, window_start) DO UPDATE SET count = count + 1` para incremento race-free.
 
 ### 4.5 Tarefas (`schema/tasks.ts`)
 

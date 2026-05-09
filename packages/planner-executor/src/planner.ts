@@ -45,8 +45,8 @@ import {
   PlannerOutputError,
   PlannerToolNotFoundError,
   PlannerValidationError,
-} from '@/errors';
-import { PLANNER_SYSTEM_PROMPT } from '@/prompts/planner-system';
+} from './errors';
+import { PLANNER_SYSTEM_PROMPT } from './prompts/planner-system';
 import {
   PlanResultSchema,
   PlannerInputSchema,
@@ -54,11 +54,11 @@ import {
   type PlanResult,
   type PlanToolCall,
   type PlannerInput,
-} from '@/schemas';
+} from './schemas';
 import {
   annotatePlannerMetrics,
   withPlannerSpan,
-} from '@/tracing';
+} from './tracing';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuração e tipos públicos

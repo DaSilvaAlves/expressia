@@ -39,16 +39,16 @@ import {
   type ToolRegistry,
 } from '@meu-jarvis/tools';
 
-import { ExecutorValidationError } from '@/errors';
+import { ExecutorValidationError } from './errors';
 import {
   ExecutorInputSchema,
   type ExecutorInput,
   type PlanToolCall,
-} from '@/schemas';
+} from './schemas';
 import {
   annotateExecutorMetrics,
   withExecutorSpan,
-} from '@/tracing';
+} from './tracing';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuração
