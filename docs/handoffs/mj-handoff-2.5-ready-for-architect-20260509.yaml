@@ -1,0 +1,303 @@
+# =============================================================================
+# HANDOFF — @dev → @architect: gate Story 2.5 v1.2 (Planner+Executor Sonnet)
+# =============================================================================
+# CONTEXTO: Dex (@dev) executou *develop 2.5 em modo YOLO autónomo entre
+# 2026-05-09 18:45-19:30 (~45min após PO validation). 12/12 tasks Done, 53
+# tests passing (target ≥45 EXCEEDS), 5 quality gates exit 0. Status
+# Ready → InProgress → Ready for Review (v1.2). Próximo passo:
+# @architect *qa-gate 2.5.
+# =============================================================================
+
+handoff:
+  id: mj-handoff-2.5-ready-for-architect-20260509
+  from_agent: "@aiox-dev (Dex)"
+  to_agent: "@aiox-architect (Aria)"
+  created: "2026-05-09T19:30:00+01:00"
+  status: pending
+  priority: medium
+  project_prefix: mj-
+  project_codename: meu-jarvis
+  project_brand: Expressia (expressia.pt)
+  predecessor: "mj-handoff-2.5-ready-for-dev-20260509 (consumed/archived em 2026-05-09 19:30)"
+
+# -----------------------------------------------------------------------------
+# 1. RESUMO
+# -----------------------------------------------------------------------------
+summary: |
+  Story 2.5 (Planner+Executor Sonnet) Ready for Review v1.2 — implementação
+  YOLO autónomo completa.
+
+  Comando: @aiox-architect *qa-gate 2.5
+  Output esperado: gate report `docs/qa/gates/2.5-architect-gate.md` com
+                   verdict APPROVED/NEEDS_REVISION/REJECTED, score X/10,
+                   confidence high/medium/low, 13/15 ACs review (validar
+                   evidência directa), 11 [AUTO-DECISIONS] review (9 @sm +
+                   2 @dev), 5 quality gates re-verificação independente,
+                   Constitution 6/6 articles, NFR coverage.
+  Estimate: ~1h architect gate (precedente 2.4 ~720 linhas gate report).
+
+# -----------------------------------------------------------------------------
+# 2. CONTEXTO STORY 2.5 v1.2
+# -----------------------------------------------------------------------------
+context:
+  story_path: "docs/stories/active/2.5.planner-executor-sonnet.md"
+  status: "Ready for Review (v1.2) — aguarda @architect *qa-gate 2.5"
+  acs_count: 15
+  tasks_completed: "12/12"
+  tests_delivered: "53 (target ≥45 — EXCEEDS por 18%)"
+  quality_gates: "5/5 exit 0 (typecheck 9/9, lint 9/9 0 warnings, test 53+222 inalterados, check:rls 26/104 NFR5 PRESERVADA, build Next.js 9 routes)"
+  package_created: "@meu-jarvis/planner-executor (source-only, padrão 2.2/2.3/2.4)"
+
+  delivery_summary: |
+    Estágio 2+3 do pipeline AI implementado:
+    - Planner (Sonnet com tool calling sobre toolRegistry.getAnthropicToolDefinitions
+      da 2.3 + cache_control:'ephemeral' D11 default)
+    - Executor (thin wrapper sobre executeAtomic da 2.3 com D8 defense-in-depth
+      tool name validation fail-rapid antes de tx)
+    - 5 PlannerError subclasses + 1 ExecutorValidationError (D13: Executor delega
+      ToolError da 2.3 — sem hierarquia paralela)
+    - OTel spans agent.planner.call (12 attrs whitelist) + agent.executor.run
+      (8 attrs whitelist), zero PII (householdHash via hashForCorrelation)
+    - 3 fixtures Vitest determinísticas (mock-anthropic-client, mock-tool-registry
+      com 3 tools mock, mock-db-tx com vi.fn spies)
+    - 100% mockable — zero calls reais Anthropic (EB1 não bloqueia)
+
+  changes_v1_1_to_v1_2:
+    - "Status: Ready → InProgress → Ready for Review"
+    - "12/12 tasks marked [x]; ~50 subtasks marked [x]"
+    - "Dev Agent Record completo: Agent Model Used (Opus 4.7 1M YOLO ~45min) + Debug Log References (3 incidentes resolvidos) + Completion Notes (2 [AUTO-DECISIONS] @dev) + File List (15 novos + 8 modificados)"
+    - "Change Log v1.2 entry @dev"
+  package_dependencies:
+    - "@meu-jarvis/agent (Story 2.2): AnthropicProvider, ProviderInterface, getProvider, CLAUDE_SONNET_DEFAULT, AnthropicClientLike (re-exposto via D9-anthropic), ProviderError + 9 subclasses, sanitizeHint, mapAnthropicError"
+    - "@meu-jarvis/tools (Story 2.3): executeAtomic, toolRegistry, ToolRegistry, ToolDefinition, ToolExecutionContext, AtomicResult/AtomicFailure/AtomicOutcome, ToolError + 6 subclasses"
+    - "@meu-jarvis/classifier (Story 2.4): ClassificationSchema, IntentSchema, ClassificationResult, INTENT_VALUES (8 intents)"
+    - "@meu-jarvis/observability (Story 1.7): logger, withSpan, hashForCorrelation"
+
+# -----------------------------------------------------------------------------
+# 3. POINTS OF ATTENTION FOR @architect GATE
+# -----------------------------------------------------------------------------
+architect_focus_points:
+
+  critical:
+    - point: "11 [AUTO-DECISIONS] (9 @sm validadas por @po + 2 @dev novas)"
+      review_each:
+        D5_max_10_tool_calls: |
+          @sm. Análogo D8 da 2.4 (passou architect gate APPROVED 9.4/10).
+          Razão: 5 intents × 2-3 tools/intent expansão = 10-15 razoável.
+          Validar se max(10) é apropriado ou se ajustar para max(15) ou max(5).
+          Recomendação @dev: aceitar com nota telemetry Story 2.11 (mesmo
+          tratamento que D8 da 2.4).
+        D5b_one_package: |
+          @sm. Coesão Architecture §4.3 (Planner+Executor são par). Padrão:
+          1 package por estágio (2.2 agent, 2.3 tools, 2.4 classifier, 2.5
+          planner-executor). Validar.
+        D6_TOOL_TO_INTENT_MAP_static: |
+          @sm. Mapping declarativo estático em schemas.ts. Determinístico,
+          testável, fallback 'unknown' para tools fora do MAP. Test
+          contract.test.ts garante coverage 8 intents do IntentSchema.
+        D8_defense_in_depth: |
+          @sm. Validação tool name no Executor mesmo já validada no Planner.
+          Padrão obrigatório código transaccional. Custo O(1) trivial.
+          Tests `executor.test.ts` 2 cenários cobrem fail-rapid.
+        D9_anthropic_re_export: |
+          @sm + @dev applied. Re-export `AnthropicClientLike` no barrel
+          `packages/agent/src/index.ts:20` (1 linha). Padrão idêntico
+          a D9 da 2.4 (validada por architect APPROVED 9.4/10). Modificação
+          zero-risk — `pnpm --filter @meu-jarvis/agent typecheck/test` exit 0
+          inalterados.
+        D11_cache_ephemeral_default: |
+          @sm. cacheControl: 'ephemeral' default no Planner. Architecture
+          §4.3 explícito ~90% saving após cache hit. Override null disponível
+          para testes (verificado em planner.test.ts cenário "cacheControl=null
+          desliga cache"). Bug de design `??` operator com null detectado e
+          fixed durante implementação.
+        D13_executor_delegates_ToolError: |
+          @sm. Executor delega ToolError da 2.3 (não cria hierarquia paralela).
+          Single source of truth. Única excepção `ExecutorValidationError`
+          para input parsing (análoga a `PlannerValidationError`). Validar
+          coerência arquitectural.
+        D14_skip_coderabbit: |
+          @sm + @dev applied. Skip CodeRabbit pre-commit. Precedente 2.2/2.3/2.4
+          (D12). Razão: arquitectura crítica delegada a este gate;
+          5 quality gates verde; zero chamadas externas em testes.
+        D15_test_target_45: |
+          @sm. Target ≥45. Entregue 53 (EXCEEDS por 18%). Médio razoável
+          entre 2.3 (57) e 2.4 (78). Story L scope similar 2.4.
+        D9_anthropic_applied: |
+          @dev. Application de D9-anthropic — 1 linha em
+          `packages/agent/src/index.ts:20`. Verificável: `pnpm --filter
+          @meu-jarvis/agent typecheck` exit 0; `pnpm --filter
+          @meu-jarvis/agent test` 102/102 inalterados.
+        D16_relative_imports_refactor: |
+          @dev NOVA decisão durante implementação. Refactor `@/*` → `./` em
+          packages/tools/src/{atomic,contracts,registry,tracing}.ts (4 ficheiros)
+          e packages/classifier/src/{classifier,index}.ts (2 ficheiros).
+          Razão técnica: TS source-only monorepo resolve `@/*` no scope do
+          package que está a fazer typecheck (não no scope origem); sem
+          composite:true + project references (refactoring extensivo), evitar
+          `@/*` cross-internal em source files é a única solução robusta.
+          Pattern já usado em `packages/agent/src/*` desde Story 2.2 — agora
+          consistente em tools+classifier também. Tests internos mantêm
+          `@/*` (resolvem local). Zero alteração comportamental — verificado:
+          tools 57/57 + classifier 78/78 + agent 102/102 + restantes 222+
+          tests continuam exit 0 inalterados. **Validar se architect aceita
+          esta refactoring inline ou prefere reverter + abrir story dedicada.**
+          Recomendação @dev: aceitar inline (custo trivial, benefício alto:
+          desbloqueia esta story + qualquer story futura que importe de
+          tools/classifier).
+
+    - point: "Article IV (No Invention) — todos os ACs traceáveis"
+      check: |
+        Cada AC tem trace section explícita. PO_FIX_INLINE marker em AC2/D5
+        documenta correção da citação errada FR3 (audit log) → Story 2.4 D8
+        (max(5) intents). Verificar:
+        - AC1: Architecture §4.3 + padrão 2.2/2.3/2.4
+        - AC2: Architecture §4.3 + Story 2.4 D8 (corrigido por @po) + FR2
+        - AC3: Story 2.4 D9 export pattern
+        - AC4: Architecture §4.3 (Planner—Sonnet, prompt cache ephemeral) + FR3 + NFR1
+        - AC5: Architecture §4.3 ("system prompt + tool definitions JSON marcados com cache_control: ephemeral")
+        - AC6: Architecture §4.3 + §4.1 BEGIN tx → loop → COMMIT + FR2 + Story 2.3 AC5
+        - AC7: FR2 + Story 2.3 AC5 rollback semantics
+        - AC8: Architecture §4.5 (`agent_reverse_ops.expires_at`) + FR6 + Story 2.3 AC6
+        - AC9: NFR12 + NFR13 + Architecture §9.3 + padrão 2.2/2.3/2.4
+        - AC10: padrão error taxonomy 2.2/2.3/2.4
+        - AC11: NFR12 + sanitizeHint da 2.2 (re-exposto por D10 da 2.4)
+        - AC12: padrão mockability 2.2/2.3/2.4
+        - AC13: NFR16 + NFR17
+        - AC14: padrão `index.ts` 2.2/2.3/2.4
+        - AC15: padrão README 2.2/2.3/2.4
+
+    - point: "Quality gates 5/5 — re-verificar independentemente"
+      commands: |
+        pnpm typecheck                 # 9/9 packages exit 0 (FULL TURBO)
+        pnpm lint --max-warnings=0     # 9/9 packages 0 warnings
+        pnpm test                      # 53 novos planner-executor + 222+ inalterados
+        pnpm check:rls                 # 26 tabelas / 104 policies — NFR5 PRESERVADA
+        pnpm build                     # Next.js 9 routes + Sentry sourcemap upload
+      expected_output: |
+        Todos exit 0. Test output mostra 7 ficheiros .test.ts:
+          - schemas.test.ts: 9 tests
+          - errors.test.ts: 10 tests
+          - prompts.test.ts: 2 tests
+          - tracing.test.ts: 5 tests
+          - contract.test.ts: 2 tests
+          - planner.test.ts: 13 tests
+          - executor.test.ts: 12 tests
+
+    - point: "RLS NFR5 PRESERVADA"
+      check: |
+        Esta story NÃO adiciona tabelas com household_id. Invariante
+        26 tabelas / 104 policies mantém-se. Executor delega persistência
+        a executeAtomic da 2.3 que usa SQL puro `tx.execute(sql\`...\`)`
+        para insert em agent_reverse_ops (já existe desde Story 2.1).
+        `Executor.execute()` documenta NUNCA `getServiceDb()` (NFR5 violation).
+
+  secondary:
+    - point: "PII redaction defense-in-depth"
+      check: |
+        AC11 enforça que NIF (9 dígitos) e IBAN PT (PT50...) NÃO aparecem em
+        error messages. Tests `errors.test.ts` cobrem esta verificação para
+        4 subclasses + ExecutorValidationError. **Nota:** sanitizeHint da
+        2.2 (regex heurístico) NÃO cobre email completo — documentado em
+        tests + Dev Agent Record. Architect pode flag se quiser cobertura
+        adicional para email (provavelmente Story 2.6 endpoint pode aplicar
+        redaction mais agressiva ao mostrar errors ao utilizador).
+
+    - point: "Snapshot hash do PLANNER_SYSTEM_PROMPT"
+      check: |
+        Test `prompts.test.ts` valida hash SHA-256 do prompt — qualquer
+        deriva acidental parte teste. Versão `v1`. Bump intencional requer
+        actualizar hash no test + bumpar versão. Pattern análogo Story 2.4
+        AC4. Validar se prompt é pedagogicamente correcto para Sonnet
+        (8 intents listadas, 5 exemplos few-shot, instrução PT-PT,
+        anti-hallucination explícito).
+
+    - point: "Mock fixtures isolation"
+      check: |
+        3 fixtures determinísticas em `__fixtures__/` NÃO são re-exportadas
+        pelo barrel. Tests internos importam directamente. Pattern consistente
+        com 2.2/2.3/2.4. Verificar isolation strict (sem leak para production).
+
+    - point: "Performance targets (Architecture §4.3 + NFR1)"
+      check: |
+        Latência target Planner < 4s (contribui para latência total < 6s NFR1).
+        Latência target Executor < 1s. Cache hit ratio target ≥80% em regime
+        estacionário. Esta story define targets — validação empírica em
+        Story 2.10 benchmark + telemetria 2.11. Architect pode flag se
+        targets parecem irrealistas.
+
+    - point: "Erro `cacheControl: null` operator bug"
+      check: |
+        @dev detectou e fixed bug de design durante implementação:
+        `this.cacheControl = opts.cacheControl ?? 'ephemeral'` falha porque
+        `null ?? X === X` (null é nullish). Fix: comparação explícita
+        `opts.cacheControl === undefined ? 'ephemeral' : opts.cacheControl`.
+        Test `cacheControl=null desliga cache` cobre. Bug-resolution
+        documentada em Debug Log References. Architect pode flag se há outros
+        sítios no código com mesma armadilha.
+
+# -----------------------------------------------------------------------------
+# 4. NEXT ACTION FOR @architect
+# -----------------------------------------------------------------------------
+next_action: |
+  @architect (Aria) executa `*qa-gate 2.5`:
+
+  1. Ler `docs/stories/active/2.5.planner-executor-sonnet.md` v1.2 completa
+  2. Re-verificar 5 quality gates independentemente:
+     - pnpm typecheck (9/9 exit 0)
+     - pnpm lint (9/9 exit 0 0 warnings)
+     - pnpm test (53 novos + 222+ inalterados)
+     - pnpm check:rls (26/104 NFR5 PRESERVADA)
+     - pnpm build (Next.js 9 routes + Sentry sourcemap)
+  3. Cross-check Article IV: cada AC traceável a fonte real
+  4. Review 11 [AUTO-DECISIONS] (9 @sm + 2 @dev — D9-anthropic-applied + D16
+     refactor cross-package)
+  5. Constitution compliance 6/6 articles
+  6. NFR coverage (NFR1, NFR5, NFR11, NFR12, NFR13, NFR16, NFR17, NFR19)
+  7. Anti-PII verification (errors.test.ts + tracing.test.ts)
+  8. Validar mockability + isolation
+  9. Gerar gate report `docs/qa/gates/2.5-architect-gate.md` com:
+     - Verdict APPROVED/NEEDS_REVISION/REJECTED
+     - Score X/10
+     - Confidence high/medium/low
+     - 11 decisões verdict each
+     - Issues (bloqueantes / non-blocking nits / inline doc fixes)
+  10. Actualizar story status InReview → Done (ou retornar a @dev se NEEDS_REVISION)
+  11. Criar successor handoff `mj-handoff-2.5-ready-for-devops-close-{date}.yaml`
+      (architect → devops *push 2.5)
+
+# -----------------------------------------------------------------------------
+# 5. CONSUMPTION PROTOCOL
+# -----------------------------------------------------------------------------
+consumption_instructions:
+  who_consumes: "@aiox-architect (Aria) ao executar *qa-gate 2.5"
+  steps:
+    - "Ler este YAML completo + arquivos referenciados"
+    - "Editar este YAML: status pending → consumed; consumed: true; consumed_at: <ISO-8601>; consumed_by: @aiox-architect"
+    - "Adicionar consumption_record (verdict, score, confidence, decisions reviewed, issues count, gates re-verified)"
+    - "git mv docs/handoffs/mj-handoff-2.5-ready-for-architect-20260509.yaml → docs/handoffs/archive/"
+    - "Editar HANDOFF-INDEX.md: pending row remove + archived row add"
+    - "Criar successor (APPROVED → architect→devops; NEEDS_REVISION → architect→dev fixes)"
+
+# -----------------------------------------------------------------------------
+# 6. METADATA
+# -----------------------------------------------------------------------------
+metadata:
+  story_id: "2.5"
+  story_title: "Planner + Executor (Sonnet) + atomicidade Postgres"
+  story_version: "1.2"
+  epic_id: "Epic 2 — Cérebro AI Multi-Intent"
+  epic_progress_before: "4/11 Done"
+  epic_progress_after_if_done: "5/11 Done"
+  package_created: "packages/planner-executor/ (15 ficheiros novos)"
+  files_modified_external: |
+    packages/agent/src/index.ts (D9-anthropic-applied, 1 linha)
+    packages/tools/src/{atomic,contracts,registry,tracing}.ts (D16, 9 imports)
+    packages/classifier/src/{classifier,index}.ts (D16, 15 imports)
+    apps/web/{next.config.ts,package.json} (transpile + workspace dep)
+  actual_dev_time: "~45min YOLO autónomo (precedente 2.4 ~1h)"
+  estimated_architect_gate_time: "~1h (gate report ~700 linhas padrão 2.4)"
+
+# -----------------------------------------------------------------------------
+# FIM DO HANDOFF
+# -----------------------------------------------------------------------------

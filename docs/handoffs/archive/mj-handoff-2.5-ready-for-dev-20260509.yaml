@@ -15,8 +15,57 @@ handoff:
   from_agent: "@aiox-po (Pax)"
   to_agent: "@aiox-dev (Dex)"
   created: "2026-05-09T18:30:00+01:00"
-  status: pending
+  status: consumed
+  consumed: true
+  consumed_at: "2026-05-09T19:30:00+01:00"
+  consumed_by: "@aiox-dev (Dex)"
   priority: medium
+
+# -----------------------------------------------------------------------------
+# CONSUMPTION RECORD
+# -----------------------------------------------------------------------------
+consumption_record:
+  story_file: "docs/stories/active/2.5.planner-executor-sonnet.md"
+  story_status_before: "Ready (v1.1)"
+  story_status_after: "Ready for Review (v1.2)"
+  tasks_completed: "12/12"
+  subtasks_completed: "~50/~50"
+  tests_delivered: 53
+  tests_target: 45
+  tests_excess_pct: "18%"
+  package_created: "@meu-jarvis/planner-executor (15 ficheiros novos)"
+  files_modified_external: 8  # agent/index, tools 4, classifier 2, apps/web 2 (= 9 mas pnpm-lock conta como auto-gen)
+  quality_gates_status:
+    typecheck: "exit 0 — 9/9 packages FULL TURBO"
+    lint: "exit 0 — 9/9 packages 0 warnings 44s"
+    test: "exit 0 — 53 novos + 222+ inalterados (tools 57/57 + classifier 78/78 + agent 102/102 + observability 8/8 + db-test 103/103 + web 9/9)"
+    check_rls: "exit 0 — 26 tabelas / 104 policies — NFR5 PRESERVADA"
+    build: "exit 0 — Next.js 9 routes + Sentry sourcemap upload em 1m03s"
+  auto_decisions_dev:
+    D9_anthropic_applied:
+      description: "Re-export AnthropicClientLike no barrel @meu-jarvis/agent (1 linha em packages/agent/src/index.ts:20)"
+      rationale: "Padrão idêntico a D9 da Story 2.4 (OpenAIClientLike) — zero-risk type expose validado por architect APPROVED 9.4/10. AC3 + Task 2 dedicada confirmou ausência via pre-flight."
+      verification: "pnpm --filter @meu-jarvis/agent typecheck/test exit 0 inalterados (102/102 tests)."
+    D16_relative_imports_refactor:
+      description: "Refactor @/* → ./ em packages/tools/src/{atomic,contracts,registry,tracing}.ts (4 ficheiros) e packages/classifier/src/{classifier,index}.ts (2 ficheiros)"
+      rationale: "TS source-only monorepo resolve @/* no scope do package que está a fazer typecheck (não no scope origem). Sem composite:true + project references (refactoring extensivo), evitar @/* cross-internal em source files é a única solução robusta. Pattern já usado em packages/agent/src/* desde Story 2.2."
+      verification: "Tests internos mantêm @/* (resolvem local). Zero alteração comportamental — verificado: tools 57/57 + classifier 78/78 + agent 102/102 + restantes 222+ tests continuam exit 0 inalterados."
+      validation_required: "Architect deve validar se aceita refactoring inline ou prefere reverter + abrir story dedicada. Recomendação @dev: aceitar inline (custo trivial, benefício alto)."
+  debug_incidents_resolved: 3
+  successor_handoff: "mj-handoff-2.5-ready-for-architect-20260509 (dev→architect *qa-gate 2.5)"
+  notes: |
+    Dex executou *develop 2.5 em modo YOLO autónomo entre 2026-05-09 18:45-19:30
+    (~45min após PO validation, mais rápido que precedente 2.4 ~1h). 12/12 tasks
+    + 50 subtasks completas. 15 ficheiros novos em packages/planner-executor/
+    (7 source + 7 test + 1 README + package.json + tsconfig + vitest.config + 3
+    fixtures privados). 8 ficheiros modificados externamente (agent/index re-export
+    D9-anthropic + tools 4 + classifier 2 + apps/web 2). 53 testes (target ≥45,
+    EXCEEDS por 18%). 5 quality gates exit 0. 2 [AUTO-DECISIONS] @dev novas
+    (D9-anthropic-applied + D16 refactor cross-package). 3 debug incidents
+    resolved durante o ciclo (cross-package alias TS, mock-db-tx executeAtomic
+    contract, cacheControl `??` null bug). [AUTO-DECISION D14] CodeRabbit
+    pre-commit skipped consistente com 2.2/2.3/2.4. Status InProgress → Ready
+    for Review. Story v1.2.
   project_prefix: mj-
   project_codename: meu-jarvis
   project_brand: Expressia (expressia.pt)
