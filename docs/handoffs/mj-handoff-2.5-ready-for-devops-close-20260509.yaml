@@ -1,0 +1,177 @@
+# =============================================================================
+# HANDOFF — @architect → @devops: close Story 2.5 (push + housekeeping)
+# =============================================================================
+# CONTEXTO: Aria (@architect) executou *qa-gate 2.5 em 2026-05-09. Veredicto
+# APPROVED 9.4/10 HIGH confidence. Gate report `docs/qa/gates/2.5-architect-gate.md`
+# (~700 linhas). 15/15 ACs PASS, 11/11 [AUTO-DECISIONS] PASS, 5/5 quality gates
+# re-verificados independentemente, Constitution 6/6, 9 NFRs cobertos, 0
+# bloqueantes, 4 nits non-blocking deferíveis. Story status InReview → Done.
+# Próximo passo: @devops *push 2.5.
+# =============================================================================
+
+handoff:
+  id: mj-handoff-2.5-ready-for-devops-close-20260509
+  from_agent: "@aiox-architect (Aria)"
+  to_agent: "@aiox-devops (Gage)"
+  created: "2026-05-09T20:30:00+01:00"
+  status: pending
+  priority: medium
+  project_prefix: mj-
+  project_codename: meu-jarvis
+  project_brand: Expressia (expressia.pt)
+  predecessor: "mj-handoff-2.5-ready-for-architect-20260509 (consumed/archived em 2026-05-09 20:30)"
+
+# -----------------------------------------------------------------------------
+# 1. RESUMO
+# -----------------------------------------------------------------------------
+summary: |
+  Story 2.5 (Planner+Executor Sonnet) APPROVED 9.4/10 HIGH pelo architect
+  gate. Gate report exhaustivo `docs/qa/gates/2.5-architect-gate.md` (~700
+  linhas padrão 2.4). Story status transicionado v1.2 InReview → v1.3 Done.
+
+  Comando: @aiox-devops *push 2.5
+  Output esperado: 4 commits ahead pushed para origin/main + housekeeping
+                   (story file active/→completed/, _INDEX.md Epic 2 5/11 Done,
+                   story v1.4 close entry, this handoff consumed+archived,
+                   HANDOFF-INDEX updated).
+  Estimate: ~10-15min @devops *push (precedente 2.4 ~10min com FULL TURBO cache).
+
+# -----------------------------------------------------------------------------
+# 2. CONTEXTO STORY 2.5 v1.3 + GATE
+# -----------------------------------------------------------------------------
+context:
+  story_path: "docs/stories/active/2.5.planner-executor-sonnet.md"
+  status: "Done (v1.3) — aguarda @devops *push 2.5"
+  gate_report_path: "docs/qa/gates/2.5-architect-gate.md"
+  gate_verdict: "APPROVED"
+  gate_score: "9.4/10"
+  gate_confidence: "HIGH"
+
+  pre_push_state:
+    branch: "main"
+    commits_ahead: 4
+    commits_to_push:
+      - "b7ab5a2 chore(stories): Story 2.5 v1.1 Ready — @po validation GO 9.4/10 + handoffs sm→po consume + po→dev create [Story 2.5]"
+      - "acb949f feat(planner-executor): Story 2.5 v1.2 Ready for Review — Planner+Executor Sonnet + atomicidade Postgres [Story 2.5]"
+      - "3e3d91e chore(handoffs): consume po→dev + handoff dev→architect Story 2.5 v1.2 [Story 2.5]"
+      - "642e0e9 chore(handoffs): meta session-pause cross-terminal pós Story 2.5 Ready for Review v1.2 [Story 2.5]"
+      - "<pending> chore(docs): Story 2.5 close — architect gate APPROVED 9.4/10 + handoff to devops"
+    working_tree: "clean após @architect housekeeping commit"
+    origin_main_at: "970f19b chore(handoffs): handoff devops→sm para Story 2.5 mockable-only"
+
+  gate_summary: |
+    15/15 ACs PASS — AC13 EXCEEDS target ≥45 por 18% (53 testes entregues).
+    11/11 [AUTO-DECISIONS] PASS (9 @sm validadas: D5/D5b/D6/D8/D9-anthropic/D11/
+    D13/D14/D15 + 2 @dev novas: D9-anthropic-applied + D16).
+    7-point quality checklist all PASS.
+    Constitution 6/6 articles compliant.
+    9 NFRs cobertos: NFR1 (latência defendable mock-only), NFR5 (RLS PRESERVED
+    26/104), NFR11 (data residency UE via DPA Anthropic EB1 pending), NFR12
+    (PII redaction defense-in-depth 3 camadas), NFR13 (OTel obrigatório spans
+    agent.planner.call + agent.executor.run), NFR16 (cobertura ≥70% — 53 tests),
+    NFR17 (5 quality gates pre-merge), NFR19 (Absolute Imports + D16 reforço).
+    0 issues bloqueantes.
+    4 nits non-blocking deferíveis: NIT-001-NB snapshot hash auto-referencial em
+    prompts.test.ts:49 (pattern sistémico — 2.4 também afectada — fix em Story
+    2.6/cleanup); NIT-002-NB sanitizeHint não cobre email/telefone curto (Story
+    2.6 endpoint deve aplicar redaction adicional ao formatar HTTP response);
+    NIT-003-NB require() lazy import com eslint-disable em planner.ts:142
+    (pragmatic, aceitável); NIT-004-NB margem test count menor que 2.4 mas
+    adequada ao scope thin wrapper.
+
+# -----------------------------------------------------------------------------
+# 3. PRE-PUSH RE-VALIDATION (esperado FULL TURBO cache hit)
+# -----------------------------------------------------------------------------
+pre_push_revalidation:
+  commands_to_run:
+    - "pnpm typecheck   # esperado 9/9 packages exit 0 FULL TURBO (cache hit)"
+    - "pnpm lint        # esperado 9/9 packages exit 0 0 warnings (cache hit)"
+    - "pnpm test        # esperado 416 tests passing (53 novos + 363 existentes)"
+    - "pnpm check:rls   # esperado 26 tabelas / 104 policies — NFR5 PRESERVADA"
+    - "pnpm build       # esperado 9/9 packages exit 0 + Sentry sourcemap upload"
+  expected_results:
+    typecheck: "9/9 exit 0, FULL TURBO ~3s"
+    lint: "9/9 0 warnings, FULL TURBO ~500ms"
+    test: "416 tests passing — 53 planner-executor + 102 agent + 78 classifier + 57 tools + 103 db-test + 9 web + 8 observability + 6 db + 0 auth"
+    check_rls: "26 tabelas multi-tenant / 104 policies — exit 0"
+    build: "9/9 exit 0 + Next.js 9 routes + Sentry sourcemap 3 runtimes preservado"
+  coderabbit_pre_push: |
+    [AUTO-DECISION delegada a @devops] CodeRabbit pre-push: skipped consistente
+    com 2.2/2.3/2.4 D14 (architect gate APPROVED 9.4/10 substitui review
+    automatizado). Caso @devops queira correr antes do push (file count 23+
+    abaixo limite 150), output prompt-only para audit. Recomendação: skip,
+    confiar no gate exhaustivo + 5 quality gates re-verificados.
+
+# -----------------------------------------------------------------------------
+# 4. NEXT ACTION FOR @devops
+# -----------------------------------------------------------------------------
+next_action: |
+  @devops (Gage) executa `*push 2.5`:
+
+  1. Pre-push re-validation: rodar 5 quality gates locais (typecheck/lint/test/
+     check:rls/build) — esperado FULL TURBO por cache.
+  2. Push 4 commits para origin/main em range 970f19b..642e0e9 (b7ab5a2 +
+     acb949f + 3e3d91e + 642e0e9).
+  3. Story housekeeping:
+     a. `git mv docs/stories/active/2.5.planner-executor-sonnet.md →
+        docs/stories/completed/2.5.planner-executor-sonnet.md` (preservar history)
+     b. Actualizar story v1.3 → v1.4 com Change Log entry @devops:
+        "Push 5 commits range 970f19b..{push-sha} para origin/main. 5 quality
+        gates pre-push re-verificados FULL TURBO. CodeRabbit skipped consistente
+        2.2/2.3/2.4. _INDEX.md Epic 2 cabeçalho 4/11 → 5/11 Done."
+     c. Actualizar `docs/stories/active/_INDEX.md` row Story 2.5 v1.3 InReview
+        → v1.4 Done + cabeçalho Epic 2 cabeçalho 4/11 → 5/11.
+  4. Handoff lifecycle:
+     a. Marcar este handoff (mj-handoff-2.5-ready-for-devops-close-20260509)
+        consumed: true, consumed_at: <ISO-8601>, consumed_by: @aiox-devops.
+     b. `git mv docs/handoffs/mj-handoff-2.5-ready-for-devops-close-20260509.yaml
+        → docs/handoffs/archive/`.
+     c. Actualizar `docs/HANDOFF-INDEX.md`: pending row remove + archived row add.
+     d. Sucessor: nenhum directo — próximo handoff fica a critério de Eurico
+        (cenário A: @sm draft 2.6 endpoint mockable, cenário B: aguardar EB1
+        para integração real Anthropic, cenário C: pivot para Story 3.x).
+  5. Commit chore(docs) único contendo: gate report + story v1.4 + _INDEX
+     + handoff close + HANDOFF-INDEX updates.
+  6. Push final.
+
+# -----------------------------------------------------------------------------
+# 5. CONSUMPTION PROTOCOL
+# -----------------------------------------------------------------------------
+consumption_instructions:
+  who_consumes: "@aiox-devops (Gage) ao executar *push 2.5"
+  steps:
+    - "Ler este YAML completo + gate report + story v1.3"
+    - "Executar pre-push re-validation (5 quality gates) localmente"
+    - "Editar este YAML: status pending → consumed; consumed: true; consumed_at: <ISO-8601>; consumed_by: @aiox-devops"
+    - "Adicionar consumption_record (push range, pre-push gate results, CodeRabbit skip rationale, story housekeeping summary)"
+    - "git mv docs/handoffs/mj-handoff-2.5-ready-for-devops-close-20260509.yaml → docs/handoffs/archive/"
+    - "Editar HANDOFF-INDEX.md: pending row remove + archived row add"
+    - "git mv story file active/ → completed/ + bump v1.3 → v1.4"
+    - "_INDEX.md Epic 2 4/11 → 5/11 Done + row Story 2.5 InReview → Done"
+    - "Push final"
+
+# -----------------------------------------------------------------------------
+# 6. METADATA
+# -----------------------------------------------------------------------------
+metadata:
+  story_id: "2.5"
+  story_title: "Planner + Executor (Sonnet) + atomicidade Postgres"
+  story_version_after_gate: "1.3"
+  epic_id: "Epic 2 — Cérebro AI Multi-Intent"
+  epic_progress_before: "4/11 Done"
+  epic_progress_after_push: "5/11 Done"
+  package_validated: "@meu-jarvis/planner-executor (15 ficheiros novos + 8 modificados)"
+  gate_dedicated_analyses:
+    - "D9-anthropic-applied (1 linha re-export — zero-comportamental, 102 agent tests inalterados)"
+    - "D16 cross-package refactor (6 ficheiros, 363 testes existentes preservados, pattern já existia em agent/src/* desde 2.2; aceito inline com Directive convenção implícita do monorepo)"
+  gate_quality_gates_independently_verified:
+    typecheck: "9/9 exit 0 (3.013s)"
+    lint: "9/9 exit 0 0 warnings (455ms)"
+    test: "416 tests (53 novos + 363 existentes preservados; 4.69s planner-executor isolado)"
+    check_rls: "26 tabelas / 104 policies — NFR5 PRESERVADA"
+    build: "9/9 exit 0 (23.036s + Sentry sourcemap 3 runtimes)"
+  next_story_unblocked: "Story 2.6 (Endpoint POST /api/agent/prompt) — depende 2.2 ✓ + 2.3 ✓ + 2.4 ✓ + 2.5 ✓; EB1 ainda pending mas mockable-only."
+
+# -----------------------------------------------------------------------------
+# FIM DO HANDOFF
+# -----------------------------------------------------------------------------

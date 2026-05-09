@@ -13,12 +13,61 @@ handoff:
   from_agent: "@aiox-dev (Dex)"
   to_agent: "@aiox-architect (Aria)"
   created: "2026-05-09T19:30:00+01:00"
-  status: pending
+  status: consumed
+  consumed: true
+  consumed_at: "2026-05-09T20:30:00+01:00"
+  consumed_by: "@aiox-architect (Aria)"
   priority: medium
   project_prefix: mj-
   project_codename: meu-jarvis
   project_brand: Expressia (expressia.pt)
   predecessor: "mj-handoff-2.5-ready-for-dev-20260509 (consumed/archived em 2026-05-09 19:30)"
+  successor: "mj-handoff-2.5-ready-for-devops-close-20260509 (architect → devops)"
+
+consumption_record:
+  date: "2026-05-09T20:30:00+01:00"
+  agent: "@aiox-architect (Aria)"
+  command_executed: "*qa-gate 2.5"
+  verdict: "APPROVED"
+  score: "9.4/10"
+  confidence: "HIGH"
+  gate_report_path: "docs/qa/gates/2.5-architect-gate.md"
+  gate_report_lines: 700
+  acs_passed: "15/15"
+  ac_exceeds: "AC13 — 53 tests vs target 45 (18% acima)"
+  decisions_reviewed: "11/11 PASS"
+  decisions_breakdown:
+    "9 @sm validadas":
+      - "D5 (max 10 tool calls) PASS com nota telemetry Story 2.11"
+      - "D5b (1 package) PASS"
+      - "D6 (TOOL_TO_INTENT_MAP estático) PASS"
+      - "D8 (defense-in-depth Executor) PASS"
+      - "D9-anthropic (delegada @dev) PASS"
+      - "D11 (cacheControl ephemeral default) PASS"
+      - "D13 (Executor delega ToolError) PASS"
+      - "D14 (skip CodeRabbit pre-commit) PASS"
+      - "D15 (test target ≥45) PASS EXCEEDS"
+    "2 @dev novas":
+      - "D9-anthropic-applied (1 linha re-export AnthropicClientLike, zero-comportamental, 102 agent tests inalterados) PASS"
+      - "D16 (refactor `@/*` → `./` em 6 ficheiros tools+classifier, 363 testes existentes preservados — pattern já existia em agent/src/* desde 2.2) PASS com Directive convenção implícita monorepo"
+  quality_gates_re_verified:
+    typecheck: "9/9 exit 0 (3.013s)"
+    lint: "9/9 exit 0 0 warnings (455ms)"
+    test: "416 tests (53 novos + 363 existentes preservados; 4.69s planner-executor isolado)"
+    check_rls: "26 tabelas / 104 policies — NFR5 PRESERVADA"
+    build: "9/9 exit 0 (23.036s + Sentry sourcemap 3 runtimes)"
+  constitution_compliance: "6/6 articles (I CLI First, II Agent Authority, III Story-Driven, IV No Invention, V Quality First, VI Absolute Imports + D16 reforço)"
+  nfrs_covered: "NFR1, NFR5 PRESERVADA, NFR11, NFR12 (defense-in-depth 3 camadas), NFR13 (OTel spans), NFR16 (cobertura), NFR17 (gates), NFR19 (Absolute Imports + D16)"
+  blocking_issues: 0
+  non_blocking_nits: 4
+  nits:
+    NIT-001-NB: "Snapshot hash auto-referencial em prompts.test.ts:49 (pattern sistémico — 2.4 também afectada — fix Story 2.6 cleanup)"
+    NIT-002-NB: "sanitizeHint não cobre email/telefone curto (Story 2.6 endpoint deve aplicar redaction adicional)"
+    NIT-003-NB: "require() lazy import com eslint-disable em planner.ts:142 (pragmatic, aceitável)"
+    NIT-004-NB: "Margem test count menor que 2.4 mas adequada ao scope thin wrapper"
+  doc_fixes_inline_applied: 0
+  story_status_transition: "InReview → Done (v1.2 → v1.3)"
+  story_change_log_entry_added: "Architect gate APPROVED 9.4/10 HIGH + 11/11 decisões PASS + análise dedicada D9-anthropic-applied + D16"
 
 # -----------------------------------------------------------------------------
 # 1. RESUMO
