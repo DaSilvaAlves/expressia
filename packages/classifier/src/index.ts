@@ -27,8 +27,8 @@
  */
 
 // Class principal e tipos.
-export { Classifier, DEFAULT_MAX_INPUT_LENGTH, DEFAULT_TIMEOUT_MS } from '@/classifier';
-export type { ClassifierInput, ClassifierOpts } from '@/classifier';
+export { Classifier, DEFAULT_MAX_INPUT_LENGTH, DEFAULT_TIMEOUT_MS } from './classifier';
+export type { ClassifierInput, ClassifierOpts } from './classifier';
 
 // Schemas e tipos.
 export {
@@ -38,8 +38,8 @@ export {
   ClassificationSchema,
   CLASSIFIER_CONFIDENCE_THRESHOLD,
   CLASSIFIER_MODEL,
-} from '@/schemas';
-export type { Intent, ClassifiedIntent, ClassificationResult } from '@/schemas';
+} from './schemas';
+export type { Intent, ClassifiedIntent, ClassificationResult } from './schemas';
 
 // Erros.
 export {
@@ -48,15 +48,15 @@ export {
   ClassifierLanguageError,
   ClassifierLLMError,
   ClassifierOutputError,
-} from '@/errors';
-export type { ClassifierErrorSeverity } from '@/errors';
+} from './errors';
+export type { ClassifierErrorSeverity } from './errors';
 
 // Language gate.
-export { detectNonPtPt } from '@/language-gate';
-export type { LanguageGateResult } from '@/language-gate';
+export { detectNonPtPt } from './language-gate';
+export type { LanguageGateResult } from './language-gate';
 
 // Tracing — APENAS as keys públicas (whitelist). Wrappers são privados.
-export { CLASSIFIER_SPAN_ATTRIBUTE_KEYS } from '@/tracing';
+export { CLASSIFIER_SPAN_ATTRIBUTE_KEYS } from './tracing';
 
 // System prompt — APENAS a versão (string raw NÃO exportado).
-export { CLASSIFIER_SYSTEM_PROMPT_VERSION } from '@/prompts/classifier-system';
+export { CLASSIFIER_SYSTEM_PROMPT_VERSION } from './prompts/classifier-system';

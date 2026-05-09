@@ -1,0 +1,37 @@
+{
+  "name": "@meu-jarvis/planner-executor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Planner+Executor (Estágio 2+3 do pipeline AI multi-intent) — Planner invoca Claude Sonnet com tool calling sobre toolRegistry.getAnthropicToolDefinitions() (Story 2.3) com prompt-cache 'ephemeral' (Architecture §4.3 ~90% cost saving). Executor é thin wrapper sobre executeAtomic (Story 2.3) que valida tool names (D8 defense-in-depth) e delega atomicidade Postgres. Source-only. Consumido pelas Stories 2.6 (endpoint /api/agent/prompt), 2.10 (LLM Benchmark E2E).",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schemas": "./src/schemas.ts",
+    "./errors": "./src/errors.ts"
+  },
+  "scripts": {
+    "lint": "echo \"@meu-jarvis/planner-executor: lint herdado do typecheck — ver typecheck script\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "echo \"@meu-jarvis/planner-executor: package source-only (sem build step)\""
+  },
+  "dependencies": {
+    "@meu-jarvis/agent": "workspace:*",
+    "@meu-jarvis/classifier": "workspace:*",
+    "@meu-jarvis/observability": "workspace:*",
+    "@meu-jarvis/tools": "workspace:*",
+    "@opentelemetry/api": "^1.9.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

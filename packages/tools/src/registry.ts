@@ -17,8 +17,8 @@
  */
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
-import type { ToolDefinition, ToolDomain } from '@/contracts';
-import { DuplicateToolError, ToolNotFoundError } from '@/errors';
+import type { ToolDefinition, ToolDomain } from './contracts';
+import { DuplicateToolError, ToolNotFoundError } from './errors';
 
 /**
  * Forma de uma tool definition serializada para o Anthropic SDK

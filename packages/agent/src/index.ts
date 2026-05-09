@@ -17,6 +17,7 @@ export { getProvider, resetProviderCache, isFallbackOpenAIEnabled, AnthropicProv
 export type { ProviderInterface } from './providers';
 export type { GetProviderOpts } from './providers';
 export type { OpenAIClientLike } from './providers/openai';
+export type { AnthropicClientLike } from './providers/anthropic';
 
 export {
   ProviderCompleteInputSchema,

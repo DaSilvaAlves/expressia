@@ -47,21 +47,21 @@ import type {
   ReverseOpPayload,
   ToolDefinition,
   ToolExecutionContext,
-} from '@/contracts';
-import { serializeReverseOp } from '@/contracts';
+} from './contracts';
+import { serializeReverseOp } from './contracts';
 import {
   redactToolInputForLog,
   ToolError,
   ToolExecutionError,
   ToolTransactionError,
   ToolValidationError,
-} from '@/errors';
+} from './errors';
 import {
   annotateAtomicMetrics,
   annotateToolMetrics,
   withAtomicSpan,
   withToolSpan,
-} from '@/tracing';
+} from './tracing';
 
 /**
  * Item de entrada de `executeAtomic`. O par `(definition, input)` é tipado

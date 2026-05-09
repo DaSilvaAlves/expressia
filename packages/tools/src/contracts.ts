@@ -13,7 +13,7 @@
  */
 import { z } from 'zod';
 
-import { ToolValidationError } from '@/errors';
+import { ToolValidationError } from './errors';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ToolDomain — domínios de tools previstos no MVP
@@ -312,7 +312,7 @@ export interface AtomicResult {
 export interface AtomicFailure {
   readonly success: false;
   readonly failedToolName: string;
-  readonly error: import('@/errors').ToolError;
+  readonly error: import('./errors').ToolError;
   readonly rolledBack: true;
 }
 

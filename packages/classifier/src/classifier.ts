@@ -45,19 +45,19 @@ import {
   ClassificationSchema,
   type ClassificationResult,
   type ClassifiedIntent,
-} from '@/schemas';
+} from './schemas';
 import {
   ClassifierLanguageError,
   ClassifierLLMError,
   ClassifierOutputError,
   ClassifierValidationError,
-} from '@/errors';
-import { detectNonPtPt } from '@/language-gate';
+} from './errors';
+import { detectNonPtPt } from './language-gate';
 import {
   CLASSIFIER_SYSTEM_PROMPT,
   CLASSIFIER_SYSTEM_PROMPT_VERSION,
-} from '@/prompts/classifier-system';
-import { annotateClassifierMetrics, withClassifierSpan } from '@/tracing';
+} from './prompts/classifier-system';
+import { annotateClassifierMetrics, withClassifierSpan } from './tracing';
 
 /**
  * Default máximo de caracteres aceites em `input.text`. Decisão prudencial

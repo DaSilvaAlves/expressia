@@ -18,7 +18,7 @@ import type { Span } from '@opentelemetry/api';
 
 import { hashForCorrelation, withSpan } from '@meu-jarvis/observability';
 
-import type { ToolDomain } from '@/contracts';
+import type { ToolDomain } from './contracts';
 
 /**
  * Nome canónico do span de uma tool individual.
