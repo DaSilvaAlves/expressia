@@ -1,0 +1,552 @@
+# =============================================================================
+# HANDOFF — SESSION PAUSE | Story 2.4 Ready for Review (cross-terminal resume)
+# =============================================================================
+# CONTEXTO: Sessão `@aiox-dev` Dex 2026-05-09 entregou Story 2.4 (Classifier
+# PT-PT) Ready for Review v1.2 em modo YOLO autónomo. 3 commits locais por
+# pushar. Eurico pausou a sessão; este handoff é o ponto de retomada para
+# QUALQUER terminal novo sem contexto.
+#
+# DESIGN PRINCIPLE: este YAML é AUTOSUFICIENTE. Um terminal completamente
+# fresco (sem ler outros ficheiros) consegue:
+#   1. Saber onde está o projecto e como entrar
+#   2. Saber qual a próxima acção primária e 3 alternativas
+#   3. Saber as regras críticas inegociáveis (Article II, IV, NFR5, CON3)
+#   4. Saber quem fez o quê e em que estado está cada Epic
+#   5. Saber qual handoff táctico abrir (architect-gate)
+# =============================================================================
+
+handoff:
+  id: mj-handoff-session-pause-after-2.4-ready-for-review-20260509
+  type: session_pause_meta_handoff
+  from_agent: "@aiox-dev (Dex) [última agente activa]"
+  to_agent: "any (próximo terminal — preferencialmente @aiox-architect Aria para acção primária)"
+  created: "2026-05-09T01:35:00+01:00"
+  status: pending
+  priority: medium
+  project_prefix: mj-
+  project_codename: meu-jarvis
+  project_brand: Expressia (expressia.pt)
+  reason_for_handoff: |
+    Sessão @aiox-dev terminou após Story 2.4 atingir Ready for Review v1.2.
+    3 commits locais não pushed. Próxima acção é @architect *qa-gate 2.4 (gate
+    canónico para decisões arquitecturais críticas). Eurico pausou; este meta
+    handoff serve qualquer terminal novo.
+
+# -----------------------------------------------------------------------------
+# 1. PRÉ-REQUISITOS DO NOVO TERMINAL — fazer ANTES de retomar trabalho
+# -----------------------------------------------------------------------------
+preflight_new_terminal:
+  - step: 1
+    action: "Confirmar Claude Code actualizado (a sessão anterior abriu pós Auto-update failed)"
+    commands:
+      - "claude doctor"
+      - "npm i -g @anthropic-ai/claude-code  # se warning"
+    expected: "Sem warning de Auto-update failed."
+
+  - step: 2
+    action: "Confirmar working directory"
+    commands:
+      - 'cd "C:\\Users\\XPS\\Documents\\meu-jarvis"'
+    expected: "pwd retorna C:\\Users\\XPS\\Documents\\meu-jarvis (NÃO docs/handoffs)"
+
+  - step: 3
+    action: "Sanity check git state"
+    commands:
+      - "git status                  # working tree limpo esperado"
+      - "git log --oneline -5        # ver os 3 commits desta sessão"
+      - "git rev-list origin/main..HEAD --count  # esperado: 3"
+    expected: |
+      Branch: main
+      Working tree: clean
+      Last 5 commits (do mais recente):
+        18664b0 chore(handoffs): consume po→dev + handoff dev→architect Story 2.4 [Story 2.4]
+        adc57d7 feat(classifier): @meu-jarvis/classifier package — Estágio 1 pipeline AI [Story 2.4]
+        b78529a chore(stories): Story 2.4 Draft v1.0 → Ready v1.1 via PO validation [Story 2.4]
+        0c18763 chore(stories): close Story 2.3 Done — move active→completed + handoff devops consumed [Story 2.3]
+        26af717 chore(docs): close Story 2.3 — architect gate APPROVED 9.5/10 + handoff to devops [Story 2.3]
+      ahead of origin/main: 3 (a pushar via @devops após gate verde)
+
+  - step: 4
+    action: "Ler regra global Handoff Central"
+    file: "C:\\Users\\XPS\\.claude\\rules\\handoff-central.md"
+    purpose: "Confirmar protocolo de consume + archive"
+
+  - step: 5
+    action: "Ler INDEX + este handoff"
+    files:
+      - "docs/HANDOFF-INDEX.md"
+      - "docs/handoffs/mj-handoff-session-pause-after-2.4-ready-for-review-20260509.yaml (este ficheiro)"
+
+  - step: 6
+    action: "Se primary action escolhida (architect gate): ler handoff táctico dev→architect"
+    file: "docs/handoffs/mj-handoff-2.4-ready-for-architect-gate-20260509.yaml"
+    purpose: "9 review focus areas + AC-by-AC + 3 nits non-blocking + quality gates evidence"
+
+# -----------------------------------------------------------------------------
+# 2. ESTADO REAL DO PROJECTO (snapshot 2026-05-09 01:35)
+# -----------------------------------------------------------------------------
+current_state:
+  branch: main
+  head_sha: "18664b0"
+  origin_main_sha: "0c187639fcf6799fc5ec1314428fd30fa0cd3cf5"
+  ahead: 3
+  behind: 0
+  working_tree: clean
+
+  commits_this_session_not_pushed:
+    - sha: b78529a
+      type: chore(stories)
+      summary: "Story 2.4 Draft v1.0 → Ready v1.1 via PO validation [Story 2.4]"
+      author: "@aiox-po (Pax) — minor fix AC3 + Status Draft → Ready"
+    - sha: adc57d7
+      type: feat(classifier)
+      summary: "@meu-jarvis/classifier package — Estágio 1 pipeline AI [Story 2.4]"
+      author: "@aiox-dev (Dex) YOLO — 17 ficheiros novos + 6 modificados, 78 tests, 5 gates verde"
+    - sha: 18664b0
+      type: chore(handoffs)
+      summary: "consume po→dev + handoff dev→architect Story 2.4 [Story 2.4]"
+      author: "@aiox-dev (Dex) — handoff transitions"
+
+  epics:
+    epic_1_foundation:
+      status: "7/7 Done — COMPLETO"
+      stories_done: ["1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7"]
+      pending_followup: "mj-handoff-1.7-post-deploy-ui-tasks-20260508 (priority low — 4 acções UI manuais ~25-35 min)"
+
+    epic_2_ai_brain:
+      status: "3/11 Done + 1 Ready for Review (2.4) — em progresso"
+      stories_done:
+        - "2.1 Schema agent (RLS+immutability NFR9+TTL) — Done v1.3 (architect 9.5/10 HIGH)"
+        - "2.2 packages/agent provider abstraction — Done v1.3 (architect 9.4/10 HIGH)"
+        - "2.3 packages/tools Tool Registry Foundation — Done v1.3 (architect 9.5/10 HIGH)"
+      stories_ready_for_review:
+        - id: "2.4"
+          slug: classifier-pt-pt
+          status: "Ready for Review v1.2 (entregue pelo @dev em modo YOLO 2026-05-09)"
+          path: "docs/stories/active/2.4.classifier-pt-pt.md"
+          implemented_by: "@aiox-dev (Dex)"
+          next_agent: "@aiox-architect (Aria) — *qa-gate 2.4"
+          tactical_handoff: "docs/handoffs/mj-handoff-2.4-ready-for-architect-gate-20260509.yaml"
+          test_count: 78  # target ≥35; 46 mapeados; 70% acima
+          quality_gates: "5/5 exit 0 (typecheck/lint/test/check:rls/build) — FULL TURBO em todos"
+          blockers_for_gate: []  # NENHUM — gate pode prosseguir
+          blockers_for_real_integration: ["EB2 (OpenAI DPA UE)"]  # só Story 2.10
+      stories_backlog:
+        - "2.5 Planner+Executor Sonnet — depende 2.3 ✓ + 2.4 (após gate) + EB1"
+        - "2.6 Endpoint POST /api/agent/prompt — depende 2.5 + EB3 (Upstash Redis)"
+        - "2.7 Preview-then-confirm flow (FR4) — depende 2.6"
+        - "2.8 Undo (FR6) + endpoint — depende 2.6 + EB4 (Inngest)"
+        - "2.9 Cost router + cache + quotas — depende 2.6 + EB3"
+        - "2.10 LLM Benchmark Suite — depende 2.5 + EB1 + EB2"
+        - "2.11 Observability dashboards Agent Health — depende 2.6 + 2.10"
+
+# -----------------------------------------------------------------------------
+# 3. DECISÃO IMEDIATA — escolher 1 das 4 opções
+# -----------------------------------------------------------------------------
+next_actions:
+
+  primary:
+    label: "OPÇÃO A — Avançar Story 2.4 para gate (recomendado)"
+    command: "@aiox-architect *qa-gate 2.4"
+    description: |
+      Gate canónico para decisões arquitecturais críticas da Story 2.4.
+      Padrão das Stories 2.1, 2.2, 2.3 (cada uma APPROVED ≥9.4/10 HIGH).
+    handoff_to_open: "docs/handoffs/mj-handoff-2.4-ready-for-architect-gate-20260509.yaml"
+    expected_duration: "~30-45 min (review profunda + gate report ~750 linhas)"
+    after_gate_pass: |
+      → @devops *push (3 commits b78529a..18664b0 + commit gate report architect)
+      → Story 2.4 Done. Epic 2 fica 4/11 Done. Próxima crítica: 2.5 (depende EB1).
+    after_gate_fail: |
+      → Voltar a @dev com feedback específico nos issues bloqueantes
+
+  alternative_b:
+    label: "OPÇÃO B — Tratar follow-ups Story 1.7 antes do gate"
+    command: "Consumir mj-handoff-1.7-post-deploy-ui-tasks-20260508"
+    description: |
+      4 acções UI manuais Grafana/Sentry/Vercel Analytics. Priority low,
+      non-blocking. Pre-req sourcemap upload já validado em 12:00 do dia anterior.
+    handoff_to_open: "docs/handoffs/mj-handoff-1.7-post-deploy-ui-tasks-20260508.yaml"
+    expected_duration: "~25-35 min UI manual"
+    when_to_pick: "Se quiser limpar follow-ups Epic 1 antes de avançar Epic 2"
+
+  alternative_c:
+    label: "OPÇÃO C — Spec Epic 3 ou Epic 4 (independente de LLM blockers)"
+    command: "@aiox-pm *create-epic Epic 3 (Tarefas) ou Epic 4 (Finanças)"
+    description: |
+      Trabalho preparatório enquanto EB1 (Anthropic DPA UE) e EB2 (OpenAI DPA UE)
+      estão pending. Epic 3 e Epic 4 não dependem de LLM APIs (módulos CRUD).
+    when_to_pick: "Se Eurico ainda não obteve resposta dos providers e quer paralelizar"
+
+  alternative_d:
+    label: "OPÇÃO D — Decidir EB1 ou EB2 com Eurico"
+    description: |
+      Eurico pode contactar Anthropic Sales / OpenAI Enterprise para acelerar
+      DPA UE. Sem keys reais, Story 2.5 (Planner+Executor) e Story 2.10
+      (Benchmark) ficam mockables-only — operacional mas não testável E2E.
+    when_to_pick: "Se queremos desbloquear caminho crítico Epic 2 a longo prazo"
+
+  recommended: "OPÇÃO A — gate é o caminho mais directo para Epic 2 progress"
+
+# -----------------------------------------------------------------------------
+# 4. REGRAS CRÍTICAS — ler ANTES de qualquer acção (não-negociáveis)
+# -----------------------------------------------------------------------------
+critical_rules:
+
+  language:
+    - rule: "TODO o output em PT-PT (português europeu)"
+    - rule: "PROIBIDO PT-BR — mesmo se utilizador escrever em PT-BR, agentes respondem PT-PT"
+    - vocabulary_proibido_correcto:
+        "usar": "utilizar"
+        "deletar": "eliminar/apagar"
+        "setar": "definir/configurar"
+        "checar": "verificar"
+        "você": "tu / o utilizador"
+        "buildar": "compilar/construir"
+    - reference: "C:\\Users\\XPS\\.claude\\rules\\language-standards.md"
+
+  agent_authority:
+    push_exclusive:
+      who: "@aiox-devops (Gage) APENAS"
+      blocked_for: "@dev, @sm, @po, @architect, @qa, @pm, @analyst — TODOS bloqueados"
+      operations: ["git push", "git push --force", "gh pr create", "gh pr merge", "MCP add/remove"]
+    quality_gate_2_4:
+      who: "@aiox-architect (Aria)"
+      command: "*qa-gate"
+      verdicts: ["APPROVED ≥9.0", "APPROVED WITH CONCERNS 8.0-8.9", "NEEDS WORK <8.0"]
+      gate_report_location: "docs/qa/gates/2.4-architect-gate.md (a criar)"
+    reference:
+      - "C:\\Users\\XPS\\.claude\\rules\\agent-authority.md"
+      - ".claude/rules/agent-authority.md"
+
+  constitution:
+    article_I:
+      name: "CLI First"
+      severity: NON-NEGOTIABLE
+      rule: "CLI > Observability > UI. UI nunca é requisito. Dashboards observam, nunca controlam."
+    article_II:
+      name: "Agent Authority"
+      severity: NON-NEGOTIABLE
+      rule: "Cada agente tem autoridade exclusiva sobre o seu domínio. Push é EXCLUSIVO @devops."
+    article_III:
+      name: "Story-Driven Development"
+      severity: MUST
+      rule: "Workflow: @sm draft → @po validate → @dev develop → @architect/@qa gate → @devops push."
+    article_IV:
+      name: "No Invention"
+      severity: MUST
+      rule: "Cada AC deve traceiar a FR/NFR/CON do PRD ou architecture. Story 2.4 [AUTO-DECISION D8] max(5) intents é guardrail explícito (sem rastreabilidade FR — validável em @architect gate)."
+    article_V:
+      name: "Quality First"
+      severity: MUST
+      rule: "Quality gates bloqueiam merge: lint --max-warnings=0, typecheck strict, test, check:rls, build."
+    article_VI:
+      name: "Absolute Imports"
+      severity: SHOULD
+      rule: "@meu-jarvis/... e @/... (NUNCA ../../). Enforced em NFR19."
+
+  multi_tenancy_rls:
+    rule: "TODA a tabela de domínio tem household_id + 4 RLS policies"
+    enforcement: "scripts/check-rls-coverage.ts (NFR5 gate em CI)"
+    state_atual_pos_2_4: "26 tabelas / 104 policies (Story 2.4 NÃO adiciona tabelas — preserved inalterado)"
+
+  pt_pt_market_exclusive:
+    rule: "Mercado PT-PT EXCLUSIVO Portugal continental. NUNCA escrever copy/UI em PT-BR. Sem i18n no MVP."
+    currency: "EUR único, formato PT-PT (€8,88, €1.234,56, vírgula decimal)"
+    data_residency: "UE obrigatória — Vercel fra1 (Frankfurt) + Supabase eu-central-1"
+
+  framework_protection:
+    L1_never_modify:
+      - ".aiox-core/core/**"
+      - ".aiox-core/constitution.md"
+      - "bin/aiox.js"
+      - "bin/aiox-init.js"
+    L2_never_modify:
+      - ".aiox-core/development/tasks/**"
+      - ".aiox-core/development/templates/**"
+      - ".aiox-core/development/checklists/**"
+      - ".aiox-core/development/workflows/**"
+      - ".aiox-core/infrastructure/**"
+    L4_always_modify:
+      - "docs/stories/**"
+      - "packages/**"
+      - "apps/**"
+      - "tests/**"
+      - ".github/**"
+      - "scripts/**"
+    enforcement: ".claude/settings.json deny rules (deterministic blocking)"
+
+  commit_protocol:
+    format: "Conventional Commits + trailers OMC"
+    trailers_relevant:
+      - "Constraint: ..."
+      - "Rejected: alternative | reason"
+      - "Confidence: high|medium|low"
+      - "Scope-risk: narrow|moderate|broad"
+      - "Not-tested: edge case"
+      - "Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+    story_reference: "Sempre [Story X.Y] no fim da subject line"
+    rule_critical: "NUNCA --amend (sempre NEW commit em caso de hook failure). NUNCA --no-verify."
+
+# -----------------------------------------------------------------------------
+# 5. STORY 2.4 — RESUMO PARA O @architect (TLDR)
+# -----------------------------------------------------------------------------
+story_2_4_summary:
+  path: "docs/stories/active/2.4.classifier-pt-pt.md"
+  status: "Ready for Review v1.2"
+  package: "@meu-jarvis/classifier (source-only)"
+  scope: |
+    Estágio 1 do pipeline AI multi-intent. Recebe input PT-PT, language gate
+    pré-LLM via regex Unicode-aware, invoca GPT-4o-mini com OpenAI structured
+    outputs (json_schema strict + ClassificationSchema Zod), valida output
+    com retry 1×, deriva needs_confirmation/overall_confidence, retorna
+    ClassificationResult (1-5 intents, FR3/FR4 satisfeitos).
+
+  deliverables:
+    files_new: 17  # packages/classifier/* (sem .turbo)
+    files_modified: 6
+    test_count: 78  # target ≥35; mapeados 46
+    quality_gates: 5  # all exit 0
+    auto_decisions_dev: 4  # D9, D10, D11, D12
+
+  key_files_review:
+    - "packages/classifier/src/classifier.ts (núcleo — classify() em 7 steps)"
+    - "packages/classifier/src/schemas.ts (IntentSchema 8 valores + ClassificationSchema)"
+    - "packages/classifier/src/language-gate.ts (helper unicodeWordPattern + 19 padrões)"
+    - "packages/classifier/src/errors.ts (4 subclasses + sanitizeHint reuse)"
+    - "packages/classifier/src/tracing.ts (whitelist 12 keys NFR12)"
+    - "packages/classifier/src/prompts/classifier-system.ts (v1, 5 few-shot)"
+    - "packages/classifier/src/__tests__/* (7 ficheiros, 78 tests)"
+
+  modifications_to_2_2_done:
+    description: "[AUTO-DECISIONS D9 + D10] zero-risk exports adicionados"
+    files:
+      - "packages/agent/src/errors.ts (sanitizeHint export added)"
+      - "packages/agent/src/index.ts (3 re-exports: OpenAIClientLike + sanitizeHint + mapOpenAIError)"
+    verification: "agent typecheck + test passam inalterados pós-export"
+
+  9_review_focus_areas:
+    - "1. Structured outputs strategy (zodToJsonSchema strict mode + max_tokens 256)"
+    - "2. Language gate conservatism (19 padrões Unicode-aware — falsos positivos zero?)"
+    - "3. Defense-in-depth PII (3 camadas: messages + sanitizeHint + OTel whitelist)"
+    - "4. Error taxonomy (4 subclasses sem ClassifierConfidenceError — D4 review)"
+    - "5. D8 max(5) intents guardrail (manter / max(10) / remover só min(1)?)"
+    - "6. AC3 recalculation in Classifier (vs reject incoherent LLM output)"
+    - "7. D9/D10 zero-risk exports a 2.2 Done (modificar story Done aceitável?)"
+    - "8. D11 sanity-check via fs.readFile (I/O em test aceitável vs project refs?)"
+    - "9. D12 skip CodeRabbit (precedente 2.2/2.3 + @architect canonical?)"
+
+  ac_self_assessment:
+    AC1_scaffold: PASS
+    AC2_intent_schema: PASS  # sanity-check D11 contra enum DB
+    AC3_classification_schema: "PASS com [AUTO-DECISION D8] explícita"
+    AC4_system_prompt: PASS
+    AC5_classifier_model: PASS  # satisfies LlmModel
+    AC6_language_gate: PASS  # 24 tests Unicode-aware
+    AC7_classifier_class: PASS  # injectable OpenAIClientLike
+    AC8_error_taxonomy: PASS  # 4 subclasses
+    AC9_otel_whitelist: PASS  # 12 keys zero PII
+    AC10_pii_redaction: PASS  # NIF/email/IBAN/telefone PT
+    AC11_tests: EXCEEDS  # 78 vs target 35
+    AC12_index_exports: PASS
+    AC13_readme: PASS
+
+  tactical_handoff_for_architect: "docs/handoffs/mj-handoff-2.4-ready-for-architect-gate-20260509.yaml"
+
+# -----------------------------------------------------------------------------
+# 6. BLOQUEADORES EXTERNOS — Epic 2
+# -----------------------------------------------------------------------------
+external_blockers:
+  EB1:
+    name: "ANTHROPIC_API_KEY com DPA UE"
+    status: pending
+    contact: "Eurico → Anthropic Sales"
+    affects:
+      - "Story 2.5 Planner+Executor (Sonnet)"
+      - "Story 2.10 Benchmark"
+    workaround_for_drafting: "Usar mocks no @dev como Stories 2.2/2.3/2.4 fizeram"
+  EB2:
+    name: "OPENAI_API_KEY com DPA UE"
+    status: pending
+    contact: "Eurico → OpenAI Enterprise"
+    affects:
+      - "Story 2.4 Classifier — APENAS produção (story Ready for Review já entregue mockada)"
+      - "Story 2.10 Benchmark"
+    workaround_for_drafting: "Story 2.4 entregue 100% mockable — gate prossegue sem EB2"
+  EB3:
+    name: "Upstash Redis EU"
+    status: not_started
+    affects:
+      - "Story 2.6 Endpoint /api/agent/prompt"
+      - "Story 2.9 Cost router"
+  EB4:
+    name: "Inngest function setup"
+    status: not_started
+    affects:
+      - "Story 2.8 Undo mechanism (FR6)"
+
+# -----------------------------------------------------------------------------
+# 7. ARQUITECTURA — resumo essencial
+# -----------------------------------------------------------------------------
+architecture_summary:
+  monorepo:
+    tooling: "pnpm workspaces + turbo task graph"
+    packages:
+      - "@meu-jarvis/web (apps/web/) — Next.js 15 App Router + React 19, porta 3000"
+      - "@meu-jarvis/db (packages/db/) — Drizzle schema, migrations SQL, postgres-js client"
+      - "@meu-jarvis/agent (packages/agent/) — Provider abstraction Anthropic+OpenAI [Story 2.2 Done]"
+      - "@meu-jarvis/tools (packages/tools/) — Tool Registry Foundation [Story 2.3 Done]"
+      - "@meu-jarvis/observability (packages/observability/) — Pino + OTel + Sentry [Story 1.7 Done]"
+      - "@meu-jarvis/classifier (packages/classifier/) — NEW [Story 2.4 Ready for Review]"
+
+  database:
+    provider: "Supabase eu-central-1 (Frankfurt)"
+    pooler:
+      runtime_url: "DATABASE_URL @ aws-0-eu-west-1.pooler.supabase.com:6543 (pgbouncer transaction-mode, prepare:false)"
+      direct_url: "DIRECT_URL @ aws-0-eu-west-1.pooler.supabase.com:5432 (session-mode, migrations)"
+    rls_state: "26 tabelas / 104 policies (NFR5 PRESERVADA — Story 2.4 não adiciona tabelas)"
+
+  ai_pipeline_3_stage:
+    estagio_1_classifier:
+      story: 2.4
+      status: "Ready for Review (este gate)"
+      package: "@meu-jarvis/classifier"
+      model: "GPT-4o-mini (OpenAI)"
+      output: "ClassificationResult { intents[], language: 'pt-PT', needs_confirmation, overall_confidence }"
+    estagio_2_planner:
+      story: 2.5
+      status: backlog
+      depends: ["2.3 ✓", "2.4 (este gate)", "EB1"]
+      model: "Claude Sonnet (Anthropic)"
+    estagio_3_executor:
+      story: 2.5
+      status: backlog
+      atomicity: "Tools de um prompt em transacção única + reverse_op em agent_reverse_ops (FR6 undo 30s)"
+
+# -----------------------------------------------------------------------------
+# 8. COMANDOS COMUNS — reference rápida
+# -----------------------------------------------------------------------------
+common_commands:
+  quality_gates_pre_push:
+    lint: "pnpm lint                    # --max-warnings=0"
+    typecheck: "pnpm typecheck"
+    test: "pnpm test"
+    rls: "pnpm check:rls               # NFR5 gate"
+    build: "pnpm build"
+  classifier_specific:
+    typecheck: "pnpm --filter @meu-jarvis/classifier typecheck"
+    test: "pnpm --filter @meu-jarvis/classifier test"
+  database:
+    migrate: "pnpm --filter @meu-jarvis/db db:migrate"
+    studio: "pnpm --filter @meu-jarvis/db db:studio"
+
+# -----------------------------------------------------------------------------
+# 9. FICHEIROS RELEVANTES (paths absolutos Windows)
+# -----------------------------------------------------------------------------
+relevant_files:
+  story_em_review:
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\stories\\active\\2.4.classifier-pt-pt.md"
+
+  package_em_review:
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\packages\\classifier\\"
+
+  stories_completed_referencia:
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\stories\\completed\\2.1.agent-schema-rls.md"
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\stories\\completed\\2.2.agent-package-provider-abstraction.md"
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\stories\\completed\\2.3.tool-registry-foundation.md"
+
+  gate_reports_referencia:
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\qa\\gates\\2.1-architect-gate.md"
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\qa\\gates\\2.2-architect-gate.md"
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\qa\\gates\\2.3-architect-gate.md"
+
+  tactical_handoff_architect:
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\docs\\handoffs\\mj-handoff-2.4-ready-for-architect-gate-20260509.yaml"
+
+  rules_globais:
+    - "C:\\Users\\XPS\\.claude\\rules\\agent-authority.md"
+    - "C:\\Users\\XPS\\.claude\\rules\\handoff-central.md"
+    - "C:\\Users\\XPS\\.claude\\rules\\language-standards.md"
+    - "C:\\Users\\XPS\\.claude\\rules\\story-lifecycle.md"
+    - "C:\\Users\\XPS\\.claude\\rules\\workflow-execution.md"
+
+  rules_projecto:
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\CLAUDE.md"
+    - "C:\\Users\\XPS\\Documents\\meu-jarvis\\.claude\\rules\\agent-authority.md"
+
+# -----------------------------------------------------------------------------
+# 10. SESSÃO ANTERIOR — cadeia de agentes 2026-05-08 → 2026-05-09
+# -----------------------------------------------------------------------------
+session_history:
+  date_start: "2026-05-08"
+  date_end: "2026-05-09 (cross-day)"
+  scope: "Story 2.4 full cycle: validation → development → ready for review"
+  agent_chain:
+    - step: 1
+      agent: "@aiox-master (Orion como orquestrador da sessão anterior)"
+      action: "*draft 2.4 — Classifier PT-PT v1.0 (universal executor mode)"
+      output: "Story 2.4 Draft v1.0 (13 ACs, 11 tasks, 43 subtasks)"
+    - step: 2
+      agent: "@aiox-master (Orion)"
+      action: "Cross-terminal handoff criado por Auto-update failed do Claude Code"
+      output: "mj-handoff-terminal-switch-2.4-pending-validation-20260508"
+    - step: 3
+      agent: "@aiox-po (Pax)"
+      action: "*validate-story-draft 2.4"
+      output: "GO 9.4/10 high. Status Draft → Ready v1.1. AC3 trace fix [AUTO-DECISION D8] explícita"
+    - step: 4
+      agent: "@aiox-dev (Dex)"
+      action: "*develop 2.4 em modo YOLO autónomo"
+      output: |
+        Story v1.2 Ready for Review. Package @meu-jarvis/classifier criado.
+        17 ficheiros novos + 6 modificados. 78 tests, 5 quality gates verde.
+        4 AUTO-DECISIONS @dev (D9-D12).
+
+  pushes_total: 0  # 3 commits locais, NINGUÉM pushou ainda — espera @architect gate + @devops push
+  ci_runs_green: 0  # CI corre apenas após push
+  handoffs_consumed_in_session: 2  # terminal-switch + po-to-dev
+  stories_progress:
+    - "2.4 Draft → Ready → InProgress → Ready for Review (single session crossover)"
+
+# -----------------------------------------------------------------------------
+# 11. CONSUMPTION PROTOCOL — como marcar este handoff consumed
+# -----------------------------------------------------------------------------
+consumption_instructions:
+  who_should_consume: |
+    O agente que executar a próxima acção primária. Se Eurico escolher Opção A
+    (recomendada), o @architect ao iniciar *qa-gate 2.4 marca este handoff
+    consumed em paralelo com o tactical handoff (mj-handoff-2.4-ready-for-architect-gate-20260509).
+
+    Se Eurico escolher outra opção, o agente correspondente marca consumed
+    após executar.
+
+  how_to_consume:
+    - "Editar este YAML: status: pending → consumed"
+    - "Adicionar campos: consumed: true, consumed_at: <ISO-8601>, consumed_by: <agent-id>"
+    - "Adicionar bloco consumption_record: { actions_taken: [...], outcome: ..., successor_handoff: ... }"
+    - "git mv docs/handoffs/mj-handoff-session-pause-after-2.4-ready-for-review-20260509.yaml docs/handoffs/archive/"
+    - "Editar docs/HANDOFF-INDEX.md: remover linha pending, adicionar linha archived"
+
+  successor_handoff_expected:
+    if_option_a: "mj-handoff-2.4-ready-for-devops-close-20260509 (architect → devops após gate verde)"
+    if_option_b: "mj-handoff-1.7-post-deploy-ui-tasks-20260508 (já existe — apenas consumir)"
+    if_option_c: "mj-handoff-epic3-or-epic4-kickoff-{YYYYMMDD} (novo)"
+    if_option_d: "Sem successor automático — Eurico actualiza estado dos blockers"
+
+# -----------------------------------------------------------------------------
+# 12. CHECKLIST RÁPIDA — primeiro minuto no novo terminal
+# -----------------------------------------------------------------------------
+quick_start_checklist:
+  - "[ ] claude doctor (verificar Claude Code OK)"
+  - '[ ] cd "C:\\Users\\XPS\\Documents\\meu-jarvis"'
+  - "[ ] git status → working tree clean esperado"
+  - "[ ] git rev-list origin/main..HEAD --count → 3 esperado"
+  - "[ ] git log --oneline -5 → ver os 3 commits desta sessão"
+  - "[ ] Ler docs/HANDOFF-INDEX.md (linha pending deste handoff)"
+  - "[ ] Ler este ficheiro completo (autossuficiente)"
+  - "[ ] Decidir: A (gate — recomendado), B (1.7 follow-up), C (Epic 3/4 spec), D (resolver blockers)"
+  - "[ ] Se A: ler docs/handoffs/mj-handoff-2.4-ready-for-architect-gate-20260509.yaml + invocar @aiox-architect *qa-gate 2.4"
+  - "[ ] Após acção: marcar este handoff consumed + actualizar INDEX + criar successor (se aplicável)"
+
+# -----------------------------------------------------------------------------
+# FIM DO HANDOFF
+# -----------------------------------------------------------------------------
