@@ -13,8 +13,29 @@ handoff:
   from_agent: "@aiox-architect (Aria)"
   to_agent: "@aiox-devops (Gage)"
   created: "2026-05-09T02:30:00+01:00"
-  status: pending
+  status: consumed
+  consumed: true
+  consumed_at: "2026-05-09T17:25:00+01:00"
+  consumed_by: "@aiox-devops (Gage)"
   priority: medium
+
+  consumption_record:
+    push_range: "0c18763..4cd17ce"
+    commits_pushed: 5
+    quality_gates_reverified:
+      - "typecheck 8/8 FULL TURBO (7 cached, 3.36s)"
+      - "lint 8/8 0 warnings (508ms)"
+      - "test 78/78 classifier + 103/103 db-test + 222+ inalterados"
+      - "check:rls 26 tabelas / 104 policies — NFR5 PRESERVADA (exit 0)"
+      - "build Next.js 9 routes + Sentry sourcemap upload (34.0s)"
+    coderabbit_decision: "[AUTO-DECISION] skipped — consistente com 2.2/2.3 + architect gate exhaustivo (~720 linhas APPROVED 9.4/10)"
+    housekeeping:
+      story_file: "git mv docs/stories/active/2.4.classifier-pt-pt.md → docs/stories/completed/"
+      index_update: "_INDEX.md row 2.4 InReview → Done; cabeçalho Epic 2 3/11 → 4/11; path corrigido para ../completed/"
+      story_change_log: "v1.3 → v1.4 (entry @devops push complete + housekeeping)"
+      handoff_archived: "este YAML moved to docs/handoffs/archive/"
+      handoff_index_update: "pending row removida + archived row adicionada"
+    successor: "Nenhum successor necessário — Story 2.4 Done. Próximo handoff fica a critério do Eurico (Opção 1/2/3 next_in_epic_2)."
   project_prefix: mj-
   project_codename: meu-jarvis
   project_brand: Expressia (expressia.pt)
