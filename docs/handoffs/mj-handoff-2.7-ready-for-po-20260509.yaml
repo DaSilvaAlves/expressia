@@ -1,0 +1,150 @@
+id: mj-handoff-2.7-ready-for-po-20260509
+from_agent: "sm (River) — drafted by Orion (@aiox-master) per Constitution Article II"
+to_agent: po
+created: "2026-05-09T16:30:00+01:00"
+status: pending
+priority: medium
+project_prefix: mj
+
+summary: |
+  Story 2.7 Draft v1.0 criada — `@po *validate-story-draft 2.7` (10-point checklist).
+  Scope expandido per @aiox-master (Orion) delegated @sm authority (precedente 2.2):
+  backend (schema `user_prefs` + endpoint /api/conta/preferencias + refactor /api/agent/prompt
+  para gate always_preview) + frontend (UI mínima /jarvis chat + PreviewCard + toggle
+  /conta/preferencias). Scope-shift M → L documentado em [AUTO-DECISION D28] @architect
+  ratifica no gate. Decisão estratégica de Eurico pós-Story 2.6 push: "ver o cérebro
+  a funcionar" requer UI chat real — gap funcional do Epic 2 (não há story explícita
+  para UI chat principal). 14 ACs, 14 Tasks, 7 [AUTO-DECISIONS] D28-D34. Sem bloqueadores
+  externos (mockable-only padrão 2.2-2.6).
+
+context:
+  story_id: "2.7"
+  story_path: "docs/stories/active/2.7.preview-then-confirm-flow-ui.md"
+  story_status: "Draft"
+  story_version: "1.0"
+  epic: "Epic 2 — Cérebro AI Multi-Intent"
+  epic_progress: "6/11 stories Done (post-2.6 push) + 1 Draft (2.7)"
+  branch: main
+
+  scope_shift_rationale: |
+    EPIC-2-EXECUTION.yaml linhas 220-232 originalmente definem Story 2.7 como M
+    (backend toggle apenas):
+      - Schema `users_prefs.always_preview boolean default false`
+      - Endpoint POST /api/agent/confirm-preview/{token} (HMAC 5min)
+      - Logic: gerar plan + previewToken se confidence<0.70 OU pref user
+
+    PORÉM, Story 2.6 (Done v1.4) já entregou:
+      - Endpoint confirm via nested REST `/api/agent/prompt/[runId]/confirm` (D21+DOC-FIX-001)
+      - TTL 5min via `confirm_expires_at` row-level em `agent_runs`
+      - Status `pending_preview` (Story 2.1 enum)
+
+    O que resta na 2.7 backend = ~30% do scope original (apenas schema `user_prefs`
+    + read no endpoint + endpoint /api/conta/preferencias). Para "ver funcionar"
+    Eurico precisa de UI chat — gap do Epic 2 (não está em nenhuma das 11 stories).
+
+    Decisão de Eurico em sessão 2026-05-09 (4-option AskUserQuestion):
+      A) Story 2.7 expandida = backend + UI chat (Recommended) ← ESCOLHIDA
+      B) @pm split em 2 stories (overhead SDC duplicado)
+      C) Story 2.7 backend + UI demo throwaway (dívida técnica)
+      D) Pivot mini-Epic UI Phase 1 (3-4 stories, adia 2.7/2.8)
+
+    Implicação:
+      - Estimate M → L (D28)
+      - @architect ratifica scope-shift no gate (cross-domain backend+frontend)
+      - @pm normalmente owns scope-shift mas Eurico autorizou directamente
+      - Sem split em stories separadas (KISS, evita 2× ciclo SDC)
+
+  decisions_made_at_draft:
+    - "D28 scope-shift M → L (backend + UI chat mínima)"
+    - "D29 schema user_prefs 1:1 user (não user×household composite PK)"
+    - "D30 run_id-based confirm (sem HMAC adicional — leverage Story 2.6 D21+DOC-FIX-001)"
+    - "D31 UI components inline em `app/(app)/jarvis/_components/` (sem `components/` directory geral — KISS para MVP)"
+    - "D32 lazy-init `user_prefs` row no GET (UPSERT idempotente, sem seed migration)"
+    - "D33 CodeRabbit pre-commit/push skipped consistente com 2.2-2.6"
+    - "D34 tests UI Vitest+@testing-library/react+jsdom (sem Playwright E2E)"
+
+  acceptance_criteria_summary:
+    backend: "AC1-AC5 (schema migration + RLS + endpoint /api/conta/preferencias GET/PATCH + refactor /api/agent/prompt always_preview gate)"
+    frontend: "AC6-AC10 (page /jarvis + PreviewCard + /conta/preferencias toggle + error handling PT-PT)"
+    testing: "AC11-AC14 (Vitest backend + UI components, ≥45 testes novos, 5/5 quality gates GREEN, check:rls 28/112)"
+
+  tasks_summary:
+    backend: "T1 migration 0007 + T2 schema Drizzle + T3 endpoint conta/preferencias + T4 refactor /api/agent/prompt"
+    frontend: "T5 page /jarvis + T6 jarvis-chat client + T7 chat-input + T8 preview-card + T9 result-message + T10 page /conta/preferencias + T11 prefs-toggle"
+    testing: "T12 tests backend ≥10 conta/preferencias + ≥3 always_preview + T13 tests UI ≥18 components/pages + T14 quality gates final 5/5"
+
+  recommended_execution_order: |
+    Para @dev YOLO mockable-only:
+    1. T1 (migration) → T2 (Drizzle) ANTES de qualquer endpoint test (RLS gate primeiro)
+    2. T3 (endpoint conta/preferencias) com tests T12 (≥10 testes)
+    3. T4 (refactor /api/agent/prompt) com tests T12 expand (+3 testes always_preview)
+    4. T5-T9 (UI /jarvis components) em paralelo com tests T13 (TDD opcional)
+    5. T10-T11 (UI /conta/preferencias) com tests T13
+    6. T14 quality gates final (typecheck → lint → test → check:rls → build)
+
+  critical_dev_notes:
+    - "DN1 mockable-only: zero call real LLM/Anthropic/OpenAI. Mocks Vitest precedente 2.6."
+    - "DN2 imports cross-package: `./` em packages internos source files (D27 Story 2.6 directive); `@/*` apenas em apps/web internas e tests internos packages."
+    - "DN3 RLS check: `pnpm check:rls` deve reportar 28/112 (subindo de 27/108) — `user_prefs` adiciona 4 policies idempotentes via DO block."
+    - "DN4 endpoint conta/preferencias usa `getDb()` (RLS via JWT), NÃO `getServiceDb()`."
+    - "DN5 lazy-init UPSERT: `INSERT ... ON CONFLICT (user_id) DO NOTHING` no GET; `INSERT ... ON CONFLICT (user_id) DO UPDATE SET always_preview = $1, updated_at = now()` no PATCH."
+    - "DN6 layout (app)/ tem header com link `Expressia` → `/visao` + botão Sair. Adicionar links `Jarvis` → `/jarvis` e `Conta` → `/conta/preferencias`."
+    - "DN7 components em `_components/` (underscore prefix Next.js — não treats as route)."
+
+  blockers_external:
+    - "EB1 ANTHROPIC_API_KEY DPA UE PENDING — NÃO bloqueia (mockable-only)."
+    - "EB2 OPENAI_API_KEY DPA UE PENDING — NÃO bloqueia (mockable-only)."
+    - "EB3 Upstash Redis PENDING — NÃO bloqueia (cache não aplicado nesta story; Story 2.9 endereça)."
+
+  predecessor_handoff: "mj-handoff-2.6-ready-for-devops-close-20260509 (consumed/archived 2026-05-09 16:00 — Story 2.6 Done v1.4 push completo)"
+
+next_action: |
+  @po *validate-story-draft 2.7
+
+  Sequência:
+  1. Ler `docs/stories/active/2.7.preview-then-confirm-flow-ui.md` v1.0 completo.
+  2. Executar 10-point checklist:
+     - Title clear + descriptive ✓
+     - Description user story format ✓
+     - AC numerados + testáveis (14 ACs verificar)
+     - Scope sized (L confirmado per D28)
+     - Dependencies (2.6 ✓ Done; sem bloqueadores externos)
+     - Estimate L scope-shift ratification (verificar D28 justification + risk SR1)
+     - Business value clear (FR4 + visibilidade Eurico)
+     - Risks documented (7 SRs)
+     - DoD inferível (14 ACs + 5/5 gates)
+     - Alignment com Architecture (§4.4 + §4.5 + §5.1 + §8.1) + PRD FR4 + EPIC-2 §5/§8 DP2
+  3. Cross-confirm anti-hallucination contra schema real:
+     - `auth.users` em `packages/db/src/schema/auth.ts` (referência mínima Supabase Auth)
+     - `households` em `packages/db/src/schema/tenancy.ts` (FK target)
+     - `current_household_id()` helper (Story 1.3 migrations)
+     - Pattern RLS DO block idempotente (Story 2.6 0001_rls_policies.sql)
+     - Endpoint paths nested REST (Story 2.6 D21+DOC-FIX-001 architecture.md §1.3+§4.5)
+     - `apps/web/src/app/(app)/` route group + middleware auth gate (Story 1.5)
+     - `createServerSupabaseClient` em `@meu-jarvis/auth/server` (Story 1.5)
+     - `withSpan`/Pino logger em `@meu-jarvis/observability` (Story 1.7)
+  4. Review 7 [AUTO-DECISIONS] D28-D34:
+     - D28 scope-shift M→L: PASS / CONCERNS-ACCEPTABLE / FAIL?
+     - D29 schema 1:1 user: PASS verificar consistência com `auth.users` cardinalidade
+     - D30 run_id-based: PASS verificar leverage 2.6 D21+DOC-FIX-001
+     - D31 components inline: PASS verificar zero `components/` directory existente
+     - D32 lazy-init: PASS verificar UPSERT idempotency padrão Supabase
+     - D33 CodeRabbit skip: PASS consistência 2.2-2.6
+     - D34 tests UI Vitest+jsdom: PASS verificar `apps/web/vitest.config.ts` setup
+  5. Veredicto: GO (≥7/10) ou NO-GO (<7/10 + required fixes listados).
+  6. Se GO: status Draft → Ready, story v1.0 → v1.1 com PO Validation block + Change Log.
+  7. Se PO_FIX_INLINE necessários: aplicar inline (precedente 2.6 v1.0 → v1.1, 5 fixes).
+  8. Update `_INDEX.md` row 2.7 Draft → Ready.
+  9. Criar handoff sucessor `mj-handoff-2.7-ready-for-dev-20260509` (po → dev YOLO mockable-only).
+  10. Update HANDOFF-INDEX.md (consume + archive este; pending row sucessor).
+
+review_focus_areas:
+  - "AC11+T12 RLS isolation cross-household (regression): garantir que test inclui cenário user A em household X tenta GET/PATCH user B em household Y → 0 rows."
+  - "D28 scope-shift ratification: @po pode aceitar com nota CONCERNS-ACCEPTABLE OU exigir @pm formal scope-shift via [PO_FIX_INLINE]. Recomendação: aceitar dado precedente 2.2 (Orion executou *draft directamente) + decisão directa Eurico."
+  - "D29 schema 1:1 user: edge case user em 2 households com prefs diferentes — explicitar como deferred DP no Dev Notes (já está)?"
+  - "D31 inline components: pode @po preferir já criar `apps/web/src/components/` directory antecipando Story 2.8? — sugerir aceitar D31 KISS, refactor mecânico futuro se padrão repetir."
+  - "AC8 PreviewCard countdown timer: validar UX edge case timer expira durante user a clicar Confirmar (race) — server-side check `confirm_expires_at > now()` já existe Story 2.6, UI mostra disabled state."
+
+consumed: false
+consumed_at: null
+consumed_by: null
