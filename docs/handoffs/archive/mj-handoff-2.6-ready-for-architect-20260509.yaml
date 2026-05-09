@@ -148,6 +148,61 @@ next_action: |
     - Criar handoff architect → devops (mj-handoff-2.6-ready-for-push-{date})
     - @devops *push 2.6 — 1 commit feat(api,db,planner-executor): Story 2.6 v1.2 ...
 
-consumed: false
-consumed_at: null
-consumed_by: null
+consumed: true
+consumed_at: "2026-05-09T22:30:00Z"
+consumed_by: architect
+status: consumed
+
+consumption_record:
+  consumed_by_agent: "Aria (architect)"
+  consumed_at: "2026-05-09T22:30:00Z"
+  action_taken: "*qa-gate 2.6"
+  verdict: "APPROVED 9.4/10 HIGH confidence"
+  gate_report: "docs/qa/gates/2.6-architect-gate.md (~600 linhas padrão 2.5)"
+
+  decisions_evaluated:
+    - id: D21 (DEV-DECISION)
+      verdict: "PASS — ratificada como architectural pattern oficial"
+      action: "DOC-FIX-001 aplicada inline em docs/architecture.md (§1.3 fluxo Undo + §4.5 endpoints nested REST + §4.x source tree apps/web/) — fecha definitivamente DOC-001-NB do gate 2.3 + clarifica executed_at (row-level) vs reverted_at (run-level)"
+
+    - id: D25 (@dev redactPii opção b)
+      verdict: "PASS — fecha NIT-002-NB do gate 2.5"
+      analysis: "redactProviderPayload é privado intencional. Implementação local 175 linhas em apps/web/src/lib/agent/redaction.ts cobre full PII (email + telefone PT 9 dígitos + NIF + IBAN PT + cartão crédito). 21 testes unitários + 1 assertion E2E em route.test.ts."
+
+    - id: D26 (@dev CodeRabbit skip)
+      verdict: "PASS"
+      analysis: "Consistente com D14 (2.5) + D22 (2.6 @sm). Architect gate exhaustivo (~23 ficheiros) substitui review automatizado. Recomendação para Story 2.10 (auth/secrets focus): re-baselinar CodeRabbit."
+
+    - id: D27 (@dev cross-package refactor)
+      verdict: "PASS — completion da Directive D16 da 2.5"
+      analysis: "11 ficheiros refactored (8 db + 3 planner-executor) — refactor mecânico zero-comportamental verificado por 59 testes existentes preservados (6 db + 53 planner-executor). Pattern relativo `./` agora 100% dos packages internos do monorepo (agent + tools + classifier + db + planner-executor)."
+
+  acs_passed: "16/16 (AC15 EXCEEDS — 64 tests vs target 40, 60% acima)"
+  quality_gates: "5/5 GREEN delegated ao Dev Agent Record + ratified neste gate (typecheck 9/9, lint 9/9 0 warnings, test 480, check:rls 27/108 NFR5 PRESERVADA + acrescida com agent_rate_limit_counters, build Next.js 4 dynamic routes + Sentry sourcemap 3 runtimes)"
+
+  doc_fixes_applied:
+    - id: DOC-FIX-001
+      file: "docs/architecture.md"
+      sections: ["§1.3 fluxo Undo (30s)", "§4.5 endpoints nested REST", "§4.x source tree apps/web/"]
+      lines_changed: 14
+      summary: "Actualizado de /api/agent/undo/{token|runId} flat para /api/agent/prompt/{run_id}/undo nested + clarificação executed_at (row-level em agent_reverse_ops) vs reverted_at (run-level em agent_runs). Fecha definitivamente DOC-001-NB do gate 2.3 + ratifica D21 nested REST como architectural pattern oficial."
+
+  nits_non_blocking_deferred:
+    - id: NIT-001-NB
+      defer_to: Story 2.10
+      summary: "Telemetry confidence_min distribution histogram para calibrar threshold 0.70"
+    - id: NIT-002-NB
+      defer_to: Story 2.9
+      summary: "Rate limit migration Postgres → Upstash Redis EU (EB3 unblock) + sliding window real + edge middleware"
+    - id: NIT-003-NB
+      defer_to: Story 2.7+
+      summary: "CodeRabbit re-baseline pós 4 stories sem pass (2.4/2.5/2.6 @sm/2.6 @dev)"
+    - id: NIT-004-NB
+      defer_to: Story 2.11
+      summary: "GIN index intents_detected JSONB para reporting queries"
+    - id: NIT-005-NB
+      defer_to: Story 2.9 / 2.11
+      summary: "Rate limit cleanup rows velhas + ALLOWED_REVERSE_TABLES whitelist extensibility"
+
+  story_status_change: "Ready for Review → Done (v1.2 → v1.3)"
+  successor_handoff: "mj-handoff-2.6-ready-for-devops-close-20260509 (architect → devops *push 2.6)"

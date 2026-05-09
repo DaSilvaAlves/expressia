@@ -83,7 +83,7 @@ graph TB
 | **Prompt multi-intent** | Cliente → Edge auth → POST `/api/agent/prompt` → classifier (GPT-4o-mini) → tool plan (Sonnet) → preview-gate (se <70%) → execute em transacção PG → audit log → undo token (30s) → resposta agregada |
 | **Recorrência tarefa/finança** | Inngest cron 03:00 UTC → query `recurrences WHERE next_run <= now()` → gera instâncias → marca `next_run` → notifica via UI |
 | **Stripe webhook** | Stripe → POST `/api/billing/webhook` → verify signature → enqueue Inngest event → idempotent handler → update `subscriptions` + `households.plan` → audit |
-| **Undo (30s)** | Cliente clica undo → POST `/api/agent/undo/{token}` → lê `agent_runs.reverse_ops` → executa transacção inversa → marca `reverted_at` |
+| **Undo (30s)** | Cliente clica undo → POST `/api/agent/prompt/{run_id}/undo` → lê `agent_reverse_ops` (com `executed_at IS NULL`) → executa transacção inversa → marca `executed_at` (row-level) + `agent_runs.reverted_at` (run-level) |
 | **Export GDPR** | Cliente pede export → enqueue Inngest job → query todas tabelas com `household_id` → escreve ZIP (JSON+CSV) em Supabase Storage → email signed URL (24h) |
 
 ---
@@ -400,7 +400,13 @@ agent_reverse_ops (
 
 **Tipos suportados:** `delete_row` (insert reverte com delete), `restore_row` (update reverte com snapshot prévio), `composite` (lista de ops).
 
-**Endpoint:** `POST /api/agent/undo/{runId}` valida ownership + `expires_at > now()` + `reverted_at IS NULL`, executa transacção inversa, marca `reverted_at`. **Não** se permite re-do (KISS para MVP).
+**Endpoints (nested REST sob `/api/agent/prompt/[runId]/`):**
+- `POST /api/agent/prompt/{run_id}/undo` — valida ownership + `expires_at > now()` + `executed_at IS NULL` em `agent_reverse_ops`, executa transacção inversa, marca `executed_at` (row-level) e `agent_runs.reverted_at` (run-level). **Não** se permite re-do (KISS para MVP).
+- `POST /api/agent/prompt/{run_id}/confirm` — confirma execução de uma run em `status='pending_preview'` dentro de 5min (D20). Re-executa Planner+Executor com `intents_detected` JSONB persistido.
+
+**Decisão de path (Story 2.6 D21 + DOC-FIX-001):** Adoptado nested REST sob `/api/agent/prompt/[runId]/{confirm|undo}` — Next.js App Router idiomático com co-localização (file-based routing) + discoverability via `confirmation_url`/`undo_url` retornados pelo endpoint principal (HATEOAS-style). Substitui versão anterior flat `/api/agent/undo/{token}` que misturava `token` (genérico) com `run_id` (explícito).
+
+**Coluna real de marcação (DOC-FIX-001):** O campo na tabela `agent_reverse_ops` é `executed_at` (row-level — marca que o reverse op foi aplicado), distinto de `agent_runs.reverted_at` (run-level — marca que a run foi revertida). Story 2.3 introduziu o nome correcto; documentação prévia tinha drift histórico.
 
 **Job Inngest:** limpa `agent_reverse_ops` com `expires_at < now() - 1h` diariamente.
 
@@ -659,7 +665,9 @@ apps/web/src/app/
 │       ├── household/page.tsx
 │       └── exportar/page.tsx
 ├── api/
-│   ├── agent/{prompt,undo}/route.ts
+│   ├── agent/prompt/route.ts
+│   ├── agent/prompt/[runId]/confirm/route.ts
+│   ├── agent/prompt/[runId]/undo/route.ts
 │   ├── billing/webhook/route.ts
 │   ├── auth/switch-household/route.ts
 │   ├── household/invites/route.ts

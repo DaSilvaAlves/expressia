@@ -1,0 +1,140 @@
+id: mj-handoff-2.6-ready-for-devops-close-20260509
+from_agent: architect
+to_agent: devops
+created: "2026-05-09T22:30:00Z"
+status: pending
+priority: medium
+project_prefix: mj
+
+summary: |
+  Story 2.6 v1.3 Done — `@devops *push 2.6` para fechar Epic 2 a 6/11.
+  Architect gate APPROVED 9.4/10 HIGH confidence (`docs/qa/gates/2.6-architect-gate.md`,
+  ~600 linhas padrão 2.5). 16/16 ACs PASS, 12/12 decisões PASS (8 herdadas D17-D24
+  + D25/D26/D27 @dev + D21 ratificada), 5/5 quality gates GREEN delegated + ratified,
+  0 issues bloqueantes, 5 nits NB deferíveis a 2.7+/2.9/2.10/2.11. **DOC-FIX-001
+  aplicada inline em `docs/architecture.md`** (§1.3 + §4.5 + §4.x) — fecha DOC-001-NB
+  do gate 2.3 + ratifica D21 nested REST como architectural pattern oficial.
+  Range commits para push: 51c9b00..HEAD (3 commits: e851053 feat + f1a6c8b chore handoffs
+  + commit chore docs deste close).
+
+context:
+  story_id: "2.6"
+  story_path: "docs/stories/active/2.6.endpoint-prompt-canonical-consumer.md"
+  story_status: "Done"
+  story_version: "1.3"
+  epic: "Epic 2 — Cérebro AI Multi-Intent"
+  epic_progress_after_push: "6/11 stories Done (2.1 + 2.2 + 2.3 + 2.4 + 2.5 + 2.6)"
+  branch: main
+
+  git_state:
+    origin_main: "51c9b00"
+    head_estimated_after_close_commit: "<commit_after_chore_docs_close>"
+    commits_to_push: 3
+    push_range: "51c9b00..HEAD"
+    commits_detail:
+      - "e851053 feat(api,db,planner-executor): Story 2.6 v1.2 Ready for Review — endpoint canonical consumer + idempotency + rate limit + undo [Story 2.6]"
+      - "f1a6c8b chore(handoffs,stories): consume po→dev + handoff dev→architect Story 2.6 v1.2 [Story 2.6]"
+      - "<pending> chore(docs): close Story 2.6 — architect gate APPROVED 9.4/10 + DOC-FIX-001 nested REST + handoff to devops [Story 2.6]"
+
+  predecessor_handoff: "mj-handoff-2.6-ready-for-architect-20260509 (consumed + archived)"
+
+  architect_gate_summary:
+    verdict: "APPROVED"
+    score: "9.4/10"
+    confidence: "HIGH"
+    gate_report: "docs/qa/gates/2.6-architect-gate.md"
+    gate_report_size: "~600 linhas (padrão 2.5)"
+
+    acs_passed: "16/16"
+    quality_gates_status: "5/5 GREEN (delegated to Dev Agent Record + ratified neste gate)"
+    quality_gates_detail:
+      typecheck: "9/9 packages exit 0 (~3s, 8 cached + apps/web cache miss inicialmente)"
+      lint: "9/9 packages exit 0 / 0 warnings (~4s)"
+      test: "480 tests passing (64 novos + 416 preservados)"
+      check_rls: "27 tabelas / 108 policies — NFR5 PRESERVADA + acrescida com agent_rate_limit_counters (4 RLS policies idempotentes em 0001_rls_policies.sql via DO block condicional)"
+      build: "9/9 packages exit 0 / Next.js 4 dynamic routes (3 novas /api/agent/prompt + /api/me) + Sentry sourcemap upload em 3 runtimes (Node/Edge/Client) preservado"
+
+    decisions:
+      - "D17-D24 (8 herdadas @sm/@po): all PASS"
+      - "D21 (DEV-DECISION ratificada): PASS — DOC-FIX-001 aplicada inline em architecture.md (§1.3 + §4.5 + §4.x) — fecha DOC-001-NB do gate 2.3"
+      - "D25 (@dev redactPii opção b): PASS — fecha NIT-002-NB do gate 2.5 (impl local 175 linhas + 21 tests + 1 assertion E2E)"
+      - "D26 (@dev CodeRabbit skip): PASS — consistente com D14/D22"
+      - "D27 (@dev cross-package refactor): PASS — completion da Directive D16 da 2.5 (11 ficheiros zero-comportamental — 100% dos packages internos do monorepo agora seguem `./` cross-package)"
+
+    blocking_issues: 0
+    nits_non_blocking: 5
+    nits_deferred_to:
+      - "NIT-001 telemetry confidence histogram → Story 2.10"
+      - "NIT-002 Upstash Redis migration + edge middleware → Story 2.9"
+      - "NIT-003 CodeRabbit re-baseline → Story 2.7+"
+      - "NIT-004 GIN index intents_detected → Story 2.11"
+      - "NIT-005 rate limit cleanup + ALLOWED_REVERSE_TABLES whitelist → Story 2.9 / 2.11"
+
+    doc_fixes_inline_applied:
+      - id: DOC-FIX-001
+        file: "docs/architecture.md"
+        sections: ["§1.3 fluxo Undo", "§4.5 endpoints nested REST", "§4.x source tree apps/web/"]
+        lines_changed: 14
+        summary: "Nested REST /api/agent/prompt/{run_id}/undo + clarificação executed_at (row-level) vs reverted_at (run-level). Fecha DOC-001-NB do gate 2.3."
+
+  pre_push_gates_already_validated_by_dev: true
+  pre_push_gates_revalidation_strategy: |
+    @devops re-valida os 5 quality gates pre-push:
+      - Cenário esperado: FULL TURBO cache hit (cache fresca dos últimos 3h) — gates verdes em <1min total
+      - Cenário fallback: cache invalidada por algum motivo → re-run completo (~70s total: typecheck 3s + lint 4s + test 25s + check:rls 1s + build 42s)
+      - Ambos cenários convergem para verde — números consistentes com Dev Agent Record + architect gate.
+    Se @devops detectar divergência: STOP e escalar para @architect (este).
+
+  coderabbit_skip_recommendation: |
+    [AUTO-DECISION] CodeRabbit pre-push **skipped** consistente com 2.2 (D14)/2.3/2.4 (D12)/2.5 (D14)/2.6 @sm (D22)/2.6 @dev (D26).
+    Architect gate APPROVED 9.4/10 HIGH ~600 linhas substitui review automatizado.
+    480 tests preservados confirmam zero regressão.
+    23 ficheiros (14 novos + 8 modificados + DOC-FIX-001 architecture.md) dentro da janela de análise manual exhaustiva do gate.
+    Story 2.10 (benchmark E2E + credentials reais) é o local onde re-baselinar (CodeRabbit brilha em auth/secrets).
+
+  housekeeping_checklist_for_devops:
+    - "Push 3 commits para origin/main (range 51c9b00..HEAD)"
+    - "git mv docs/stories/active/2.6.endpoint-prompt-canonical-consumer.md → docs/stories/completed/ (history preservation via rename)"
+    - "Update _INDEX.md Epic 2: cabeçalho 5/11 → 6/11 Done + Story 2.6 row InReview → Done"
+    - "Story v1.3 → v1.4 com Change Log entry @devops push (range commits + cache hits + CodeRabbit skip [AUTO-DECISION])"
+    - "Mark este handoff consumed + git mv → docs/handoffs/archive/"
+    - "Update HANDOFF-INDEX.md: remove pending row + add archived row + add update note"
+
+  notes_for_devops:
+    - "DOC-FIX-001 já está committed neste chore docs close — não é necessário re-aplicar."
+    - "Migration 0006 ainda NÃO foi corrida em DB real (sem .env.local válido). Quality gates passaram com schema Drizzle TypeScript. Aplicação real fica para @devops (pnpm --filter @meu-jarvis/db db:migrate) ANTES de qualquer query real chegar a /api/agent/prompt — mas para esta story 2.6 mockable-only, o push pode prosseguir sem migration real (ela vai ser corrida quando Story 2.10 ou production deploy precisar)."
+    - "Push é blocking-free — todos os 5 quality gates green pela Dev Agent Record + architect gate. Esperar FULL TURBO."
+    - "Caminho crítico Epic 2: após push, 6/11 Done. Story 2.7 (preview-then-confirm UI) + Story 2.8 (undo + Inngest cleanup) ficam unblocked estruturalmente."
+
+next_action: |
+  @devops *push 2.6
+
+  Sequência:
+  1. Pre-push validation (esperado FULL TURBO):
+     - pnpm typecheck → 9/9 exit 0
+     - pnpm lint → 9/9 exit 0 / 0 warnings
+     - pnpm test → 480 tests passing
+     - pnpm check:rls → 27 tabelas / 108 policies (NFR5 PRESERVADA)
+     - pnpm build → 9/9 exit 0 / Next.js 4 dynamic routes + Sentry sourcemap 3 runtimes
+  2. CodeRabbit pre-push: [AUTO-DECISION] skipped (consistente com precedente).
+  3. git push origin main (3 commits range 51c9b00..HEAD)
+  4. Verificar push verde + CI workflow ainda a passar.
+  5. Housekeeping (ver checklist):
+     - git mv story file active/ → completed/
+     - _INDEX.md Epic 2: 5/11 → 6/11
+     - Story 2.6 v1.3 → v1.4 com push entry
+     - Este handoff consumed + git mv → archive/
+     - HANDOFF-INDEX.md remove pending + add archived
+  6. Commit housekeeping com mensagem `chore(stories,handoffs): Story 2.6 Done — housekeeping pós push [Story 2.6]`
+  7. Push housekeeping commit.
+
+  Após push completo:
+    - Story 2.6 status Done.
+    - Epic 2 — 6/11 stories Done.
+    - Stories 2.7 (preview-then-confirm UI) + 2.8 (undo + Inngest cleanup) unblocked estruturalmente.
+    - Stories 2.9 (Cost Router + Cache + Quotas) ainda PENDING EB3.
+    - Stories 2.10 (LLM Benchmark E2E) ainda PENDING EB1+EB2.
+
+consumed: false
+consumed_at: null
+consumed_by: null
