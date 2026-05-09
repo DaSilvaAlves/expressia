@@ -145,6 +145,69 @@ review_focus_areas:
   - "D31 inline components: pode @po preferir já criar `apps/web/src/components/` directory antecipando Story 2.8? — sugerir aceitar D31 KISS, refactor mecânico futuro se padrão repetir."
   - "AC8 PreviewCard countdown timer: validar UX edge case timer expira durante user a clicar Confirmar (race) — server-side check `confirm_expires_at > now()` já existe Story 2.6, UI mostra disabled state."
 
-consumed: false
-consumed_at: null
-consumed_by: null
+consumed: true
+consumed_at: "2026-05-09T17:30:00+01:00"
+consumed_by: "po (Pax)"
+status: consumed
+
+consumption_record: |
+  Consumido por Pax (@po) 2026-05-09 17:30 ao executar `*validate-story-draft 2.7`.
+
+  **Veredicto: GO 9.0/10 HIGH confidence**.
+
+  10/10 critérios PASS no checklist (title clear, user story format, 14 ACs
+  testáveis, scope L confirmado per D28, dependencies 2.6 ✓ + sem externos,
+  estimate L razoável para 22 ficheiros tocados + ≥45 tests, business value FR4
+  + Eurico "ver o cérebro a funcionar", 7 SRs documentados, DoD inferível 14 ACs
+  + 5/5 gates, alignment Architecture §4.4 + §4.5 + §5.1 + §8.1 + PRD FR4 +
+  EPIC-2 §5/§8 DP2). Score raw 10/10 → ajuste 9.0/10 reflecte 4 PO_FIX_INLINE
+  necessários (não erros bloqueantes mas anti-hallucinations vs codebase real).
+
+  Cross-confirm anti-hallucination contra 9 fontes reais:
+    - packages/db/src/schema/auth.ts:26-31 (authUsers PASS)
+    - packages/db/src/schema/tenancy.ts:46-71 (households FK PASS)
+    - packages/db/migrations/0000:34-45 (current_household_id helper PASS)
+    - packages/db/migrations/0001:692-708 (DO block pattern Story 2.6 PASS)
+    - apps/web/src/app/api/agent/prompt/route.ts:293-300+400-407 (response shape REAL — HALLUCINATION DETECTED + FIXED)
+    - apps/web/src/app/(app)/visao/page.tsx (Server Component pattern PASS)
+    - apps/web/src/middleware.ts:24+57 (APP_PATH_PREFIX literal — HALLUCINATION DETECTED + FIXED)
+    - packages/auth/src/server.ts:55 (createServerSupabaseClient PASS)
+    - packages/observability/src/index.ts:12-22 (withSpan, Pino, Sentry PASS)
+    - apps/web/vitest.config.ts:18 (jsdom + react plugin PASS — D34 OK)
+
+  7 [AUTO-DECISIONS] D28-D34 classification:
+    - D28 scope-shift M→L: PASS (precedente 2.2 + Eurico authorized)
+    - D29 schema 1:1 user: CONCERNS-ACCEPTABLE (edge case deferred DP)
+    - D30 run_id-based confirm: PASS (alinhado Story 2.6 D21+DOC-FIX-001)
+    - D31 components inline: PASS (verified zero apps/web/src/components/)
+    - D32 lazy-init UPSERT: PASS (Supabase canonical pattern)
+    - D33 CodeRabbit skip: PASS (consistent 2.2-2.6)
+    - D34 tests UI Vitest+jsdom: PASS (vitest.config.ts:18 already configured)
+
+  4 [PO_FIX_INLINE v1.1] aplicados:
+    1. Endpoint response shape (AC3+AC7+AC8+Dev Notes): `status: 'success'|'pending_preview'`
+       → shape REAL Story 2.6 `mode: 'executed'|'preview'` + `results` (AtomicOutcome) +
+       `expires_at` response key. Coluna DB `confirm_expires_at` mantida inalterada.
+    2. AC2+T1+Dev Notes RLS placement: 4 policies migradas de 0007 → `0001_rls_policies.sql`
+       via DO block condicional (espelha pattern Story 2.6 D17 :692-708).
+       check-rls-coverage.ts:33 lê APENAS 0001.
+    3. AC2 RLS predicate: `auth.uid() = user_id AND current_household_id()` →
+       `is_household_member(household_id) AND auth.uid() = user_id` — combina
+       cross-tenancy isolation com user-scoped constraint específico.
+    4. AC6+T5 middleware auth gate: `APP_PATH_PREFIX = '/visao'` LITERAL — route groups
+       Next.js são virtuais; T5 sub-task added para refactor `APP_PATH_PREFIXES` array
+       `['/visao', '/jarvis', '/conta']`. File List atualizada (+`middleware.ts` +
+       `0001_rls_policies.sql` modificados → 14 novos + 8 modificados ≈ 22 tocados).
+
+  Status Draft → Ready (autoridade @po per ~/.claude/rules/story-lifecycle.md).
+  Story v1.0 → v1.1 com PO Validation block + Change Log @po + 4 PO_FIX_INLINE markers.
+  _INDEX.md row 2.7 actualizada Draft → Ready + Epic 2 header note.
+
+  Concerns para @architect no gate:
+    (a) Ratificar D28 scope-shift M→L cross-domain (backend+frontend numa única story).
+    (b) Ratificar predicate RLS combo `is_household_member + auth.uid()` (divergência
+        defensável vs precedent puro — user_prefs é genuinamente user-scoped).
+    (c) Confirmar middleware refactor `APP_PATH_PREFIXES` array não causa regression
+        em existing `/visao` route — recomenda-se test unitário.
+
+  Sucessor: `mj-handoff-2.7-ready-for-dev-20260509` (po → dev unblocked YOLO mockable-only).

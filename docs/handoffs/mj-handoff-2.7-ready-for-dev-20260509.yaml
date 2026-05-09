@@ -1,0 +1,192 @@
+id: mj-handoff-2.7-ready-for-dev-20260509
+from_agent: po (Pax)
+to_agent: dev (Dex)
+created: "2026-05-09T17:30:00+01:00"
+status: pending
+priority: medium
+project_prefix: mj
+
+summary: |
+  Story 2.7 v1.1 Ready — `@dev *develop 2.7` em modo YOLO mockable-only
+  (precedente 2.2/2.3/2.4/2.5/2.6). Veredicto @po: GO 9.0/10 HIGH confidence
+  com 4 [PO_FIX_INLINE] aplicados anti-hallucinations vs codebase real
+  (endpoint response shape `mode: 'preview'|'executed'`, RLS policies
+  migradas para `0001_rls_policies.sql` via DO block, RLS predicate combo
+  `is_household_member + auth.uid()`, middleware auth gate refactor
+  `APP_PATH_PREFIXES` array). Sem bloqueadores externos. 14 ACs + 14 Tasks
+  + 7 [AUTO-DECISIONS] D28-D34. Estimate L para 14 novos + 8 modificados
+  ≈ 22 ficheiros tocados + ≥45 tests novos. Sucessor: handoff dev → architect
+  para `*qa-gate 2.7`.
+
+context:
+  story_id: "2.7"
+  story_path: "docs/stories/active/2.7.preview-then-confirm-flow-ui.md"
+  story_status: "Ready"
+  story_version: "1.1"
+  epic: "Epic 2 — Cérebro AI Multi-Intent"
+  epic_progress: "6/11 stories Done; 2.7 Ready em progresso"
+  branch: main
+
+  po_validation_summary: |
+    Veredicto: GO 9.0/10 HIGH confidence (10/10 critérios PASS, ajuste reflecte
+    4 PO_FIX_INLINE necessários — não bloqueantes mas anti-hallucinations).
+
+    Cross-confirm anti-hallucination contra 9 fontes do codebase real verificadas
+    em sessão @po. 7 [AUTO-DECISIONS] D28-D34 classification: 6 PASS + 1
+    CONCERNS-ACCEPTABLE (D29 edge case user em 2 households deferred DP).
+
+  decisions_carried_forward_from_sm_handoff:
+    - "D28 scope-shift M → L (backend toggle + UI chat mínima) — @architect ratifica no gate"
+    - "D29 schema user_prefs 1:1 user (não user×household composite PK) — CONCERNS-ACCEPTABLE deferred DP"
+    - "D30 run_id-based confirm (sem HMAC) — leverage Story 2.6 D21+DOC-FIX-001"
+    - "D31 UI components inline em `_components/` (sem `components/` directory geral) — KISS para MVP"
+    - "D32 lazy-init `user_prefs` UPSERT idempotente no GET (sem seed migration)"
+    - "D33 CodeRabbit pre-commit/push skipped (consistente 2.2-2.6 D14)"
+    - "D34 tests UI Vitest+@testing-library/react+jsdom (sem Playwright E2E)"
+
+  po_fix_inline_applied_v1_1:
+    - id: PO_FIX_INLINE_1
+      where: "AC3 + AC7 + AC8 + Dev Notes 'Endpoint contract' snippet"
+      issue: |
+        Story v1.0 reclamava response shape `status: 'success'|'pending_preview'`
+        + `applied_operations` + `confirm_expires_at` (response key). Real shape
+        Story 2.6 (verified em `apps/web/src/app/api/agent/prompt/route.ts:293-300+400-407`)
+        usa `mode: 'preview'|'executed'` + `results` (`AtomicOutcome`) + `expires_at`
+        (response key). Coluna DB chama-se `confirm_expires_at` mas o response key
+        é `expires_at`.
+      fix: |
+        Substituído `status` por `mode`, `applied_operations` por `results`,
+        `confirm_expires_at` (response key) por `expires_at`. Coluna DB
+        `agent_runs.confirm_expires_at` permanece inalterada.
+      dev_action: |
+        Ao implementar T4 (refactor /api/agent/prompt) e T6-T9 (UI components),
+        usar SEMPRE o shape real verificado em `route.ts:293-300+400-407`.
+    - id: PO_FIX_INLINE_2
+      where: "AC2 + T1 + Dev Notes Schema canónico"
+      issue: |
+        Story v1.0 colocava 4 RLS policies dentro de `0007_user_prefs.sql`.
+        `scripts/check-rls-coverage.ts:33` lê APENAS `0001_rls_policies.sql`
+        como fonte de verdade — policies em 0007 não seriam detectadas pelo
+        gate NFR5.
+      fix: |
+        Split: 0007 cria apenas TABLE + INDEX. As 4 RLS policies vão para
+        `0001_rls_policies.sql` via DO block `do $rls_user_prefs$ … end$rls_user_prefs$;`
+        condicional (`if exists (select 1 from pg_tables where tablename = 'user_prefs')`).
+        Pattern espelha Story 2.6 D17 em :692-708 (agent_rate_limit_counters).
+      dev_action: |
+        T1 actualizada com sub-task explícita para modificar AMBOS ficheiros.
+        File List actualizada (+`0001_rls_policies.sql` modificado).
+        Snippet completo no Dev Notes "Schema canónico user_prefs".
+    - id: PO_FIX_INLINE_3
+      where: "AC2 RLS predicate"
+      issue: |
+        Story v1.0 propunha `auth.uid() = user_id AND household_id = current_household_id()`.
+        Precedent Story 2.6 D17 usa apenas `public.is_household_member(household_id)`.
+        Para user_prefs (user-scoped), é defensável combinar ambos para evitar que
+        owner do household consiga ler prefs cognitivas de outros membros.
+      fix: |
+        Predicate canónico final: `public.is_household_member(household_id) AND auth.uid() = user_id`.
+      dev_action: |
+        Aplicar EXACTAMENTE este predicate nas 4 policies (SELECT/INSERT/UPDATE/DELETE).
+        @architect ratifica divergência vs precedent puro no gate (concern (b)).
+    - id: PO_FIX_INLINE_4
+      where: "AC6 + T5"
+      issue: |
+        Story v1.0 dizia "Auth gate herdado do middleware existente do route group `(app)/`".
+        REAL: `apps/web/src/middleware.ts:24` tem `const APP_PATH_PREFIX = '/visao'` LITERAL,
+        com check `:57` `request.nextUrl.pathname.startsWith(APP_PATH_PREFIX)`.
+        Route groups Next.js `(app)/` são VIRTUAIS — não mapeiam para auth gate.
+        Sem fix, novas rotas `/jarvis` + `/conta/preferencias` ficavam publicamente
+        acessíveis (regression NFR8 / Story 1.5 AC2).
+      fix: |
+        Refactor middleware: `APP_PATH_PREFIX = '/visao'` →
+        `APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta']` array.
+        Check `:57`: `APP_PATH_PREFIXES.some(p => request.nextUrl.pathname.startsWith(p))`.
+        Test unitário em `apps/web/src/__tests__/middleware.test.ts` (criar se não existir):
+        `/jarvis` sem session → redirect `/entrar?next=/jarvis`.
+      dev_action: |
+        T5 actualizada com sub-task explícita.
+        File List actualizada (+`apps/web/src/middleware.ts` modificado).
+        @architect verifica no gate (concern (c)) que existing `/visao` continua a funcionar.
+
+  acceptance_criteria_summary:
+    backend: "AC1-AC5 (schema migration 0007 + RLS policies em 0001 via DO block + endpoint /api/conta/preferencias GET/PATCH + refactor /api/agent/prompt always_preview gate)"
+    frontend: "AC6-AC10 (page /jarvis + PreviewCard + /conta/preferencias toggle + error handling PT-PT + middleware fix)"
+    testing: "AC11-AC14 (Vitest backend ≥10 + UI components ≥18 + ≥45 tests novos total + 5/5 quality gates GREEN incluindo check:rls 28/112)"
+
+  recommended_execution_order: |
+    Para @dev YOLO mockable-only:
+
+    1. T1 (migration 0007 CREATE TABLE + INDEX) + 0001 DO block para policies →
+       `pnpm --filter @meu-jarvis/db db:migrate` aplica idempotente →
+       `pnpm check:rls` reporta 28/112.
+    2. T2 (Drizzle schema) + export em `index.ts` → `pnpm typecheck`.
+    3. T3 (endpoint /api/conta/preferencias GET+PATCH) com tests T12 (≥10 tests:
+       lazy-init, GET, PATCH, 401, 400, RLS isolation cross-household).
+    4. T4 (refactor /api/agent/prompt always_preview gate) com tests T12 expand
+       (+3 tests: always_preview=true força preview; always_preview=false +
+       confidence ≥ 0.70 mantém execução directa; race condition lazy-init).
+       USAR SHAPE REAL `mode: 'preview'|'executed'` per PO_FIX_INLINE_1.
+    5. T5 + middleware update (PO_FIX_INLINE_4): page `/jarvis` + middleware
+       refactor + test middleware.
+    6. T6-T9 (UI /jarvis components) em paralelo com tests T13 (TDD opcional,
+       ≥15 tests UI). USAR SHAPE REAL.
+    7. T10-T11 (UI /conta/preferencias) com tests T13 (≥3 tests).
+    8. T14 quality gates final: typecheck → lint → test → check:rls 28/112 →
+       build Next.js (4 dynamic + 2 novas routes).
+
+  critical_dev_notes:
+    - "DN1 mockable-only: ZERO call real LLM/Anthropic/OpenAI. Mocks Vitest precedente 2.6 (`vi.hoisted()` + `vi.mock()`)."
+    - "DN2 imports cross-package: `./` em packages internos source files (D27 Story 2.6 directive); `@/*` apenas em apps/web internas e tests internos packages."
+    - "DN3 RLS check: `pnpm check:rls` deve reportar 28/112 (subindo de 27/108)."
+    - "DN4 endpoint conta/preferencias usa `getDb()` (RLS via JWT), NÃO `getServiceDb()`."
+    - "DN5 lazy-init UPSERT: `INSERT ... ON CONFLICT (user_id) DO NOTHING` no GET; `INSERT ... ON CONFLICT (user_id) DO UPDATE SET always_preview = $1, updated_at = now()` no PATCH."
+    - "DN6 layout (app)/ tem header com link `Expressia` → `/visao` + botão Sair. Adicionar links `Jarvis` → `/jarvis` e `Conta` → `/conta/preferencias`."
+    - "DN7 components em `_components/` (underscore prefix Next.js — não treats as route)."
+    - "DN8 [PO_FIX_INLINE_1] response shape REAL: `mode: 'preview'|'executed'` + `results` (AtomicOutcome) + `expires_at` (response key) — NÃO `status` + `applied_operations` + `confirm_expires_at` que story v1.0 reclamava."
+    - "DN9 [PO_FIX_INLINE_2] RLS policies em `0001_rls_policies.sql` via DO block — NÃO em 0007. Pattern Story 2.6 D17:692-708."
+    - "DN10 [PO_FIX_INLINE_3] RLS predicate combo `is_household_member(household_id) AND auth.uid() = user_id` — combina cross-tenancy + user-scoped."
+    - "DN11 [PO_FIX_INLINE_4] middleware update obrigatório: `APP_PATH_PREFIX` literal → `APP_PATH_PREFIXES` array. Sem isto, novas rotas ficam publicamente acessíveis."
+    - "DN12 OTel: instrumentar endpoint conta/preferencias com `withSpan('api.conta.preferencias.{get|patch}', ...)` (reuse Story 1.7)."
+    - "DN13 PT-PT estricto em todas strings UI + error messages: `Confirmar`, `Cancelar`, `Enviar`, `Pede o que precisas`, `Excedeste o limite`, `Em breve`. NUNCA PT-BR."
+
+  blockers_external:
+    - "EB1 ANTHROPIC_API_KEY DPA UE PENDING — NÃO bloqueia (mockable-only)."
+    - "EB2 OPENAI_API_KEY DPA UE PENDING — NÃO bloqueia (mockable-only)."
+    - "EB3 Upstash Redis PENDING — NÃO bloqueia (cache não aplicado nesta story; Story 2.9 endereça)."
+
+  predecessor_handoff: "mj-handoff-2.7-ready-for-po-20260509 (consumed/archived 2026-05-09 17:30 — @po veredicto GO 9.0/10 HIGH com 4 PO_FIX_INLINE)"
+
+next_action: |
+  @dev *develop 2.7
+
+  Modo YOLO mockable-only (precedente 2.2/2.3/2.4/2.5/2.6).
+
+  Sequência recomendada (ver `recommended_execution_order` acima).
+
+  Tasks 14:
+    Backend: T1 (migration 0007 + 0001 DO block per PO_FIX_INLINE_2) →
+             T2 (Drizzle schema) → T3 (endpoint conta/preferencias) →
+             T4 (refactor /api/agent/prompt USING SHAPE REAL per PO_FIX_INLINE_1)
+    Frontend: T5 (page /jarvis + middleware fix per PO_FIX_INLINE_4) →
+              T6 (jarvis-chat client) → T7 (chat-input) → T8 (preview-card) →
+              T9 (result-message) → T10 (conta/preferencias page) →
+              T11 (prefs-toggle)
+    Testing: T12 (tests backend ≥13 total) → T13 (tests UI ≥18 total) →
+             T14 (quality gates final 5/5 GREEN)
+
+  Total estimate: ~45-60min YOLO (precedente 2.6 ~50min para 64 tests).
+
+  Ao terminar, criar handoff sucessor `mj-handoff-2.7-ready-for-architect-20260509`
+  (dev → architect para `*qa-gate 2.7`).
+
+review_focus_areas_for_architect:
+  - "(a) Ratificar D28 scope-shift M → L cross-domain (backend + frontend numa única story). Precedent 2.2 + Eurico authorized via 4-option AskUserQuestion."
+  - "(b) Ratificar predicate RLS combo `is_household_member(household_id) AND auth.uid() = user_id` para user_prefs (divergência defensável vs precedent puro `is_household_member` em outras tabelas — user_prefs é genuinamente user-scoped)."
+  - "(c) Confirmar middleware refactor `APP_PATH_PREFIXES` array não causa regression em existing `/visao` route. Recomenda-se test unitário em `apps/web/src/__tests__/middleware.test.ts`."
+  - "(d) Validar AC11+T12 RLS isolation cross-household test cobre cenário: user A em household X tenta GET/PATCH user B em household Y → 0 rows."
+  - "(e) UX edge case AC8 PreviewCard countdown: timer expira durante user a clicar Confirmar (race) — server-side check `confirm_expires_at > now()` já existe Story 2.6, UI mostra disabled state quando `expiresAt < now()` ou loading."
+
+consumed: false
+consumed_at: null
+consumed_by: null
