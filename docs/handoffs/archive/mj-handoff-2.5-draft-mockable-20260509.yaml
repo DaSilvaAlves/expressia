@@ -13,8 +13,46 @@ handoff:
   from_agent: "@aiox-devops (Gage)"
   to_agent: "@aiox-sm (River)"
   created: "2026-05-09T17:35:00+01:00"
-  status: pending
+  status: consumed
+  consumed: true
+  consumed_at: "2026-05-09T18:15:00+01:00"
+  consumed_by: "@aiox-sm (River)"
   priority: medium
+
+# -----------------------------------------------------------------------------
+# CONSUMPTION RECORD
+# -----------------------------------------------------------------------------
+consumption_record:
+  story_file: "docs/stories/active/2.5.planner-executor-sonnet.md"
+  story_status: "Draft (v1.0)"
+  acs_count: 15
+  tasks_count: 12
+  test_target: "≥45 tests Vitest mocked (47 mapeados em 7 ficheiros)"
+  estimate: "L"
+  auto_decisions_count: 9  # D5, D5b, D6, D8, D9-anthropic, D11, D13, D14, D15
+  package_to_create: "@meu-jarvis/planner-executor (source-only)"
+  dependencies_done: ["2.2 (provider abstraction + AnthropicProvider)", "2.3 (executeAtomic + toolRegistry)", "2.4 (ClassificationResult)", "1.7 (observability)"]
+  blocker_eb1_status: "PENDING — não bloqueia drafting/dev/architect gate (mockable-only, padrão 2.2/2.3/2.4)"
+  successor_handoff: "mj-handoff-2.5-ready-for-po-20260509 (sm→po)"
+  notes: |
+    River executou *draft 2.5 com 15 ACs cobrindo: scaffold package + re-export
+    AnthropicClientLike (D9-anthropic equivalente à D9 da 2.4) + 4 schemas Zod
+    + Planner class (Sonnet tool calling com cache_control:ephemeral D11) + system
+    prompt versionado + Executor class (thin wrapper sobre executeAtomic da 2.3
+    com D8 defense-in-depth) + atomicidade rollback delegada à 2.3 + reverse_op
+    persistence preparada para Story 2.8 + OTel spans Planner+Executor whitelist
+    12+8 atributos zero-PII + error taxonomy 5 PlannerError + ExecutorValidationError
+    + Executor delega ToolError da 2.3 (D13) + PII redaction NIF/email/IBAN/telefone
+    + mocks Vitest (AnthropicClientLike + ToolRegistry + Drizzle tx) + ≥45 testes
+    + index.ts public exports + README. 9 [AUTO-DECISIONS] documentadas:
+    D5 (max(10) anti-hallucination), D5b (1 package vs 2), D6 (TOOL_TO_INTENT_MAP
+    declarativo), D8 (defense-in-depth no Executor), D9-anthropic (re-export
+    AnthropicClientLike — pode ser no-op se já exportada), D11 (cache_control:
+    ephemeral default), D13 (Executor delega ToolError), D14 (skip CodeRabbit),
+    D15 (test target ≥45). Justificação executor assignment válida (@dev impl,
+    @architect gate — decisões arquitecturais sobre tool calling, cache strategy,
+    defense-in-depth, error taxonomy reuse, hooks reverse_op). Próximo passo:
+    @po *validate-story-draft 2.5 (10-point checklist GO/NO-GO).
   project_prefix: mj-
   project_codename: meu-jarvis
   project_brand: Expressia (expressia.pt)

@@ -1,0 +1,332 @@
+# =============================================================================
+# HANDOFF — @sm → @po: validar Story 2.5 Draft v1.0 (Planner+Executor Sonnet)
+# =============================================================================
+# CONTEXTO: River (@sm) executou *draft 2.5 em 2026-05-09 18:15 (sucessor de
+# mj-handoff-2.5-draft-mockable-20260509 consumed/archived). Story 2.5 criada
+# em docs/stories/active/2.5.planner-executor-sonnet.md (v1.0, Draft) com 15
+# ACs + 12 Tasks + 9 [AUTO-DECISIONS] @sm marcadas. Mockable-only (padrão
+# 2.2/2.3/2.4). Próximo passo: @po *validate-story-draft 2.5 (10-point
+# checklist GO/NO-GO).
+# =============================================================================
+
+handoff:
+  id: mj-handoff-2.5-ready-for-po-20260509
+  from_agent: "@aiox-sm (River)"
+  to_agent: "@aiox-po (Pax)"
+  created: "2026-05-09T18:15:00+01:00"
+  status: consumed
+  consumed: true
+  consumed_at: "2026-05-09T18:30:00+01:00"
+  consumed_by: "@aiox-po (Pax)"
+  priority: medium
+
+# -----------------------------------------------------------------------------
+# CONSUMPTION RECORD
+# -----------------------------------------------------------------------------
+consumption_record:
+  story_file: "docs/stories/active/2.5.planner-executor-sonnet.md"
+  story_status_before: "Draft (v1.0)"
+  story_status_after: "Ready (v1.1)"
+  validation_verdict: "GO"
+  validation_score: "9.4/10"
+  validation_confidence: "high"
+  ten_point_checklist:
+    1_title: "PASS — concise, descriptive (Planner + Executor Sonnet + atomicidade Postgres)"
+    2_description: "PASS — clear user story (As/I want/so that) com 3 packages predecessores + 4 stories sucessoras"
+    3_acceptance_criteria: "PASS — 15 ACs testáveis (estrutura, schemas Zod, classes, system prompt versionado snapshot, OTel whitelist, error taxonomy, mocks, ≥45 tests, exports, README)"
+    4_scope: "PASS — IN clearly defined (15 ACs); OUT clearly defined (Stories 2.6/2.7/2.8/2.9/2.10/2.11)"
+    5_dependencies: "PASS — 2.2 Done + 2.3 Done + 2.4 Done + 1.7 Done todos validados; EB1 PENDING não bloqueia (mockable-only)"
+    6_estimate: "PASS — L coerente com scope (médio entre 2.3 L e 2.4 M; 47 tests, 17 ficheiros novos, 2 classes core)"
+    7_business_value: "PASS — caminho crítico Epic 2 (4/11 → 5/11 Done); Story 2.6 endpoint depende disto"
+    8_risks: "PASS — 9 R1-R9 identificados com mitigations + EB1 risk mitigation explícito"
+    9_dod: "PASS — Task 12 quality gates 5/5 explícitos (typecheck/lint/test/build/check:rls)"
+    10_alignment: "PASS — architecture.md §4.3 Planner+Executor literal; Epic 2 Goal multi-intent + audit log + undo; PRD nomenclatura PRD §6 Epic 2 stories sugeridas (2.5 Executor multi-intent fundido com 2.3 Tool registry desta nomenclatura)"
+  executor_assignment_validation:
+    executor: "@dev"
+    quality_gate: "@architect"
+    quality_gate_tools: ["pnpm typecheck", "pnpm lint", "pnpm test", "pnpm build", "pnpm check:rls"]
+    constraint_executor_neq_quality_gate: "PASS"
+    type_to_executor_consistency: "PASS — Code/Features/Logic ⇒ @dev impl + @architect gate (5 decisões arquitecturais explícitas: split, cache strategy, defense-in-depth, error taxonomy reuse, hooks reverse_op)"
+  anti_hallucination_findings:
+    sources_verified:
+      - "Architecture §4.3 (Planner+Executor Sonnet, prompt cache ephemeral, tool registry single source of truth)"
+      - "Architecture §4.1 (BEGIN tx → loop tools → COMMIT fluxo)"
+      - "Architecture §4.5 (agent_reverse_ops.expires_at = now() + interval '30 seconds')"
+      - "Story 2.2 Done (AnthropicProvider, ProviderInterface, getProvider, CLAUDE_SONNET_DEFAULT)"
+      - "Story 2.3 Done (executeAtomic, toolRegistry, ToolError + 6 subclasses, ToolPlanGateError)"
+      - "Story 2.4 Done D8 max(5) + D9 export pattern + D10 sanitizeHint"
+      - "PRD FR2 (atomicidade), FR4 (preview), FR6 (undo 30s)"
+      - "PRD NFR5 (RLS), NFR12 (PII), NFR13 (OTel), NFR16 (≥70% cobertura), NFR17 (gates), NFR19 (absolute imports)"
+    invented_details_flagged: "1 — AC2/D5/Trace AC2 citavam erradamente 'FR3 PRD limita multi-intent a 5 simultâneas' mas FR3 do PRD (`prd.md:42`) é sobre audit log. **Corrigido inline pelo @po**: cap de 5 intents é Story 2.4 D8 (já em produção/Done); cap de 10 tools desta story deriva por expansão. Trace AC2 actualizada para citar Story 2.4 D8 + FR2 atomicidade."
+  auto_decisions_review:
+    D5_max_10_tool_calls: "PASS após PO FIX inline (trace correction). Análogo D8 da 2.4 que passou architect gate APPROVED 9.4/10. Validável @architect gate com nota telemetry 2.11."
+    D5b_one_package: "PASS — coesão (Planner+Executor são par no Architecture §4.3); padrão de 1 package por estágio (2.2 agent, 2.3 tools, 2.4 classifier, 2.5 planner-executor)."
+    D6_TOOL_TO_INTENT_MAP_static: "PASS — determinístico, testável, evita custo LLM extra; fallback 'unknown' graceful para tools fora do MAP."
+    D8_defense_in_depth_executor: "PASS — padrão obrigatório código transaccional; custo O(1) trivial (lookup Map por toolCall × max 10)."
+    D9_anthropic_re_export: "PASS — analogia direta D9 da 2.4 (zero-risk type expose validado por @architect APPROVED 9.4/10); Task 2 dedicada com pre-flight check."
+    D11_cache_ephemeral_default: "PASS — Architecture §4.3 explícito ~90% cost saving; default coerente com sweet spot custo/precisão; override null disponível para testes."
+    D13_executor_delegates_ToolError: "PASS — single source of truth na 2.3 evita hierarquia paralela; única excepção ExecutorValidationError para input parsing."
+    D14_skip_coderabbit: "PASS — defere decisão final a @dev (precedente 2.2/2.3/2.4); architect gate é canónico."
+    D15_test_target_45: "PASS — médio razoável entre 2.3 (57) e 2.4 (78); story L estimate scope similar 2.4; delegação executeAtomic à 2.3 que tem +13 atomic tests justifica."
+  issues_count:
+    critical: 0
+    should_fix: 1  # FR3 trace correction — fixed inline
+    nice_to_have: 0
+  fixes_applied_inline:
+    - location: "AC2 'NOTA [PO FIX inline 2026-05-09]' adicionado ao [AUTO-DECISION D5]"
+      change: "Removida citação errada 'FR3 PRD limita multi-intent a 5 simultâneas'. Substituída por trace correcta a Story 2.4 D8 (`max(5)` intents — fonte real) + nota explícita que PRD não tem limite explícito de intents simultâneas."
+    - location: "AC2 Trace section"
+      change: "FR3 (max 5 intents) → Story 2.4 AC3 D8 (`max(5)` intents — fonte real do cap) + FR2 atomicidade multi-intent. Marker [PO FIX inline 2026-05-09] adicionado para rastreabilidade."
+    - location: "Trace section AC2 (linha row table)"
+      change: "FR3 (max 5 intents → max 10 tools com expansion) → Story 2.4 AC3 D8 (`max(5)` intents — fonte real do cap) + FR2 atomicidade. Marker PO FIX inline para audit."
+    - location: "Status header + PO Validation block"
+      change: "Status Draft → Ready; Version 1.0 → 1.1; PO Validation block adicionado com verdict GO 9.4/10 high + 1 minor fix descrito."
+    - location: "Change Log v1.1 entry"
+      change: "Adicionada entry @po com verdict + 4 fontes verificadas + 9 [AUTO-DECISIONS] reviewed 9/9 PASS + 1 fix inline detalhado."
+  successor_handoff: "mj-handoff-2.5-ready-for-dev-20260509 (po→dev unblocked em modo mockado — EB1 não afecta drafting/dev, só integração real Story 2.10)"
+  notes: |
+    Pax executou *validate-story-draft 2.5 com 10-point checklist GO/NO-GO + cross-check
+    Article IV contra 8 fontes (architecture.md §4.1/§4.3/§4.5 + 4 stories completed +
+    PRD FRs/NFRs) + review 9 [AUTO-DECISIONS] @sm. Verdict: GO 9.4/10 high confidence.
+    1 minor fix inline análogo ao da Story 2.4 v1.1 (D8 trace correction): citação
+    "FR3 max 5 intents" estava errada porque FR3 PRD é audit log; o cap de 5 vem da
+    Story 2.4 D8 (já em produção/Done validado por architect APPROVED). PO_FIX_INLINE
+    marker adicionado em 4 locais para rastreabilidade futura. Status Draft → Ready
+    (autoridade @po em GO verdict per story-lifecycle.md). Story v1.1.
+  project_prefix: mj-
+  project_codename: meu-jarvis
+  project_brand: Expressia (expressia.pt)
+  predecessor: "mj-handoff-2.5-draft-mockable-20260509 (consumed/archived em 2026-05-09 18:15)"
+
+# -----------------------------------------------------------------------------
+# 1. RESUMO
+# -----------------------------------------------------------------------------
+summary: |
+  Story 2.5 (Planner+Executor Sonnet + atomicidade Postgres) Draft v1.0
+  pronta para @po validação.
+
+  Comando: @aiox-po *validate-story-draft 2.5
+  Output esperado: GO/NO-GO verdict + minor fixes inline (se aplicável) +
+                   Status Draft → Ready (autoridade @po) + sucessor handoff
+                   po → dev (mj-handoff-2.5-ready-for-dev-{date}.yaml).
+  Estimate: ~15-25 min validation (10-point checklist + cross-check Article IV
+            + 9 [AUTO-DECISIONS] @sm review).
+
+# -----------------------------------------------------------------------------
+# 2. CONTEXTO STORY 2.5
+# -----------------------------------------------------------------------------
+context:
+  story_path: "docs/stories/active/2.5.planner-executor-sonnet.md"
+  status: "Draft (v1.0) — aguarda @po *validate-story-draft 2.5"
+  estimate: "L"
+  acs_count: 15
+  tasks_count: 12
+  subtasks_count: ~50  # estimado via expansão tasks
+  test_target: "≥45 (47 mapeados em 7 ficheiros: schemas/planner/executor/errors/tracing/prompts/contract)"
+  package_to_create: "@meu-jarvis/planner-executor (source-only, padrão 2.2/2.3/2.4)"
+
+  scope_overview: |
+    Estágio 2 do pipeline AI (Architecture §4.3):
+    - Planner (Sonnet) constrói tool plan via Anthropic tool calling sobre
+      toolRegistry.getAnthropicToolDefinitions() (Story 2.3) com prompt-cache
+      'ephemeral' (Architecture §4.3 explícito ~90% cost saving).
+    - Executor (thin wrapper) valida tool names e delega execução atómica a
+      executeAtomic (Story 2.3) — atomicidade Postgres preservada, rollback
+      automático em falha de qualquer tool, persistência implícita de
+      agent_reverse_ops (preparação Story 2.8 undo).
+    - Telemetria OTel: spans agent.planner.call (12 attrs whitelist) +
+      agent.executor.run (8 attrs whitelist), zero PII.
+    - Error taxonomy: 5 PlannerError subclasses + 1 ExecutorValidationError;
+      Executor delega ToolError da 2.3 (D13).
+    - Mocks Vitest determinísticos (AnthropicClientLike + ToolRegistry +
+      Drizzle tx) — zero calls reais Anthropic.
+
+  blocker_eb1_status: |
+    EB1 (ANTHROPIC_API_KEY DPA UE — Anthropic Enterprise) PENDING.
+    Best case 48-72h, worst case 1-2 semanas.
+
+    NÃO afecta esta story (drafting/validation/dev/gate/push) — padrão 2.2/2.3/2.4
+    estabelecido com 3 stories Done APPROVED 9.4-9.5/10 mockable-only.
+
+    Integração real Anthropic adiada para Story 2.10 (Benchmark 200 prompts
+    PT-PT — único ponto E2E com keys reais).
+
+  dependencies_done:
+    - story: "2.2 — packages/agent (provider abstraction)"
+      relevance: "AnthropicProvider já implementa ProviderInterface; getProvider({preferredProvider:'anthropic'}) factory; AnthropicClientLike pode requerer D9-equivalent re-export do barrel (Task 2 dedicada)."
+    - story: "2.3 — packages/tools (ToolRegistry + executeAtomic)"
+      relevance: "API consumida pelo Executor para correr tools em transacção atómica. ToolError + 6 subclasses reutilizadas (D13)."
+    - story: "2.4 — packages/classifier (IntentSchema/ClassificationSchema)"
+      relevance: "ClassificationResult é input do Planner. Padrão D9/D10 zero-risk exports estabelecido (analogia para D9-anthropic)."
+    - story: "1.7 — packages/observability"
+      relevance: "logger, withSpan, hashForCorrelation reutilizados em PII redaction + tracing AC9/AC11."
+
+# -----------------------------------------------------------------------------
+# 3. POINTS OF ATTENTION FOR @po
+# -----------------------------------------------------------------------------
+po_focus_points:
+
+  # Critical para @po validar
+  critical:
+    - point: "Anti-hallucination cross-check Article IV — 3 fontes obrigatórias por AC"
+      check: |
+        Para cada AC, confirmar trace para fonte real:
+        - Architecture §4.3 explícito (Planner+Executor, prompt cache ephemeral, tool calling)
+        - PRD FR2 (atomicidade) + FR3 (multi-intent max 5) + FR4 (preview) + FR6 (undo 30s)
+        - NFR5 (RLS), NFR12 (PII), NFR13 (OTel), NFR16 (cobertura), NFR17 (gates)
+        - Story 2.3 AC5 (executeAtomic), Story 2.4 D9 (export pattern)
+
+    - point: "Executor assignment justificado (@dev ≠ @architect)"
+      check: |
+        Story define o contrato Planner+Executor que endpoint 2.6 e benchmark
+        2.10 vão consumir. As 5 decisões arquitecturais explícitas (Planner/
+        Executor split, cache ephemeral strategy, defense-in-depth tool name,
+        error taxonomy reuse vs new, reverse_op hooks) justificam @architect
+        gate (não @qa). Padrão consistente com 2.2/2.3/2.4. Verificar
+        coherence type-to-executor (architectural ⇒ @architect, functional
+        end-to-end ⇒ @qa).
+
+    - point: "[AUTO-DECISION D5] toolCalls.max(10) anti-hallucination guardrail"
+      check: |
+        Análogo a D8 da Story 2.4 (intents.max(5) por @po — passou no architect
+        gate APPROVED com nota telemetry 2.11). Razão: FR3 max 5 intents × 2-3
+        tools/intent expansão = 10-15 razoável; max(10) é prudência. PRD não
+        especifica explicitamente. Alternativas: max(15) mais permissivo,
+        max(5) alinhado FR3 mas pode rejeitar criar_parcelada legítima. Pax
+        pode validar guardrail empírico ou propor ajuste antes do gate.
+
+    - point: "[AUTO-DECISION D9-anthropic] Re-export AnthropicClientLike do barrel @meu-jarvis/agent"
+      check: |
+        Analogia direta de D9 da Story 2.4 (OpenAIClientLike re-export by @dev,
+        zero-risk type expose validado por @architect). Esta story propõe que
+        @dev verifique e — se ausente — aplique a alteração equivalente para
+        Anthropic. Modificação 1 linha. Task 2 dedicada com pre-flight check.
+        Pax confirma que padrão é defensável (precedente Done 2.4 APPROVED).
+
+    - point: "Bloqueador EB1 — clarificação anti-misunderstanding"
+      check: |
+        Confirmar que Story 2.5 está UNBLOCKED para @dev mockable-only,
+        seguindo padrão precedente 2.2 (102 testes mocked, gate APPROVED 9.4/10),
+        2.3 (57 testes mocked, gate APPROVED 9.5/10), 2.4 (78 testes mocked,
+        gate APPROVED 9.4/10). EB1 só bloqueia integração real (Story 2.10).
+        AC12 explícito: "NENHUM teste faz call real à API Anthropic".
+
+  # Verificações secundárias úteis
+  secondary:
+    - point: "Schema agent (Story 2.1) — agent_runs persistence delegada à 2.6"
+      check: |
+        AC8 explícita: "Esta story NÃO persiste agent_runs — é responsabilidade
+        do endpoint (2.6) fazer INSERT inicial (status classifying) e UPDATE
+        final (status success/failed)". Esta story só consome runId no ctx
+        para popular agent_reverse_ops.agent_run_id (delegado a executeAtomic).
+        Verificar coerência com Story 2.1 schema (4 tabelas existem desde
+        bootstrap 1.3, validadas em gate 2.1 APPROVED 9.5/10).
+
+    - point: "[AUTO-DECISION D6] TOOL_TO_INTENT_MAP declarativo estático"
+      check: |
+        Mapping toolName → intent fica num MAP estático em schemas.ts (não
+        LLM-anotado). Tools são single source of truth da 2.3 (não mudam
+        entre runs). Fallback 'unknown' para tools fora do MAP (caso
+        criar_parcelada gerar 3 tool calls onde 1 não tem mapping óbvio).
+        Test contract.test.ts garante coverage 8 intents do IntentSchema.
+
+    - point: "[AUTO-DECISION D11] cache_control: 'ephemeral' default no Planner"
+      check: |
+        Architecture §4.3 explícito: cache_control no system + tools reduz
+        custo input ~90% após cache hit (5min TTL). Esta story implementa
+        cache 'ephemeral' como DEFAULT (não opt-in) — sweet spot custo/precisão
+        depende. Override 'null' disponível para testes/debug. Pax confirma
+        que default é coerente com architecture.
+
+    - point: "PII redaction defense-in-depth"
+      check: |
+        AC11 enforça que NIF (9 dígitos), email, IBAN PT (PT50...), telefone
+        (+351...) NÃO aparecem em error messages. Padrão consistente com:
+        - 2.2 AC9 (sanitizeHint regex)
+        - 2.4 AC10 (4 subclasses + ClassifierLanguageError não inclui input)
+        Reutiliza sanitizeHint de @meu-jarvis/agent (re-exportado por D10
+        da 2.4 — zero-risk export já validado).
+
+    - point: "Test count target ≥45 (mapeados 47)"
+      check: |
+        Distribuição:
+        - schemas.test.ts: 5
+        - planner.test.ts: 14
+        - executor.test.ts: 12
+        - errors.test.ts: 7
+        - tracing.test.ts: 5
+        - prompts.test.ts: 2
+        - contract.test.ts: 2
+        Total: 47. Médio entre 2.4 (78) e 2.3 (57). Story L estimate scope
+        similar a 2.4. Razão para target — story não tem componente persistência
+        DB direta (delegada à 2.3 que tem +13 tests atomic.test.ts). Validável
+        @architect — over-coverage aceitável.
+
+# -----------------------------------------------------------------------------
+# 4. NEXT ACTION FOR @po
+# -----------------------------------------------------------------------------
+next_action: |
+  @po (Pax) executa `*validate-story-draft 2.5`:
+
+  1. Ler `docs/stories/active/2.5.planner-executor-sonnet.md` v1.0 completa
+  2. Cross-check anti-hallucination Article IV contra:
+     - docs/architecture.md §4.1 (pipeline 3 estágios) + §4.3 (Planner+Executor)
+     - docs/prd.md FR2/FR3/FR4/FR6 + NFR5/NFR12/NFR13/NFR16/NFR17/NFR19
+     - docs/stories/completed/2.2 (provider abstraction)
+     - docs/stories/completed/2.3 (executeAtomic + toolRegistry)
+     - docs/stories/completed/2.4 (ClassificationResult + D9 export pattern)
+  3. Executar 10-point checklist:
+     [1] Title — concise, descriptive
+     [2] Description — clear user story (As/I want/so that)
+     [3] Acceptance Criteria — testable, exhaustive (15 ACs)
+     [4] Scope — clear boundary; "Não inclui" lista (Stories 2.6/2.7/2.8/2.9/2.10/2.11)
+     [5] Dependencies — 2.2/2.3/2.4/1.7 Done validados
+     [6] Estimate — L coerente com scope (médio entre 2.3 L e 2.4 M)
+     [7] Business Value — contributes to Epic 2 critical path (4/11 → 5/11 Done)
+     [8] Risks — 9 R1-R9 identificados com mitigations
+     [9] Definition of Done — Task 12 quality gates 5/5
+     [10] Alignment — architecture.md §4.3 + PRD Epic 2 ACs
+  4. Review 9 [AUTO-DECISIONS] @sm:
+     D5 max(10), D5b 1 package, D6 TOOL_TO_INTENT_MAP, D8 defense-in-depth,
+     D9-anthropic re-export, D11 cache ephemeral default, D13 Executor delega
+     ToolError, D14 skip CodeRabbit, D15 test target ≥45
+  5. Verdict GO (≥7/10) ou NO-GO (com required fixes listed):
+     - GO: Status Draft → Ready, story v1.0 → v1.1 com Change Log entry @po
+       + minor fixes inline (se aplicáveis, padrão 2.4 D8 fix)
+     - NO-GO: required fixes listed, status mantém Draft, retornar a @sm
+  6. Actualizar `docs/stories/active/_INDEX.md` row 2.5 (Backlog → Draft → Ready
+     se GO, ou Backlog → Draft se NO-GO + handoff de retorno a @sm)
+  7. Criar successor handoff:
+     - GO: `mj-handoff-2.5-ready-for-dev-20260509.yaml` (po → dev)
+     - NO-GO: `mj-handoff-2.5-back-to-sm-{date}.yaml` (po → sm com fixes)
+
+# -----------------------------------------------------------------------------
+# 5. CONSUMPTION PROTOCOL
+# -----------------------------------------------------------------------------
+consumption_instructions:
+  who_consumes: "@aiox-po (Pax) ao executar *validate-story-draft 2.5"
+  steps:
+    - "Ler este YAML completo + arquivos referenciados"
+    - "Editar este YAML: status pending → consumed; consumed: true; consumed_at: <ISO-8601>; consumed_by: @aiox-po"
+    - "Adicionar consumption_record (verdict GO/NO-GO, score X/10, fixes inline aplicados, [AUTO-DECISIONS] reviewed)"
+    - "git mv docs/handoffs/mj-handoff-2.5-ready-for-po-20260509.yaml → docs/handoffs/archive/"
+    - "Editar HANDOFF-INDEX.md: pending row remove + archived row add"
+    - "Criar successor (GO → po→dev OR NO-GO → po→sm)"
+
+# -----------------------------------------------------------------------------
+# 6. METADATA
+# -----------------------------------------------------------------------------
+metadata:
+  story_id: "2.5"
+  story_title: "Planner + Executor (Sonnet) + atomicidade Postgres"
+  epic_id: "Epic 2 — Cérebro AI Multi-Intent"
+  epic_progress_before: "4/11 Done"
+  epic_progress_after_if_done: "5/11 Done"
+  package_target: "packages/planner-executor/ (~17 ficheiros novos: 7 source + 7 test + 3 fixtures)"
+  files_to_modify_for_d9_anthropic: "1 (packages/agent/src/index.ts — 1 linha re-export se ausente)"
+  estimated_dev_time: "~3-4h (M+L scope, padrão 2.4 levou ~1h após PO validation)"
+  estimated_architect_gate_time: "~1h (gate report ~720 linhas padrão 2.4)"
+
+# -----------------------------------------------------------------------------
+# FIM DO HANDOFF
+# -----------------------------------------------------------------------------

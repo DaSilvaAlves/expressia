@@ -1,0 +1,270 @@
+# =============================================================================
+# HANDOFF — @po → @dev: implementar Story 2.5 (Planner+Executor Sonnet)
+# =============================================================================
+# CONTEXTO: Pax (@po) executou *validate-story-draft 2.5 em 2026-05-09 18:30
+# (sucessor de mj-handoff-2.5-ready-for-po-20260509 consumed/archived).
+# Veredicto: GO 9.4/10 high confidence. Story 2.5 v1.0 → v1.1 (Status
+# Draft → Ready). 1 minor fix inline aplicado em AC2/D5/Trace (FR3 trace
+# correction — análogo a 2.4 v1.1). 9 [AUTO-DECISIONS] @sm reviewed 9/9 PASS.
+# EB1 PENDING NÃO bloqueia (mockable-only padrão 2.2/2.3/2.4 estabelecido).
+# Próximo passo: @dev *develop 2.5.
+# =============================================================================
+
+handoff:
+  id: mj-handoff-2.5-ready-for-dev-20260509
+  from_agent: "@aiox-po (Pax)"
+  to_agent: "@aiox-dev (Dex)"
+  created: "2026-05-09T18:30:00+01:00"
+  status: pending
+  priority: medium
+  project_prefix: mj-
+  project_codename: meu-jarvis
+  project_brand: Expressia (expressia.pt)
+  predecessor: "mj-handoff-2.5-ready-for-po-20260509 (consumed/archived em 2026-05-09 18:30)"
+
+# -----------------------------------------------------------------------------
+# 1. RESUMO
+# -----------------------------------------------------------------------------
+summary: |
+  Story 2.5 (Planner+Executor Sonnet + atomicidade Postgres) Ready v1.1 —
+  validation @po GO 9.4/10 high. @dev pode arrancar implementação imediata
+  em modo mockado (100% sem chamadas reais Anthropic).
+
+  Comando: @aiox-dev *develop 2.5
+  Modo recomendado: YOLO autónomo (precedente 2.2/2.3/2.4 = ~1-3h cada;
+                    2.4 levou ~1h após PO validation com gate APPROVED 9.4/10).
+  Output esperado: Status Ready → InProgress → Ready for Review (v1.2);
+                   Package @meu-jarvis/planner-executor criado (~17 ficheiros);
+                   ≥45 testes Vitest pass (target 47 mapeados);
+                   5 quality gates exit 0 (typecheck/lint/test/build/check:rls);
+                   Dev Agent Record + File List preenchidos;
+                   Sucessor handoff dev→architect criado.
+  Estimate: ~3-4h dev YOLO (M+L scope, 17 ficheiros novos).
+
+# -----------------------------------------------------------------------------
+# 2. CONTEXTO STORY 2.5 v1.1
+# -----------------------------------------------------------------------------
+context:
+  story_path: "docs/stories/active/2.5.planner-executor-sonnet.md"
+  status: "Ready (v1.1) — aguarda @dev *develop 2.5"
+  estimate: "L"
+  acs_count: 15
+  tasks_count: 12
+  test_target: "≥45 (47 mapeados em 7 ficheiros)"
+  package_to_create: "@meu-jarvis/planner-executor (source-only, padrão 2.2/2.3/2.4)"
+
+  scope_overview: |
+    Estágio 2 do pipeline AI (Architecture §4.3):
+    - **Planner** (Sonnet) constrói tool plan via Anthropic tool calling sobre
+      `toolRegistry.getAnthropicToolDefinitions()` (Story 2.3) com prompt-cache
+      `'ephemeral'` D11 (~90% cost saving conforme Architecture §4.3).
+    - **Executor** (thin wrapper) valida tool names (D8 defense-in-depth) e
+      delega execução atómica a `executeAtomic` (Story 2.3) — atomicidade
+      Postgres preservada, rollback automático em falha de qualquer tool,
+      persistência implícita de `agent_reverse_ops` (preparação Story 2.8 undo).
+    - **Telemetria OTel**: spans `agent.planner.call` (12 attrs whitelist) +
+      `agent.executor.run` (8 attrs whitelist), zero PII.
+    - **Error taxonomy**: 5 PlannerError subclasses + 1 ExecutorValidationError;
+      Executor delega ToolError da 2.3 (D13).
+    - **Mocks Vitest determinísticos** (AnthropicClientLike + ToolRegistry +
+      Drizzle tx) — zero calls reais Anthropic.
+
+  blocker_eb1_status: |
+    EB1 (ANTHROPIC_API_KEY DPA UE — Anthropic Enterprise) PENDING.
+    Best case 48-72h, worst case 1-2 semanas.
+
+    NÃO afecta esta story — padrão 2.2/2.3/2.4 estabelecido com 3 stories
+    Done APPROVED 9.4-9.5/10 mockable-only.
+
+    Integração real Anthropic adiada para Story 2.10 (Benchmark 200 prompts
+    PT-PT — único ponto E2E com keys reais).
+
+  changes_v1_0_to_v1_1:
+    - "Status: Draft → Ready"
+    - "PO Validation block adicionado: GO 9.4/10 high confidence"
+    - "AC2 [AUTO-DECISION D5]: trace correction — removida citação errada 'FR3 PRD limita multi-intent a 5 simultâneas' (FR3 do PRD é audit log, não limite multi-intent — verificável em prd.md:42); substituída por trace correcta a Story 2.4 D8 (`max(5)` intents — fonte real) + FR2 atomicidade. NOTA [PO FIX inline 2026-05-09] adicionada para rastreabilidade. Sem alteração estrutural ao schema PlanResultSchema (`max(10)` mantém-se)."
+    - "Trace section AC2 row: FR3 → Story 2.4 D8 + FR2"
+    - "Change Log v1.1 entry @po com 9 [AUTO-DECISIONS] reviewed 9/9 PASS"
+  changes_summary: "Sem alteração estrutural a ACs/schemas/tasks. Apenas trace correction em 4 locais com PO_FIX_INLINE marker."
+
+# -----------------------------------------------------------------------------
+# 3. POINTS OF ATTENTION FOR @dev
+# -----------------------------------------------------------------------------
+dev_focus_points:
+
+  critical:
+    - point: "Task 2 — Verificar/aplicar D9-anthropic equivalent (re-export AnthropicClientLike)"
+      details: |
+        Story AC3 + Task 2 dedicada. Pre-flight check (~2min):
+        - Ler `packages/agent/src/index.ts` — ver se exporta `AnthropicClientLike`
+        - Se ausente: adicionar 1 linha
+          `export type { AnthropicClientLike } from './providers/anthropic';`
+        - Padrão idêntico ao D9 da Story 2.4 (OpenAIClientLike re-export by
+          @dev, zero-risk type expose validado por @architect APPROVED 9.4/10).
+        - Verificar `pnpm --filter @meu-jarvis/agent typecheck` + `test`
+          continuam exit 0 inalterados.
+        - Documentar em Dev Agent Record como "D9-anthropic equivalente".
+        - Se já está exportada: AC3 é no-op, marcar Task 2 done com nota.
+
+    - point: "Reutilização agressiva de packages predecessores (anti-duplicação)"
+      details: |
+        Esta story é coesão: thin wrappers sobre infraestrutura já entregue:
+        - **Planner** consome `getProvider({preferredProvider:'anthropic'})`,
+          `ProviderInterface.complete()`, `CLAUDE_SONNET_DEFAULT` da 2.2.
+          NÃO recriar SDK Anthropic wrapper.
+        - **Executor** consome `executeAtomic`, `toolRegistry`,
+          `ToolExecutionContext`, `AtomicResult/AtomicFailure` da 2.3.
+          NÃO recriar transaction wrapper.
+        - **Errors**: 5 PlannerError novas + 1 ExecutorValidationError.
+          Executor DELEGA `ToolError` da 2.3 (D13). NÃO criar hierarquia
+          paralela tipo ExecutorExecutionError (seria duplicação).
+        - **PII redaction**: `sanitizeHint` reutiliza re-export da 2.2
+          (D10 da Story 2.4).
+        Se sentir tentação de reescrever lógica de transacção, retry,
+        circuit breaker, RLS, error mapping — STOP. Já existe nas
+        predecessoras Done.
+
+    - point: "cache_control: 'ephemeral' default (D11) — implementação correcta"
+      details: |
+        Architecture §4.3 explícito: cache no system + tool definitions JSON.
+        Em ProviderCompleteInput a passar a `provider.complete()`:
+        - `cacheControl: 'ephemeral'` (default desta story; override `null`
+          apenas em testes específicos para verificar `cacheHit: false`).
+        - System prompt no INÍCIO do messages array (prefix-based caching).
+        - Tools array é serializado pelo AnthropicProvider (Story 2.2 AC3) —
+          o cache_control é aplicado pelo provider conforme contrato 2.2.
+        Verificar test `planner.test.ts` cenário "payload tem cache_control:
+        ephemeral em system block" — confirma payload OK ANTES do mock LLM.
+
+    - point: "TOOL_TO_INTENT_MAP cobertura 8 intents (D6)"
+      details: |
+        Schema MAP estático em schemas.ts. Test contract.test.ts garante
+        que MAP cobre os 8 valores do IntentSchema (importado de
+        @meu-jarvis/classifier — Story 2.4):
+        criar_tarefa, criar_financa_variavel, criar_financa_recorrente,
+        criar_cartao, criar_parcelada, consultar_dados, cancelar_ultima,
+        unknown.
+        Tools mock no fixture mock-tool-registry.ts (3 tools determinísticas)
+        devem ter nomes que estejam no MAP (ex: mockCreateTaskTool com
+        name='create_task'). Fallback 'unknown' para tools fora do MAP é
+        tratado em Planner step 6.
+
+  secondary:
+    - point: "Mock Drizzle tx (mock-db-tx.ts)"
+      details: |
+        Reutilizar/inspirar do padrão da Story 2.3 (`packages/tools/src/__tests__/atomic.test.ts`).
+        Não importar mock real do package tools — recriar minimal nesta
+        story para isolamento. O mock tx deve expor `transaction(fn)`,
+        `insert`, `select`, `rollback` mockados.
+
+    - point: "Mock AnthropicClientLike — formato resposta SDK"
+      details: |
+        Resposta Anthropic tem estrutura:
+          content: [
+            { type: 'tool_use', id: 'toolu_xxx', name: 'create_task', input: {...} },
+            { type: 'text', text: 'Vou criar 1 tarefa...' }  // planReasoning
+          ]
+          usage: {
+            input_tokens: 500,
+            output_tokens: 50,
+            cache_read_input_tokens: 450  // > 0 = cache hit
+          }
+          stop_reason: 'tool_use' | 'end_turn'
+        O AnthropicProvider (Story 2.2 AC3) já mapeia para
+        ProviderCompleteOutput { toolCalls[], cacheHit, ... } — o mock deve
+        produzir resposta SDK que o provider possa mapear correctamente.
+
+    - point: "Test count target ≥45 (47 mapeados — over-coverage aceitável)"
+      details: |
+        Distribuição mapeada (story AC13):
+        - schemas.test.ts: 5
+        - planner.test.ts: 14
+        - executor.test.ts: 12
+        - errors.test.ts: 7
+        - tracing.test.ts: 5
+        - prompts.test.ts: 2
+        - contract.test.ts: 2
+        Se entregares mais (precedente: 2.2 entregou 102, 2.4 entregou 78),
+        over-coverage é aceitável e sinal de robustez. Architect aprecia.
+
+    - point: "[AUTO-DECISION] markers a manter ou substituir"
+      details: |
+        Os 9 [AUTO-DECISIONS] @sm (D5/D5b/D6/D8/D9-anthropic/D11/D13/D14/D15)
+        já estão validados por @po. Se durante implementação encontrares
+        casos que requerem novas decisões, marca-as [AUTO-DECISION D16+]
+        em Dev Agent Record (precedente: 2.4 acumulou D9-D12 do @dev sobre
+        os D1-D8 do @sm/@po). @architect gate avaliará todas em conjunto.
+
+    - point: "Skip CodeRabbit pre-commit (D14)"
+      details: |
+        Decisão final fica para @dev no fim. Precedente 2.2/2.3/2.4 todos
+        skipparam (architect gate é canónico para decisões arquitecturais).
+        Se @dev decidir RUN CodeRabbit, documentar razão em Dev Agent Record.
+        Se SKIP, documentar [AUTO-DECISION D14] confirmation em Dev Agent
+        Record com referência ao precedente 2.4 D12.
+
+    - point: "Quality gates 5/5 obrigatórios (Task 12)"
+      details: |
+        Antes de marcar Status InProgress → Ready for Review:
+          pnpm lint --max-warnings=0    # 9/9 packages exit 0 (turbo cached)
+          pnpm typecheck                # 9/9 packages exit 0 (turbo cached)
+          pnpm test                     # ≥45 novos planner-executor + 222+ existentes
+          pnpm build                    # Next.js 9 routes inclui via transpilePackages
+          pnpm check:rls                # 26 tabelas / 104 policies — NFR5 PRESERVADA
+        invariante NFR5: esta story NÃO adiciona tabelas com household_id —
+        check:rls deve manter-se em 26/104.
+
+# -----------------------------------------------------------------------------
+# 4. NEXT ACTION FOR @dev
+# -----------------------------------------------------------------------------
+next_action: |
+  @dev (Dex) executa `*develop 2.5`:
+
+  1. Ler `docs/stories/active/2.5.planner-executor-sonnet.md` v1.1 completa
+     - 15 ACs + 12 Tasks + 9 [AUTO-DECISIONS] + Dev Notes + Risks + Trace
+  2. Verificar working tree limpo + branch `main`
+     - Working tree: actualmente pendente commit (story 2.5 + handoffs +
+       INDEXes). @dev pode commitar como primeira acção (precedente: padrão
+       histórico das stories 2.2/2.3/2.4).
+  3. Executar Task 1 (scaffold package) → Task 2 (D9-anthropic check)
+     → Task 3 (schemas) → ... → Task 12 (quality gates + Ready for Review)
+  4. Modo recomendado: YOLO autónomo (precedente 2.4: 11/11 tasks + 4
+     [AUTO-DECISIONS] @dev D9-D12 em ~1h após PO validation)
+  5. Documentar [AUTO-DECISIONS] @dev (D16+) em Dev Agent Record se aparecerem
+  6. Marcar Status Ready → InProgress no início + Ready for Review no fim
+  7. Preencher Dev Agent Record + File List (novos + modificados)
+  8. Criar handoff successor `mj-handoff-2.5-ready-for-architect-{date}.yaml`
+     (dev → architect *qa-gate 2.5)
+
+# -----------------------------------------------------------------------------
+# 5. CONSUMPTION PROTOCOL
+# -----------------------------------------------------------------------------
+consumption_instructions:
+  who_consumes: "@aiox-dev (Dex) ao executar *develop 2.5"
+  steps:
+    - "Ler este YAML completo + arquivos referenciados"
+    - "Editar este YAML: status pending → consumed; consumed: true; consumed_at: <ISO-8601>; consumed_by: @aiox-dev"
+    - "Adicionar consumption_record (tasks_completed, tests_count, [AUTO-DECISIONS] @dev, files_created/modified, gates_status)"
+    - "git mv docs/handoffs/mj-handoff-2.5-ready-for-dev-20260509.yaml → docs/handoffs/archive/"
+    - "Editar HANDOFF-INDEX.md: pending row remove + archived row add"
+    - "Criar successor `mj-handoff-2.5-ready-for-architect-{date}.yaml` (dev → architect)"
+
+# -----------------------------------------------------------------------------
+# 6. METADATA
+# -----------------------------------------------------------------------------
+metadata:
+  story_id: "2.5"
+  story_title: "Planner + Executor (Sonnet) + atomicidade Postgres"
+  story_version: "1.1"
+  epic_id: "Epic 2 — Cérebro AI Multi-Intent"
+  epic_progress_before: "4/11 Done"
+  epic_progress_after_if_done: "5/11 Done"
+  package_target: "packages/planner-executor/ (~17 ficheiros novos: 7 source + 7 test + 3 fixtures)"
+  files_to_modify_external: "1 (packages/agent/src/index.ts — 1 linha re-export AnthropicClientLike se ausente; analogia D9 da 2.4)"
+  estimated_dev_time: "~3-4h YOLO autónomo (precedente 2.4: ~1h após PO validation)"
+  estimated_architect_gate_time: "~1h (gate report ~720 linhas padrão 2.4)"
+  dependency_chain: "2.2 ✓ + 2.3 ✓ + 2.4 ✓ + 1.7 ✓ → 2.5 (esta) → 2.6 (endpoint) → 2.10 (benchmark E2E)"
+
+# -----------------------------------------------------------------------------
+# FIM DO HANDOFF
+# -----------------------------------------------------------------------------
