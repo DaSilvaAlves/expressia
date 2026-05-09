@@ -14,12 +14,77 @@ handoff:
   from_agent: "@aiox-architect (Aria)"
   to_agent: "@aiox-devops (Gage)"
   created: "2026-05-09T20:30:00+01:00"
-  status: pending
+  status: consumed
+  consumed: true
+  consumed_at: "2026-05-09T21:30:00+01:00"
+  consumed_by: "@aiox-devops (Gage)"
   priority: medium
   project_prefix: mj-
   project_codename: meu-jarvis
   project_brand: Expressia (expressia.pt)
   predecessor: "mj-handoff-2.5-ready-for-architect-20260509 (consumed/archived em 2026-05-09 20:30)"
+  successor: "nenhum directo — Story 2.6 unblocked estruturalmente, drafting fica a critério de Eurico"
+
+# -----------------------------------------------------------------------------
+# CONSUMPTION RECORD (added by @aiox-devops on consume)
+# -----------------------------------------------------------------------------
+consumption_record:
+  consumed_at: "2026-05-09T21:30:00+01:00"
+  consumed_by: "@aiox-devops (Gage)"
+  command_executed: "*push 2.5"
+  duration_minutes: 5
+
+  pre_push_revalidation:
+    typecheck: "9/9 cached FULL TURBO 80ms exit 0"
+    lint: "9/9 cached FULL TURBO 75ms 0 warnings exit 0"
+    test: "9/9 cached FULL TURBO 75ms (416 tests preservados — 53 planner-executor + 102 agent + 78 classifier + 57 tools + 103 db-test + 9 web + 8 observability + 6 db + 0 auth)"
+    check_rls: "747ms — 26 tabelas / 104 policies — NFR5 PRESERVADA"
+    build: "9/9 cached FULL TURBO 83ms — Next.js 9 routes (/, /_not-found, /api/me, /entrar, /recuperar, /registar, /visao + middleware 94.4kB) + Sentry sourcemap 3 runtimes preservado"
+    verdict: "TODOS PASS — full turbo cache hit consistente com FULL TURBO esperado pelo handoff"
+
+  coderabbit_pre_push: |
+    [AUTO-DECISION] Skipped consistente com 2.2/2.3/2.4 D14. Razão:
+    1. Architect gate APPROVED 9.4/10 HIGH ~700 linhas substitui review automatizado.
+    2. 11/11 [AUTO-DECISIONS] PASS independentemente verificadas (D5/D5b/D6/D8/
+       D9-anthropic/D11/D13/D14/D15 + D9-anthropic-applied + D16).
+    3. 416 testes (53 novos + 363 existentes preservados) confirmam zero regressão.
+    4. D16 cross-package refactor (`@/*` → `./` em 6 ficheiros tools+classifier) é
+       mecânico find/replace sem alteração comportamental — pattern já existia em
+       packages/agent/src/* desde Story 2.2 Done.
+    5. Confiar nos 5 quality gates re-verificados pelo @architect (independentes do
+       @dev) + 5 quality gates re-verificados pelo @devops antes do push (full turbo
+       cache hit).
+
+  push_summary:
+    branch: "main"
+    range: "970f19b..51467fe"
+    commits_pushed: 5
+    commits_list:
+      - "b7ab5a2 chore(stories): Story 2.5 v1.1 Ready — @po validation GO 9.4/10 + handoffs sm→po consume + po→dev create [Story 2.5]"
+      - "acb949f feat(planner-executor): Story 2.5 v1.2 Ready for Review — Planner+Executor Sonnet + atomicidade Postgres [Story 2.5]"
+      - "3e3d91e chore(handoffs): consume po→dev + handoff dev→architect Story 2.5 v1.2 [Story 2.5]"
+      - "642e0e9 chore(handoffs): meta session-pause cross-terminal pós Story 2.5 Ready for Review v1.2 [Story 2.5]"
+      - "51467fe chore(docs): close Story 2.5 — architect gate APPROVED 9.4/10 + handoff to devops [Story 2.5]"
+    push_output: "To https://github.com/DaSilvaAlves/expressia.git  970f19b..51467fe  main -> main"
+    origin_main_after_push: "51467fe"
+
+  housekeeping_completed:
+    story_file: "git mv docs/stories/active/2.5.planner-executor-sonnet.md → docs/stories/completed/2.5.planner-executor-sonnet.md (history preservado via rename)"
+    story_version_bump: "v1.3 → v1.4 — Change Log entry @devops (push range, gates re-verificados, [AUTO-DECISION] CodeRabbit skip rationale)"
+    index_md: "_INDEX.md row Story 2.5 InReview → Done + cabeçalho Epic 2 4/11 → 5/11 stories Done"
+    handoff_archive: "git mv docs/handoffs/mj-handoff-2.5-ready-for-devops-close-20260509.yaml → archive/ (this file)"
+    handoff_index: "HANDOFF-INDEX.md pending row removed + archived row added + update note timestamp"
+
+  successor_handoff: |
+    Sem sucessor automático. Story 2.6 (Endpoint POST /api/agent/prompt) fica
+    estruturalmente unblocked — depende 2.2 ✓ + 2.3 ✓ + 2.4 ✓ + 2.5 ✓; EB1 ainda
+    pending mas mockable-only. Drafting de 2.6 fica a critério de Eurico.
+
+  epic_status:
+    epic_id: "Epic 2 — Cérebro AI Multi-Intent"
+    progress_before: "4/11 Done (2.1 + 2.2 + 2.3 + 2.4)"
+    progress_after: "5/11 Done (2.1 + 2.2 + 2.3 + 2.4 + 2.5)"
+    next_unblocked: "Story 2.6 (Endpoint POST /api/agent/prompt) — depende 2.2 ✓ + 2.3 ✓ + 2.4 ✓ + 2.5 ✓; EB1 PENDING não bloqueia mockable-only"
 
 # -----------------------------------------------------------------------------
 # 1. RESUMO
