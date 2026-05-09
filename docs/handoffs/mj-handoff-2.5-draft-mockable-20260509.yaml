@@ -1,0 +1,135 @@
+# =============================================================================
+# HANDOFF — @devops → @sm: arrancar Story 2.5 Planner+Executor mockable-only
+# =============================================================================
+# CONTEXTO: Após @devops *push 2.4 (Story 2.4 Done, Epic 2 = 4/11), Eurico
+# decidiu na sessão @devops 2026-05-09 17:30 entre 3 opções para Story 2.5.
+# Decisão: Opção 2 — @sm draft 2.5 mockable-only (padrão 2.2/2.3/2.4).
+# EB1 (Anthropic DPA UE) pending NÃO bloqueia drafting/dev/gate — apenas
+# integração real, que fica para Story 2.10 (Benchmark E2E).
+# =============================================================================
+
+handoff:
+  id: mj-handoff-2.5-draft-mockable-20260509
+  from_agent: "@aiox-devops (Gage)"
+  to_agent: "@aiox-sm (River)"
+  created: "2026-05-09T17:35:00+01:00"
+  status: pending
+  priority: medium
+  project_prefix: mj-
+  project_codename: meu-jarvis
+  project_brand: Expressia (expressia.pt)
+  predecessor: "mj-handoff-2.4-ready-for-devops-close-20260509 (consumed/archived em 2026-05-09 17:25)"
+
+# -----------------------------------------------------------------------------
+# 1. RESUMO
+# -----------------------------------------------------------------------------
+summary: |
+  Story 2.4 Done (Classifier PT-PT GPT-4o-mini, gate APPROVED 9.4/10 HIGH).
+  Epic 2 = 4/11 Done. Story 2.5 unblocked estruturalmente (depende 2.3 ✓ +
+  2.4 ✓ + EB1 — pending, mas mockable-only).
+
+  Eurico decidiu: Opção 2 — @sm draft 2.5 mockable-only. Padrão precedente
+  2.2/2.3/2.4 estabelecido e validado (3 stories Done com gate APPROVED
+  9.4-9.5/10, todas implementadas com mocks Vitest sem keys reais).
+
+  Comando: @aiox-sm *draft 2.5
+  Output esperado: docs/stories/active/2.5.{slug}.story.md em Draft
+  Estimate: ~30-45 min drafting (story L estimate, scope médio-alto)
+
+# -----------------------------------------------------------------------------
+# 2. CONTEXTO STORY 2.5
+# -----------------------------------------------------------------------------
+context:
+  story_scope: |
+    Conforme _INDEX.md row 2.5 e architecture.md §4 (Pipeline 3 estágios):
+    "Planner + Executor (Sonnet) + atomicidade Postgres"
+
+    Estágio 2 do pipeline AI:
+      Estágio 1 (Classifier — Story 2.4 Done) → ClassificationResult
+      Estágio 2 (Planner+Executor — esta story) → constrói tool plan via
+        Claude Sonnet com tool calling sobre ToolRegistry (Story 2.3) +
+        executa atomicamente em transacção Postgres única
+      Estágio 3 (preview/undo — Stories 2.7+/2.8+) → segue depois
+
+  dependencies_done:
+    - story: "2.2 — packages/agent (provider abstraction)"
+      relevance: "AnthropicClientLike interface a definir analogamente a OpenAIClientLike. Padrão D9/D10 zero-risk exports já validado."
+    - story: "2.3 — packages/tools (ToolRegistry + executeAtomic)"
+      relevance: "API consumida pelo Executor para correr tools em transacção atómica."
+    - story: "2.4 — packages/classifier (IntentSchema/ClassificationSchema)"
+      relevance: "ClassificationResult é o input do Planner."
+
+  blocker_eb1_status: |
+    EB1 (ANTHROPIC_API_KEY DPA UE — Anthropic Enterprise) PENDING.
+    Best case 48-72h, worst case 1-2 semanas.
+
+    NÃO afecta esta story — padrão 2.2/2.3/2.4 estabelecido:
+    - Drafting @sm: independente
+    - Validation @po: independente
+    - Implementação @dev: 100% mockada (Vitest mocks sem keys)
+    - Architect gate: independente
+    - Push @devops: independente
+
+    Integração real Anthropic adiada para Story 2.10 (Benchmark 200 prompts
+    PT-PT — único ponto E2E com keys reais).
+
+  references_to_read:
+    architecture:
+      - "docs/architecture.md §4 — Pipeline 3 estágios + tool calling design"
+      - "docs/architecture.md (Planner+Executor section — confirmar §4.3 ou §4.4)"
+    prd:
+      - "docs/prd.md FR2 (atomicidade Postgres)"
+      - "docs/prd.md FR3 (multi-intent até 5 simultâneas)"
+      - "docs/prd.md FR5 (audit log)"
+      - "docs/prd.md FR6 (undo 30s — preparar hooks aqui, implementar em 2.8)"
+    stories_predecessoras:
+      - "docs/stories/completed/2.2.agent-package-provider-abstraction.md (padrão OpenAIClientLike → replicar para Anthropic)"
+      - "docs/stories/completed/2.3.tool-registry-foundation.md (ToolRegistry/executeAtomic API)"
+      - "docs/stories/completed/2.4.classifier-pt-pt.md (ClassificationResult contract input do Planner)"
+    db:
+      - "docs/db-schema.md — agent.* tables (Story 2.1 schema)"
+      - "packages/db/src/schema/agent.ts (executeAtomic precisa rever transaction wrapper)"
+
+# -----------------------------------------------------------------------------
+# 3. NEXT ACTION
+# -----------------------------------------------------------------------------
+next_action: |
+  @sm (River) executa `*draft 2.5`:
+
+  1. Ler architecture.md §4 + dependent stories (2.2, 2.3, 2.4 — todas em completed/)
+  2. Criar Story 2.5 Draft em docs/stories/active/2.5.{slug}.story.md
+     - Naming sugerido: 2.5.planner-executor-sonnet.md
+  3. Definir 10-15 ACs (escala L estimate, scope:
+     - AC: package adições (provider Anthropic em packages/agent)
+     - AC: AnthropicClientLike interface (analogía D9/D10)
+     - AC: PlannerSchema/ToolPlanSchema Zod-tipados
+     - AC: Planner.plan() — chamada Sonnet com tool calling
+     - AC: Executor.execute() — executeAtomic da 2.3 wrapping
+     - AC: Atomicidade Postgres (transaction rollback se 1 tool falha)
+     - AC: Reverse_op persistence em agent_reverse_ops (preparar 2.8)
+     - AC: Telemetria OTel (spans Planner + Executor)
+     - AC: Error taxonomy específica (PlannerError/ExecutorError)
+     - AC: Mocks Vitest (AnthropicClientLike + ToolRegistry mock)
+     - AC: ≥40 tests
+     - AC: Quality gates 5/5 verde)
+  4. Documentar [AUTO-DECISION] markers para decisões @sm
+  5. Justificar executor assignment (@dev ≠ @architect)
+  6. Status Draft → criar successor handoff sm→po
+     (mj-handoff-2.5-ready-for-po-{date}.yaml)
+
+# -----------------------------------------------------------------------------
+# 4. CONSUMPTION PROTOCOL
+# -----------------------------------------------------------------------------
+consumption_instructions:
+  who_consumes: "@aiox-sm (River) ao executar *draft 2.5"
+  steps:
+    - "Ler este YAML completo + arquivos referenciados"
+    - "Editar este YAML: status pending → consumed; consumed: true; consumed_at: <ISO-8601>; consumed_by: @aiox-sm"
+    - "Adicionar consumption_record (story file path, ACs count, [AUTO-DECISIONS] count)"
+    - "git mv docs/handoffs/mj-handoff-2.5-draft-mockable-20260509.yaml → docs/handoffs/archive/"
+    - "Editar HANDOFF-INDEX: pending row remove + archived row add"
+    - "Criar successor: mj-handoff-2.5-ready-for-po-{date}.yaml (sm → po)"
+
+# -----------------------------------------------------------------------------
+# FIM DO HANDOFF
+# -----------------------------------------------------------------------------
