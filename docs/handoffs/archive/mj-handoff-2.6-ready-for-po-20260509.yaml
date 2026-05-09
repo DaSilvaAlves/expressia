@@ -1,0 +1,217 @@
+id: mj-handoff-2.6-ready-for-po-20260509
+from_agent: sm
+to_agent: po
+created: "2026-05-09T22:00:00Z"
+status: pending
+priority: medium
+project_prefix: mj
+
+summary: |
+  Story 2.6 Draft v1.0 criada por River (@sm) — "Endpoint POST /api/agent/prompt — Consumidor
+  Canónico do Pipeline AI". 16 ACs + 15 Tasks + 8 [AUTO-DECISIONS] D17-D24. Mockable-only
+  (EB1/EB2/EB3 não bloqueiam). Target ≥40 testes Vitest, 5 quality gates. Aguarda validação
+  @po *validate-story-draft 2.6.
+
+context:
+  story_id: "2.6"
+  story_path: "docs/stories/active/2.6.endpoint-prompt-canonical-consumer.md"
+  story_status: Draft
+  story_version: "1.0"
+  epic: "Epic 2 — Cérebro AI Multi-Intent"
+  epic_progress: "5/11 stories Done"
+  branch: main
+  git_head: 51c9b00
+
+  predecessors_done:
+    - "2.1 Done — schema agent_runs + reverse_ops + trigger imutabilidade + enum agent_run_status"
+    - "2.2 Done — @meu-jarvis/agent: provider abstraction + PII redaction + observability hooks"
+    - "2.3 Done — @meu-jarvis/tools: executeAtomic + toolRegistry + ToolPlanGateError"
+    - "2.4 Done — @meu-jarvis/classifier: Classifier + ClassifierError + OpenAIClientLike mock"
+    - "2.5 Done — @meu-jarvis/planner-executor: Planner + Executor + PlannerError + AnthropicClientLike mock"
+
+  external_blockers:
+    - id: EB1
+      status: PENDING
+      impact: "NÃO bloqueia — mockable-only (padrão 2.2/2.3/2.4/2.5)"
+    - id: EB2
+      status: PENDING
+      impact: "NÃO afecta — Classifier usa OpenAIClientLike mockado"
+    - id: EB3
+      status: PENDING
+      impact: "NÃO bloqueia — rate limit em Postgres MVP (D18); migração Upstash em Story 2.9"
+
+  key_acs:
+    - "AC1: Route Handler POST /api/agent/prompt — body {prompt: string}, Auth 401 se sem sessão"
+    - "AC2: getDb() role authenticated — RLS via JWT household_id (NUNCA getServiceDb() nos handlers principais)"
+    - "AC3: Pipeline Classifier → Planner → Executor orquestrado no handler"
+    - "AC4: FR4 confidence < 0.70 → mode:preview + agent_run status=pending_preview"
+    - "AC5: confidence ≥ 0.70 → executeAtomic → mode:executed + undo_url + undo_expires_at"
+    - "AC6: POST /[runId]/confirm — executa pending_preview; TTL 5min (D20)"
+    - "AC7: POST /[runId]/undo — reverte via agent_reverse_ops TTL 30s (FR6)"
+    - "AC8: NFR9 Idempotency-Key header — replay terminal, 409 in-progress, janela 24h (D19)"
+    - "AC9: Rate limit 10 req/min burst + quota mensal (Architecture §7.2); Postgres counter D18"
+    - "AC10: FR3 audit log agent_runs — prompt_hash (não texto claro NFR12), status flow completo"
+    - "AC11: NFR12 PII redaction 4ª camada — prompt nunca logado, output redacted, Sentry piiRedacted"
+    - "AC12: NFR17 OTel span com attributes PII-safe + Sentry captureException"
+    - "AC13: Taxonomia errors HTTP 400/401/403/409/429/500 completa com ApiError shape PT-PT"
+    - "AC14: NFR19 imports absolutos @/* / @meu-jarvis/*"
+    - "AC15: ≥40 testes Vitest mockable-only (4 ficheiros)"
+    - "AC16: 5 quality gates verdes + 416 existentes preservados"
+
+  auto_decisions_sm:
+    D17: "Rate limit threshold: 10 req/min burst (Architecture §7.2 literal)"
+    D18: "Rate limit storage MVP: Postgres counter table (EB3 Upstash → Story 2.9)"
+    D19: "Idempotency window: 24h; idempotency_key unique partial index em migration 0006"
+    D20: "Preview confirm: REST POST /[runId]/confirm; TTL 5min; classification guardada em agent_run JSONB"
+    D21: "Undo shape: REST POST /[runId]/undo nested sob /api/agent/prompt/ (normaliza §1.3 vs §4.5 architecture)"
+    D22: "CodeRabbit skip consistente com D12/D14 das stories anteriores; @architect gate substitui"
+    D23: "OTel: re-usar @meu-jarvis/observability; span topo endpoint + sub-spans já emitidos pelos packages"
+    D24: "agent_run_status enum: usar pending_preview da Story 2.1 — sem migration de enum"
+
+  migration_planned:
+    id: "0006"
+    path: "packages/db/migrations/0006_agent_runs_idempotency_rate_limit.sql"
+    changes:
+      - "ALTER TABLE agent_runs ADD COLUMN idempotency_key text"
+      - "ALTER TABLE agent_runs ADD COLUMN confirm_expires_at timestamptz"
+      - "CREATE UNIQUE INDEX agent_runs_idempotency_key_household_idx WHERE idempotency_key IS NOT NULL"
+      - "CREATE TABLE agent_rate_limit_counters (household_id uuid PK, window_start timestamptz, count int)"
+      - "4 RLS policies para agent_rate_limit_counters (NFR5 obrigatório)"
+
+  anti_hallucination_traces:
+    - "FR1 PRD — aceitar prompt PT-PT, classificar multi-intent (prd.md:40)"
+    - "FR2 PRD — atomicidade por prompt (prd.md:41)"
+    - "FR3 PRD — audit log por execução (prd.md:42)"
+    - "FR4 PRD — preview se confidence < 70% (prd.md:43)"
+    - "FR6 PRD — undo 30s declarativo (prd.md:45)"
+    - "NFR5 — RLS coverage gate (prd.md:98)"
+    - "NFR9 — audit log operações sensíveis imutável (prd.md:102)"
+    - "NFR12 — logs sem PII, prompts não em texto claro (prd.md:107)"
+    - "NFR13 — OTel em todos os services (prd.md:110)"
+    - "NFR16 — cobertura ≥70% packages core (prd.md:115)"
+    - "NFR17 — quality gates bloqueantes (prd.md:116)"
+    - "NFR19 — imports absolutos (prd.md:118)"
+    - "Architecture §1.3 — fluxo Prompt multi-intent sequência exacta"
+    - "Architecture §4.1 — Pipeline 3 estágios sequenceDiagram"
+    - "Architecture §4.4 — Preview-then-Confirm Flow (preview token 5min)"
+    - "Architecture §4.5 — Undo Mechanism (endpoint, reverse_op JSONB, expires_at)"
+    - "Architecture §7.2 — Rate limiting /api/agent/prompt: 10 req/min burst"
+    - "Architecture §7.3 — ApiError shape: code+message+details+timestamp+requestId"
+    - "Architecture §9.3 — OTel traces + Sentry com PII redacted"
+    - "db-schema.md §4.4 — enum agent_run_status 7 valores including pending_preview"
+    - "Story 2.1 — trigger imutabilidade + TTL 30s default agent_reverse_ops"
+    - "Story 2.2 — AnthropicClientLike + OpenAIClientLike + redactPii + sanitizeHint exports"
+    - "Story 2.3 — executeAtomic + ToolPlanGateError + hierarquia ToolError"
+    - "Story 2.4 — ClassificationResult + ClassifierError 4 subclasses + needs_confirmation"
+    - "Story 2.5 — PlannerError 5 subclasses + ExecutorValidationError + AnthropicClientLike mock"
+    - "NIT-002-NB gate 2.5 — sanitizeHint gap → endereçado em AC11 camada 4 endpoint"
+
+next_action: |
+  @po *validate-story-draft 2.6
+
+  Abrir docs/stories/active/2.6.endpoint-prompt-canonical-consumer.md (v1.0 Draft).
+  Executar checklist 10-point de validação. Verificar:
+  1. Anti-hallucination: todos os FRs/NFRs/ACs têm trace para source real (PRD/Architecture/Stories)
+  2. Mockable-only: AC15 é explícito — NENHUM teste chama LLMs reais
+  3. D18 (Postgres rate limit) é decisão defensável vs Architecture §7.2 (Upstash em 2.9)
+  4. D20 (confirm endpoint) vs D21 (undo endpoint) — REST shape adequado para Story 2.7 UI
+  5. Migration 0006 em Task 12 inclui 4 RLS policies para agent_rate_limit_counters (NFR5)
+  6. AC2: getDb() (authenticated) vs getServiceDb() boundary está correcto
+  7. Verificar que confirm_expires_at (novo campo) está documentado nas Tasks + File List
+
+  Se GO ≥7/10: Status Draft → Ready; criar handoff po → dev.
+  Se NO-GO: listar fixes e devolver ao @sm com priority high.
+
+consumed: true
+consumed_at: "2026-05-09T22:30:00Z"
+consumed_by: po
+status: consumed
+
+consumption_record:
+  consumed_by_agent: "po (Pax)"
+  consumed_at: "2026-05-09T22:30:00Z"
+  action_executed: "*validate-story-draft 2.6"
+  veredicto: "GO"
+  score: "9.3/10"
+  confidence: "HIGH"
+  story_transition: "Draft → Ready (autoridade @po em GO verdict)"
+  story_version_bump: "v1.0 → v1.1"
+
+  ten_point_checklist:
+    "1_title": "PASS — claro, descritivo, action-oriented; identifica papel canónico no pipeline AI"
+    "2_user_story": "PASS — formato As/I want/So that; valor de negócio explicitado (assistente PT-PT, multi-acção, controlo via undo)"
+    "3_acceptance_criteria": "PASS — 16 ACs testáveis incl. happy paths, edge cases, error paths; cobertura completa do contrato endpoint"
+    "4_scope": "PASS — bounded ao endpoint canónico + confirm + undo + idempotency + rate limit; expansões delegadas a 2.7-2.11"
+    "5_dependencies": "PASS — 2.1-2.5 + 1.7 todas Done explicitas; dependent stories (2.7-2.11) listadas com recursos consumidos"
+    "6_estimate": "PASS — M com 15 tasks ~5h30; coerente com 2.4=12 tasks ~1h e 2.5=12 tasks ~45min"
+    "7_business_value": "PASS — orquestra pipeline canónico do Cérebro AI MVP; trace explícito a FR1-FR6/NFR5/NFR9/NFR12/NFR13/NFR16/NFR17/NFR19"
+    "8_risks_mitigations": "PASS — 5 riscos listados com probabilidade + mitigação concreta"
+    "9_definition_of_done": "PASS — 5 quality gates + ≥40 tests + 416 existentes preservados + RLS NFR5"
+    "10_alignment": "PASS — Constitution Article I/IV/V/VI cobertos; agent-authority.md e story-lifecycle.md respeitados"
+
+  executor_assignment_validation:
+    type_to_executor: "PASS — endpoint POST + tests + helpers + migration → @dev (Dex), NÃO @architect"
+    quality_gate_choice: "PASS — @architect adequado dado 5 decisões arquitecturais"
+
+  auto_decisions_review:
+    D17_rate_limit_threshold: "PASS — 10 req/min burst confirmado literal em architecture.md:601 §7.2"
+    D18_postgres_counter_mvp: "PASS — defensável; Architecture §7.2 Upstash mas EB3 PENDING; migração para Upstash em 2.9 explícita"
+    D19_idempotency_window_24h: "PASS — alinhado com Stripe standard; campo idempotency_key adicionado em migration 0006"
+    D20_confirm_endpoint_5min: "PASS — Architecture §4.4 literal '5 min' linha 381"
+    D21_undo_nested_path: "CONCERNS-ACCEPTABLE — Architecture §1.3 line 86 + §4.5 line 403 ambas usam path FLAT /api/agent/undo/...; D21 é deviation explicit defendida pela co-localização e run_id explicit. @architect ratifica no gate."
+    D22_coderabbit_skip: "PASS — consistente com D12 (2.4) + D14 (2.5)"
+    D23_otel_reuse_tracing: "PASS — withSpan + observability helpers confirmados em packages/observability/src/index.ts:12-22"
+    D24_pending_preview_enum: "PASS — enum agent_run_status com pending_preview confirmado em agent.ts:38; ZERO migration de enum"
+
+  anti_hallucination_findings:
+    critical_fixes_applied:
+      - location: "AC7 line 144 + T10 (multiple)"
+        issue: "story usa reverted_at IS NULL em agent_reverse_ops — coluna NÃO existe na tabela"
+        fact: "schema real (agent.ts:202) + db-schema.md §4.4 invariantes (linha 140) usa executed_at. Architecture §4.5 doc tem stale reverted_at (DOC-001-NB do gate 2.3 nunca corrigido)"
+        fix: "PO_FIX_INLINE — substituído por executed_at IS NULL + clarificação que agent_runs.reverted_at é coluna distinta"
+      - location: "AC11 line 187 + T6 line 356"
+        issue: "story refere redactPii() from @meu-jarvis/agent — função NÃO está exportada"
+        fact: "packages/agent/src/index.ts exporta apenas sanitizeHint (linha 55); redactProviderPayload é privado intencionalmente"
+        fix: "PO_FIX_INLINE — 3 opções deferidas a @dev/@architect: (a) sanitizeHint, (b) impl local, (c) D9-redactPii re-export pattern. Decisão como [AUTO-DECISION D25]."
+      - location: "AC10 line 178 + T2 + T5 + T9"
+        issue: "story refere intent_classification JSONB (singular)"
+        fact: "schema real coluna é intentsDetected ('intents_detected' DB) plural — agent.ts:84"
+        fix: "PO_FIX_INLINE — substituído por intents_detected em todos os 4 locais"
+      - location: "AC12 line 201 + T11 line 387"
+        issue: "story refere llm_model single attribute"
+        fact: "schema real tem DUAS colunas: classifier_model + executor_model — agent.ts:93-94"
+        fix: "PO_FIX_INLINE — substituído em ambos os locais"
+      - location: "T8 line 369"
+        issue: "story refere prompts_used >= quota_limit — quota_limit NÃO existe"
+        fact: "agent_quotas tem prompts_used; limites são derivados de plan tier config (Architecture §4.6 NFR20)"
+        fix: "PO_FIX_INLINE — clarificado que limite é derivado de households.plan + plan tier config"
+
+    minor_observations_no_fix:
+      - "AC9 rate-limit no route handler vs Architecture §7.2 'edge middleware' — D18 justifica como MVP defensible; @architect pode pedir migração para middleware no gate"
+      - "AC8 idempotency_key não existe em schema — T12 migration 0006 adiciona; documentado consistentemente"
+      - "confirm_expires_at nova coluna — Dev Notes acknowledge T12 migration 0006"
+
+  packages_real_exports_confirmed:
+    - "@meu-jarvis/classifier: Classifier + ClassifierError 4 subclasses + ClassificationResult + OpenAIClientLike OK"
+    - "@meu-jarvis/planner-executor: Planner + Executor + PlannerError 5 subclasses + ExecutorValidationError + AnthropicClientLike OK"
+    - "@meu-jarvis/tools: executeAtomic + ToolPlanGateError + ToolError 6 subclasses OK"
+    - "@meu-jarvis/agent: getProvider + AnthropicClientLike + OpenAIClientLike + sanitizeHint OK; redactPii NÃO exportado (FIX applied)"
+    - "@meu-jarvis/observability: logger + withSpan + annotateSpan + recordSpanError + hashForCorrelation + captureException OK"
+    - "@meu-jarvis/db: getDb + getServiceDb OK"
+
+  schema_real_columns_verified:
+    - "agent_runs: prompt_text + prompt_hash + intents_detected (PLURAL) + tool_calls + classifier_model + executor_model + status enum + reverted_at + language CHECK pt-PT + confidence CHECK [0,1]"
+    - "agent_reverse_ops: reverse_op JSONB + expires_at + executed_at (NÃO reverted_at) + agent_run_id + household_id"
+    - "agent_quotas: prompts_used (NÃO quota_limit) + tokens_input_used + tokens_output_used + cost_eur_accumulated + plan + period_start/end"
+    - "agent_run_status enum: 7 valores classifying/pending_preview/confirmed/executing/success/failed/reverted"
+
+  transitions_made:
+    - "Story file v1.0 → v1.1 com Status Draft → Ready"
+    - "Story Change Log entry @po PO_FIX_INLINE detalhado"
+    - "_INDEX.md row Story 2.6 Draft → Ready (cabeçalho Epic 2 mantém 5/11 Done — só sobe para 6/11 quando 2.6 ficar Done)"
+    - "Input handoff consumed + mv → archive/"
+    - "Successor handoff mj-handoff-2.6-ready-for-dev-20260509 criado"
+    - "HANDOFF-INDEX.md actualizado"
+
+  successor_handoff: "mj-handoff-2.6-ready-for-dev-20260509"
+  next_command: "@dev *develop 2.6 (modo YOLO recomendado, mockable-only)"

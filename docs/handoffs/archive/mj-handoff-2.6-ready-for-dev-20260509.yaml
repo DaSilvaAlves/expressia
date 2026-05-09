@@ -1,0 +1,199 @@
+id: mj-handoff-2.6-ready-for-dev-20260509
+from_agent: po
+to_agent: dev
+created: "2026-05-09T22:30:00Z"
+status: pending
+priority: medium
+project_prefix: mj
+
+summary: |
+  Story 2.6 Ready v1.1 (validation @po GO 9.3/10 HIGH) — `@dev *develop 2.6` modo YOLO mockable-only.
+  Endpoint POST /api/agent/prompt — consumidor canónico do pipeline AI. 16 ACs + 15 Tasks + 8 [AUTO-DECISIONS]
+  D17-D24 (7 PASS + 1 CONCERNS-ACCEPTABLE D21 path normalization a ratificar @architect gate). 5 [PO_FIX_INLINE]
+  aplicados corrigindo nomes reais de colunas/exports vs schema. Mockable-only padrão 2.2/2.3/2.4/2.5 — EB1/EB2/EB3
+  PENDING não bloqueiam. Migration 0006 planeada (idempotency_key + agent_rate_limit_counters + confirm_expires_at).
+
+context:
+  story_id: "2.6"
+  story_path: "docs/stories/active/2.6.endpoint-prompt-canonical-consumer.md"
+  story_status: Ready
+  story_version: "1.1"
+  epic: "Epic 2 — Cérebro AI Multi-Intent"
+  epic_progress: "5/11 stories Done (continua até 2.6 fechar)"
+  branch: main
+  git_head: 51c9b00
+  predecessor_handoff: "mj-handoff-2.6-ready-for-po-20260509 (consumed + archived 2026-05-09 22:30)"
+
+  po_validation_record:
+    veredicto: GO
+    score: "9.3/10"
+    confidence: HIGH
+    auto_decisions_pass: 7
+    auto_decisions_concerns: 1
+    auto_decisions_concerns_detail: |
+      D21 path normalization (`/api/agent/prompt/[runId]/undo`) é DEVIATION from architecture (§1.3 + §4.5
+      ambas usam `/api/agent/undo/{runId}` flat). @dev pode prosseguir conforme story; @architect ratifica
+      no gate. Se @architect pedir reverter para path flat, é refactor mecânico de moves de directório.
+    po_fix_inline_count: 5
+
+  critical_dev_notes:
+    - id: "DN1-mockable-only"
+      title: "Mockable-only OBRIGATÓRIO"
+      detail: |
+        Padrão 2.2/2.3/2.4/2.5 (4 stories Done APPROVED 9.4-9.5/10).
+        EB1 (Anthropic DPA UE), EB2 (OpenAI DPA UE), EB3 (Upstash) PENDING.
+        ZERO calls reais a OpenAI/Anthropic/Upstash em testes.
+        Mock pattern via `vi.hoisted()` + `vi.mock('@meu-jarvis/classifier')` +
+        `vi.mock('@meu-jarvis/planner-executor')` + `vi.mock('@meu-jarvis/tools')` + `vi.mock('@/lib/db')`.
+
+    - id: "DN2-import-pattern"
+      title: "Import pattern (NFR19 + D16)"
+      detail: |
+        - `apps/web/src/*` source files USE `@/*` absolutes (NFR19 obrigatório).
+        - `packages/*/src/*` source files USE `./` relativos (D16 da 2.5 — convenção implícita monorepo).
+        - Tests dentro de packages usam `@/*` (paths config no vitest).
+        - Cross-package imports usam `@meu-jarvis/{package}`.
+
+    - id: "DN3-getDb-vs-getServiceDb"
+      title: "getDb() vs getServiceDb() boundary"
+      detail: |
+        - getDb() — role authenticated, RLS via JWT — TODOS os handlers principais.
+        - getServiceDb() — role service_role, BYPASS RLS — APENAS:
+          * /undo endpoint mutação terminal `agent_runs.status = 'reverted'` (NFR9 análoga GDPR purge)
+          * NUNCA noutros handlers de utilizador
+
+    - id: "DN4-real-schema-columns"
+      title: "REAL schema columns (PO_FIX_INLINE applied)"
+      detail: |
+        agent_runs columns reais (agent.ts:67-121):
+          - prompt_text + prompt_hash (DUAS colunas; prompt_text com purge mensal)
+          - intents_detected JSONB (PLURAL — não `intent_classification`)
+          - tool_calls JSONB
+          - classifier_model + executor_model (DUAS — não `llm_model` single)
+          - status enum agent_run_status (7 valores incl. pending_preview)
+          - reverted_at timestamptz (run-level)
+          - language CHECK 'pt-PT' + confidence CHECK [0,1]
+
+        agent_reverse_ops columns reais (agent.ts:188-215):
+          - reverse_op JSONB
+          - expires_at timestamptz
+          - executed_at timestamptz (NÃO `reverted_at` — DOC-001-NB do gate 2.3 nunca corrigido em architecture.md)
+          - agent_run_id + household_id
+
+        agent_quotas columns reais (agent.ts:230-252):
+          - prompts_used (NÃO `quota_limit`)
+          - limites por plano são derivados de households.plan + tier config
+
+    - id: "DN5-redactPii-decision"
+      title: "AUTO-DECISION D25 (redactPii pattern)"
+      detail: |
+        @meu-jarvis/agent NÃO exporta `redactPii`. Só exporta `sanitizeHint`.
+        @dev escolhe entre 3 opções (T6 redaction.ts):
+          (a) sanitizeHint exportado — cobre NIF/IBAN parcial; gap NIT-002-NB do gate 2.5 (email/telefone curto)
+          (b) Impl local em apps/web/src/lib/agent/redaction.ts — cobre full PII (recomendado se @dev quer endereçar NIT-002-NB)
+          (c) D9-redactPii re-export — adicionar 1 linha em packages/agent/src/index.ts re-exportando `redactProviderPayload`
+              (padrão D9/D9-anthropic 2.4/2.5 — zero-risk + reuso máximo)
+        Documentar escolha como [AUTO-DECISION D25] em Dev Agent Record.
+
+    - id: "DN6-migration-0006"
+      title: "Migration 0006 obrigatória (T12 ANTES de testes)"
+      detail: |
+        packages/db/migrations/0006_agent_runs_idempotency_rate_limit.sql:
+          ALTER TABLE agent_runs ADD COLUMN idempotency_key text
+          ALTER TABLE agent_runs ADD COLUMN confirm_expires_at timestamptz
+          CREATE UNIQUE INDEX CONCURRENTLY agent_runs_idempotency_key_household_idx
+            ON agent_runs (idempotency_key, household_id) WHERE idempotency_key IS NOT NULL
+          CREATE TABLE agent_rate_limit_counters (household_id uuid PK, window_start timestamptz, count int)
+          + 4 RLS policies obrigatórias (NFR5 — check:rls falha sem)
+
+        Drizzle schema (packages/db/src/schema/agent.ts):
+          + agentRunsTable adicionar idempotencyKey + confirmExpiresAt
+          + new agentRateLimitCounters table
+
+        Update docs/db-schema.md §4.4
+
+    - id: "DN7-undo-path-d21-warning"
+      title: "D21 path normalization — @architect gate"
+      detail: |
+        Story usa `/api/agent/prompt/[runId]/undo` (nested).
+        Architecture §1.3 + §4.5 usam `/api/agent/undo/{runId}` (flat).
+        @architect pode requerer refactor para flat path no gate.
+        Se houver refactor, é mecânico (mv directory + update imports).
+
+  ac_summary:
+    AC1: "Route Handler POST /api/agent/prompt body+auth"
+    AC2: "getDb() role authenticated"
+    AC3: "Pipeline Classifier → Planner → Executor"
+    AC4: "FR4 preview branch (confidence < 0.70)"
+    AC5: "executed branch + undo_url"
+    AC6: "POST [runId]/confirm TTL 5min"
+    AC7: "POST [runId]/undo executed_at IS NULL (PO_FIX)"
+    AC8: "NFR9 Idempotency-Key 24h"
+    AC9: "Rate limit 10/min Postgres + quota mensal"
+    AC10: "FR3 audit log agent_runs (intents_detected — PO_FIX)"
+    AC11: "NFR12 PII redaction 4ª camada (D25 decision @dev)"
+    AC12: "NFR17 OTel + Sentry (classifier_model+executor_model — PO_FIX)"
+    AC13: "Taxonomia errors HTTP 400/401/403/409/429/500"
+    AC14: "NFR19 imports absolutos"
+    AC15: "≥40 tests Vitest mockable-only"
+    AC16: "5 quality gates verde + 416 existentes preservados"
+
+  task_summary:
+    T1: "Scaffold ficheiros endpoint + helpers (~30min)"
+    T2: "Integrar Classifier (~20min)"
+    T3: "Branch FR4 preview (~30min)"
+    T4: "Integrar Planner+Executor (~30min)"
+    T5: "Audit log agent_runs (~30min)"
+    T6: "PII redaction camada 4 — D25 decision (~20min)"
+    T7: "Idempotency lookup+replay (~20min)"
+    T8: "Rate limit Postgres + quota tier-derived (~20min)"
+    T9: "Confirm endpoint (~30min)"
+    T10: "Undo endpoint executed_at (~30min)"
+    T11: "OTel span + Sentry (~20min)"
+    T12: "Migration 0006 — ANTES dos testes! (~20min)"
+    T13: "Test suite ≥40 tests (~45min)"
+    T14: "README endpoint (~10min)"
+    T15: "Quality gates final (~15min)"
+  total_estimate: "~6h"
+
+  expected_quality_gates_outcome:
+    typecheck: "0 errors (10 packages)"
+    lint: "0 warnings (10 packages)"
+    test: "≥40 novos + 416 existentes = ≥456 total"
+    check_rls: "26+ tabelas / 104+ policies (acrescido se migration 0006 add agent_rate_limit_counters)"
+    build: "Next.js 9 routes + Sentry sourcemap 3 runtimes preservado"
+
+  recommended_execution_order:
+    - "1. Implementar T12 (migration 0006) PRIMEIRO — bloqueia testes que tocam idempotency/rate-limit"
+    - "2. T1 scaffold (estrutura)"
+    - "3. T11 tracing.ts + T6 redaction.ts (helpers reutilizáveis em todos os outros)"
+    - "4. T8 rate-limiter.ts + T7 idempotency.ts (gates do handler principal)"
+    - "5. T2-T4 pipeline (classifier → planner → executor)"
+    - "6. T5 audit log (atravessa todos os estágios)"
+    - "7. T9 confirm + T10 undo"
+    - "8. T13 testes (todos os 40+)"
+    - "9. T14 README"
+    - "10. T15 quality gates final"
+
+next_action: |
+  @dev *develop 2.6 (modo YOLO recomendado — precedente 2.5 ~45min, 2.4 ~1h)
+
+  Abrir docs/stories/active/2.6.endpoint-prompt-canonical-consumer.md (v1.1 Ready).
+  Implementar 15 Tasks na ordem sugerida (recommended_execution_order acima).
+  Atenção especial aos 7 critical_dev_notes (DN1-DN7).
+
+  Decidir [AUTO-DECISION D25] (redactPii opção a/b/c) em T6.
+  Documentar D21 path normalization se @architect ratificar ou pedir refactor.
+
+  Após gates verdes (5/5):
+    Status Ready → InProgress → Ready for Review.
+    Story v1.1 → v1.2 com Dev Agent Record + File List + Change Log @dev.
+    Criar handoff dev → architect (mj-handoff-2.6-ready-for-architect-20260509)
+    para `@architect *qa-gate 2.6`.
+
+  CodeRabbit pre-commit: skipped consistente com D14/D22 (architect gate substitui).
+
+consumed: true
+consumed_at: "2026-05-09T13:50:00Z"
+consumed_by: dev
+status: consumed
