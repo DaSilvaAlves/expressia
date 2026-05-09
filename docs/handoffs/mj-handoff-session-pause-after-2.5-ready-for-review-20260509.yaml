@@ -1,0 +1,168 @@
+# =============================================================================
+# META-HANDOFF — SESSION PAUSE CROSS-TERMINAL
+# Story 2.5 Ready for Review v1.2 — terminal actual low de contexto
+# =============================================================================
+# Este meta-handoff NÃO substitui o actionable abaixo:
+#   → mj-handoff-2.5-ready-for-architect-20260509 (dev → architect *qa-gate 2.5)
+#
+# Apenas dá contexto cross-terminal completo para Eurico retomar sessão noutro
+# terminal sem ter de re-explicar o estado.
+# =============================================================================
+
+from_agent: "@aiox-dev (Dex)"
+to_agent: "any (Eurico / @architect / @aiox-master próxima sessão)"
+created: "2026-05-09T19:45:00+01:00"
+status: pending
+consumed: false
+
+project: "meu-jarvis (Expressia — expressia.pt)"
+
+summary: |
+  Sessão @dev terminada com Story 2.5 Ready for Review v1.2 entregue completa.
+  Terminal actual low de contexto (~80%). Existe handoff actionable
+  `mj-handoff-2.5-ready-for-architect-20260509` para `@architect *qa-gate 2.5`.
+  3 commits locais não-pushed (b7ab5a2 + acb949f + 3e3d91e). Working tree clean.
+  Epic 2: 4/11 stories Done (5/11 se architect APPROVE 2.5).
+
+# -----------------------------------------------------------------------------
+# CONTEXT
+# -----------------------------------------------------------------------------
+context:
+  story_id: "2.5"
+  story_path: "docs/stories/active/2.5.planner-executor-sonnet.md"
+  story_status: "Ready for Review (v1.2)"
+  branch: "main"
+  current_task: "Sessão @dev completa — aguarda @architect *qa-gate 2.5 noutro terminal"
+
+  decisions_made:
+    - "D9-anthropic-applied @dev: re-export AnthropicClientLike no barrel @meu-jarvis/agent (1 linha em packages/agent/src/index.ts:20). Padrão idêntico a D9 da Story 2.4 — zero-risk type expose validado por architect APPROVED 9.4/10."
+    - "D16 @dev (NOVA decisão major): refactor `@/*` → `./` em packages/tools/src/{atomic,contracts,registry,tracing}.ts (4 ficheiros) e packages/classifier/src/{classifier,index}.ts (2 ficheiros). Razão técnica: TS source-only monorepo resolve `@/*` no scope do package que faz typecheck (não no scope origem). Zero alteração comportamental — 222+ testes existentes continuam exit 0."
+    - "D14 @dev (precedente): CodeRabbit pre-commit skipped consistente com 2.2/2.3/2.4 — architect gate é canónico para decisões arquitecturais."
+
+  files_modified:
+    - "packages/planner-executor/ — package novo source-only (15 ficheiros: 7 source + 7 test + 3 fixtures + README + package.json + tsconfig + vitest.config)"
+    - "packages/agent/src/index.ts — D9-anthropic-applied (1 linha)"
+    - "packages/tools/src/{atomic,contracts,registry,tracing}.ts — D16 refactor (9 imports total)"
+    - "packages/classifier/src/{classifier,index}.ts — D16 refactor (15 imports total)"
+    - "apps/web/{next.config.ts,package.json} — transpilePackages + workspace dep"
+    - "pnpm-lock.yaml — auto-gerado"
+    - "docs/stories/active/2.5.planner-executor-sonnet.md — v1.0 → v1.1 (@po) → v1.2 (@dev)"
+    - "docs/handoffs/archive/mj-handoff-2.5-ready-for-{po,dev}-20260509.yaml — consumed/archived"
+    - "docs/handoffs/mj-handoff-2.5-ready-for-architect-20260509.yaml — pending (next action)"
+    - "docs/HANDOFF-INDEX.md + docs/stories/active/_INDEX.md — actualizados"
+
+  blockers:
+    - "EB1 ANTHROPIC_API_KEY DPA UE pending — NÃO bloqueia esta story (mockable-only padrão 2.2/2.3/2.4). Bloqueia apenas Story 2.10 benchmark E2E."
+
+  hypotheses_tested:
+    - "[H1] D16 refactor `@/*` → `./` parte testes existentes — RESULTADO: NÃO. Verificado por full test run após refactor: tools 57/57 + classifier 78/78 + agent 102/102 + db-test 103/103 + observability 8/8 + web 9/9 + planner-executor 53/53 = 410+ tests todos exit 0. D16 é zero-comportamental."
+    - "[H2] Cross-package TS resolution funciona com `paths` simples por package — RESULTADO: NÃO. Erro ao seguir imports cross-package que tenham `@/*` interno. Solução pragmática: D16 (não usar `@/*` em source files cross-importable; manter em test files que são local-only)."
+    - "[H3] Mock `executeAtomic` da 2.3 funciona com `tx.execute()` retornando undefined — RESULTADO: NÃO. executeAtomic espera `ReadonlyArray<{id: string}>` para insert returning. Fix: mock retorna `[{id: idGen()}]`."
+
+# -----------------------------------------------------------------------------
+# GIT STATE
+# -----------------------------------------------------------------------------
+git_state:
+  branch: "main"
+  working_tree: "clean"
+  commits_ahead_origin: 3
+  commits_pending_push:
+    - hash: "b7ab5a2"
+      type: "chore(stories)"
+      summary: "Story 2.5 v1.1 Ready — @po validation GO 9.4/10 + handoffs sm→po consume + po→dev create"
+    - hash: "acb949f"
+      type: "feat(planner-executor)"
+      summary: "Story 2.5 v1.2 Ready for Review — Planner+Executor Sonnet + atomicidade Postgres (15 ficheiros novos + 8 modificados, 53 testes, 5 gates exit 0)"
+    - hash: "3e3d91e"
+      type: "chore(handoffs)"
+      summary: "consume po→dev + handoff dev→architect Story 2.5 v1.2"
+  origin_main_at: "970f19b (último push @devops Story 2.4 closure)"
+  push_authority: "Apenas @devops (Gage) pode fazer git push. @architect APPROVE → @devops *push 2.5 (range 970f19b..3e3d91e)."
+
+# -----------------------------------------------------------------------------
+# QUALITY GATES STATUS (pré-architect re-verification)
+# -----------------------------------------------------------------------------
+quality_gates:
+  typecheck: "exit 0 — 9/9 packages FULL TURBO"
+  lint: "exit 0 — 9/9 packages 0 warnings (44s)"
+  test: "exit 0 — 53 novos planner-executor + 222+ existentes inalterados (total 410+)"
+  check_rls: "exit 0 — 26 tabelas / 104 policies — NFR5 PRESERVADA"
+  build: "exit 0 — Next.js 9 routes + Sentry sourcemap upload (1m03s)"
+
+# -----------------------------------------------------------------------------
+# EPIC 2 STATUS
+# -----------------------------------------------------------------------------
+epic_2_status:
+  done: "4/11 (Story 2.1 + 2.2 + 2.3 + 2.4)"
+  ready_for_review: "1 (Story 2.5 — esta sessão)"
+  potential_after_gate: "5/11 se @architect APPROVE"
+  next_critical_path: "Story 2.6 (Endpoint POST /api/agent/prompt) depende 2.5 + EB3 Upstash Redis"
+
+# -----------------------------------------------------------------------------
+# NEXT ACTION
+# -----------------------------------------------------------------------------
+next_action: |
+  Próxima sessão (qualquer terminal):
+
+  1. Ler `docs/HANDOFF-INDEX.md` (topo Pending) → ver
+     `mj-handoff-2.5-ready-for-architect-20260509` (dev → architect)
+  2. Activar `@architect` (Aria) e executar `*qa-gate 2.5`
+  3. Architect lê `docs/stories/active/2.5.planner-executor-sonnet.md` v1.2 +
+     handoff actionable + re-verifica 5 quality gates independentemente +
+     review 11 [AUTO-DECISIONS] (9 @sm + 2 @dev: D9-anthropic-applied + D16)
+  4. Gera gate report `docs/qa/gates/2.5-architect-gate.md` (~700 linhas
+     padrão 2.4) com verdict APPROVED / NEEDS_REVISION / REJECTED
+  5. Se APPROVED → status InReview → Done; sucessor handoff architect → devops
+     para `*push 2.5` (range 970f19b..3e3d91e + commit chore docs gate)
+  6. Se NEEDS_REVISION → sucessor handoff architect → dev com fixes
+
+# -----------------------------------------------------------------------------
+# RECOMMENDATION FOR NEXT SESSION
+# -----------------------------------------------------------------------------
+recommendation: |
+  **Opção A (recomendada — caminho crítico Epic 2):** `@architect *qa-gate 2.5`
+  ~1h estimado. Padrão precedente 2.2/2.3/2.4 todos APPROVED 9.4-9.5/10 HIGH.
+  Esta story é mais simples (thin wrappers sobre infraestrutura já entregue)
+  com 2 [AUTO-DECISIONS] @dev novas (D9-anthropic-applied trivial + D16
+  potencialmente controverso por tocar packages 2.3/2.4 já Done — architect
+  pode preferir reverter D16 e abrir story dedicada).
+
+  **Opção B (alternativa):** Pausar Epic 2 e pivotar para Epic 3 (Tarefas) ou
+  Epic 4 (Finanças) — independentes de LLM blockers EB1/EB2/EB3. Útil se
+  Eurico quer paralelizar progresso enquanto EB1 não resolve.
+
+  **Opção C (tactical — não recomendado):** Aguardar EB1 Anthropic DPA UE
+  antes de continuar. Pattern 2.2/2.3/2.4 mostra que mockable-only é
+  produtivo — sem razão para parar.
+
+# -----------------------------------------------------------------------------
+# NOTES
+# -----------------------------------------------------------------------------
+notes: |
+  Sessão @dev foi extraordinariamente eficiente: ~45min vs precedente 2.4 ~1h.
+  Razão: Story 2.5 é coesão sobre infraestrutura já entregue (Planner consome
+  AnthropicProvider da 2.2 + toolRegistry da 2.3; Executor delega executeAtomic
+  da 2.3). Reutilização agressiva eliminou ~50% do trabalho típico.
+
+  Decisão D16 é a mais importante para architect avaliar. Se APPROVED, fica
+  como pattern oficial para futuras stories (consistência cross-package
+  imports). Se REJECTED, @dev tem de reverter os 6 ficheiros de tools+classifier
+  para `@/*` e arranjar workaround alternativo (composite:true + project
+  references = refactoring extensivo a 9 packages).
+
+  Documentação completa em:
+  - Story: `docs/stories/active/2.5.planner-executor-sonnet.md` v1.2
+  - Handoff actionable: `docs/handoffs/mj-handoff-2.5-ready-for-architect-20260509.yaml`
+  - README package: `packages/planner-executor/README.md`
+  - Constitution Article IV — todos os 15 ACs traceáveis a fontes reais
+
+  Working tree limpo. Sem perda de trabalho ao mudar terminal — basta `git pull`
+  no novo terminal (mas commits estão LOCAIS — `git pull` não traz, o novo
+  terminal tem o mesmo working directory partilhado em disco). Verificar via
+  `git log --oneline -5` no novo terminal — deve mostrar 3e3d91e + acb949f +
+  b7ab5a2 + 970f19b.
+
+  Eurico: pode invocar `@architect` directamente e a sessão arranca limpa
+  consumindo o handoff actionable. Não precisa re-explicar nada — toda a
+  decisão arquitectural está documentada no handoff + Dev Agent Record da
+  story v1.2.
