@@ -369,16 +369,30 @@ export const toolRegistry = {
 ### 4.4 Preview-then-Confirm Flow (FR4)
 
 ```ts
-// fluxo lógico
+// fluxo lógico (Story 2.6 D21+DOC-FIX-001 nested REST + Story 2.7 user_prefs override)
 const classification = await classify(prompt, ctx);
-if (classification.needs_confirmation || ctx.userPrefs.alwaysPreview) {
-  const plan = await plan(prompt, classification, ctx); // sem executar
-  return { type: 'preview', plan, previewToken: signPreview(plan) };
+const alwaysPreview = await readUserPrefs(ctx.user.id, ctx.db); // Story 2.7
+if (classification.needs_confirmation || alwaysPreview) {
+  // Sem Planner em preview — economiza tokens Sonnet (T3 Story 2.6)
+  return {
+    mode: 'preview',
+    run_id,
+    plan_summary: formatIntents(classification),
+    confidence: classification.overall_confidence,
+    confirmation_url: `/api/agent/prompt/${run_id}/confirm`,
+    expires_at: now() + 5min,
+  };
 }
-return await executeAtomic(plan, ctx);
+return await executeAtomic(plan, ctx); // mode: 'executed'
 ```
 
-UI (Epic 5): cartão com lista de operações ("Vais criar: 1 tarefa, 1 transacção de €78,70…") + botões "Confirmar" / "Editar" / "Cancelar". Preview token assinado HMAC válido 5 min.
+**Two override paths para preview:**
+1. **Confidence-driven (FR4 threshold 0.70):** quando `classification.overall_confidence < 0.70` o classifier 2.4 marca `needs_confirmation=true`.
+2. **User-pref override (Story 2.7):** quando `user_prefs.always_preview=true` o sistema força preview independentemente da confidence (default `false`). Toggle em `/conta/preferencias` (UI) e endpoints `GET/PATCH /api/conta/preferencias`. Tabela `user_prefs` é 1:1 user (D29 — multi-household users partilham mesma preferência cognitiva). Lazy-init UPSERT (D32) cria a row no primeiro acesso — sem necessidade de seed migration sobre `auth.users` existentes.
+
+**Token de preview:** Substituido por `run_id` UUID + RLS ownership + 5min TTL (`agent_runs.confirm_expires_at` row-level + status `pending_preview`). Originalmente proposta como HMAC; D21+DOC-FIX-001 estabeleceram run_id como pattern oficial — equivalente em segurança via defense-in-depth (RLS + status + TTL) sem secret a gerir.
+
+UI (Stories 2.7+5.x): cartão `<PreviewCard>` (`apps/web/src/app/(app)/jarvis/_components/preview-card.tsx`) com lista de operações ("Vais fazer: criar tarefa…, registar despesa €78,70…") + badge confidence colour-coded (vermelho < 0.70, amarelo 0.70–0.85, verde ≥ 0.85) + countdown 5min + botões "Confirmar" / "Cancelar". Toggle global em `<PrefsToggle>` (`apps/web/src/app/(app)/conta/preferencias/_components/prefs-toggle.tsx`).
 
 ### 4.5 Undo Mechanism (FR6, 30s)
 

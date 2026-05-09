@@ -171,6 +171,18 @@ erDiagram
 |--------|-----|-------|
 | `audit_log` | NFR9 | Imutável (insert-only). 12 meses retenção. Captura `before_state` + `after_state` em json. |
 
+### 4.8 User Prefs (`schema/prefs.ts`) — Story 2.7
+
+| Tabela | NFR | Notas |
+|--------|-----|-------|
+| `user_prefs` | FR4, NFR5 | 1:1 user (`user_id` PK FK `auth.users` cascade). `household_id` FK obrigatória para RLS pattern (cross-tenancy isolation). `always_preview boolean default false` controla FR4 override. Cardinalidade D29: multi-household user partilha mesma `always_preview` (edge case adiado como DP futuro). |
+
+**Migration split (Story 2.7 PO_FIX_INLINE 2):** tabela criada em `0007_user_prefs.sql`; as 4 RLS policies vivem em `0001_rls_policies.sql` via DO block condicional `if exists (select 1 from pg_tables where tablename = 'user_prefs')` — `scripts/check-rls-coverage.ts:33` lê apenas `0001` como fonte de verdade do gate NFR5. Pattern espelhado de `agent_rate_limit_counters` (Story 2.6 D17).
+
+**Predicate RLS:** `public.is_household_member(household_id) AND auth.uid() = user_id` — combina cross-tenancy isolation (precedent Story 2.6) com user-scoped constraint específico desta tabela. Owner do household NÃO consegue ler prefs cognitivas de outros membros (não confundir cardinalidade familiar com partilha de UX preferences).
+
+**Lazy-init D32:** o endpoint `GET /api/conta/preferencias` faz UPSERT idempotente (`INSERT … ON CONFLICT (user_id) DO NOTHING`) no primeiro acesso por user — evita migration de seed sobre `auth.users` em produção. PATCH faz UPSERT também (`ON CONFLICT (user_id) DO UPDATE SET always_preview = EXCLUDED.always_preview, updated_at = now()`).
+
 ---
 
 ## 5. Padrão RLS

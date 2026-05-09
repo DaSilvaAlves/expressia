@@ -225,6 +225,58 @@ review_artifacts:
 
 predecessor_handoff: "mj-handoff-2.7-ready-for-dev-20260509 (consumed/archived 2026-05-09 18:30 — @dev YOLO mockable-only completo 14/14 Tasks + 5/5 gates GREEN)"
 
-consumed: false
-consumed_at: null
-consumed_by: null
+consumed: true
+consumed_at: "2026-05-09T20:00:00+01:00"
+consumed_by: "architect (Aria)"
+status: consumed
+
+consumption_record:
+  agent: "architect (Aria)"
+  command: "*qa-gate 2.7"
+  verdict: "APPROVED 9.4/10 HIGH confidence"
+  gate_report: "docs/qa/gates/2.7-architect-gate.md (~700 lines)"
+  acs_passed: "14/14 (3 EXCEEDS targets — AC11 +60%, AC13 +153%, AC14 +40%)"
+  decisions_ratified:
+    D28: "RATIFIED — scope-shift M→L cross-domain com policy futura (3-conditions framework)"
+    D29: "PASS — schema 1:1 user defensável; edge case multi-household-prefs-diferentes deferido como DP futuro"
+    D30: "PASS — run_id substitui HMAC; defense-in-depth equivalente"
+    D31: "PASS — components inline _components/ com policy threshold extracção (3+ shared OR cross-feature directory)"
+    D32: "PASS — lazy-init UPSERT idempotente exemplar pattern"
+    D33: "PASS — CodeRabbit skip consistente 5 stories Done"
+    D34: "PASS — Vitest+jsdom adequado; Playwright defer Story 2.10"
+    D35: "ACCEPTED — cosmético (parser heuristic dentro de DO blocks); gate substantive PASS"
+    D36: "ACCEPTED — NFR16 partial-deferral via Pino; NIT-001-NB"
+    D37: "ACCEPTED — decisão prefer-migration-0008 defensiva idempotente vs manual; NIT-002-NB"
+  quality_gates_re_verified:
+    typecheck: "9/9 packages exit 0 (4.32s wall, 8 cached + 1 web miss)"
+    lint: "9/9 packages 0 warnings (3.63s wall)"
+    test: "543 tests · web standalone 136/15 files/3.93s"
+    check_rls: "28 tabelas / 120 policies + ✓ user_prefs (prefs.ts)"
+    build: "Next.js 13 routes + Sentry sourcemap 3 runtimes"
+  doc_fix_inline:
+    id: "DOC-FIX-002"
+    files:
+      - "docs/architecture.md §4.4 — two-override-paths preview + schema user_prefs + lazy-init D32 + run_id substitui HMAC"
+      - "docs/db-schema.md §4.8 — nova secção user_prefs (migration split + predicate combo + lazy-init)"
+    justification: "Doc drift histórico — architecture.md mencionava userPrefs.alwaysPreview desde Story 2.6 sem schema; db-schema.md não tinha user_prefs. Precedent 2.6 DOC-FIX-001."
+  nits_deferred:
+    - id: "NIT-001-NB"
+      severity: "medium"
+      title: "D36 audit log INSERT enum extension"
+      defer_to: "Story 2.8 piggyback if Undo precisa enum extension OR follow-up M independente"
+    - id: "NIT-002-NB"
+      severity: "medium"
+      title: "D37 migration 0008_user_prefs_rls.sql defensiva idempotente"
+      defer_to: "Sub-task @devops no push OR story follow-up curto S"
+    - id: "NIT-003-NB"
+      severity: "low"
+      title: "D35 check-rls-coverage.ts parser counting heuristic dentro de DO blocks"
+      defer_to: "Epic 2.x housekeeping OR opportunistic refactor"
+    - id: "NIT-004-NB"
+      severity: "low"
+      title: "D31 UI components extraction threshold (3+ shared OR cross-feature directory)"
+      defer_to: "Story 2.8 evaluation in situ durante drafting"
+  story_status_transition: "Ready for Review v1.2 → Done v1.3 (architect authority APPROVED verdict)"
+  successor_handoff: "mj-handoff-2.7-ready-for-devops-close-20260509"
+  next_action: "@devops *push 2.7"
+  epic_progress: "6/11 → 7/11 stories Done (após push)"

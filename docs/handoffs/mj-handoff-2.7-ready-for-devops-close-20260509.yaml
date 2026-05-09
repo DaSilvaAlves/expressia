@@ -1,0 +1,147 @@
+id: mj-handoff-2.7-ready-for-devops-close-20260509
+from_agent: architect (Aria)
+to_agent: devops (Gage)
+created: "2026-05-09T20:00:00+01:00"
+status: pending
+priority: medium
+project_prefix: mj
+
+summary: |
+  Story 2.7 v1.3 Done — `@devops *push 2.7`. Architect gate APPROVED 9.4/10 HIGH
+  confidence. 14/14 ACs PASS (3 EXCEEDS — AC11/AC13/AC14). 10/10 Decisões D28-D37
+  ratificadas. 5/5 quality gates re-verified directamente pelo @architect com
+  numbers matching @dev exactly. DOC-FIX-002 aplicada inline em
+  architecture.md §4.4 + db-schema.md §4.8. 4 NITs non-blocking deferred (D36
+  audit log enum NIT-001-NB; D37 migration 0008 NIT-002-NB sub-task @devops; D35
+  parser cosmetic NIT-003-NB; D31 components extraction threshold NIT-004-NB).
+  Epic 2 progress 6/11 → 7/11 stories Done após push.
+
+context:
+  story_id: "2.7"
+  story_path: "docs/stories/active/2.7.preview-then-confirm-flow-ui.md"
+  story_status: "Done"
+  story_version: "1.3"
+  epic: "Epic 2 — Cérebro AI Multi-Intent"
+  epic_progress: "6/11 → 7/11 (após push 2.7)"
+  branch: main
+  gate_report: "docs/qa/gates/2.7-architect-gate.md"
+  gate_verdict: "APPROVED 9.4/10 HIGH confidence"
+
+  range_commits_for_push: |
+    Desde origin/main (ref atual antes deste gate):
+      - eb88fa9  feat(api,db,web): Story 2.7 v1.2 Ready for Review (Dev session)
+      - 96d748d  chore(stories,handoffs): consume sm->po + handoff po->dev (po session)
+      - f63475f  chore(stories,handoffs): Story 2.7 Draft v1.0 (sm session)
+      - {este chore}: chore(docs): close Story 2.7 architect gate APPROVED 9.4/10 + DOC-FIX-002 + handoff devops
+
+    Após @devops criar 0008_user_prefs_rls.sql (NIT-002-NB sub-task antes do push):
+      - {dev0ps chore}: chore(db): migration 0008_user_prefs_rls.sql defensiva idempotente para deploy prod EU [Story 2.7]
+
+  push_target: "origin/main"
+  push_authority: "exclusive @devops Gage"
+
+  coderabbit_recommendation: |
+    SKIP pre-push consistente D33 (precedent Stories 2.2/2.3/2.4 D12, 2.5 D14,
+    2.6 D22+D26). Architect gate exhaustivo (~700 linhas + DOC-FIX-002 inline
+    + 14 ACs review + 10 decisions ratification + 4 NITs deferred) substitui
+    review automatizado. **Recomendação para Story 2.10 (E2E benchmark com
+    credentials reais Anthropic/OpenAI):** executar CodeRabbit pre-commit por
+    se aproximar mais do focus-area onde brilha (env handling, secrets,
+    credenciais reais).
+
+  nits_deferred_summary:
+    - id: NIT-001-NB
+      severity: medium
+      title: "D36 audit log INSERT enum extension"
+      detail: |
+        `audit_action` enum em `packages/db/src/schema/audit.ts:30-50` não
+        inclui `user_prefs.updated`. NFR16 satisfeito temporariamente via
+        Pino structured logger (Sentry breadcrumb). Defer: Story 2.8 piggyback
+        se Undo precisa enum extension (ex: `agent_run_reverted`) OR follow-up
+        M independente em sprint pós-2.8 (enum extension + INSERT real em
+        PATCH /api/conta/preferencias + audit retroactive logging via Inngest
+        export Sentry últimos 90d).
+      not_blocking_push: true
+    - id: NIT-002-NB
+      severity: medium
+      title: "D37 migration 0008_user_prefs_rls.sql defensiva idempotente"
+      detail: |
+        `__schema_migrations` regista migrations por filename. `0001_rls_policies.sql`
+        já registado em prod desde Story 1.3 — DO block novo de `user_prefs`
+        policies NÃO foi aplicado em DBs existentes via dev migration run.
+        CI/dev fresh: zero impacto. Para prod EU: criar `0008_user_prefs_rls.sql`
+        defensiva idempotente (CREATE-IF-NOT-EXISTS pattern, copy do DO block
+        existente em `0001_rls_policies.sql:709-754`).
+      sub_task_for_devops: |
+        ANTES do push para origin/main:
+        1. cp DO block de 0001_rls_policies.sql:709-754 para novo
+           packages/db/migrations/0008_user_prefs_rls.sql
+        2. Wrap with idempotent SQL helpers (set local check_function_bodies = off;)
+        3. Verificar `pnpm --filter @meu-jarvis/db db:migrate` aplica 0008
+           (idempotente — pode correr múltiplas vezes sem erro)
+        4. `pnpm check:rls` continua 28/120 ✓ user_prefs
+        5. Commit separado: `feat(db): migration 0008_user_prefs_rls.sql defensiva [Story 2.7]`
+        6. Incluir no push range
+      blocking_prod_deploy: true
+      blocking_push: false  # CI/dev fresh continua a funcionar; o block é apenas para prod EU
+    - id: NIT-003-NB
+      severity: low
+      title: "D35 scripts/check-rls-coverage.ts parser counting heuristic"
+      detail: |
+        Regex parser conta linhas EXECUTE strings dentro de DO blocks como
+        ocorrências separadas. Counting 28/120 reflecte heurística — gate
+        substantive PASS (todas tabelas têm coverage SELECT/INSERT/UPDATE/DELETE).
+      defer_to: "Epic 2.x housekeeping OR opportunistic refactor"
+      not_blocking_push: true
+    - id: NIT-004-NB
+      severity: low
+      title: "D31 UI components extraction threshold"
+      detail: |
+        Components inline `_components/` adequado para 2.7 (~3 componentes únicos).
+        Threshold para extracção: 1+ componente shared cross-feature directory OR
+        3+ shared dentro do mesmo feature directory. Story 2.8 (Undo UI) é o
+        ponto natural de avaliar trigger conditions in situ.
+      defer_to: "Story 2.8 evaluation in situ durante drafting"
+      not_blocking_push: true
+
+  housekeeping_checklist_post_push:
+    - "Mover docs/stories/active/2.7.preview-then-confirm-flow-ui.md → docs/stories/completed/"
+    - "Remover linha de 2.7 em docs/stories/active/_INDEX.md (active rows)"
+    - "Adicionar linha de 2.7 em docs/stories/completed/_INDEX.md (se existir)"
+    - "Consume este handoff: marcar consumed: true + consumed_at + consumed_by + status: consumed"
+    - "Move este handoff para docs/handoffs/archive/"
+    - "Update docs/HANDOFF-INDEX.md: remove pending row + add archived row + Update note describing devops session"
+    - "Update Epic 2 progress 6/11 → 7/11 stories Done em docs/stories/active/_INDEX.md (Epic 2 row)"
+    - "Criar handoff session-pause se aplicável (precedent 2.5 + 2.6)"
+
+next_action: |
+  @devops *push 2.7
+
+  Sequência recomendada:
+  1. (NIT-002-NB) Criar packages/db/migrations/0008_user_prefs_rls.sql defensiva idempotente
+     (~50 linhas, copy do DO block existente em 0001_rls_policies.sql:709-754)
+  2. Verificar 5 quality gates ainda GREEN após criar 0008 (turbo cache miss esperado em db package):
+     - pnpm typecheck (9/9)
+     - pnpm lint (9/9 0 warnings)
+     - pnpm test (543)
+     - pnpm check:rls (28/120 ✓ user_prefs)
+     - pnpm build (Next.js 13 routes)
+  3. Commit separado: `feat(db): migration 0008_user_prefs_rls.sql defensiva [Story 2.7]`
+  4. git push origin main (range commits desde 96d748d ou similar)
+  5. Housekeeping post-push (mover story, archive handoff, update INDEX)
+
+  CodeRabbit: SKIP pre-push consistente D33.
+
+review_artifacts:
+  gate_report: "docs/qa/gates/2.7-architect-gate.md (~700 lines)"
+  story_file: "docs/stories/active/2.7.preview-then-confirm-flow-ui.md (v1.3 Done)"
+  doc_fixes_inline:
+    - "docs/architecture.md §4.4 (two-override-paths + schema user_prefs + lazy-init D32 + run_id substitui HMAC)"
+    - "docs/db-schema.md §4.8 (nova secção user_prefs com migration split + predicate combo + lazy-init)"
+  predecessor_handoff: "docs/handoffs/archive/mj-handoff-2.7-ready-for-architect-20260509.yaml (consumed 2026-05-09 20:00)"
+
+predecessor_handoff: "mj-handoff-2.7-ready-for-architect-20260509 (consumed/archived 2026-05-09 20:00 — @architect APPROVED 9.4/10 HIGH + DOC-FIX-002 inline)"
+
+consumed: false
+consumed_at: null
+consumed_by: null
