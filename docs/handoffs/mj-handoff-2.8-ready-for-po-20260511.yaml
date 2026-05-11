@@ -1,0 +1,180 @@
+id: mj-handoff-2.8-ready-for-po-20260511
+from_agent: "sm (River) — drafted by Orion (@aiox-master) per Constitution Article II universal executor"
+to_agent: po
+created: "2026-05-11T00:30:00+01:00"
+status: pending
+priority: medium
+project_prefix: mj
+
+summary: |
+  Story 2.8 Draft v1.0 criada — `@po *validate-story-draft 2.8` (10-point checklist).
+  Drafted por Orion delegated @sm authority (precedente Stories 2.2 + 2.7 D28) após
+  Eurico escolher Cenário A no meta-handoff session-pause-after-2.7-done.
+
+  Scope: Undo Mechanism (FR6) + Inngest Cleanup + UI Undo Button — 14 ACs cobrindo
+  (a) Inngest infra setup (provider novo no codebase — zero código actual, only
+  `.env.example` keys vazios), (b) `cleanup_expired_reverse_ops` Inngest function
+  diário, (c) UI Undo button funcional substituindo placeholder Story 2.7
+  `result-message.tsx:53-61`, (d) audit_log INSERT no undo endpoint (`agent_run_reverted`
+  enum value JÁ existe). Estimate M mantido (não scope-shift L como 2.7) — UI Undo é
+  refactor minimal: substituir placeholder + countdown + toast feedback. 6
+  [AUTO-DECISIONS] D38-D43. ≥17 testes novos = ≥560 totais. EB4 (Inngest workspace)
+  DEFERRED não bloqueante (Eurico provisiona pre-push @devops per runbook T5).
+  Sem bloqueadores externos (mockable-only padrão 2.2-2.7).
+
+  **Discovery massiva durante drafting:** endpoint `POST /api/agent/prompt/[runId]/undo`
+  JÁ IMPLEMENTADO COMPLETAMENTE por Story 2.6 AC7 (280 linhas + 9 tests passing).
+  Main endpoint route.ts:419-427 já retorna `undo_url`+`undo_expires_at` na response
+  executed branch. Story 2.8 NÃO duplica endpoint — apenas adiciona Inngest cleanup +
+  audit_log INSERT + UI Undo button funcional. Scope real ~50% menor do que EPIC plan
+  literal sugere.
+
+context:
+  story_id: "2.8"
+  story_path: "docs/stories/active/2.8.undo-inngest-cleanup-ui.md"
+  story_status: "Draft"
+  story_version: "1.0"
+  epic: "Epic 2 — Cérebro AI Multi-Intent"
+  epic_progress: "7/11 stories Done (post-2.7 push) + 1 Draft (2.8)"
+  branch: main
+
+  scope_clarification_vs_epic_plan: |
+    EPIC-2-EXECUTION.yaml linhas 234-247 originalmente definem Story 2.8 como M
+    cobrindo:
+      - POST /api/agent/undo/{runId}
+      - Validação ownership (RLS) + expires_at > now() + reverted_at IS NULL
+      - BEGIN tx → execute reverse_ops em ordem reversa → COMMIT
+      - Update agent_reverse_ops.reverted_at + agent_runs.status='reverted'
+      - Inngest cleanup_expired_reverse_ops job (cron diário)
+      - Modelo: 30s só (DP1: A)
+
+    PORÉM, verificação codebase actual revela que ~70% do scope já feito por Story 2.6:
+      - Endpoint nested REST `[runId]/undo/route.ts` 280 linhas (D21+DOC-FIX-001 path)
+      - Validação ownership via RLS (getDb) + expires_at + executed_at IS NULL
+        (PO_FIX da Story 2.6: coluna REAL é `executed_at`, não `reverted_at` —
+        EPIC plan literal estava com hallucination vs schema agent.ts:212)
+      - Update agent_reverse_ops.executed_at + agent_runs.status='reverted' +
+        agent_runs.reverted_at = now() via getServiceDb (NFR9 trigger imutabilidade)
+      - ALLOWED_REVERSE_TABLES whitelist (SQL injection defense)
+      - 9 testes Vitest passing
+
+    Scope REAL Story 2.8 (gap actual):
+      - Inngest provider setup (dep + client + serve route) — provider novo no codebase
+      - Inngest function `cleanupExpiredReverseOps` cron diário (DELETE
+        FROM agent_reverse_ops WHERE expires_at < now() - 1h per Architecture §4.5:425)
+      - UI Undo button funcional em result-message.tsx (Story 2.7 deixou placeholder
+        disabled per AC7 + comment linha 32 "Story 2.8")
+      - Countdown 30s + toast feedback + error handling PT-PT
+      - Audit log INSERT no undo endpoint (`agent_run_reverted` enum JÁ existe
+        em audit.ts:54 — zero migration extension; Story 2.6 endpoint só faz Pino log)
+      - Tests Inngest function + UI Undo + audit_log + jarvis-chat integration
+
+    Decisão @sm: scope M mantido (não scope-shift L) — UI Undo é minimal (substituir
+    placeholder existente + adicionar countdown + toast). Precedente D28 framework
+    3-conditions cumprido: "UI minimal sem design system extraction → single M OK".
+
+    Inngest infra é trabalho real porque é provider novo — zero código actual
+    (apenas `.env.example` keys vazios + Architecture §11.3+§14.5 ADR).
+
+  decisions_made_at_draft:
+    - "D38 cron Inngest nativo `0 3 * * *` (sem `/api/cron/daily` middleware MVP — ADR-005 alternativa simples para 1 job)"
+    - "D39 Inngest setup inline em `apps/web/src/lib/inngest/` (sem package `packages/jobs/` — KISS para MVP 1 function)"
+    - "D40 Undo button retrocompatibilidade — sem render se `undoUrl` undefined (preserva 5 tests Story 2.7 result-message.test.tsx)"
+    - "D41 `agent_run_reverted` audit_action JÁ EXISTE em audit.ts:54 (zero migration enum extension — distingue do NIT-001-NB do gate 2.7 sobre `user_prefs.updated`)"
+    - "D42 CodeRabbit pre-commit/push skipped consistente 2.2-2.7"
+    - "D43 Vitest mocks sem Inngest Dev Server em CI (deterministic + zero infra extra)"
+
+  acceptance_criteria_summary:
+    backend_inngest: "AC1-AC4 (dep + client + cleanup function cron diário + serve route + runbook)"
+    backend_audit: "AC5-AC6 (audit_log INSERT com `agent_run_reverted` action + endpoint shape unchanged Story 2.6 contract)"
+    frontend_ui: "AC7-AC9 (result-message refactor button states + handleUndo fetch + PT-PT error banners + jarvis-chat props passthrough)"
+    testing: "AC10-AC13 (Inngest function 4 tests + audit log 2 tests + UI ResultMessage 9 tests + jarvis-chat integration 2 tests = ≥17 novos)"
+    quality_gates: "AC14 5/5 GREEN typecheck/lint/test ≥560/check:rls 28/120 NFR5/build ≥14 routes incluindo `/api/inngest`"
+
+  tasks_summary:
+    backend_inngest: "T1 add dep + T2 client.ts + T3 cleanup function + T4 serve route + T5 runbook EU Frankfurt setup"
+    backend_audit: "T6 refactor undo/route.ts +audit_log INSERT via serviceDb (NFR9 imutability)"
+    frontend_ui: "T7 result-message.tsx (props + states + countdown + handleUndo + banners) + T8 jarvis-chat.tsx (typing + passthrough)"
+    testing: "T9 Inngest tests + T10 audit log tests expand + T11 UI ResultMessage tests expand + T12 jarvis-chat tests expand"
+    final: "T13 quality gates 5/5 GREEN"
+
+  recommended_execution_order: |
+    Para @dev YOLO mockable-only (após @po validate GO):
+    1. T1-T2 (Inngest dep + client) — establish provider infra primeiro
+    2. T3 (cleanup function) com tests T9 (≥4 testes) — verificar Vitest mocks Inngest contract
+    3. T4 (serve route) — endpoint público + signing key validation
+    4. T5 (runbook) — documentar Eurico-side setup ANTES do @devops push
+    5. T6 (audit_log INSERT no undo) com tests T10 (+2 testes audit) — verificar INSERT idempotência + non-fatal fail path
+    6. T7 (result-message.tsx refactor) com tests T11 (+9 testes) — TDD pode ser útil para state machine
+    7. T8 (jarvis-chat.tsx props passthrough) com tests T12 (+2 testes) — integration
+    8. T13 quality gates final (typecheck → lint → test → check:rls → build)
+
+    Estimativa wall-clock @dev YOLO: ~6-8h (similar Story 2.7 ~6h + Inngest infra novo +30min)
+
+  critical_dev_notes:
+    - "DN1 Inngest dev: keys podem ficar vazias localmente — `npx inngest-cli dev -u http://localhost:3000/api/inngest` para local engine. Tests Vitest devem mockar `@/lib/inngest/client` completamente."
+    - "DN2 audit_log INSERT via getServiceDb (RLS REVOKE INSERT em authenticated per NFR9). NÃO tentar via getDb — falha imediato `permission denied`."
+    - "DN3 endpoint Inngest /api/inngest é PÚBLICO — NÃO adicionar a APP_PATH_PREFIXES no middleware (Story 2.7 PO_FIX_INLINE 4). Auth via X-Inngest-Signature header validation pelo SDK."
+    - "DN4 `agent_run_reverted` enum JÁ existe — cross-confirm `packages/db/src/schema/audit.ts:54` linha exacta antes de implementar. NÃO criar migration extension."
+    - "DN5 ResultMessage retrocompat (D40): tests Story 2.7 (5 testes preservados) NÃO passam `undoUrl`/`undoExpiresAt` — render sem button se props undefined (não placeholder)."
+    - "DN6 Countdown setInterval(1000): cleanup on unmount obrigatório (leak risk). Não usar requestAnimationFrame (overkill UX coarse 1s)."
+    - "DN7 PT-PT estrito banners: 'anulada' (não 'cancelada'/'revertida'), 'registo(s) removido(s)' (não 'item(s) deletado(s)'). Vocabulário em DN9 da story."
+    - "DN8 BEGIN tx + ordem reversa explícita do undo flow: EPIC plan menciona mas endpoint actual NÃO usa BEGIN explicit nem ordem reversa (Story 2.6 gate APPROVED 9.4/10 cobriu sem regression). Item DEFERRED para @architect ratificar no gate 2.8 — não inflacionar scope."
+    - "DN9 Inngest cron pricing: free tier permite 30 functions; MVP usa 1. Sem risco financeiro."
+
+  blockers_external:
+    - "EB1 ANTHROPIC_API_KEY DPA UE PENDING — NÃO bloqueia (mockable-only, Story 2.10 endereça)"
+    - "EB2 OPENAI_API_KEY DPA UE PENDING — NÃO bloqueia (mockable-only)"
+    - "EB3 Upstash Redis PENDING — NÃO bloqueia (Story 2.9 endereça)"
+    - "EB4 Inngest workspace EU Frankfurt — DEFERRED, NÃO bloqueia drafting/impl. Eurico DEVE provisionar via runbook T5 antes do @devops push final (mas @dev pode implementar com keys vazias usando inngest-cli dev local)"
+
+  predecessor_handoff: "mj-handoff-session-pause-after-2.7-done-20260511 (consumed/archived 2026-05-11 00:00 — Eurico escolheu Cenário A drafting Story 2.8 via Orion direct)"
+
+next_action: |
+  @po *validate-story-draft 2.8
+
+  Sequência:
+  1. Ler `docs/stories/active/2.8.undo-inngest-cleanup-ui.md` v1.0 completo.
+  2. Executar 10-point checklist:
+     - Title clear + descriptive ✓
+     - Description user story format ✓
+     - AC numerados + testáveis (14 ACs verificar)
+     - Scope sized (M confirmado vs scope-shift L precedente 2.7 D28)
+     - Dependencies (2.6 ✓ Done; sem bloqueadores estruturais internos)
+     - Estimate M razoável (Inngest infra novo +30min sobre 2.7 baseline ~6h)
+     - Business value clear (FR6 + R5 mitigação + NFR12 user trust)
+     - Risks documented (DN1-DN9 + DN7 deferred review)
+     - DoD inferível (14 ACs + 5/5 gates + Inngest workspace provisioning)
+     - Alignment Architecture §11.3 (Inngest) + §14.5 (ADR-005) + §4.5 (Undo flow) + PRD FR6 + EPIC-2 §5 row 2.8
+  3. Cross-confirm anti-hallucination contra codebase real:
+     - `packages/db/src/schema/audit.ts:53-54` — confirmar `agent_run_reverted` enum existe (D41 validation)
+     - `packages/db/src/schema/agent.ts:198-225` — confirmar `agentReverseOps` colunas `expires_at`+`executed_at`
+     - `apps/web/src/app/api/agent/prompt/route.ts:419-427` — confirmar `undo_url`+`undo_expires_at` no response executed branch
+     - `apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts` — confirmar endpoint existente Story 2.6 (estrutura para AC5 audit refactor)
+     - `apps/web/src/app/(app)/jarvis/_components/result-message.tsx:30-32+53-61` — confirmar placeholder existente Story 2.7 (D40 retrocompat)
+     - `apps/web/src/app/(app)/jarvis/_components/jarvis-chat.tsx:39-44+139-146+161-180+201-208` — confirmar interface `PromptResponseExecuted` + handleSubmit + handleConfirmResult + map render
+     - `.env.example` — confirmar `INNGEST_EVENT_KEY` + `INNGEST_SIGNING_KEY` keys presentes vazias
+     - `docs/architecture.md:861-866` (§11.3 Inngest) + `:1066-1074` (§14.5 ADR-005) + `:397-425` (§4.5 Undo)
+     - `docs/epics/EPIC-2-EXECUTION.yaml:234-247` — confirmar Story 2.8 spec original
+  4. Review 6 [AUTO-DECISIONS] D38-D43:
+     - D38 cron Inngest nativo: PASS / suggest `/api/cron/daily` middleware?
+     - D39 inline em `apps/web/src/lib/inngest/`: PASS / package `packages/jobs/`?
+     - D40 retrocompat UI: PASS verificar 5 tests Story 2.7 não quebram
+     - D41 `agent_run_reverted` enum: PASS via cross-confirm audit.ts:54
+     - D42 CodeRabbit skip: PASS consistência 2.2-2.7
+     - D43 Vitest mocks: PASS sem Inngest Dev Server em CI
+  5. Veredicto: GO (≥7/10) ou NO-GO (<7/10 + required fixes listados).
+  6. Se GO: status Draft → Ready, story v1.0 → v1.1 com PO Validation block + Change Log @po.
+  7. Se PO_FIX_INLINE necessários: aplicar inline (precedente 2.6 5 fixes, 2.7 4 fixes).
+  8. Update `_INDEX.md` row 2.8 Draft → Ready.
+  9. Criar handoff sucessor `mj-handoff-2.8-ready-for-dev-20260511` (po → dev YOLO mockable-only).
+  10. Update HANDOFF-INDEX.md (consume + archive este; pending row sucessor).
+
+review_focus_areas:
+  - "**D41 cross-confirmation** (CRITICAL anti-hallucination): @po DEVE abrir `packages/db/src/schema/audit.ts:54` e verificar linha exacta `'agent_run_reverted',` no enum `auditActionEnum`. Se NÃO existir, é hallucination crítica do @sm e bloqueia AC5 (audit_log INSERT). Probabilidade baixa (cross-check feito durante drafting Read tool) mas anti-hallucination requer verificação independente."
+  - "**EB4 timing** (process question): Story 2.8 mockable-only NÃO requer Inngest workspace para passar quality gates @dev. MAS @devops push final precisa do workspace provisioned + secrets em Vercel para deploy verde (caso contrário `/api/inngest` route handler arranca mas funções nunca executam). Decisão @po: aceitar EB4 como 'deferred not blocking' (recomendado, precedente 2.7 D33 CodeRabbit skip pattern) OU exigir @devops setup pre-validate (overhead, atrasa cycle)."
+  - "**DN7 BEGIN tx scope deferred**: EPIC plan literal Story 2.8 menciona 'BEGIN tx → execute reverse_ops em ordem reversa → COMMIT' mas endpoint Story 2.6 actual NÃO usa BEGIN explicit nem ordem reversa. Story 2.8 v1.0 marca como DEFERRED review para @architect no gate (não inflacionar scope). @po pode: (a) aceitar como deferred (recomendado), (b) exigir PO_FIX_INLINE para adicionar BEGIN tx wrapper em T6 (~30min adicional impl), (c) bloquear pedindo @architect pre-review."
+  - "**D40 retrocompat ambiguidade**: ResultMessage SEM `undoUrl` props renderiza sem button OR placeholder antigo disabled? Story v1.0 escolhe 'sem button' (mais limpo). @po cross-confirma 5 tests Story 2.7 (`result-message.test.tsx`) — se algum test assert positivo 'botão Anular existe', d40 quebra. Mais provável: tests só validam summary + ops list, não placeholder button — D40 OK."
+  - "**AC10 (i) DELETE query shape**: query SQL exacta `delete from agent_reverse_ops where expires_at < now() - interval '1 hour'`. Verificar `1 hour` literal vs `interval 1 hour` (sintaxe Postgres). Drizzle `sql\`...\`` template handle interval correctamente — test verifica string template, não AST."
+  - "**AC8 401 → router.push('/entrar')**: handleUndo em ResultMessage usa `useRouter()` para redirect. Story 2.7 pattern consistente (jarvis-chat.tsx:102 já usa). Test mock `useRouter` com `vi.mock('next/navigation', ...)` precedent verifiable em jarvis-chat tests."
+  - "**Estimate M consistency** vs work distribution: Inngest infra ~2h + audit log ~1h + UI Undo button ~3h + tests ~3h = ~9h wall-clock. Story 2.7 L (~6h actual). 2.8 M estimate ~9h é razoável (M = 6-12h range em Story 1.x precedentes)."

@@ -11,8 +11,10 @@ id: mj-handoff-session-pause-after-2.7-done-20260511
 from_agent: "aiox-master (Orion) — sessão orquestradora cascata SDC Story 2.7 completa"
 to_agent: "any (Eurico / @sm / @devops / @aiox-master próxima sessão)"
 created: "2026-05-11T00:00:00+01:00"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-05-11T00:00:00+01:00"
+consumed_by: "aiox-master (Orion) — Eurico escolheu Cenário A drafting Story 2.8"
 priority: medium
 project_prefix: mj
 project: "meu-jarvis (Expressia — expressia.pt)"
