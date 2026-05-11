@@ -1,0 +1,167 @@
+id: mj-handoff-2.8-ready-for-architect-20260511
+from_agent: dev (Dex)
+to_agent: architect (Aria)
+created: "2026-05-11T23:55:00+01:00"
+status: pending
+priority: medium
+project_prefix: mj
+
+summary: |
+  Story 2.8 v1.2 Ready for Review — `@architect *qa-gate 2.8` para cross-domain
+  gate (backend Inngest infra + audit log + frontend UI Undo). @dev implementou
+  modo YOLO mockable-only em ~75min wall-clock, 13/13 tasks DONE, 5/5 quality
+  gates GREEN (com db-test ENV-BLOCKER pre-existing — Docker daemon offline na
+  sessão @dev; ZERO código tocado nesta story; recomendação re-run em CI per
+  `rls-gate` job que provisiona Postgres 16 service). 6 novos + 9 modificados
+  (preview-card.test.tsx adicionado vs v1.1 antecipação para alinhar shape
+  `ConfirmPayload`). +17 testes novos (5 Inngest + 2 audit log + 8 UI
+  ResultMessage substituído per PO_FIX 3 + 2 jarvis-chat AC13) = 153 web total
+  (was 136 baseline). 3 [DEV-DECISION] documentadas para @architect ratificar.
+
+context:
+  story_id: "2.8"
+  story_path: "docs/stories/active/2.8.undo-inngest-cleanup-ui.md"
+  story_status: "Ready for Review"
+  story_version: "1.2"
+  epic: "Epic 2 — Cérebro AI Multi-Intent"
+  epic_progress: "7/11 stories Done; 2.8 Ready for Review em progresso"
+  branch: main
+  commits_ahead_origin: 3 (sm + po + dev — todos locais, @devops faz push)
+
+  dev_implementation_summary: |
+    Modo: YOLO mockable-only autónomo (sem interação humana).
+    Wall-clock real: ~75min (precedência cache + workflow optimizado vs
+    estimativa ~9h da story; deltas explicados por: TypeScript strict ajudou a
+    zero-rounds typecheck após T8b upstream-first; mocks Vitest pattern
+    estabelecido em Stories 2.6/2.7 acelerou tests; Inngest function trivial).
+
+    Tasks: T1-T13 todas DONE (incluindo T8b preview-card.tsx PO_FIX 2).
+
+    Test counts deltas:
+      - cleanup-expired-reverse-ops.test.ts (NOVO): 5 testes (config + i-iv)
+      - undo.test.ts: 9 → 11 (+2 audit log)
+      - result-message.test.tsx: 5 → 13 (4 preserved + 9 new − 1 substituído per PO_FIX 3)
+      - jarvis-chat.test.tsx: 9 → 11 (+2 AC13)
+      - preview-card.test.tsx: 1 teste actualizado para shape ConfirmPayload (não-conta como novo)
+      Total novos web: +17 (matches AC14 target ≥17)
+      Web total final: 153 passed (was 136 baseline)
+
+    File List final (14 ficheiros tocados):
+      Novos (5):
+        1. apps/web/src/lib/inngest/client.ts
+        2. apps/web/src/lib/inngest/functions/cleanup-expired-reverse-ops.ts
+        3. apps/web/src/app/api/inngest/route.ts
+        4. apps/web/src/lib/inngest/functions/__tests__/cleanup-expired-reverse-ops.test.ts
+        5. docs/runbooks/inngest-setup.md
+      Modificados (9):
+        1. apps/web/package.json (+inngest ^3)
+        2. apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts (+audit_log INSERT)
+        3. apps/web/src/app/(app)/jarvis/_components/result-message.tsx (refactor completo)
+        4. apps/web/src/app/(app)/jarvis/_components/jarvis-chat.tsx (typing + shape)
+        5. apps/web/src/app/(app)/jarvis/_components/preview-card.tsx (PO_FIX 2)
+        6. apps/web/src/app/api/agent/prompt/__tests__/undo.test.ts (+2 audit)
+        7. apps/web/src/app/(app)/jarvis/_components/__tests__/result-message.test.tsx (substituir+adicionar)
+        8. apps/web/src/app/(app)/jarvis/_components/__tests__/jarvis-chat.test.tsx (+2 AC13)
+        9. apps/web/src/app/(app)/jarvis/_components/__tests__/preview-card.test.tsx (shape ConfirmPayload)
+
+  quality_gates_5_5_outputs:
+    typecheck: "Tasks: 9 successful, 9 total (cache hit 4/9)"
+    lint: "Tasks: 9 successful, 9 total + apps/web: ✔ No ESLint warnings or errors (--max-warnings=0 exit 0)"
+    test_web: "16 test files / 153 tests passed (delta +17 vs 136 baseline) — Tests passed"
+    test_outros: "tools 57 + obs 8 + agent 102 + db 6 + planner-executor 53 + classifier 78 = 304 passed"
+    test_db_test: "ENV-BLOCKER (Docker daemon offline na sessão @dev). Baseline session start: db-test 103 passed (Docker up); após ~30min docker stopped. Zero código tocado em Story 1.4 RLS harness por 2.8. CI `rls-gate` job cobre cenário com Postgres 16 service."
+    check_rls: "Tabelas com household_id encontradas: 28 + Policies existentes: 120 + ✅ Coverage completa NFR5 PRESERVADA"
+    build: "Tasks: 9 successful, 9 total + 14 Next.js routes (+`/api/inngest` GET+POST+PUT)"
+
+  dev_decisions_for_architect_ratification:
+    decision_1_rls_choice:
+      ac_ref: "AC5/DN5 / PO_FIX_INLINE 1"
+      choice: "getServiceDb() (defensivamente)"
+      reasoning: |
+        Escolha defensiva — `undo/route.ts` já tem `serviceDb` em scope (linhas
+        165-183 fazem UPDATE agent_runs + UPDATE agent_reverse_ops via
+        service_role). Reutilizar minimiza acoplamento e elimina chamada extra
+        a `getDb()` no caminho de pós-success. Comportamento idêntico per
+        PO_FIX 1 — ambos atingem o mesmo INSERT (policy `audit_log_insert_member`
+        permite a authenticated members; service_role bypassa toda RLS).
+        Documentado em `[DEV-DECISION]` comment inline no código.
+      ratification_required: true
+      concern_ref: "po_concerns_for_architect_gate Concern 2"
+
+    decision_2_test_3_substitution:
+      ac_ref: "AC12 (iii) / PO_FIX_INLINE 3"
+      choice: "SUBSTITUIR test 3 placeholder Story 2.7 (queryByRole === null) — 13 testes totais"
+      reasoning: |
+        Substituição é mais limpa: teste antigo asserts POSITIVAMENTE que botão
+        Anular existe com `title="Em breve"`. Com D40 implementado, asserção
+        quebra. Substituir elimina contradição. Paralelo (14 testes) introduziria
+        2 assertions opostas (`getByRole` + `queryByRole === null`) confuso
+        para futuro reader. AC12 acolhe ambas as opções — substituição é
+        recomendada per PO_FIX 3 fix.
+      ratification_required: false # já documentado em AC12 (acolhido)
+      ratification_optional: true
+
+    decision_3_begin_tx_deferred:
+      ac_ref: "DN7 / DN9 BEGIN tx scope deferred"
+      choice: "NÃO implementar BEGIN/COMMIT explicit + ordem reversa — preservar Story 2.6 pattern"
+      reasoning: |
+        Story 2.6 gate APPROVED 9.4/10 cobriu este flow com 9 tests passando —
+        sem regression observada. Pattern: postgres-js auto-commit é suficiente
+        para sequência de UPDATEs idempotentes desde que cada op aplique apenas
+        DELETE/UPDATE de row específica via PK; ordem reversa só importa se ops
+        referenciam-se mutuamente — restore_row + delete_row simples não têm
+        essa dependência (whitelist `ALLOWED_REVERSE_TABLES` garante isto).
+        Se @architect concern emergir: criar follow-up story dedicado (não
+        inflacionar 2.8).
+      ratification_required: true
+      concern_ref: "po_concerns_for_architect_gate Concern 1"
+
+  debug_incidents_resolved:
+    incident_1_sentry_nextjs_resolution:
+      severity: "transient build issue"
+      resolved: true
+      summary: |
+        Após `pnpm add inngest@^3` ao workspace, o primeiro `pnpm test` web
+        falhou com `Cannot find module './config/withSentryConfig.js'` em
+        @sentry/nextjs. Cause: pnpm hoisting rearrumou node_modules
+        temporariamente. Fix: `pnpm install` root re-linkou os deps —
+        testes passaram imediatamente. Lesson para futuros agents: após
+        `pnpm add` num workspace, correr `pnpm install` root antes de tests.
+
+    incident_2_db_test_docker_env:
+      severity: "environment-only, pre-existing"
+      resolved: false (env-blocker, não bloqueia Story 2.8)
+      summary: |
+        `pnpm --filter @meu-jarvis/db-test test` falha com `Could not find a
+        working container runtime strategy` durante sessão @dev. Docker daemon
+        Windows offline (Docker Desktop process not running). Baseline session
+        start (antes de qualquer edição Story 2.8) reportou db-test 103 passed
+        — Docker estava up. ~30min depois Docker stopped. Issue 100%
+        environmental, zero código tocado em Story 1.4 RLS harness por 2.8.
+        Recomendação: re-run `pnpm test` em CI (provisiona Postgres 16 service
+        per `ci-setup.md`) para confirmar — `rls-gate` job cobre cenário.
+
+  predecessor_handoff: "mj-handoff-2.8-ready-for-dev-20260511 (consumed/archived 2026-05-11 23:55)"
+
+next_action: |
+  @architect *qa-gate 2.8
+
+  Sequência recomendada gate cross-domain:
+  1. Ler story 2.8 v1.2 (PO Validation block + Dev Agent Record + 3 [DEV-DECISION]).
+  2. Cross-confirm File List vs git diff (14 ficheiros tocados).
+  3. Verificar 5/5 quality gates outputs neste handoff vs re-run próprio.
+  4. Ratificar [DEV-DECISION 1] RLS choice audit_log INSERT (concern 2 do handoff po→dev).
+  5. Ratificar [DEV-DECISION 3] DN9 BEGIN tx scope deferred (concern 1).
+  6. Cross-domain review: backend Inngest infra + audit log + frontend UI Undo.
+  7. Verificar se db-test ENV-BLOCKER deve ser re-run via CI antes do gate APPROVED.
+  8. Decidir verdict: APPROVED / CONCERNS / FAIL.
+  9. Criar handoff sucessor architect → devops para `*push` (se APPROVED).
+
+review_focus_areas:
+  - "Cross-domain backend+frontend coverage: Inngest function isolation (apps/web/src/lib/inngest/ inline per D39), undo endpoint audit_log INSERT (não-fatal isolation), UI Undo flow (preview→confirm→Undo button propagation via ConfirmPayload shape PO_FIX 2)."
+  - "Verificar consistency PT-PT estrito em banners Undo UI (DN8/DN9): 'anulada', 'registo(s) removido(s)', 'janela de 30 segundos passou', 'já foi anulada', 'erro temporário ao anular'. Result-message.tsx contém todas as strings."
+  - "setInterval cleanup on unmount: result-message.tsx useEffect cleanup (DN7 leak risk). Verificar tests AC12 (i) e (ix) que cobrem countdown via vi.useFakeTimers()."
+  - "Endpoint `/api/inngest` PÚBLICO (não em APP_PATH_PREFIXES) — DN3 ratificado. Auth via X-Inngest-Signature header pelo SDK."
+  - "Inngest cron schedule `0 3 * * *` — D38 KISS sobre `/api/cron/daily` (Architecture ADR-005 §14.5 admite alternativa Vercel Cron fan-out). Refactor trivial quando Story 2.9 (quota reset) e GDPR purge mensal entrarem."
+  - "RLS Coverage Gate (NFR5): 28 tabelas / 120 policies PRESERVADO — Story 2.8 não adicionou tabela (apenas INSERT em audit_log existente). Zero migration necessária per D41 (`agent_run_reverted` enum existe em audit.ts:54)."
+  - "Build Next.js routes: 14 routes total (+`/api/inngest` GET+POST+PUT). Baseline Story 2.7 = 13 routes per gate report; Story 2.8 += 1 route. Trace: handler `serve()` from `inngest/next` exposed three methods."

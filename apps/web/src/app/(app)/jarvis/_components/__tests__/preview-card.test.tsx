@@ -156,9 +156,12 @@ describe('<PreviewCard />', () => {
       '/api/agent/prompt/r1/confirm',
       expect.objectContaining({ method: 'POST' }),
     );
+    // Story 2.8 PO_FIX_INLINE 2: onConfirm agora recebe payload object com
+    // results + undoUrl + undoExpiresAt (undefined neste mock sem campos undo).
     expect(onConfirm).toHaveBeenCalledWith({
-      success: true,
-      results: [{ tool_name: 'create_task' }],
+      results: { success: true, results: [{ tool_name: 'create_task' }] },
+      undoUrl: undefined,
+      undoExpiresAt: undefined,
     });
   });
 

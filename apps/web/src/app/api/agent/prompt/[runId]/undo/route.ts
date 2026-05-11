@@ -195,6 +195,41 @@ export async function POST(
         );
       }
 
+      // Story 2.8 AC5 — audit_log INSERT (não-fatal se falhar).
+      //
+      // [DEV-DECISION] PO_FIX_INLINE 1: `getDb()` (authenticated) é correcto
+      // per RLS real (policy `audit_log_insert_member` em
+      // `packages/db/migrations/0001_rls_policies.sql:569-573` PERMITE INSERT
+      // a authenticated members; apenas UPDATE/DELETE são revogados :576-584).
+      // Esta implementação usa `serviceDb` (já em scope) defensivamente para
+      // consistência com as restantes ops da função (UPDATE agent_runs +
+      // UPDATE agent_reverse_ops via serviceDb). Diferença é conceitual, não
+      // comportamental — ambos atingem o mesmo INSERT. @architect ratifica
+      // no gate (CONCERNS-ACCEPTABLE — handoff po→dev concern 2).
+      try {
+        const traceId = span.spanContext().traceId ?? null;
+        await serviceDb.execute(sql`
+          insert into audit_log (household_id, user_id, action, entity_table, entity_id, before_state, after_state, trace_id)
+          values (
+            ${run.household_id}::uuid,
+            ${user.id}::uuid,
+            'agent_run_reverted',
+            'agent_runs',
+            ${runId}::uuid,
+            ${JSON.stringify({ status: 'success', ops_count: opRows.length })}::jsonb,
+            ${JSON.stringify({ status: 'reverted', reverted_at: new Date().toISOString() })}::jsonb,
+            ${traceId}
+          )
+        `);
+      } catch (auditErr) {
+        // Não-fatal: o undo já ocorreu com sucesso, mas registamos warn + Sentry.
+        log.warn({ err: auditErr }, 'audit_log insert falhou (não-fatal)');
+        captureException(
+          auditErr instanceof Error ? auditErr : new Error(String(auditErr)),
+          { ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }) },
+        );
+      }
+
       annotateAgentPromptSpan(span, { status_code: 200 });
       log.info({ run_id: runId, ops_reverted: opRows.length }, 'Run revertido com sucesso');
 

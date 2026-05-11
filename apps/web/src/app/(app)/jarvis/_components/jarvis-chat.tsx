@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ChatInput } from '@/app/(app)/jarvis/_components/chat-input';
-import { PreviewCard } from '@/app/(app)/jarvis/_components/preview-card';
+import { PreviewCard, type ConfirmPayload } from '@/app/(app)/jarvis/_components/preview-card';
 import { ResultMessage } from '@/app/(app)/jarvis/_components/result-message';
 
 interface UserMessage {
@@ -19,6 +19,10 @@ interface AgentResultMessage {
   readonly runId: string;
   readonly summary: string;
   readonly results?: { success?: boolean; results?: unknown[] };
+  /** Story 2.8 — URL do endpoint undo. */
+  readonly undoUrl?: string;
+  /** Story 2.8 — ISO 8601 da expiração undo (30s após exec). */
+  readonly undoExpiresAt?: string;
 }
 
 interface AgentErrorMessage {
@@ -41,6 +45,10 @@ interface PromptResponseExecuted {
   readonly run_id: string;
   readonly summary: string;
   readonly results: { success?: boolean; results?: unknown[] };
+  /** Story 2.8 — URL do endpoint undo (sempre presente em executed branch). */
+  readonly undo_url: string;
+  /** Story 2.8 — ISO 8601 da expiração undo (30s — FR6). */
+  readonly undo_expires_at: string;
 }
 
 interface PromptResponsePreview {
@@ -143,6 +151,8 @@ export function JarvisChat(): React.ReactElement {
             runId: data.run_id,
             summary: data.summary,
             results: data.results,
+            undoUrl: data.undo_url,
+            undoExpiresAt: data.undo_expires_at,
           });
         }
       } catch {
@@ -159,9 +169,11 @@ export function JarvisChat(): React.ReactElement {
   );
 
   const handleConfirmResult = useCallback(
-    (results: unknown) => {
+    (payload: ConfirmPayload) => {
       if (!preview) return;
-      const typed = results as { success?: boolean; results?: unknown[] } | undefined;
+      const typed = payload.results as
+        | { success?: boolean; results?: unknown[] }
+        | undefined;
       const opCount = typed?.results?.length ?? 0;
       const summary =
         opCount > 0
@@ -173,6 +185,8 @@ export function JarvisChat(): React.ReactElement {
         runId: preview.runId,
         summary,
         results: typed,
+        undoUrl: payload.undoUrl,
+        undoExpiresAt: payload.undoExpiresAt,
       });
       setPreview(null);
     },
@@ -205,6 +219,8 @@ export function JarvisChat(): React.ReactElement {
                 runId={m.runId}
                 summary={m.summary}
                 results={m.results}
+                undoUrl={m.undoUrl}
+                undoExpiresAt={m.undoExpiresAt}
               />
             );
           }

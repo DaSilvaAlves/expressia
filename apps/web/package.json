@@ -30,6 +30,7 @@
     "@vercel/otel": "^1.10.0",
     "@vercel/speed-insights": "^1.1.0",
     "drizzle-orm": "^0.34.0",
+    "inngest": "^3",
     "next": "^15.0.3",
     "openai": "^4.78.1",
     "react": "^19.0.0",

@@ -57,6 +57,8 @@ describe('<JarvisChat />', () => {
       run_id: 'r1',
       summary: 'Executei 1 operação com sucesso.',
       results: { success: true, results: [{ tool_name: 'create_task' }] },
+      undo_url: '/api/agent/prompt/r1/undo',
+      undo_expires_at: new Date(Date.now() + 30_000).toISOString(),
     });
     render(<JarvisChat />);
     await submitPrompt('criar tarefa amanhã');
@@ -88,10 +90,12 @@ describe('<JarvisChat />', () => {
       confidence: 0.6,
       expires_at: new Date(Date.now() + 300_000).toISOString(),
     });
-    // 2ª call: /api/agent/prompt/r1/confirm → results
+    // 2ª call: /api/agent/prompt/r1/confirm → results + undo fields (PO_FIX 2)
     setFetchResponse(true, 200, {
       run_id: 'r1',
       results: { success: true, results: [{ tool_name: 'create_task' }] },
+      undo_url: '/api/agent/prompt/r1/undo',
+      undo_expires_at: new Date(Date.now() + 30_000).toISOString(),
     });
     render(<JarvisChat />);
     await submitPrompt('fazer algo');
@@ -158,5 +162,48 @@ describe('<JarvisChat />', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/erro temporário/i),
     );
+  });
+
+  // ── Story 2.8 AC13 — UI Undo passthrough (2 testes novos) ──────────────
+
+  it('AC13 (i) executed → ResultMessage renderizado com botão Anular activo', async () => {
+    setFetchResponse(true, 200, {
+      mode: 'executed',
+      run_id: 'r1',
+      summary: 'Executei 1 operação.',
+      results: { success: true, results: [{ tool_name: 'create_task' }] },
+      undo_url: '/api/agent/prompt/r1/undo',
+      undo_expires_at: new Date(Date.now() + 30_000).toISOString(),
+    });
+    render(<JarvisChat />);
+    await submitPrompt('criar tarefa');
+    await waitFor(() => expect(screen.getByText(/Feito/)).toBeInTheDocument());
+    const undoButton = screen.getByRole('button', { name: /anular/i });
+    expect(undoButton).not.toBeDisabled();
+    expect(undoButton).toHaveTextContent(/Anular \(\d+s\)/);
+  });
+
+  it('AC13 (ii) preview → confirm → ResultMessage com botão Anular activo (undo fields propagados)', async () => {
+    setFetchResponse(true, 200, {
+      mode: 'preview',
+      run_id: 'r1',
+      plan_summary: ['criar_tarefa (60%)'],
+      confidence: 0.6,
+      expires_at: new Date(Date.now() + 300_000).toISOString(),
+    });
+    setFetchResponse(true, 200, {
+      run_id: 'r1',
+      results: { success: true, results: [{ tool_name: 'create_task' }] },
+      undo_url: '/api/agent/prompt/r1/undo',
+      undo_expires_at: new Date(Date.now() + 30_000).toISOString(),
+    });
+    render(<JarvisChat />);
+    await submitPrompt('fazer algo');
+    await waitFor(() => expect(screen.getByText('Vais fazer:')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
+    await waitFor(() => expect(screen.getByText(/Feito/)).toBeInTheDocument());
+    const undoButton = screen.getByRole('button', { name: /anular/i });
+    expect(undoButton).not.toBeDisabled();
+    expect(undoButton).toHaveTextContent(/Anular \(\d+s\)/);
   });
 });

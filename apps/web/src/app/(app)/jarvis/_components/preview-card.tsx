@@ -8,13 +8,25 @@ import { useEffect, useState } from 'react';
  *
  * `expiresAt` é ISO 8601 (5min TTL — Story 2.6 D20). Countdown calcula em
  * tempo real a partir desta string.
+ *
+ * Story 2.8 PO_FIX_INLINE 2 — `onConfirm` alargou o shape para propagar
+ * também `undoUrl` + `undoExpiresAt` da response do confirm endpoint
+ * (`/api/agent/prompt/{runId}/confirm` retorna ambos os campos per
+ * confirm/route.ts:295-303). Antes (Story 2.7) `onConfirm(data.results)`
+ * DESCARTAVA estes campos, impedindo o flow Undo via branch preview.
  */
+export interface ConfirmPayload {
+  readonly results: unknown;
+  readonly undoUrl?: string;
+  readonly undoExpiresAt?: string;
+}
+
 export interface PreviewCardProps {
   readonly runId: string;
   readonly planSummary: readonly string[];
   readonly confidence: number;
   readonly expiresAt: string;
-  readonly onConfirm: (results: unknown) => void;
+  readonly onConfirm: (payload: ConfirmPayload) => void;
   readonly onCancel: () => void;
 }
 
@@ -97,8 +109,16 @@ export function PreviewCard({
         setError(body.error?.message ?? 'Erro ao confirmar. Tenta de novo.');
         return;
       }
-      const data = (await res.json()) as { results?: unknown };
-      onConfirm(data.results);
+      const data = (await res.json()) as {
+        results?: unknown;
+        undo_url?: string;
+        undo_expires_at?: string;
+      };
+      onConfirm({
+        results: data.results,
+        undoUrl: data.undo_url,
+        undoExpiresAt: data.undo_expires_at,
+      });
     } catch {
       setError('Erro temporário. Tenta de novo.');
     } finally {

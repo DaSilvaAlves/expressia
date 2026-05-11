@@ -2,7 +2,10 @@ id: mj-handoff-2.8-ready-for-dev-20260511
 from_agent: po (Pax)
 to_agent: dev (Dex)
 created: "2026-05-11T01:30:00+01:00"
-status: pending
+status: consumed
+consumed: true
+consumed_at: "2026-05-11T23:55:00+01:00"
+consumed_by: dev
 priority: medium
 project_prefix: mj
 

@@ -224,4 +224,92 @@ describe('POST /api/agent/prompt/[runId]/undo', () => {
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('INTERNAL_ERROR');
   });
+
+  // ── Story 2.8 AC11 — Audit log INSERT tests ────────────────────────────
+
+  it('AC11 (i) — 200 sucesso ALSO inserts audit_log row com action=agent_run_reverted', async () => {
+    const future = new Date(Date.now() + 30 * 1000).toISOString();
+    let dbCallCount = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      dbCallCount++;
+      if (dbCallCount === 1) {
+        return [{ id: RUN_ID, household_id: TEST_HOUSEHOLD_ID, status: 'success' }];
+      }
+      if (dbCallCount === 2) {
+        return [
+          {
+            id: 'rop-1',
+            reverse_op: { kind: 'delete_row', table: 'tasks', id: 'task-1' },
+            expires_at: future,
+            executed_at: null,
+          },
+          {
+            id: 'rop-2',
+            reverse_op: { kind: 'delete_row', table: 'tasks', id: 'task-2' },
+            expires_at: future,
+            executed_at: null,
+          },
+        ];
+      }
+      return [];
+    });
+    mocks.serviceDbExecuteMock.mockResolvedValue([]);
+
+    const res = await POST(makeRequest() as never, makeContext());
+    expect(res.status).toBe(200);
+
+    // Verificar que serviceDb foi chamado com query INSERT audit_log com action correcto.
+    const allServiceCalls = mocks.serviceDbExecuteMock.mock.calls;
+    const auditCall = allServiceCalls.find((call) => {
+      const queryArg = call[0] as { queryChunks?: unknown[] } | undefined;
+      const flat = JSON.stringify(queryArg ?? {});
+      return /insert into audit_log/i.test(flat) && /agent_run_reverted/.test(flat);
+    });
+    expect(auditCall).toBeDefined();
+    const flat = JSON.stringify(auditCall![0] ?? {});
+    expect(flat).toMatch(/agent_runs/); // entity_table
+    expect(flat).toMatch(/ops_count/); // before_state contém ops_count
+    expect(flat).toMatch(/reverted_at/); // after_state contém reverted_at
+  });
+
+  it('AC11 (ii) — audit_log INSERT failure NÃO aborta undo flow (response continua 200)', async () => {
+    const future = new Date(Date.now() + 30 * 1000).toISOString();
+    let dbCallCount = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      dbCallCount++;
+      if (dbCallCount === 1) {
+        return [{ id: RUN_ID, household_id: TEST_HOUSEHOLD_ID, status: 'success' }];
+      }
+      if (dbCallCount === 2) {
+        return [
+          {
+            id: 'rop-1',
+            reverse_op: { kind: 'delete_row', table: 'tasks', id: 'task-1' },
+            expires_at: future,
+            executed_at: null,
+          },
+        ];
+      }
+      return [];
+    });
+
+    // serviceDb: reverse ops + UPDATE agent_runs OK; INSERT audit_log THROW.
+    let serviceCallCount = 0;
+    mocks.serviceDbExecuteMock.mockImplementation(async (queryArg) => {
+      serviceCallCount++;
+      const flat = JSON.stringify(queryArg ?? {});
+      if (/insert into audit_log/i.test(flat)) {
+        throw new Error('audit_log permission denied (simulated)');
+      }
+      return [];
+    });
+
+    const res = await POST(makeRequest() as never, makeContext());
+    expect(res.status).toBe(200); // flow undo NÃO aborta — audit é não-fatal
+    const body = (await res.json()) as { reverted: boolean; ops_count: number };
+    expect(body.reverted).toBe(true);
+    expect(body.ops_count).toBe(1);
+    // Confirmar que houve tentativa de INSERT no audit_log antes do erro.
+    expect(serviceCallCount).toBeGreaterThanOrEqual(3); // reverse op + UPDATE run + INSERT audit (throw)
+  });
 });
