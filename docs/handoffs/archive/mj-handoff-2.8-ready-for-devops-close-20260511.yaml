@@ -2,9 +2,67 @@ id: mj-handoff-2.8-ready-for-devops-close-20260511
 from_agent: architect (Aria)
 to_agent: devops (Gage)
 created: "2026-05-11T23:59:00+01:00"
-status: pending
+status: consumed
+consumed: true
+consumed_at: "2026-05-12T00:20:00+01:00"
+consumed_by: devops (Gage)
 priority: medium
 project_prefix: mj
+
+consumption_record:
+  session_summary: |
+    Gage (@devops) consumiu este handoff 2026-05-12 00:20 ao executar `*push 2.8`
+    em modo autónomo. Sequência: re-verify 5/5 quality gates GREEN (turbo cache
+    fresca pós-gate) → housekeeping (story `git mv` active→completed + handoff
+    `git mv` → archive + INDEX updates + story v1.3 → v1.4) → 6º commit chore
+    docs com trailers conventional → `git push origin main` (6 commits range
+    `ce22258..{HEAD-after-push}`).
+  five_gates_re_verified_devops:
+    typecheck: "9/9 FULL TURBO 91ms (match @architect 86ms / @dev 86ms — cache fresca)"
+    lint: "9/9 FULL TURBO 84ms 0 warnings (--max-warnings=0 enforced)"
+    test_web_standalone: "153 passed 16 files 5.19s (match @architect 4.42s @dev — slight cold start variance esperada)"
+    check_rls: "28 tabelas / 120 policies em 0001_rls_policies.sql — NFR5 PRESERVADA ✓ user_prefs"
+    build: "14 routes Next.js (/ + 13 outros incl /api/inngest NOVO) FULL TURBO 96ms"
+    db_test_env_blocker: "NIT-006-NB Docker offline local — CI rls-gate cobre (Story 2.7 precedent)"
+  coderabbit_decision: |
+    [AUTO-DECISION] CodeRabbit pre-push SKIPPED consistente D42 (precedent
+    Stories 2.2/2.3/2.4 D12, 2.5 D14, 2.6 D22+D26, 2.7 D33). Architect gate
+    APPROVED 9.4/10 HIGH ~700 linhas + 14 ACs review + 6 decisões D38-D43 +
+    3 [DEV-DECISION] ratification + 4 NITs deferred substitui review
+    automatizado. Recomendação para Story 2.10 (E2E benchmark com credentials
+    reais Anthropic/OpenAI): executar CodeRabbit pre-commit.
+  push_range: |
+    Range: `ce22258..{HEAD-pós-push}` — 6 commits totais.
+    - d8f6f14  chore(stories,handoffs): Story 2.8 Draft v1.0 (sm session)
+    - 21d720a  chore(stories,handoffs): Story 2.8 Draft v1.0 → Ready v1.1 (po session)
+    - 5d9a47d  chore(handoffs): SESSION PAUSE meta-handoff v1.1 (orion session)
+    - 5ded6dc  feat(agent,jarvis): Story 2.8 v1.2 Ready for Review (dev session)
+    - 1d72a55  chore(stories,handoffs,qa): Story 2.8 v1.3 Done — @architect APPROVED 9.4/10
+    - {new}  chore(stories,handoffs): Story 2.8 Done v1.4 — housekeeping pós push
+  housekeeping_completed:
+    - "Story file `git mv` docs/stories/active/2.8.undo-inngest-cleanup-ui.md → docs/stories/completed/ (Git rename preserva history)"
+    - "Story file v1.3 → v1.4 com Change Log @devops push entry"
+    - "_INDEX.md: row Story 2.8 Done v1.3 awaits push → Done v1.4 + path active → completed + Epic 2 7/11 → 8/11"
+    - "Este handoff: consumed + status: consumed + consumed_at + consumed_by + consumption_record block"
+    - "Handoff `git mv` → docs/handoffs/archive/ (preserva history)"
+    - "HANDOFF-INDEX.md: 1 pending row removed + 1 archived row added com Update note"
+  vercel_deploy: |
+    Vercel auto-deploy `fra1` (Frankfurt) triggered no push. URL
+    `expressia.pt` ou preview `expressia-black.vercel.app/jarvis` acessível
+    após deploy verde (~2-3min). Endpoint /api/inngest arranca sem keys —
+    function não regista no Inngest Cloud até Eurico completar 6 steps do
+    `docs/runbooks/inngest-setup.md` (workspaces EU + event/signing keys
+    + Vercel env vars).
+  ci_sanity_check: |
+    Post-push GitHub Actions rls-gate job provisiona Postgres 16 service e
+    roda db:migrate + check:rls + db-test contra ele. Cobre o NIT-006-NB
+    Docker offline local — sanity duplo verde validado.
+  next_step: |
+    Story 2.8 Done. Epic 2 — 8/11 stories Done (2.1 + 2.2 + 2.3 + 2.4 + 2.5
+    + 2.6 + 2.7 + 2.8). Stories 2.9 (Cost router) + 2.10 (Benchmark E2E)
+    + 2.11 (Observability dashboards) ainda pending (2.9 EB3 Upstash; 2.10
+    EB1+EB2 Anthropic+OpenAI DPA UE; 2.11 depende 2.6+2.10). Próximo passo
+    depende de Eurico: drafting 2.9 OR drafting 2.10 OR pause/handoff.
 
 summary: |
   Story 2.8 v1.3 Done — `@devops *push 2.8`. Architect gate APPROVED 9.4/10 HIGH
