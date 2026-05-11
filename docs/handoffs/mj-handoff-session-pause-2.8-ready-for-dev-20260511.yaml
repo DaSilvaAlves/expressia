@@ -1,0 +1,385 @@
+# =============================================================================
+# META-HANDOFF — SESSION PAUSE CROSS-TERMINAL
+# Story 2.8 Ready v1.1 (GO 9.0/10 @po Pax) — pronta para @dev YOLO mockable-only
+# =============================================================================
+# Este meta-handoff é AUTOSSUFICIENTE: contém todo o contexto necessário para
+# retomar @dev *develop 2.8 noutro terminal sem re-explicação.
+#
+# Substitui consulta a múltiplos artefactos — basta ler este YAML + abrir os
+# 4 ficheiros canónicos listados em `key_files_for_next_agent` para arrancar.
+# =============================================================================
+
+id: mj-handoff-session-pause-2.8-ready-for-dev-20260511
+from_agent: "aiox-master (Orion) — sessão orquestradora cascata SDC Story 2.8 (@sm draft + @po validate completos)"
+to_agent: "any (Eurico / @dev / @aiox-master próxima sessão)"
+created: "2026-05-11T01:00:00+01:00"
+status: pending
+consumed: false
+priority: medium
+project_prefix: mj
+project: "meu-jarvis (Expressia — expressia.pt)"
+
+summary: |
+  Sessão multi-agente fechou 2 fases SDC Story 2.8 em uma única conversa Eurico:
+  @sm (Orion delegated per Constitution Article II — precedente 2.2 + 2.7 D28)
+  draftou Story 2.8 v1.0 (Undo Mechanism FR6 + Inngest Cleanup + UI Undo Button)
+  → @po Pax validou GO 9.0/10 HIGH (match exacto Story 2.7) com **3 PO_FIX_INLINE
+  críticos anti-hallucination** vs codebase real. Story 2.8 Ready v1.1. Working
+  tree clean, 2 commits locais ahead `origin/main` (d8f6f14 sm + 21d720a po,
+  nada pushed — autoridade @devops). Handoff sucessor `mj-handoff-2.8-ready-
+  for-dev-20260511` já criado pending para @dev. EB4 (Inngest workspace EU)
+  DEFERRED não bloqueante (Eurico provisiona pre-push @devops, runbook T5 da
+  story). Pipeline AI permanece mockable-only (precedente 2.2-2.7 = 6 stories
+  Done APPROVED 9.4-9.5/10). Próximo passo ÚNICO E CLARO: `@dev *develop 2.8`
+  modo YOLO mockable-only. Estimativa ~9h wall-clock. Sequência tasks T1-T13
+  documentada abaixo + no handoff sucessor po→dev.
+
+# -----------------------------------------------------------------------------
+# CONTEXT — Estado completo Story 2.8
+# -----------------------------------------------------------------------------
+context:
+  story_id: "2.8"
+  story_title: "Undo Mechanism (FR6) + Inngest Cleanup + UI Undo Button"
+  story_path: "docs/stories/active/2.8.undo-inngest-cleanup-ui.md"
+  story_status: "Ready v1.1"
+  story_estimate: "M (mantido — não scope-shift L como 2.7)"
+  branch: main
+  current_task: "Story 2.8 v1.1 Ready aguardando @dev *develop 2.8. Handoff sucessor po→dev pending. Sem follow-up actionable Orion-side."
+
+  # ---------------------------------------------------------------------------
+  # Discovery massiva durante drafting (CRITICAL — economiza ~70% trabalho @dev)
+  # ---------------------------------------------------------------------------
+  critical_discovery_during_drafting: |
+    EPIC-2-EXECUTION.yaml linhas 234-247 originalmente especificam Story 2.8
+    cobrindo: endpoint POST /api/agent/undo/{runId} + validação + BEGIN tx +
+    Update agent_reverse_ops.reverted_at + Inngest cleanup.
+
+    PORÉM verificação codebase actual revela ~70% JÁ FEITO pela Story 2.6 AC7:
+      ✅ Endpoint nested REST `[runId]/undo/route.ts` 280 linhas (D21+DOC-FIX-001)
+      ✅ Validação ownership via RLS (getDb) + expires_at + executed_at IS NULL
+         (PO_FIX Story 2.6: coluna REAL é `executed_at`, não `reverted_at`)
+      ✅ Update agent_reverse_ops.executed_at + agent_runs.status='reverted' +
+         agent_runs.reverted_at = now() via getServiceDb (NFR9 imutabilidade)
+      ✅ ALLOWED_REVERSE_TABLES whitelist (SQL injection defense)
+      ✅ 9 testes Vitest passing (apps/web/src/app/api/agent/prompt/__tests__/undo.test.ts)
+      ✅ Main endpoint route.ts:419-427 retorna `undo_url`+`undo_expires_at`
+
+    Scope REAL Story 2.8 (gap actual):
+      🆕 Inngest provider setup (zero código actual — `.env.example` keys vazios)
+      🆕 `cleanupExpiredReverseOps` function cron diário 03:00 UTC
+      🆕 UI Undo button funcional (substitui placeholder Story 2.7 result-message.tsx:53-61)
+      🆕 audit_log INSERT no undo endpoint (`agent_run_reverted` enum JÁ existe audit.ts:54)
+      🆕 PreviewCard onConfirm shape refactor (PO_FIX 2 v1.1 — discovery Pax)
+
+  decisions_made_at_draft_validate:
+    # @sm Orion (drafted v1.0)
+    - "D38 (@sm): cron Inngest nativo `0 3 * * *` (sem `/api/cron/daily` middleware MVP — ADR-005 alternativa simples para 1 job)"
+    - "D39 (@sm): Inngest setup inline em `apps/web/src/lib/inngest/` (sem package `packages/jobs/` — KISS para MVP 1 function)"
+    - "D40 (@sm): Undo button retrocompatibilidade — sem render se `undoUrl` undefined (PO_FIX 3 clarificou — ver review_focus_areas Pax)"
+    - "D41 (@sm): `agent_run_reverted` audit_action JÁ EXISTE em audit.ts:54 (zero migration enum extension — cross-confirmed por Pax)"
+    - "D42 (@sm): CodeRabbit pre-commit/push skipped consistente 2.2-2.7"
+    - "D43 (@sm): Vitest mocks sem Inngest Dev Server em CI (deterministic + zero infra extra)"
+    # @po Pax (validate v1.1 GO 9.0/10)
+    - "@po Pax verificou 10/10 critérios PASS + cross-confirm anti-hallucination contra ~12 fontes reais codebase"
+    - "@po Pax aplicou 3 PO_FIX_INLINE v1.1 (ver `po_fix_inline_v1_1` abaixo)"
+    - "@po Pax classificou 6 [AUTO-DECISIONS] D38-D43: 6 PASS (D40 ajustado per PO_FIX 3)"
+    - "@po Pax registou 3 concerns para @architect no gate (ver `architect_concerns_deferred` abaixo)"
+
+  # ---------------------------------------------------------------------------
+  # 3 PO_FIX_INLINE críticos aplicados v1.0 → v1.1 (anti-hallucination)
+  # ---------------------------------------------------------------------------
+  po_fix_inline_v1_1:
+    - id: 1
+      target: "AC5 + DN5 audit_log INSERT RLS reality"
+      hallucination: "v1.0 alegou 'audit_log REVOKED em authenticated per NFR9' → use getServiceDb()"
+      reality: "0001_rls_policies.sql:569-573 PERMITE INSERT a authenticated members; NFR9 imutabilidade aplica-se SÓ a UPDATE/DELETE :576-584"
+      fix_applied: "AC5 + DN5 actualizados — @dev decide getDb() (mais correcto, segue RLS via JWT) vs getServiceDb() (defensivo). Concern para @architect ratificar no gate."
+      impact: "Zero comportamental se @dev escolher uma das opções; mais semanticamente correcto getDb() (consistency com endpoint flow autenticated)."
+
+    - id: 2
+      target: "AC9 confirm endpoint propagation gap (preview-card.tsx)"
+      hallucination: "v1.0 alegou 'handleConfirmResult parse response do confirm para undo_url/undo_expires_at'"
+      reality: "Fetch do confirm está em `apps/web/src/app/(app)/jarvis/_components/preview-card.tsx:91-101` `PreviewCard.handleConfirm` — descarta `undo_url`+`undo_expires_at` que `confirm/route.ts:295-303` JÁ retorna. `jarvis-chat.tsx:161-180` só recebe `results: unknown`."
+      fix_applied: "AC9 expandido com refactor obrigatório de `PreviewCardProps.onConfirm` shape (passar undo_url+undo_expires_at upstream). File List antecipada actualizada de 13 → **14 ficheiros tocados** (+ preview-card.tsx). Sequência execução @dev DEVE fazer T8b (preview-card refactor) PRIMEIRO antes de T7 (result-message) — typing flow upstream-first."
+      impact: "+1 ficheiro modificado, +30-45min @dev impl. UI Undo no flow CONFIRM (não só EXECUTED) agora funciona correctamente."
+
+    - id: 3
+      target: "AC12 (iii) retrocompat ambiguidade test Story 2.7"
+      hallucination: "v1.0 alegou '5 tests Story 2.7 result-message.test.tsx preservados sem alteração'"
+      reality: "Teste 3 em `apps/web/src/app/(app)/jarvis/_components/__tests__/result-message.test.tsx:45-50` asserta POSITIVAMENTE botão Anular existe com `title=\"Em breve\"` — D40 retrocompat (sem render se undefined) QUEBRA este teste."
+      fix_applied: "AC12 (iii) clarificado com 2 opções aceites: (a) SUBSTITUIR teste 3 (13 testes totais — recomendado, semântica clara) OU (b) PARALELIZAR (14 testes totais com nova assertion). @dev escolhe in situ."
+      impact: "Trabalho adicional mínimo (5 linhas test). Garante 5 tests Story 2.7 não criam falso GO."
+
+  # ---------------------------------------------------------------------------
+  # 3 Concerns @architect deferred (NÃO bloqueiam @dev — só anotar para gate)
+  # ---------------------------------------------------------------------------
+  architect_concerns_deferred:
+    - id: 1
+      title: "DN7 BEGIN tx + ordem reversa explícita do flow undo"
+      context: "EPIC plan literal Story 2.8 menciona 'BEGIN tx → execute reverse_ops em ordem reversa → COMMIT' mas endpoint Story 2.6 actual NÃO usa BEGIN explicit nem ordem reversa (loop linear com service_role)"
+      gate_2_6_status: "APPROVED 9.4/10 HIGH — flow cobriu 9 tests sem regression"
+      decision_options:
+        - "OPTION A: ratificar status quo (postgres-js auto-commit é suficiente para sequência ops independentes via PK específicos)"
+        - "OPTION B: exigir refactor follow-up story dedicado (não inflacionar 2.8)"
+      recommendation: "OPTION A (precedente gate 2.6 sem incidents reportados)"
+
+    - id: 2
+      title: "PO_FIX 1 RLS choice — @dev getDb() vs getServiceDb()"
+      context: "audit_log INSERT pode usar getDb() (segue RLS via JWT — autenticated member tem INSERT permission per :569-573) OR getServiceDb() (defensivo, bypass RLS)"
+      recommendation: "@architect ratifica @dev escolha + documenta pattern para futuras audit inserts (consistency NFR9)"
+
+    - id: 3
+      title: "NIT-001-NB Story 2.7 (`user_prefs.updated` enum extension)"
+      context: "Continua OPEN do gate 2.7 — distinto de `agent_run_reverted` (que JÁ existe e Story 2.8 USA). Trata-se de extensão futura."
+      recommendation: "Aceitar como follow-up M dedicada quando Story 2.x precisar de audit `user_prefs.updated`. NÃO bloqueia Story 2.8."
+
+  # ---------------------------------------------------------------------------
+  # Sequência tasks T1-T13 (recomendada pelo handoff sucessor po→dev)
+  # ---------------------------------------------------------------------------
+  recommended_execution_order_dev_yolo: |
+    Modo: YOLO mockable-only (precedente 2.2-2.7 = 6 stories Done APPROVED 9.4-9.5/10).
+    Estimativa wall-clock: ~9h (Inngest infra novo +30min sobre 2.7 baseline ~6h actual).
+
+    1. **T1** `pnpm --filter @meu-jarvis/web add inngest@^3` — Inngest dep latest stable
+    2. **T2** Criar `apps/web/src/lib/inngest/client.ts` — `Inngest` client export
+    3. **T3** Criar `apps/web/src/lib/inngest/functions/cleanup-expired-reverse-ops.ts`:
+       - Trigger cron `0 3 * * *` (D38)
+       - Handler: `DELETE FROM agent_reverse_ops WHERE expires_at < now() - interval '1 hour'` via `getServiceDb()`
+       - Pino structured logger + step.run OTel span
+       - Re-throw errors para Inngest retry engine (ADR-005 max 4 attempts)
+    4. **T9** Tests Inngest function (≥4 testes per AC10) com Vitest mocks (D43) — verificar query shape + idempotência + log + error propagation
+    5. **T4** Criar `apps/web/src/app/api/inngest/route.ts` — `serve` helper expõe function
+    6. **T5** Criar `docs/runbooks/inngest-setup.md` — instruções Eurico-side para provisionar workspace EU Frankfurt + secrets Vercel
+    7. **T6** Refactor `apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts`:
+       - INSERT em `auditLog` com `action='agent_run_reverted'` após UPDATE status='reverted' bem-sucedido
+       - @dev decide getDb() OR getServiceDb() (PO_FIX 1 — RLS choice — Concern @architect)
+       - try/catch isolado — non-fatal se falhar (Pino warn + Sentry capture)
+       - traceId via `trace.getActiveSpan()?.spanContext().traceId`
+    8. **T10** Tests audit_log (+2 testes per AC11) — expand `apps/web/src/app/api/agent/prompt/__tests__/undo.test.ts` (existe Story 2.6, 9 tests)
+    9. **🔑 T8b PRIMEIRO** (PO_FIX 2 — upstream-first): Refactor `apps/web/src/app/(app)/jarvis/_components/preview-card.tsx`:
+       - `PreviewCardProps.onConfirm` shape upgrade: passar `{ results, undo_url, undo_expires_at }` em vez de só `results`
+       - `handleConfirm` linhas 91-101 ler estes campos da response do confirm endpoint (já retornados per `confirm/route.ts:295-303`)
+    10. **T7** Refactor `apps/web/src/app/(app)/jarvis/_components/result-message.tsx`:
+        - Props `undoUrl?: string` + `undoExpiresAt?: string` (D40 — sem render se undefined)
+        - States `idle/loading/success/error` + countdown setInterval(1000) cleanup on unmount
+        - `handleUndo` fetch POST + parse status → banner PT-PT (vocabulário DN9)
+    11. **T11** Tests UI ResultMessage (≥9 testes per AC12 + PO_FIX 3 substituir OR paralelizar teste 3 antigo) — Vitest + jsdom + Testing Library
+    12. **T8** Refactor `apps/web/src/app/(app)/jarvis/_components/jarvis-chat.tsx`:
+        - Interface `PromptResponseExecuted` adiciona `undo_url`+`undo_expires_at` typing
+        - Interface `AgentResultMessage` adiciona `undoUrl?`+`undoExpiresAt?`
+        - handleSubmit + handleConfirmResult passam novos campos
+        - Map render passa props a `<ResultMessage />`
+    13. **T12** Tests jarvis-chat integration (≥2 testes per AC13) — Vitest mocks
+    14. **T13** Quality gates final 5/5 GREEN:
+        - `pnpm typecheck` exit 0 (9/9 packages)
+        - `pnpm lint` exit 0 (9/9, 0 warnings)
+        - `pnpm test` exit 0 (≥17 novos + 543 preservados = ≥560 totais)
+        - `pnpm check:rls` exit 0 (28/120 NFR5 PRESERVADA — zero novas tabelas)
+        - `pnpm build` exit 0 (Next.js ≥14 routes — `/api/inngest` adicionado)
+
+  # ---------------------------------------------------------------------------
+  # Ficheiros antecipados (14 tocados) — Dev Agent Record actualizará
+  # ---------------------------------------------------------------------------
+  files_anticipated_changes:
+    new_6:
+      - "apps/web/src/lib/inngest/client.ts"
+      - "apps/web/src/lib/inngest/functions/cleanup-expired-reverse-ops.ts"
+      - "apps/web/src/app/api/inngest/route.ts"
+      - "apps/web/src/lib/inngest/functions/__tests__/cleanup-expired-reverse-ops.test.ts"
+      - "docs/runbooks/inngest-setup.md"
+      - "(eventual) apps/web/src/lib/inngest/functions/index.ts barrel"
+    modified_8:
+      - "apps/web/package.json (+inngest dep)"
+      - "apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts (audit_log INSERT)"
+      - "apps/web/src/app/(app)/jarvis/_components/preview-card.tsx (PO_FIX 2 onConfirm shape — T8b PRIMEIRO)"
+      - "apps/web/src/app/(app)/jarvis/_components/result-message.tsx (UI Undo button funcional)"
+      - "apps/web/src/app/(app)/jarvis/_components/jarvis-chat.tsx (props passthrough)"
+      - "apps/web/src/app/api/agent/prompt/__tests__/undo.test.ts (+2 audit tests)"
+      - "apps/web/src/app/(app)/jarvis/_components/__tests__/result-message.test.tsx (+9 UI tests, PO_FIX 3 substitui/paraleliza teste 3 antigo)"
+      - "apps/web/src/app/(app)/jarvis/_components/__tests__/jarvis-chat.test.tsx (+2 integration tests)"
+
+# -----------------------------------------------------------------------------
+# GIT STATE — verificável com `git log --oneline -5` + `git status`
+# -----------------------------------------------------------------------------
+git_state:
+  branch: "main"
+  working_tree: "clean"
+  commits_ahead_origin: 2
+  commits_local:
+    - hash: "d8f6f14"
+      message: "chore(stories,handoffs): Story 2.8 Draft v1.0 — Undo + Inngest cleanup + UI [Story 2.8]"
+      author: "@sm (Orion delegated)"
+      files: "5 files changed, 592 insertions(+), 4 deletions(-)"
+    - hash: "21d720a"
+      message: "chore(stories,handoffs): Story 2.8 Draft v1.0 -> Ready v1.1 via @po validate [Story 2.8]"
+      author: "@po (Pax)"
+      files: "5 files changed, 412 insertions(+), 19 deletions(-)"
+  origin_main_at: "ce22258 (Story 2.7 housekeeping pós push 2026-05-09)"
+  pushed_status: "NÃO pushed — autoridade exclusiva @devops Gage. Push só após @dev *develop 2.8 + @architect *qa-gate 2.8 APPROVED."
+
+# -----------------------------------------------------------------------------
+# KEY FILES — 4 ficheiros canónicos para arrancar @dev (todos verified Pax)
+# -----------------------------------------------------------------------------
+key_files_for_next_agent:
+  primary_must_read:
+    - path: "docs/stories/active/2.8.undo-inngest-cleanup-ui.md"
+      version: "v1.1 Ready"
+      why: "Story completa com 14 ACs + 13 Tasks + 6 D38-D43 + 9 DN1-DN9 + PO Validation block + Change Log @po + 3 PO_FIX_INLINE markers"
+
+    - path: "docs/handoffs/mj-handoff-2.8-ready-for-dev-20260511.yaml"
+      status: "pending (to_agent: dev)"
+      why: "Handoff sucessor po→dev — instruções execução completas para `*develop 2.8` (criado por @po Pax)"
+
+  secondary_reference:
+    - path: "docs/stories/completed/2.7.preview-then-confirm-flow-ui.md"
+      version: "v1.4 Done"
+      why: "Padrão de Dev Agent Record + 14 Tasks done + 5/5 quality gates GREEN — REFERÊNCIA para Story 2.8 final"
+
+    - path: "docs/qa/gates/2.7-architect-gate.md"
+      why: "Pattern @architect gate APPROVED ~700 linhas — padrão esperado para Story 2.8 gate"
+
+  codebase_anti_hallucination_anchors:
+    # Pax verificou estes durante validate — DEVEM ser usados como ground truth
+    - "packages/db/src/schema/audit.ts:53-54 — enum `agent_run_reverted` EXISTS (D41 verified)"
+    - "packages/db/src/schema/agent.ts:198-225 — agentReverseOps schema com expires_at + executed_at (NÃO reverted_at)"
+    - "packages/db/migrations/0001_rls_policies.sql:569-573 — audit_log PERMITE INSERT a authenticated members (PO_FIX 1)"
+    - "packages/db/migrations/0001_rls_policies.sql:576-584 — NFR9 imutabilidade aplica-se SÓ a UPDATE/DELETE"
+    - "apps/web/src/app/api/agent/prompt/route.ts:419-427 — main endpoint retorna undo_url+undo_expires_at na executed branch"
+    - "apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts (280 linhas) — endpoint JÁ implementado Story 2.6 AC7"
+    - "apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts:295-303 — confirm endpoint retorna undo_url+undo_expires_at (PO_FIX 2)"
+    - "apps/web/src/app/(app)/jarvis/_components/preview-card.tsx:91-101 — PreviewCard.handleConfirm DESCARTA undo fields (PO_FIX 2 fix)"
+    - "apps/web/src/app/(app)/jarvis/_components/result-message.tsx:30-32+53-61 — placeholder Anular disabled Story 2.7 (T7 substituir)"
+    - "apps/web/src/app/(app)/jarvis/_components/__tests__/result-message.test.tsx:45-50 — teste 3 asserta botão Anular existe (PO_FIX 3)"
+    - ".env.example — INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY presentes vazios"
+    - "docs/architecture.md §11.3 (linhas 861-866) Inngest EU Frankfurt + §14.5 ADR-005 + §4.5 (397-425) Undo flow"
+
+# -----------------------------------------------------------------------------
+# QUALITY GATES STATUS BASELINE (Story 2.7 Done)
+# -----------------------------------------------------------------------------
+quality_gates_baseline:
+  context: "Story 2.7 Done — baseline para Story 2.8 NÃO regredir. Verificável com `pnpm <gate>`."
+  typecheck: "9/9 packages exit 0"
+  lint: "9/9 packages exit 0, 0 warnings"
+  test: "543 tests passing (480 base + 63 Story 2.7) — Story 2.8 target ≥560 (≥17 novos)"
+  check_rls: "28 tabelas / 120 policies (NFR5 PRESERVADA — Story 2.8 NÃO adiciona tabelas)"
+  build: "Next.js 13 routes total + Sentry sourcemap 3 runtimes — Story 2.8 adiciona `/api/inngest` GET+POST+PUT (handler único)"
+
+# -----------------------------------------------------------------------------
+# EPIC 2 STATUS
+# -----------------------------------------------------------------------------
+epic_2_status:
+  done: "7/11 stories (2.1+2.2+2.3+2.4+2.5+2.6+2.7)"
+  ready: "1 (Story 2.8 — Ready v1.1 aguardando @dev)"
+  backlog: "3 (Story 2.9 Cost router + Story 2.10 Benchmark + Story 2.11 Dashboards)"
+  external_blockers_unchanged:
+    EB1: "ANTHROPIC_API_KEY DPA UE PENDING (não bloqueia 2.8 — bloqueia 2.10)"
+    EB2: "OPENAI_API_KEY DPA UE PENDING (não bloqueia 2.8 — bloqueia 2.10)"
+    EB3: "Upstash Redis EU PENDING (não bloqueia 2.8 — bloqueia 2.9)"
+    EB4: "Inngest workspace EU Frankfurt — DEFERRED não bloqueia drafting/impl. Eurico provisiona pre-push @devops via runbook T5 da Story 2.8"
+
+# -----------------------------------------------------------------------------
+# REGRAS E BOAS PRÁTICAS CRÍTICAS (Epic 2 stories 2.2-2.7 — 6 precedents Done)
+# Anyone reading this is in a NEW terminal — must respect these to avoid drift
+# -----------------------------------------------------------------------------
+critical_rules_and_practices:
+  language:
+    - "**PT-PT estrito** em TUDO (código, comments, story, handoffs, banners UI). Vocabulário: 'utilizar' (não 'usar'), 'eliminar' (não 'deletar'), 'ficheiro' (não 'arquivo'), 'equipa' (não 'time'), 'anular' (não 'cancelar'/'reverter')"
+    - "NUNCA traduzir termos técnicos forçados (deploy, build, commit, pull request, hook, agent, workflow, frontend, backend, stack, CLI, API, MCP, PR, branch — todos OK em inglês)"
+
+  agent_authority:
+    - "**@devops Gage** tem autoridade EXCLUSIVA para `git push` / `gh pr create` / `gh pr merge`. NENHUM outro agente faz push."
+    - "**@sm River** owns story creation; **@po Pax** owns story validation; **@dev Dex** owns implementation; **@architect Aria** owns quality gate; **@devops Gage** owns push."
+    - "**Orion (@aiox-master)** universal executor — pode delegated @sm/@dev/etc authority QUANDO Eurico autorizar explicitamente OR context window optimization (precedente Stories 2.2 + 2.7 D28)"
+
+  development_patterns_epic_2:
+    - "**Mockable-only Vitest** — zero call real LLM/Anthropic/OpenAI em CI. `vi.hoisted()` + `vi.mock()` para Anthropic/OpenAI/Supabase auth (padrão 6 stories Done 2.2-2.7)"
+    - "**RLS DO block em `0001_rls_policies.sql`** — NUNCA criar 4 policies em migration própria. Pattern Story 2.6 D17 (agent_rate_limit_counters) + Story 2.7 (user_prefs). Razão: `scripts/check-rls-coverage.ts:33` lê APENAS 0001 como source-of-truth NFR5 gate"
+    - "**Migration defensiva separada** (ex: 0008) quando appendar a 0001 — D37 Story 2.7 NIT-002-NB CLOSED via 0008_user_prefs_rls.sql idempotente (CREATE-IF-NOT-EXISTS via pg_policies lookup + conditional table existence + `set local check_function_bodies = off`)"
+    - "**Nested REST `/api/agent/prompt/[runId]/{confirm,undo}`** (D21 + DOC-FIX-001 Story 2.6) é architectural pattern OFICIAL — codebase é source-of-truth, architecture.md §1.3+§4.4+§4.5 ratifica"
+    - "**Cross-package source files** usam `./` relativos (D27 Story 2.6 directive — refactor mecânico zero-comportamental). Tests internos packages podem manter `@/*`"
+    - "**Components inline em `_components/`** (D31 Story 2.7) underscore prefix Next.js (não treats as route). Threshold extracção para `components/` directory: 1+ shared cross-feature OR 3+ same feature"
+    - "**[AUTO-DECISION] CodeRabbit pre-push skipped** consistente 2.2-2.7 (D14/D22/D26/D33/D42) — architect gate ~600-700 linhas APPROVED 9.4/10 HIGH substitui review automatizado. Re-baseline schedulada Story 2.10 (env handling, secrets, credenciais reais)"
+    - "**Anti-hallucination PO_FIX_INLINE rigoroso** — Pax cross-confirma EVERY column name + path + export + interface contra real codebase (2.6 caught 5, 2.7 caught 4, 2.8 caught 3). PATTERN: ler `Read` tool ANTES de aceitar como verdade na story"
+
+  quality_gates_non_negotiable:
+    - "**Pre-commit/push:** typecheck + lint + test + check:rls + build TODOS devem passar exit 0. Story 2.8 target ≥560 tests."
+    - "**NFR5 RLS coverage gate:** `scripts/check-rls-coverage.ts` bloqueia merge se faltar policy. Story 2.8 NÃO toca schema — gate baseline 28/120 PRESERVED"
+    - "**FULL TURBO cache hit** esperado (precedente 2.2-2.7) — typecheck/lint/test 9/9 com 8 cached + 1 db miss típico"
+
+  story_lifecycle_canonical:
+    - "Status: Draft → Ready → InProgress → InReview → Done"
+    - "@sm draft → @po validate (GO ≥7/10) → @dev develop YOLO → @architect *qa-gate (APPROVED/CONCERNS/FAIL) → @devops *push → housekeeping (story file `git mv active/ → completed/`, _INDEX.md row update, story version increment, handoff archived)"
+    - "Versions: v1.0 (sm draft) → v1.1 (po validate) → v1.2 (dev impl Ready for Review) → v1.3 (architect gate Done) → v1.4 (devops push housekeeping)"
+
+  handoff_central_protocol:
+    - "Handoffs vivem em `docs/handoffs/` central (NÃO `.aiox/handoffs/`)"
+    - "Pending: `docs/handoffs/*.yaml`; Archived: `docs/handoffs/archive/*.yaml`"
+    - "Index obrigatório `docs/HANDOFF-INDEX.md` — qualquer agente em nova sessão DEVE consultar como primeiro passo"
+    - "Prefix `mj-` para meu-jarvis. Format: `mj-handoff-{slug}-{YYYYMMDD}.yaml`"
+    - "Quando consumir handoff: mark `consumed: true` + `consumed_at` + `consumed_by` + `status: consumed` + `git mv → archive/` + update INDEX (remove pending row + add archived row)"
+
+  pii_and_redaction:
+    - "Prompts contêm PII — REDACTED em logs OTel via `sanitizeHint`/`redactPii` (Story 2.5 D9 + 2.6 D25 patterns)"
+    - "Trace IDs OK em logs (não PII). User IDs em audit_log OK (RLS protege)."
+
+# -----------------------------------------------------------------------------
+# NEXT ACTION — único e claro
+# -----------------------------------------------------------------------------
+next_action: |
+  `@dev *develop 2.8`
+
+  Modo: YOLO mockable-only (precedente Stories 2.2-2.7 = 6 stories Done APPROVED 9.4-9.5/10).
+
+  Sequência exacta: T1 → T2 → T3 + T9 (tests) → T4 → T5 (runbook) → T6 +
+  T10 (audit tests) → **🔑 T8b PRIMEIRO (preview-card.tsx PO_FIX 2 — upstream-first)** →
+  T7 (result-message.tsx) + T11 (UI tests, PO_FIX 3 substituir teste 3) →
+  T8 (jarvis-chat.tsx) + T12 (integration tests) → T13 quality gates 5/5 GREEN.
+
+  Estimativa: ~9h wall-clock.
+
+  Detalhe completo em `docs/handoffs/mj-handoff-2.8-ready-for-dev-20260511.yaml`
+  (handoff sucessor po→dev) + `docs/stories/active/2.8.undo-inngest-cleanup-ui.md` v1.1.
+
+# -----------------------------------------------------------------------------
+# NOTES — lessons learned + observações sessão
+# -----------------------------------------------------------------------------
+notes: |
+  **Sessão produtiva — 2 fases SDC em 1 conversa:**
+  Eurico+Orion+Pax fecharam @sm draft (v1.0) + @po validate (v1.1 GO 9.0/10)
+  numa única sessão. Pattern análogo ao da Story 2.7 (cascata SDC 5 agentes
+  em 1 sessão). Padrão sustentável quando context window permite.
+
+  **3 PO_FIX_INLINE = qualidade incremental:**
+  Story 2.6 = 5 fixes; Story 2.7 = 4 fixes; Story 2.8 = 3 fixes.
+  Pax ficou cada vez mais eficiente — drafting Orion-side já internaliza
+  patterns Story 2.7 (mockable-only, RLS DO block, nested REST, cross-package,
+  components inline, CodeRabbit skip).
+
+  **Maior lesson Story 2.8:**
+  Quando EPIC plan literal tem hallucinations vs codebase real (ex: "POST
+  /api/agent/undo/{runId}" quando real é nested REST `[runId]/undo`; ex:
+  "Update agent_reverse_ops.reverted_at" quando coluna real é `executed_at`),
+  Pax + Orion cross-confirmam contra schema real e ajustam ACs sem inflacionar
+  scope. Story 2.8 escopo REAL ~50% menor que EPIC plan literal sugere — pois
+  Story 2.6 AC7 já entregou ~70% do trabalho.
+
+  **Para retomar próxima sessão (qualquer terminal):**
+  1. `cd C:\Users\XPS\Documents\meu-jarvis`
+  2. `git log --oneline -5` — confirma últimos 2 commits são d8f6f14 + 21d720a
+  3. `git status` — deve mostrar "Your branch is ahead of 'origin/main' by 2 commits" + working tree clean
+  4. Ler `docs/HANDOFF-INDEX.md` topo Pending — vê este meta-handoff
+  5. Abrir `docs/stories/active/2.8.undo-inngest-cleanup-ui.md` v1.1 + handoff
+     sucessor `docs/handoffs/mj-handoff-2.8-ready-for-dev-20260511.yaml`
+  6. Activar @dev: `/AIOX:agents:dev` ou `@dev *develop 2.8`
+  7. @dev consume handoff po→dev (mark consumed + archive + INDEX update)
+  8. @dev executa sequência T1-T13 YOLO mockable-only
+
+  **Sem perda de trabalho ao mudar terminal** — git state + handoff central
+  + 4 key files = autossuficiência completa.
+
+  **Eurico:** se quiseres, antes de @dev arrancar:
+    - (opcional) abrir browser `expressia-black.vercel.app/jarvis` — confirma
+      Story 2.7 UI deployed e ResultMessage placeholder Anular visível
+    - (opcional) provisionar Inngest workspace EU Frankfurt + popular secrets
+      Vercel — desbloqueia @devops push automático no fim. NÃO bloqueante
+      para @dev impl mockable-only.
