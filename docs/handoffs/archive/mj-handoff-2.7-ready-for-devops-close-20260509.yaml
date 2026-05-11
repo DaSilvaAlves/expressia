@@ -142,6 +142,67 @@ review_artifacts:
 
 predecessor_handoff: "mj-handoff-2.7-ready-for-architect-20260509 (consumed/archived 2026-05-09 20:00 — @architect APPROVED 9.4/10 HIGH + DOC-FIX-002 inline)"
 
-consumed: false
-consumed_at: null
-consumed_by: null
+consumed: true
+consumed_at: "2026-05-09T22:00:00+01:00"
+consumed_by: "devops (Gage)"
+status: consumed
+
+consumption_record: |
+  Consumido por Gage (@devops) 2026-05-09 22:00 ao executar `*push 2.7` per
+  spec do handoff. Sequência executada:
+
+  1. NIT-002-NB sub-task — migration `packages/db/migrations/0008_user_prefs_rls.sql`
+     criada (~111 linhas) com pattern idempotente (CREATE-IF-NOT-EXISTS via
+     `pg_policies` lookup + conditional table existence check + `set local
+     check_function_bodies = off`). Filename novo distinto de 0001 garante
+     registo em `__schema_migrations` em prod EU. Predicate combo idêntico ao
+     DO block 0001:739-755 (`is_household_member(household_id) AND auth.uid() = user_id`).
+     Verificado localmente: `pnpm --filter @meu-jarvis/db db:migrate` aplica
+     em 535ms, idempotente (no-op em DBs onde 0001 DO block já criou as policies).
+     Commit separado: `646c87f fix(db): NIT-002-NB sub-task — migration 0008
+     defensiva user_prefs RLS para prod EU [Story 2.7]`. **NIT-002-NB CLOSED.**
+
+  2. 5 quality gates re-verificados pelo @devops em FULL TURBO cache hit
+     (typecheck 9/9 2.884s 8 cached + 1 db miss exit 0, lint 9/9 487ms 0 warnings
+     8 cached + 1 db miss, test 9/9 packages totalizando 543 tests match exacto
+     gate @architect — web 136 / db-test 103 / agent 102 / classifier 78 /
+     tools 57 / planner-executor 53 / observability 8 / db 6, check:rls 28
+     tabelas / 120 policies em 0001 ✓ user_prefs NFR5 PRESERVADA, build Next.js
+     13 routes total + Sentry sourcemap 3 runtimes 39.737s).
+
+  3. [AUTO-DECISION] CodeRabbit pre-push skipped consistente D33 (precedent
+     2.2/2.3/2.4/2.5/2.6) — architect gate APPROVED 9.4/10 HIGH ~700 linhas
+     + DOC-FIX-002 inline + 14 ACs review + 10 decisions ratification + 4
+     NITs deferred substitui review automatizado.
+
+  4. Push #1: `git push origin main` verde — range `f63475f..646c87f` (4 commits).
+     Origin/main HEAD before: f63475f (Story 2.7 Draft v1.0). Origin/main HEAD
+     after: 646c87f (NIT-002-NB sub-task migration 0008).
+
+  5. Housekeeping completo:
+     - Story `git mv docs/stories/active/2.7.preview-then-confirm-flow-ui.md →
+       docs/stories/completed/` (history preservation via Git rename).
+     - Story header: Version 1.3 → 1.4, Updated date refreshed, Owner trail
+       acrescentado com push range.
+     - Story Change Log v1.4 entry detalhado adicionado (push range + 5 gates
+       re-verified + CodeRabbit skip + housekeeping + Epic 2 progress 6/11→7/11).
+     - `_INDEX.md` row Story 2.7 actualizada (path active→completed, status
+       Done v1.3 awaits push → Done v1.4) + Epic 2 cabeçalho 6/11 → 7/11 +
+       Update note completo.
+     - Este handoff consumed + `git mv → docs/handoffs/archive/`.
+     - HANDOFF-INDEX.md: 1 pending row removida + 1 archived row adicionada
+       com consumption_record summary.
+
+  6. Push #2 (housekeeping): commit chore(stories,handoffs) Story 2.7 Done +
+     `git push origin main` verde.
+
+  Vercel auto-deploy `fra1` (Frankfurt) triggered — `expressia-black.vercel.app/jarvis`
+  acessível após deploy verde (~2-3min). Eurico vai navegar para validar UI chat.
+
+  Status final Story 2.7: Done v1.4. **Epic 2 — 7/11 stories Done (2.1 + 2.2
+  + 2.3 + 2.4 + 2.5 + 2.6 + 2.7).** Stories 2.8/2.9 PENDING EB3/EB4. Story 2.10
+  PENDING EB1+EB2. Story 2.11 depende 2.6 ✓ + 2.10.
+
+  NITs status: NIT-001-NB OPEN (defer Story 2.8 piggyback OR follow-up M);
+  NIT-002-NB **CLOSED** via migration 0008; NIT-003-NB OPEN (defer Epic 2.x
+  housekeeping); NIT-004-NB OPEN (defer Story 2.8 evaluation in situ).
