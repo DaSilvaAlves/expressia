@@ -178,3 +178,84 @@ review_focus_areas:
   - "**AC10 (i) DELETE query shape**: query SQL exacta `delete from agent_reverse_ops where expires_at < now() - interval '1 hour'`. Verificar `1 hour` literal vs `interval 1 hour` (sintaxe Postgres). Drizzle `sql\`...\`` template handle interval correctamente — test verifica string template, não AST."
   - "**AC8 401 → router.push('/entrar')**: handleUndo em ResultMessage usa `useRouter()` para redirect. Story 2.7 pattern consistente (jarvis-chat.tsx:102 já usa). Test mock `useRouter` com `vi.mock('next/navigation', ...)` precedent verifiable em jarvis-chat tests."
   - "**Estimate M consistency** vs work distribution: Inngest infra ~2h + audit log ~1h + UI Undo button ~3h + tests ~3h = ~9h wall-clock. Story 2.7 L (~6h actual). 2.8 M estimate ~9h é razoável (M = 6-12h range em Story 1.x precedentes)."
+
+consumed: true
+consumed_at: "2026-05-11T01:30:00+01:00"
+consumed_by: "po (Pax)"
+status: consumed
+
+consumption_record: |
+  Consumido por Pax (@po) 2026-05-11 01:30 ao executar `*validate-story-draft 2.8`.
+
+  **Veredicto: GO 9.0/10 HIGH confidence**.
+
+  10/10 critérios PASS no checklist (title clear, user story format, 14 ACs
+  testáveis, scope M confirmado sem scope-shift L precedente 2.7 D28,
+  dependencies 2.6+1.5+1.7+2.1+2.5+2.7 ✓ + sem bloqueadores internos,
+  estimate M ~9h razoável, business value FR6+NFR12+R5, 10 Dev Notes
+  DN1-DN10 risks documentados, DoD inferível 14 ACs + 5/5 gates + Inngest
+  workspace, alignment Architecture §4.5+§11.3+§14.5 ADR-005 + PRD FR6 +
+  EPIC-2 §5 row 2.8). Score raw 10/10 → ajuste 9.0/10 reflecte 3
+  PO_FIX_INLINE necessários (não erros bloqueantes mas anti-hallucinations
+  vs codebase real). Match exacto precedente 2.7 GO 9.0/10 com 4 fixes.
+
+  Cross-confirm anti-hallucination contra 13 fontes reais do codebase:
+    - packages/db/src/schema/audit.ts:54 enum 'agent_run_reverted' PASS (D41 RATIFIED)
+    - packages/db/src/schema/agent.ts:43 enum 'reverted' PASS
+    - packages/db/src/schema/agent.ts:211-212 expires_at + executed_at PASS
+    - packages/db/src/schema/audit.ts:86-96 schema columns PASS
+    - apps/web/src/app/api/agent/prompt/route.ts:419-427 main response PASS
+    - apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts:295-303 confirm response PASS (v1.0 correctamente alegou)
+    - apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts 280 linhas Story 2.6 + 9 tests PASS
+    - apps/web/src/app/(app)/jarvis/_components/result-message.tsx:30-32+53-61 placeholder PASS
+    - apps/web/src/app/(app)/jarvis/_components/jarvis-chat.tsx:39-44 gap typing PASS
+    - apps/web/src/app/(app)/jarvis/_components/preview-card.tsx:91-101 fetch confirm + DESCARTA undo fields (HALLUCINATION DETECTED + FIXED via PO_FIX_INLINE 2)
+    - apps/web/src/app/(app)/jarvis/_components/__tests__/result-message.test.tsx:45-50 placeholder assertion POSITIVA (HALLUCINATION DETECTED + FIXED via PO_FIX_INLINE 3)
+    - .env.example:55-56 INNGEST keys PASS
+    - packages/db/migrations/0001_rls_policies.sql:569-584 audit_log RLS reality (HALLUCINATION DETECTED + FIXED via PO_FIX_INLINE 1 — INSERT está PERMITIDO a authenticated, não REVOKED como Story v1.0 alegou)
+
+  6 [AUTO-DECISIONS] D38-D43 classification:
+    - D38 cron Inngest nativo KISS: PASS (Architecture §14.5 ADR-005 admite alternativa)
+    - D39 inline em apps/web/src/lib/inngest/: PASS (consistente Story 2.6 D27 pattern)
+    - D40 UI Undo retrocompat: PASS via PO_FIX_INLINE 3 (test 3 placeholder substituído)
+    - D41 agent_run_reverted enum existe: PASS RATIFIED via cross-confirm audit.ts:54
+    - D42 CodeRabbit skip: PASS (consistente 2.2-2.7; Story 2.10 re-baseline natural)
+    - D43 Vitest mocks: PASS (deterministic + zero CI infra extra)
+
+  3 [PO_FIX_INLINE v1.1] aplicados:
+    1. AC5+DN5 audit_log INSERT RLS — v1.0 "REVOKED em authenticated per NFR9"
+       → realidade 0001_rls_policies.sql:569-573 PERMITE INSERT a authenticated
+       members. NFR9 imutabilidade aplica-se a UPDATE/DELETE (:576-584) não ao
+       INSERT. AC5+DN5 reescritos com nota anti-hallucination + autoridade @dev
+       decidir getDb() (correcto) vs getServiceDb() defensivamente.
+    2. AC9 confirm endpoint propagation — v1.0 "handleConfirmResult parse
+       response do confirm" → realidade jarvis-chat.tsx:161-180 só recebe
+       results: unknown; fetch é em preview-card.tsx:91-101 PreviewCard.
+       handleConfirm que DESCARTA undo_url+undo_expires_at da response
+       (confirm endpoint JÁ retorna estes campos). AC9 expandido com refactor
+       obrigatório PreviewCardProps.onConfirm shape de (results) => void
+       para (payload: { results, undoUrl?, undoExpiresAt? }) => void. File
+       List antecipada actualizada (+ preview-card.tsx = 7→8 modificados;
+       total 14 ficheiros tocados).
+    3. AC12 (iii) retrocompat ambiguidade — v1.0 "5 tests Story 2.7 preservados
+       sem alteração" + D40 "sem button se undoUrl undefined" → realidade
+       result-message.test.tsx:45-50 test 3 asserta POSITIVAMENTE botão Anular
+       existe. AC12 (iii) clarificado para substituir esse test pelo novo
+       queryByRole === null + test count ajustado (5−1+9 = 13, não 14;
+       @dev pode optar preservar+paralelo recovers 14).
+
+  Status Draft → Ready (autoridade @po per ~/.claude/rules/story-lifecycle.md).
+  Story v1.0 → v1.1 com PO Validation block + Change Log @po + 3 PO_FIX_INLINE markers.
+  _INDEX.md row 2.8 actualizada Draft v1.0 → Ready v1.1 + histórico v1.1 entry acima v1.0.
+
+  Concerns para @architect no gate 2.8:
+    (a) DN7 BEGIN tx + ordem reversa do flow undo (deferred) — ratificar
+        current behaviour (postgres-js auto-commit é suficiente para sequência
+        de ops independentes via PK específicos) OU exigir refactor follow-up.
+    (b) PO_FIX_INLINE 1 RLS choice — ratificar @dev escolha getDb() (correcto
+        per RLS real) vs getServiceDb() defensivamente. Ambos atingem mesmo
+        INSERT; diferença é conceitual sobre responsabilidade do role.
+    (c) NIT-001-NB Story 2.7 (user_prefs.updated enum extension) continua aberto
+        independentemente — Story 2.8 não tocou.
+
+  Sucessor: mj-handoff-2.8-ready-for-dev-20260511 (po → dev YOLO mockable-only).

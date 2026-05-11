@@ -1,0 +1,234 @@
+id: mj-handoff-2.8-ready-for-dev-20260511
+from_agent: po (Pax)
+to_agent: dev (Dex)
+created: "2026-05-11T01:30:00+01:00"
+status: pending
+priority: medium
+project_prefix: mj
+
+summary: |
+  Story 2.8 v1.1 Ready — `@dev *develop 2.8` em modo YOLO mockable-only
+  (precedente 2.2/2.3/2.4/2.5/2.6/2.7). Veredicto @po: GO 9.0/10 HIGH
+  confidence com 3 [PO_FIX_INLINE] aplicados anti-hallucinations vs
+  codebase real (audit_log INSERT RLS — INSERT está PERMITIDO a
+  authenticated, NÃO REVOKED; confirm endpoint undo propagation — refactor
+  obrigatório de `preview-card.tsx` callback shape; AC12 retrocompat —
+  test 3 placeholder Story 2.7 deve ser substituído). Sem bloqueadores
+  externos para drafting/impl (mockable-only). 14 ACs + 13 Tasks (T1-T13)
+  + 6 [AUTO-DECISIONS] D38-D43. Estimate M (~9h wall-clock) para 6 novos
+  + 8 modificados ≈ 14 ficheiros tocados + ≥17 tests novos = ≥560 totais.
+  EB4 (Inngest workspace EU Frankfurt) DEFERRED não bloqueante — @dev
+  pode implementar com keys vazias usando `npx inngest-cli dev` local;
+  Eurico provisiona pre-push @devops per runbook T5. Sucessor: handoff
+  dev → architect para `*qa-gate 2.8`.
+
+context:
+  story_id: "2.8"
+  story_path: "docs/stories/active/2.8.undo-inngest-cleanup-ui.md"
+  story_status: "Ready"
+  story_version: "1.1"
+  epic: "Epic 2 — Cérebro AI Multi-Intent"
+  epic_progress: "7/11 stories Done; 2.8 Ready em progresso"
+  branch: main
+
+  po_validation_summary: |
+    Veredicto: GO 9.0/10 HIGH confidence (10/10 critérios PASS no checklist,
+    ajuste reflecte 3 PO_FIX_INLINE necessários — não bloqueantes mas
+    anti-hallucinations vs codebase real). Match exacto precedente
+    2.7 GO 9.0/10 com 4 fixes.
+
+    Cross-confirm anti-hallucination contra 13 fontes do codebase real
+    verificadas em sessão @po:
+      - audit.ts:54 enum agent_run_reverted PASS (D41 RATIFIED)
+      - agent.ts:43 enum 'reverted' PASS
+      - agent.ts:211-212 expires_at + executed_at PASS
+      - audit.ts:86-96 schema columns PASS
+      - route.ts:419-427 main response PASS
+      - confirm/route.ts:295-303 confirm response PASS (v1.0 correctamente alegou)
+      - undo/route.ts 280 linhas + undo.test.ts 9 tests PASS
+      - result-message.tsx:30-32+53-61 placeholder PASS
+      - jarvis-chat.tsx:39-44 gap typing PASS
+      - preview-card.tsx:91-101 fetch confirm + DESCARTA undo fields (HALLUCINATION DETECTED + FIXED via PO_FIX_INLINE 2)
+      - result-message.test.tsx:45-50 placeholder assertion POSITIVA (HALLUCINATION DETECTED + FIXED via PO_FIX_INLINE 3)
+      - .env.example:55-56 INNGEST keys PASS
+      - 0001_rls_policies.sql:569-584 audit_log RLS reality (HALLUCINATION DETECTED + FIXED via PO_FIX_INLINE 1)
+
+    6 [AUTO-DECISIONS] D38-D43: 6/6 PASS.
+
+  decisions_carried_forward_from_sm_handoff:
+    - "D38 cron Inngest nativo `0 3 * * *` (KISS para 1 job; ADR-005 admite alternativa)"
+    - "D39 Inngest inline em `apps/web/src/lib/inngest/` (sem package `packages/jobs/`; pattern Story 2.6 D27)"
+    - "D40 UI Undo retrocompat — sem render se `undoUrl` undefined (test 3 Story 2.7 substituído per PO_FIX_INLINE 3)"
+    - "D41 `agent_run_reverted` enum JÁ EXISTE em audit.ts:54 — zero migration extension (RATIFIED por @po)"
+    - "D42 CodeRabbit pre-commit/push skipped consistente 2.2-2.7"
+    - "D43 Vitest mocks sem Inngest Dev Server em CI (deterministic + zero CI infra extra)"
+
+  po_fix_inline_v1_1_applied:
+    fix_1_audit_log_rls:
+      title: "AC5+DN5 audit_log INSERT RLS — INSERT está PERMITIDO a authenticated, NÃO REVOKED"
+      hallucination_v1_0: "audit_log INSERT REVOKED em authenticated per NFR9 (apenas service_role insere)"
+      codebase_reality: |
+        packages/db/migrations/0001_rls_policies.sql:569-573 policy
+        `audit_log_insert_member` PERMITE INSERT a authenticated com
+        `with check (household_id is null or public.is_household_member(household_id))`.
+        Apenas UPDATE/DELETE são revogados (linhas 576-584 — policies blocked + revoke).
+        NFR9 imutabilidade aplica-se a UPDATE/DELETE (append-only) NÃO ao INSERT.
+      fix_applied: |
+        AC5+DN5 reescritos com nota anti-hallucination. Autoridade @dev decidir
+        entre `getDb()` (correcto per RLS real) ou `getServiceDb()` (defensivamente
+        consistente com lookup ops + UPDATE agent_runs nas linhas 165-183 da
+        undo/route.ts). Ambos atingem o mesmo INSERT; diferença é conceitual sobre
+        quem é o role responsável. Concern CONCERNS-ACCEPTABLE para @architect
+        ratificar no gate (já listado em po_concerns_for_architect_gate).
+      impact: "Zero impacto comportamental. Apenas justificação no AC5 corrige verdade vs migration real."
+
+    fix_2_confirm_endpoint_propagation:
+      title: "AC9 confirm endpoint propagation — refactor obrigatório de preview-card.tsx callback shape"
+      hallucination_v1_0: "handleConfirmResult (jarvis-chat.tsx:161-180) parse response do confirm; passar undo fields à ResultMessage"
+      codebase_reality: |
+        jarvis-chat.tsx:161-180 handleConfirmResult recebe APENAS `results: unknown` via
+        callback do PreviewCard. O fetch ao /api/agent/prompt/{runId}/confirm é feito
+        DENTRO de preview-card.tsx:91-101 PreviewCard.handleConfirm:
+        ```
+        const res = await fetch(`/api/agent/prompt/${runId}/confirm`, ...);
+        const data = (await res.json()) as { results?: unknown };
+        onConfirm(data.results);  // ← DESCARTA undo_url + undo_expires_at !
+        ```
+        A response do confirm endpoint JÁ tem undo_url+undo_expires_at (per
+        confirm/route.ts:295-303 verified) mas PreviewCard descarta esses campos.
+      fix_applied: |
+        AC9 expandido para incluir refactor obrigatório de preview-card.tsx:
+          - `PreviewCardProps.onConfirm` shape alargar de `(results: unknown) => void`
+            para `(payload: { results: unknown; undoUrl?: string; undoExpiresAt?: string }) => void`
+          - `PreviewCard.handleConfirm` (linha 91-101) propaga response completa:
+            `onConfirm({ results: data.results, undoUrl: data.undo_url, undoExpiresAt: data.undo_expires_at })`
+          - `JarvisChat.handleConfirmResult` (linha 161-180) recebe payload object
+            e passa undoUrl + undoExpiresAt ao appendMessage AgentResultMessage.
+        File List antecipada actualizada: + preview-card.tsx modificado
+        (7 → 8 modificados; total ≈ 14 ficheiros tocados).
+        Graceful degradation per D40: se confirm response não tiver os campos
+        (regression-safe), ResultMessage rende sem Undo button.
+      impact: "Adiciona 1 ficheiro modificado (preview-card.tsx). Refactor minimal ~10 linhas."
+
+    fix_3_ac12_retrocompat_test:
+      title: "AC12 (iii) retrocompat — test 3 placeholder Story 2.7 deve ser substituído"
+      hallucination_v1_0: |
+        D40 + AC12 (iii): '5 testes Story 2.7 preservados sem alteração' +
+        'render sem button se undoUrl undefined'
+      codebase_reality: |
+        result-message.test.tsx:45-50 test 3 actual:
+        ```
+        it('placeholder undo button está disabled com tooltip "Em breve"', () => {
+          render(<ResultMessage runId="r1" summary="ok" />);
+          const undo = screen.getByRole('button', { name: /anular/i });
+          expect(undo).toBeDisabled();
+          expect(undo).toHaveAttribute('title', 'Em breve');
+        });
+        ```
+        Asserta POSITIVAMENTE que o botão Anular existe quando `undoUrl` undefined.
+        D40 "sem button se undoUrl undefined" QUEBRA esta asserção (getByRole
+        throw quando elemento ausente).
+      fix_applied: |
+        AC12 (iii) clarificado para substituir este test específico pelo novo:
+        ```
+        it('render SEM undoUrl/undoExpiresAt — botão Anular oculto (D40 retrocompat)', () => {
+          render(<ResultMessage runId="r1" summary="ok" />);
+          expect(screen.queryByRole('button', { name: /anular/i })).toBeNull();
+        });
+        ```
+        Os outros 4 tests Story 2.7 (linhas 13-43, 52-57, 59-62) NÃO interagem
+        com o placeholder button e DEVEM ser preservados.
+        Test count ajustado:
+          - v1.0 alegava: 5 preserved + 9 novos = 14 totais
+          - v1.1 real: 4 preserved + 1 substituído + 9 novos = 13 totais
+          OU @dev pode optar preservar placeholder + paralelo = 14 totais
+        (aceitável; AC12 acolhe ambas as opções).
+      impact: "Esclarecimento técnico — @dev decide se substitui (13 testes) ou paraleliza (14 testes)."
+
+  acceptance_criteria_summary:
+    backend_inngest: "AC1-AC4 (dep + client + cleanup function cron diário + serve route + runbook EU Frankfurt)"
+    backend_audit: "AC5-AC6 (audit_log INSERT com agent_run_reverted action via getDb() [recomendado per PO_FIX 1] ou getServiceDb() defensivamente + endpoint shape unchanged Story 2.6)"
+    frontend_ui: "AC7-AC9 (result-message button states + handleUndo fetch + PT-PT banners + jarvis-chat props passthrough + preview-card callback shape refactor per PO_FIX 2)"
+    testing: "AC10-AC13 (Inngest function 4 tests + audit log 2 tests + UI ResultMessage 9 novos −1 substituído per PO_FIX 3 = 13 ou 14 totais + jarvis-chat 2 tests = ≥17 novos somando)"
+    quality_gates: "AC14 5/5 GREEN typecheck 9/9 / lint 9/9 0 warnings / test ≥560 / check:rls 28/120 NFR5 PRESERVED (zero novas tabelas) / build Next.js 14 routes incluindo /api/inngest"
+
+  tasks_summary:
+    backend_inngest: "T1 add inngest dep + T2 client.ts + T3 cleanup function + T4 serve route + T5 runbook EU Frankfurt"
+    backend_audit: "T6 refactor undo/route.ts +audit_log INSERT (getDb recomendado per PO_FIX 1; getServiceDb aceitável)"
+    frontend_ui: "T7 result-message.tsx (props + states + countdown + handleUndo + banners) + T8 jarvis-chat.tsx (typing + handleConfirmResult payload object) + T8b preview-card.tsx (onConfirm shape refactor per PO_FIX 2)"
+    testing: "T9 Inngest tests + T10 audit log tests expand + T11 UI ResultMessage tests expand (per PO_FIX 3 substituir ou paralelizar test 3 antigo) + T12 jarvis-chat tests expand"
+    final: "T13 quality gates 5/5 GREEN"
+
+  recommended_execution_order: |
+    Para @dev YOLO mockable-only (após @po validate GO):
+    1. T1-T2 (Inngest dep + client) — establish provider infra primeiro
+    2. T3 (cleanup function) com tests T9 (≥4 testes) — verificar Vitest mocks Inngest contract
+    3. T4 (serve route) — endpoint público + signing key validation
+    4. T5 (runbook) — documentar Eurico-side setup ANTES do @devops push
+    5. T6 (audit_log INSERT no undo) com tests T10 (+2 testes audit) — escolher getDb() vs getServiceDb() per PO_FIX 1
+    6. T8b (preview-card.tsx onConfirm shape refactor per PO_FIX 2) PRIMEIRO antes de T7/T8 — establish typing contract upstream
+    7. T7 (result-message.tsx refactor button funcional) com tests T11 (+9 testes, substituir ou paralelizar test 3 antigo per PO_FIX 3)
+    8. T8 (jarvis-chat.tsx typing + payload object) com tests T12 (+2 testes integration)
+    9. T13 quality gates final (typecheck → lint → test → check:rls → build)
+
+    Estimativa wall-clock @dev YOLO: ~9h (Inngest infra ~2h + audit log ~1h + UI Undo
+    incluindo preview-card refactor ~3.5h + tests ~2.5h)
+
+  critical_dev_notes:
+    - "DN1 Inngest dev: keys podem ficar vazias localmente — `npx inngest-cli dev -u http://localhost:3000/api/inngest` para local engine. Tests Vitest devem mockar `@/lib/inngest/client` completamente."
+    - "DN2 audit_log INSERT — PO_FIX 1 ratifica que `getDb()` (authenticated) funciona per RLS real (0001:569-573). @dev pode optar por `getServiceDb()` defensivamente para consistência com restantes ops na undo/route.ts (lookups + UPDATE agent_runs já são serviceDb). Ambos válidos."
+    - "DN3 endpoint Inngest `/api/inngest` é PÚBLICO — NÃO adicionar a APP_PATH_PREFIXES no middleware (Story 2.7 PO_FIX_INLINE 4). Auth via X-Inngest-Signature header validation pelo SDK."
+    - "DN4 `agent_run_reverted` enum JÁ existe — cross-confirm `packages/db/src/schema/audit.ts:54` confirmed por @po. NÃO criar migration extension."
+    - "DN5 PreviewCard refactor (PO_FIX 2) — `onConfirm` shape alargar para `(payload: { results, undoUrl?, undoExpiresAt? }) => void`. Propagar response completa do fetch confirm em PreviewCard.handleConfirm:101. JarvisChat.handleConfirmResult adapta para receber payload object."
+    - "DN6 ResultMessage retrocompat (D40 + PO_FIX 3): test 3 Story 2.7 `placeholder undo button está disabled com tooltip Em breve` SERÁ substituído ou paralelizado. Outros 4 tests Story 2.7 preservados (não tocam placeholder)."
+    - "DN7 Countdown setInterval(1000) — cleanup on unmount obrigatório (leak risk). Não usar requestAnimationFrame (overkill UX coarse 1s)."
+    - "DN8 PT-PT estrito banners — 'anulada' (não 'cancelada'/'revertida'), 'registo(s) removido(s)' (não 'item(s) deletado(s)'). Vocabulário em DN9 da story."
+    - "DN9 BEGIN tx + ordem reversa explícita (DN7 da story) — DEFERRED para @architect ratificar no gate. NÃO implementar refactor sem ratificação."
+    - "DN10 Inngest cron pricing — free tier 30 functions; MVP usa 1. Sem risco financeiro."
+    - "DN11 mockable-only padrão 2.2-2.7 — zero call real LLM/Anthropic/OpenAI. Mocks Vitest precedente 2.6."
+    - "DN12 RLS check — `pnpm check:rls` deve continuar a reportar 28/120 (Story 2.8 não adiciona nenhuma tabela). Se desvio: regression alarm."
+
+  blockers_external:
+    - "EB1 ANTHROPIC_API_KEY DPA UE PENDING — NÃO bloqueia (mockable-only, Story 2.10 endereça)"
+    - "EB2 OPENAI_API_KEY DPA UE PENDING — NÃO bloqueia (mockable-only)"
+    - "EB3 Upstash Redis PENDING — NÃO bloqueia (Story 2.9 endereça)"
+    - "EB4 Inngest workspace EU Frankfurt — DEFERRED, NÃO bloqueia drafting/impl. @dev pode implementar com keys vazias usando `npx inngest-cli dev` local. Eurico DEVE provisionar via runbook T5 antes do @devops push final (caso contrário /api/inngest route handler arranca mas funções nunca executam em prod). Aceito como 'deferred not blocking' padrão precedent 2.7 D33."
+
+  po_concerns_for_architect_gate:
+    - "Concern 1 — DN7 BEGIN tx + ordem reversa do flow undo (deferred): EPIC plan original Story 2.8 menciona BEGIN tx → ops em ordem reversa → COMMIT. Endpoint Story 2.6 actual (undo/route.ts:165-183) usa getServiceDb sequencialmente sem BEGIN/COMMIT explicit nem ordem reversa. Gate 2.6 APPROVED 9.4/10 cobriu este flow com 9 tests passing — sem regression observada. @architect deve ratificar: (a) accept current behaviour as adequate (pattern: postgres-js auto-commit é suficiente para sequência de UPDATEs idempotentes desde que cada op aplique apenas DELETE/UPDATE de row específica via PK; ordem reversa só importa se ops referenciam-se mutuamente — restore_row + delete_row simples não têm essa dependência), OU (b) exigir refactor para wrapper BEGIN tx + ordem reversa (criar follow-up story dedicado, não inflacionar 2.8)."
+    - "Concern 2 — PO_FIX_INLINE 1 RLS choice audit_log INSERT: justificação @po de que `getDb()` é correcto per migration real (0001:569-573), mas @dev pode escolher `getServiceDb()` defensivamente para consistência com restantes ops na undo/route.ts. @architect ratifica escolha @dev no gate (zero impacto comportamental — ambos atingem o mesmo INSERT, diferença é apenas conceitual sobre quem é o role responsável)."
+    - "Concern 3 — NIT-001-NB Story 2.7 (user_prefs.updated enum extension) continua aberto independentemente: Story 2.8 não adiciona action `user_prefs.updated` ao enum (D41 é específica para `agent_run_reverted`). Pode ser piggyback Story 2.x futura ou follow-up dedicado."
+
+  predecessor_handoff: "mj-handoff-2.8-ready-for-po-20260511 (consumed/archived 2026-05-11 01:30 — Veredicto GO 9.0/10 HIGH + 3 PO_FIX_INLINE)"
+
+next_action: |
+  @dev *develop 2.8
+
+  Sequência recomendada (YOLO mockable-only):
+  1. Ler `docs/stories/active/2.8.undo-inngest-cleanup-ui.md` v1.1 completo
+     (PO Validation block + 3 PO_FIX_INLINE markers em AC5+DN5, AC9, AC12 (iii)).
+  2. Verificar dependências internas Done: 2.6 ✓ undo endpoint, 2.7 ✓ UI chat
+     baseline (result-message.tsx placeholder em :53-61, preview-card.tsx :91-101
+     fetch confirm).
+  3. Executar tasks na ordem recomendada acima (T1-T13) — total ~9h wall-clock.
+  4. Atualizar Dev Agent Record + File List + Change Log v1.2 (@dev).
+  5. Quality gates final 5/5 GREEN antes de marcar Ready for Review:
+     - `pnpm typecheck` (9/9 packages)
+     - `pnpm lint` (9/9 0 warnings)
+     - `pnpm test` (≥17 novos + 543 preservados = ≥560 totais)
+     - `pnpm check:rls` (28 tabelas / 120 policies — sem regressão; sem novas tabelas em 2.8)
+     - `pnpm build` (Next.js 14 routes incluindo `/api/inngest` GET+POST+PUT)
+  6. Status Ready → InProgress → Ready for Review.
+  7. Criar handoff sucessor `mj-handoff-2.8-ready-for-architect-20260511`
+     (dev → architect para `*qa-gate 2.8`).
+  8. Update HANDOFF-INDEX.md.
+
+review_focus_areas:
+  - "PO_FIX_INLINE 1 — RLS choice audit_log INSERT: documentar em Dev Agent Record qual a escolha (getDb vs getServiceDb) e justificação. Recomendação @po: getDb() (correcto per RLS real). Se getServiceDb() for escolhido por consistência com restantes ops na undo/route.ts, documentar como [DEV-DECISION] para ratificação @architect."
+  - "PO_FIX_INLINE 2 — preview-card.tsx callback shape refactor: implementar PRIMEIRO antes de jarvis-chat.tsx/result-message.tsx (typing flow upstream-first evita N rounds typecheck). Test integration T12 deve cobrir o caminho preview → confirm → ResultMessage com Undo button activo."
+  - "PO_FIX_INLINE 3 — test 3 Story 2.7 substituição: decidir entre (a) substituir o test 3 actual pelo novo (queryByRole === null) → 13 testes totais ou (b) preservar test 3 + adicionar paralelo (iii) → 14 testes totais. Ambos aceites por AC12. Documentar escolha em Dev Agent Record."
+  - "DN9 BEGIN tx scope deferred — implementar conservadoramente sem BEGIN/COMMIT (consistente com Story 2.6 endpoint actual). Documentar como [DEV-DECISION] no Dev Agent Record para @architect ratificar no gate. NÃO refactor scope (gate 2.6 já APPROVED 9.4/10 cobriu este flow)."
+  - "Inngest dev workflow (DN1) — para developer experience local: `npx inngest-cli dev -u http://localhost:3000/api/inngest` permite ver o cleanup function registado + dashboard local sem cloud. Test Vitest mocks são suficientes para CI."
+  - "AC10 (i) DELETE query shape: query SQL exacta `delete from agent_reverse_ops where expires_at < now() - interval '1 hour'`. Drizzle `sql` template handle interval correctamente — test verifica string template, não AST. Architecture §4.5:425 trace."
+  - "AC8 401 → router.push('/entrar'): handleUndo em ResultMessage usa `useRouter()` (next/navigation). Story 2.7 pattern consistente — jarvis-chat.tsx:99-103 já usa. Test mock `useRouter` com `vi.mock('next/navigation', ...)` precedent verifiable em jarvis-chat.test.tsx:13-15."
+  - "Quality gates 5/5: typecheck 9/9 + lint 9/9 0 warnings + test ≥560 + check:rls 28/120 NFR5 PRESERVADA (sem novas tabelas) + build Next.js +1 nova route /api/inngest (GET+POST+PUT). Story 2.6 baseline = 9 routes; Story 2.7 += 6 routes = 13 routes (per gate report); Story 2.8 += 1 route = 14 routes total."
