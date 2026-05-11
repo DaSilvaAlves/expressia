@@ -2,9 +2,69 @@ id: mj-handoff-2.8-ready-for-architect-20260511
 from_agent: dev (Dex)
 to_agent: architect (Aria)
 created: "2026-05-11T23:55:00+01:00"
-status: pending
+status: consumed
 priority: medium
 project_prefix: mj
+
+consumed: true
+consumed_at: "2026-05-11T23:59:00+01:00"
+consumed_by: "architect (Aria)"
+
+consumption_record: |
+  Consumido por Aria (@architect) 2026-05-11 23:59 ao executar `*qa-gate 2.8`
+  per spec do handoff. Sequência executada:
+
+  1. Lido handoff completo (~167 linhas) + story 2.8 v1.2 completa (PO Validation
+     block + Dev Agent Record + 3 [DEV-DECISION] + Change Log v1.0→v1.1→v1.2).
+  2. Lidos gates 2.6 e 2.7 como referência de formato (~600 + ~700 linhas).
+  3. Cross-confirm File List vs git diff HEAD~3 (14 ficheiros tocados — 5 novos
+     + 9 modificados — match exacto handoff @dev).
+  4. Cross-confirm anti-hallucination 3 fontes críticas:
+     - `0001_rls_policies.sql:569-573` policy `audit_log_insert_member` PERMITE
+       INSERT a authenticated (PO_FIX 1 confirmed correct, [DEV-DECISION 1]
+       defensiva mas equivalente comportamental)
+     - `audit.ts:54` enum `'agent_run_reverted'` JÁ EXISTE (D41 RATIFIED)
+     - `package.json:33` adiciona `"inngest": "^3"` (AC1 confirmed)
+  5. 5 quality gates re-verified directamente — numbers match @dev exactly:
+     - typecheck 9/9 FULL TURBO 86ms
+     - lint 9/9 FULL TURBO 80ms 0 warnings
+     - web standalone test 153 passed / 16 files / 4.42s
+     - outros 304 tests (tools 57 + obs 8 + agent 102 + db 6 + planner 53 + classifier 78)
+     - db-test ENV-BLOCKER confirmed (Docker daemon offline também terminal @architect — NIT-006-NB low)
+     - check:rls 28/120 NFR5 PRESERVADA + ✓ user_prefs
+     - build 14 routes FULL TURBO 102ms incluindo `/api/inngest` (NOVO)
+  6. Test counts re-verified via `grep -c '^  it('`:
+     - cleanup-expired-reverse-ops.test.ts: 5 ✓
+     - undo.test.ts: 11 (was 9, +2 audit) ✓
+     - result-message.test.tsx: 13 (was 5, net +8 per [DEV-DECISION 2]) ✓
+     - jarvis-chat.test.tsx: 11 (was 9, +2 AC13) ✓
+     - preview-card.test.tsx: 9 (1 actualizado shape, total inalterado) ✓
+     Total +17 testes novos = EXACT match AC14 target.
+  7. 3 [DEV-DECISION] avaliadas:
+     - [DEV-DECISION 1] RLS choice getServiceDb defensivo → RATIFIED (comportamento idêntico vs getDb per RLS real)
+     - [DEV-DECISION 2] substituir test 3 placeholder → ACCEPTED (higiene de tests)
+     - [DEV-DECISION 3] DN9 BEGIN tx scope deferred → RATIFIED com NIT-005-NB low Epic 4+ conditional revisit
+  8. 6 [AUTO-DECISIONS] D38-D43 ratificadas (6/6 PASS — D41 RATIFIED via cross-confirm)
+  9. 7 concerns addressed (3 carried from Pax + 3 from Dex [DEV-DECISION] + 1 new architecture db-test ENV)
+  10. Constitution 6/6 articles ✓
+  11. 11 NFRs covered (10 full PASS + NFR16 NOW FULL PASS para agent_run_reverted —
+      Story 2.8 fecha o gap parcial D36 Story 2.7; NIT-001-NB user_prefs.updated
+      continua OPEN herdado)
+  12. **Zero DOC-FIX necessária** (state limpo herdado pós DOC-FIX-002 Story 2.7)
+  13. Score breakdown 9.4/10: Architecture 1.0 + NFRs 0.95 (NFR16 gap herdado) +
+      Constitution 1.0 + Tests 1.0 + Decision quality 0.95 + Documentation 0.95 +
+      Bonus NFR16 closure parcial agent_run_reverted +0.05
+  14. 4 NITs registadas: NIT-001-NB OPEN herdado, NIT-005-NB low Epic 4+
+      BEGIN tx, NIT-006-NB low ENV Docker, NIT-007-NB low bundle monitor
+
+  **Veredicto: APPROVED 9.4/10 HIGH confidence.**
+
+  Sucessor: `mj-handoff-2.8-ready-for-devops-close-20260511.yaml` criado.
+  Story 2.8 v1.2 → v1.3 Done (Change Log @architect adicionado).
+  _INDEX.md row 2.8 Ready for Review v1.2 → Done v1.3 awaits push.
+  HANDOFF-INDEX.md: este handoff pending → archive + novo pending devops close.
+  Status final: Story 2.8 Done v1.3. **Epic 2 — 7/11 stories Done; Story 2.8
+  Done v1.3 awaiting `@devops *push 2.8`. Após push: 8/11.**
 
 summary: |
   Story 2.8 v1.2 Ready for Review — `@architect *qa-gate 2.8` para cross-domain

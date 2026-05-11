@@ -1,0 +1,187 @@
+id: mj-handoff-2.8-ready-for-devops-close-20260511
+from_agent: architect (Aria)
+to_agent: devops (Gage)
+created: "2026-05-11T23:59:00+01:00"
+status: pending
+priority: medium
+project_prefix: mj
+
+summary: |
+  Story 2.8 v1.3 Done — `@devops *push 2.8`. Architect gate APPROVED 9.4/10 HIGH
+  confidence. 14/14 ACs PASS (AC10 EXCEEDS — 5 tests vs 4 target; AC14 EXACT
+  match +17 testes novos). 6/6 Decisões D38-D43 ratificadas + 3 [DEV-DECISION]
+  avaliadas (1 RATIFIED `getServiceDb` defensivo, 2 ACCEPTED substituição test
+  3, 3 RATIFIED BEGIN tx deferred com 4-condições análise + NIT-005-NB Epic 4+).
+  5/5 quality gates re-verified directamente pelo @architect com numbers match
+  @dev exactly (typecheck 9/9 FULL TURBO 86ms, lint 9/9 FULL TURBO 80ms 0 warn,
+  web test 153/16 files 4.42s, outros 304 tests, db-test ENV-BLOCKER documentado
+  NIT-006-NB Docker offline local — CI rls-gate cobre, check:rls 28/120 NFR5
+  PRESERVADA, build 14 routes incluindo `/api/inngest` NOVO FULL TURBO 102ms).
+  **Zero DOC-FIX necessária** (state limpo herdado pós DOC-FIX-002 Story 2.7).
+  **NFR16 fecha parcialmente** — Story 2.8 implementa INSERT real em audit_log
+  para `agent_run_reverted` (substitui Pino-only do gate 2.7). NIT-001-NB
+  `user_prefs.updated` continua OPEN herdado (não regressão — D41 escopo
+  `agent_run_reverted` específico). 4 NITs non-blocking (NIT-001-NB OPEN
+  herdado, NIT-005-NB low Epic 4+ BEGIN tx conditional, NIT-006-NB low ENV
+  Docker, NIT-007-NB low bundle monitor). Epic 2 progress 7/11 → 8/11 stories
+  Done após push.
+
+context:
+  story_id: "2.8"
+  story_path: "docs/stories/active/2.8.undo-inngest-cleanup-ui.md"
+  story_status: "Done"
+  story_version: "1.3"
+  epic: "Epic 2 — Cérebro AI Multi-Intent"
+  epic_progress: "7/11 → 8/11 (após push 2.8)"
+  branch: main
+  gate_report: "docs/qa/gates/2.8-architect-gate.md"
+  gate_verdict: "APPROVED 9.4/10 HIGH confidence"
+
+  range_commits_for_push: |
+    Desde origin/main (ref atual `ce22258` antes deste push):
+      - d8f6f14  chore(stories,handoffs): Story 2.8 Draft v1.0 — Undo + Inngest cleanup + UI (sm session)
+      - 21d720a  chore(stories,handoffs): Story 2.8 Draft v1.0 -> Ready v1.1 via @po validate (po session)
+      - 5d9a47d  chore(handoffs): SESSION PAUSE meta-handoff pos Story 2.8 Ready v1.1 - cross-terminal resume (orion session)
+      - 5ded6dc  feat(agent,jarvis): Story 2.8 v1.2 Ready for Review — Undo + Inngest cleanup + UI (dev session)
+      - {este chore}: chore(stories,handoffs,qa): Story 2.8 v1.3 Done — @architect APPROVED 9.4/10 (architect gate)
+
+  push_target: "origin/main"
+  push_authority: "exclusive @devops Gage"
+
+  coderabbit_recommendation: |
+    SKIP pre-push consistente D42 (precedent Stories 2.2/2.3/2.4 D12, 2.5 D14,
+    2.6 D22+D26, 2.7 D33). Architect gate exhaustivo (~700 linhas + 14 ACs
+    review + 6 decisões D38-D43 + 3 [DEV-DECISION] ratification + 4 NITs
+    deferred) substitui review automatizado. **Recomendação para Story 2.10
+    (E2E benchmark com credentials reais Anthropic/OpenAI):** executar
+    CodeRabbit pre-commit por se aproximar mais do focus-area onde brilha
+    (env handling, secrets, credenciais reais).
+
+  pre_push_eurico_side_tasks:
+    inngest_workspace_provisioning:
+      blocking_push: false  # endpoint /api/inngest arranca sem keys; só a function não regista no Inngest Cloud
+      blocking_function_execution_in_prod: true
+      detail: |
+        Completar `docs/runbooks/inngest-setup.md` (6 steps Eurico-side):
+        1. Criar workspaces `expressia-prod` + `expressia-dev` em EU Frankfurt
+           region (https://app.inngest.com → Settings → Create Workspace)
+        2. Gerar Event Key + Signing Key para cada workspace
+        3. Registar endpoint `https://expressia.pt/api/inngest` no dashboard
+           prod + `https://<vercel-preview>.vercel.app/api/inngest` no dev
+        4. Popular Vercel env vars `INNGEST_EVENT_KEY` + `INNGEST_SIGNING_KEY`
+           em ambos environments (Production + Preview)
+        5. Verificar primeira sync (Inngest faz PUT introspecção ao endpoint)
+        6. Confirmar primeiro cron tick scheduled no dashboard (próximo 03:00
+           UTC após registar)
+      verification_post_push: |
+        Após Vercel auto-deploy fra1 verde (~2-3min pós push):
+        - Aceder ao Inngest dashboard prod workspace → Functions
+        - Confirmar `cleanup-expired-reverse-ops` listada com cron `0 3 * * *`
+        - Aguardar primeiro cron tick (próximo 03:00 UTC); verificar log
+          `rows_deleted: N` no Inngest dashboard run history
+
+  nits_deferred_summary:
+    - id: NIT-001-NB
+      severity: medium
+      title: "D36 audit log INSERT enum extension `user_prefs.updated` (HERDADO Story 2.7)"
+      detail: |
+        Continua OPEN — Story 2.8 NÃO endereça este caso (D41 é específica
+        para `agent_run_reverted` que JÁ existe em audit.ts:54). NFR16
+        partial-deferral para `user_prefs.updated` action mantém-se via Pino
+        structured logger.
+      defer_to: |
+        Follow-up M independente em sprint futura OR piggyback em Story 2.x
+        que toque user_prefs PATCH naturalmente. Recomendação aguardar
+        trigger natural — se nenhuma story aparecer em 6 meses, follow-up M.
+      not_blocking_push: true
+    - id: NIT-005-NB
+      severity: low
+      title: "[DEV-DECISION 3] DN9 BEGIN tx + ordem reversa undo flow conditional revisit"
+      detail: |
+        Pattern actual (sem transaction wrapper) defensavelmente correcto
+        para MVP — whitelist `ALLOWED_REVERSE_TABLES` + idempotência por op +
+        auto-commit postgres-js session mode garantem flow correcto desde que
+        reverse ops sejam independentes cross-row. Cenário onde ordem reversa
+        importaria (multi-table FK chain reverse) NÃO é alcançável na
+        arquitectura actual — executor 2.5 emite reverse_op por tool em
+        transacção isolada, sem composição cross-tool reentrante.
+      defer_to: |
+        Epic 4+ conditional revisit — se tools com FK dependencies cross-tool
+        entrarem, refactor obrigatório para BEGIN tx wrapper + ordem reversa
+        explícita (sub-task M dentro da story que introduz o tool). Sentry
+        alert >5 ops parciais/mês pode também triggar revisita.
+      not_blocking_push: true
+    - id: NIT-006-NB
+      severity: low
+      title: "db-test Docker daemon offline ENV-BLOCKER (Story 1.4 RLS Testcontainers harness)"
+      detail: |
+        `pnpm --filter @meu-jarvis/db-test test` falha localmente com
+        `Could not find a working container runtime strategy` quando Docker
+        Desktop offline. Story 2.8 ZERO ficheiros tocados em packages/db-test/.
+        Issue 100% environmental — pre-existing.
+      sub_task_for_devops_sanity: |
+        ANTES do push: verificar CI build do PR (após push triggar GitHub
+        Actions) — `rls-gate` job provisiona Postgres 16 service e roda
+        db-test contra ele per `docs/runbooks/ci-setup.md`. Story 2.7 push
+        (range `f63475f..646c87f`) já validou que rls-gate verde em prod
+        sem Docker local. Sanity check duplo apenas.
+      blocking_push: false
+    - id: NIT-007-NB
+      severity: low
+      title: "Bundle size /jarvis +0.73 kB Story 2.8 (3.9 kB vs 3.17 kB Story 2.7)"
+      detail: |
+        Justificado pela lógica Undo state machine + setInterval countdown
+        + 5 banner factories. First Load JS 210 kB inalterado (era 210 kB
+        em Story 2.7). NFR4 FCP <2s 4G budget preservado.
+      defer_to: |
+        Monitorizar — se future stories adicionarem +5 kB por componente
+        UI, considerar extracção comum para `apps/web/src/components/` per
+        D31 trigger NIT-004-NB Story 2.7.
+      not_blocking_push: true
+
+  housekeeping_checklist_post_push:
+    - "Mover docs/stories/active/2.8.undo-inngest-cleanup-ui.md → docs/stories/completed/"
+    - "Actualizar linha de 2.8 em docs/stories/active/_INDEX.md (Done v1.4 awaits push → Done após push real path active → completed)"
+    - "Adicionar linha de 2.8 em docs/stories/completed/_INDEX.md (se existir)"
+    - "Consume este handoff: marcar consumed: true + consumed_at + consumed_by + status: consumed"
+    - "Move este handoff para docs/handoffs/archive/"
+    - "Update docs/HANDOFF-INDEX.md: remove pending row + add archived row + Update note describing devops session"
+    - "Update Epic 2 progress 7/11 → 8/11 stories Done em docs/stories/active/_INDEX.md (Epic 2 row)"
+    - "Story v1.3 → v1.4 (push entry) com Change Log @devops"
+    - "Criar handoff session-pause se aplicável (precedent 2.5 + 2.6 + 2.7)"
+    - "Eurico verificar: Inngest dashboard prod mostra `cleanup-expired-reverse-ops` function registada (post Vercel deploy verde ~2-3min)"
+
+next_action: |
+  @devops *push 2.8
+
+  Sequência recomendada:
+  1. (Pre-push opcional Eurico-side) Completar runbook Inngest setup:
+     - Provisionar workspaces `expressia-prod` + `expressia-dev` em EU Frankfurt
+     - Popular Vercel env vars `INNGEST_EVENT_KEY` + `INNGEST_SIGNING_KEY`
+     - (Não bloqueia o push em si — endpoint /api/inngest arranca sem keys)
+  2. Verificar 5 quality gates ainda GREEN (turbo cache fresca pós-gate):
+     - pnpm typecheck (9/9 FULL TURBO ~80ms)
+     - pnpm lint (9/9 0 warnings FULL TURBO ~80ms)
+     - pnpm test web standalone (153 passed 16 files ~4.4s)
+     - pnpm check:rls (28/120 ✓ NFR5 PRESERVADA)
+     - pnpm build (14 routes FULL TURBO ~100ms)
+     - (db-test ENV-BLOCKER NIT-006-NB — CI rls-gate cobre)
+  3. git push origin main (range desde ce22258 incluindo este chore docs)
+  4. (Pós-push) Verificar CI build do PR verde no GitHub Actions (NIT-006-NB sanity)
+  5. Aguardar Vercel auto-deploy fra1 verde (~2-3min)
+  6. Verificar Inngest dashboard prod mostra `cleanup-expired-reverse-ops`
+     function registada com cron `0 3 * * *` (após Eurico completar Step 5
+     do runbook)
+  7. Housekeeping post-push (mover story, archive handoff, update INDEX,
+     story v1.3 → v1.4 com push entry)
+
+  CodeRabbit: SKIP pre-push consistente D42.
+
+review_artifacts:
+  gate_report: "docs/qa/gates/2.8-architect-gate.md (~700 lines)"
+  story_file: "docs/stories/active/2.8.undo-inngest-cleanup-ui.md (v1.3 Done)"
+  doc_fixes_inline: []  # zero drift, zero DOC-FIX necessária
+  predecessor_handoff: "docs/handoffs/archive/mj-handoff-2.8-ready-for-architect-20260511.yaml (consumed 2026-05-11 23:59)"
+  inngest_runbook: "docs/runbooks/inngest-setup.md (6 steps Eurico-side pré-push)"
+
+predecessor_handoff: "mj-handoff-2.8-ready-for-architect-20260511 (consumed/archived 2026-05-11 23:59 — @architect APPROVED 9.4/10 HIGH; zero DOC-FIX; +0.05 bonus NFR16 closure parcial agent_run_reverted)"
