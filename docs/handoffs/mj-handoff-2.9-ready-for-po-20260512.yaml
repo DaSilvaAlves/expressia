@@ -1,0 +1,130 @@
+from_agent: "sm"
+from_agent_persona: "River (@sm)"
+to_agent: "po"
+created: "2026-05-12T00:00:00Z"
+status: pending
+story_id: "2.9"
+story_path: "docs/stories/active/2.9.cost-router-cache-quotas.md"
+story_title: "Cost Router + Cache Upstash + Quotas (NFR20)"
+project_prefix: "mj"
+
+summary: >
+  Story 2.9 Draft v1.0 pronta para validação @po. Scope M (alinhado EPIC-2-EXECUTION.yaml linha 249-263).
+  Epic 2 passa de 8/11 → working 2.9. 17 ACs, 10 Tasks, 11 AUTO-DECISIONS (D44-D54), 6 hallucinations
+  detectadas e corrigidas vs spawn prompt. 3 bugs latentes descobertos via cross-confirm anti-hallucination
+  contra codebase real (QUOTA_BY_PLAN errado, incrementQuota RLS bug, hard-stop 110% ausente).
+  Bloqueador externo EB3 Upstash non-blocking (mockable-only padrão 2.2-2.8).
+
+context:
+  epic_state: "Epic 2 — 8/11 Done (2.1+2.2+2.3+2.4+2.5+2.6+2.7+2.8). Story 2.9 em Draft."
+  baseline_tests: "153 testes passing (Story 2.8 Done baseline)"
+  baseline_quality_gates: "5/5 GREEN — typecheck 9/9 / lint 9/9 / test 153 / rls 28/120 / build 14 routes"
+  predecessor_story: "2.8.undo-inngest-cleanup-ui.md Done v1.4 — @architect APPROVED 9.4/10 HIGH"
+  dependency_status: "Story 2.6 ✓ Done — endpoint POST /api/agent/prompt é o ponto de integração central"
+  eb3_status: "EB3 Upstash Redis EU Frankfurt PENDING — non-blocking, @dev mockable-only, Eurico provisiona pre-push"
+
+auto_decisions_for_po_review:
+  - id: D44
+    classification: "ARCHITECTURAL"
+    decision: "UpstashClientLike mockable-only via Vitest vi.mock — zero calls reais (precedente 2.2-2.8)"
+    status: "PASS — padrão bem estabelecido"
+  - id: D45
+    classification: "IMPLEMENTATION"
+    decision: "SHA256 via node:crypto.createHash — Edge-compatible, precedente redaction.ts"
+    status: "PASS — precedente verificado em codebase real (redaction.ts)"
+  - id: D46
+    classification: "CONFIGURATION"
+    decision: "Cache TTL 300s default, configurável via CACHE_TTL_SECONDS env var"
+    status: "PASS — alinha Architecture §4.6 literal '5min'"
+  - id: D47
+    classification: "ARCHITECTURAL"
+    decision: "Cost router bypass apenas para singleton consultar_dados (não multi-intent)"
+    status: "PASS — Architecture §4.6 literal 'if intents == [consultar_dados]'"
+  - id: D48
+    classification: "BUG FIX"
+    decision: "Correcção QUOTA_BY_PLAN: {free:50, pessoal:1500, familia:3000, pro:10000} vs valores actuais incorrectos"
+    status: "CROSS-CONFIRM REQUIRED — @po deve verificar rate-limiter.ts:40-45 vs Architecture §4.6"
+    po_action: "Confirmar que rate-limiter.ts:40-45 tem valores {free:100, pessoal:500, familia:2000} (errados) vs Architecture §4.6 tabela NFR20 {Free:50, Pessoal:1500, Família:3000}"
+  - id: D49
+    classification: "BUG FIX"
+    decision: "Hard-stop 110%: Math.floor(limit * 1.1) — condição actual >= limit (100% sem buffer)"
+    status: "CROSS-CONFIRM REQUIRED — @po deve verificar rate-limiter.ts:149 condição actual"
+    po_action: "Verificar rate-limiter.ts:149 — se condição é 'if (used >= limit)' confirma que não há 110% buffer"
+  - id: D50
+    classification: "RLS CRITICAL FIX"
+    decision: "incrementQuota deve usar getServiceDb() — RLS bloqueia INSERT/UPDATE em agent_quotas para authenticated"
+    status: "CROSS-CONFIRM REQUIRED — bug latente crítico"
+    po_action: "Verificar 0001_rls_policies.sql:353-362 — agent_quotas_insert_blocked: with check (false) + agent_quotas_update_blocked: using (false). E verificar audit-log.ts:182-197 usa getDb() actual."
+  - id: D51
+    classification: "PROCESS"
+    decision: "CodeRabbit pre-commit/push skipped (consistente 2.2-2.8 D12/D14/D22/D26/D33/D42)"
+    status: "PASS — padrão estabelecido"
+  - id: D52
+    classification: "TESTING"
+    decision: "vi.mock('@upstash/redis') — Vitest mocks determinísticos (precedente D43 Story 2.8 Inngest)"
+    status: "PASS — padrão estabelecido"
+  - id: D53
+    classification: "BUG FIX — HALLUCINATION CORRECTA"
+    decision: "Cache key usa householdPlan (não householdId) — Architecture §4.6 literal"
+    status: "CROSS-CONFIRM REQUIRED"
+    po_action: "Verificar Architecture §4.6 linha 'sha256(normalize(prompt) + household_plan)' — não household_id como alegado no spawn prompt"
+  - id: D54
+    classification: "SECURITY"
+    decision: "consultar_dados direct-DB usa getDb() (authenticated + RLS) — NUNCA getServiceDb() para reads do utilizador"
+    status: "PASS — alinha com CLAUDE.md NFR5 e Architecture"
+
+anti_hallucination_cross_confirm:
+  sources_read:
+    - "packages/db/src/schema/agent.ts — agent_quotas JÁ EXISTE (linhas 240-265)"
+    - "packages/db/migrations/0001_rls_policies.sql:342-362 — RLS agent_quotas (INSERT/UPDATE BLOCKED authenticated)"
+    - "apps/web/src/lib/agent/rate-limiter.ts:40-45 — QUOTA_BY_PLAN valores actuais (divergem Architecture §4.6)"
+    - "apps/web/src/lib/agent/rate-limiter.ts:149 — condição checkQuota >= limit (sem 110% buffer)"
+    - "apps/web/src/lib/agent/audit-log.ts:182-197 — incrementQuota usa getDb() (bug RLS)"
+    - "apps/web/src/app/api/agent/prompt/route.ts — estrutura e imports"
+    - "docs/architecture.md §4.6 — algoritmo routing + cache key + quota tier"
+    - "docs/epics/EPIC-2-EXECUTION.yaml:249-263 — scope 2.9 oficial"
+    - "docs/epics/epic-2-cerebro-ai-multi-intent.md §5 + §8 DP7 R3 R7"
+    - "docs/prd.md NFR20 — custo LLM spec"
+    - ".env.example:61-62 — UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (vazios)"
+    - "find /apps/web/src/lib/agent/ — cache.ts e cost-router.ts NÃO existem (scope correcto)"
+  hallucinations_detected:
+    - id: H1
+      claim: "T1 necessita migration nova agent_quotas + 4 RLS policies"
+      reality: "agent_quotas JÁ EXISTE em schema/agent.ts:240-265 + 0001:342-362 — ZERO migration nova"
+      correction: "Tasks ajustadas: sem T1 migration. story criada sem DC nova."
+    - id: H2
+      claim: "Cache key = sha256(prompt + household_id)"
+      reality: "Architecture §4.6 literal: sha256(normalize(prompt) + household_plan)"
+      correction: "AC2 e D53 corrigidos com trace explícito"
+    - id: H3
+      claim: "incrementQuota com getDb() funciona"
+      reality: "BUG LATENTE — RLS 0001:353-362 bloqueia INSERT/UPDATE para authenticated em agent_quotas"
+      correction: "AC9 + D50 fixam para getServiceDb()"
+    - id: H4
+      claim: "QUOTA_BY_PLAN está correcto no codebase"
+      reality: "Valores actuais {free:100, pessoal:500, familia:2000} divergem Architecture §4.6"
+      correction: "AC7 + D48 corrigem valores"
+    - id: H5
+      claim: "checkQuota implementa hard-stop 110%"
+      reality: "Condição actual >= limit (100%) sem buffer 10%"
+      correction: "AC8 + D49 corrigem condição"
+    - id: H6
+      claim: "cache.ts e cost-router.ts já existem parcialmente"
+      reality: "find confirma ausência completa — escopo correcto (novos ficheiros)"
+      correction: "T1+T2 criam ficheiros do zero"
+
+next_action: "@po *validate-story-draft 2.9 — validar 17 ACs + 11 AUTO-DECISIONS (especial atenção D48/D49/D50/D53 — bugs latentes descobertos via cross-confirm)"
+
+story_summary:
+  acs: 17
+  tasks: 10
+  auto_decisions: 11
+  file_list_estimate: "7 novos + 6 modificados = 13 ficheiros"
+  test_target: "≥14 novos + ≥153 preservados"
+  quality_gates_required: "5/5 GREEN"
+  new_dependencies: "@upstash/redis (pnpm add)"
+  no_new_migrations: true
+  no_new_rls_policies: true
+
+predecessor_handoff: "nenhum directo — Eurico autorizou drafting 2.9 via menu pós-2.8 Done"
+successor_handoff: "mj-handoff-2.9-ready-for-dev-{YYYYMMDD}.yaml (po → dev, a criar por @po após GO)"
