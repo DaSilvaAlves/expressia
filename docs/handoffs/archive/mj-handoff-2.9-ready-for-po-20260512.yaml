@@ -2,7 +2,31 @@ from_agent: "sm"
 from_agent_persona: "River (@sm)"
 to_agent: "po"
 created: "2026-05-12T00:00:00Z"
-status: pending
+status: consumed
+consumed: true
+consumed_at: "2026-05-12T01:30:00Z"
+consumed_by: "po"
+consumed_by_persona: "Pax (@po)"
+consumption_record: >
+  Consumido por Pax (@po) 2026-05-12 01:30 ao executar `*validate-story-draft 2.9`.
+  Veredicto: GO 9.5/10 HIGH confidence. 10/10 critérios checklist PASS (9.95/10 arredondado).
+  Cross-confirm anti-hallucination contra 14 fontes reais codebase: 4 BUG FIX (D48 QUOTA_BY_PLAN
+  errado / D49 hard-stop 100% vs 110% spec / D50 incrementQuota RLS critical latent bug / D53
+  cache key householdPlan vs householdId) TODOS CONFIRMED — 3 são bugs latentes pre-existing
+  reais (descobertos pelo @sm + re-verificados pelo @po), 1 é correcção de hallucination do
+  spawn prompt. **D50 NOTA CRÍTICA:** incrementQuota em prod está silently broken desde push
+  Story 2.6 — RLS bloqueia INSERT/UPDATE em agent_quotas para authenticated (0001:353-362
+  with check (false) + using (false)); audit-log.ts:182-197 usa getDb() actual. Significa
+  prompts_used perpetuamente 0 → hard-stop NFR20 NÃO-FUNCIONAL em prod. Sem incidente
+  reportado porque tráfego MVP baixo + free tier de facto ilimitado. Story 2.9 é janela
+  natural de fix (não hotfix separado). 11/11 AUTO-DECISIONS D44-D54 classification PASS
+  (0 CONCERNS, 0 FAIL). Zero PO_FIX_INLINE necessários — draft @sm já incorporava as 4
+  correcções correctas via cross-confirm próprio anti-hallucination. 4 concerns deferred
+  (C1 D50 timing urgency Eurico, C2 AC11 trialing doc cosmetic, C3 __tests__/ dir cosmetic,
+  C4 DN9 cost router response shape downstream UI). Status Draft v1.0 → Ready v1.1.
+  Story v1.0 → v1.1 com PO Validation block completo + Change Log @po. _INDEX.md row 2.9
+  actualizada Draft v1.0 → Ready v1.1 com 4 BUG FIX summary + sucessor handoff.
+  Sucessor: `mj-handoff-2.9-ready-for-dev-20260512` (po → dev YOLO mockable-only).
 story_id: "2.9"
 story_path: "docs/stories/active/2.9.cost-router-cache-quotas.md"
 story_title: "Cost Router + Cache Upstash + Quotas (NFR20)"

@@ -1,0 +1,320 @@
+from_agent: "po"
+from_agent_persona: "Pax (@po)"
+to_agent: "dev"
+to_agent_persona: "Dex (@dev)"
+created: "2026-05-12T01:30:00Z"
+status: pending
+story_id: "2.9"
+story_path: "docs/stories/active/2.9.cost-router-cache-quotas.md"
+story_title: "Cost Router + Cache Upstash + Quotas (NFR20)"
+project_prefix: "mj"
+priority: "high"
+
+summary: >
+  Story 2.9 Ready v1.1 validada por @po (Pax) com veredicto GO 9.5/10 HIGH confidence.
+  10/10 critérios checklist PASS (9.95/10 arredondado). Cross-confirm anti-hallucination
+  contra 14 fontes reais codebase: 4 BUG FIX (D48/D49/D50/D53) TODOS CONFIRMED — 3 são
+  bugs latentes pre-existing reais no codebase (descobertos por @sm + re-verificados
+  por @po), 1 é correcção de hallucination do spawn prompt. **D50 NOTA CRÍTICA:**
+  incrementQuota em prod está silently broken desde push Story 2.6 (RLS bloqueia
+  INSERT/UPDATE para authenticated em agent_quotas; getDb() não funciona). Hard-stop
+  NFR20 está NÃO-FUNCIONAL em prod. Story 2.9 é a janela natural de fix — push
+  prioridade alta pós-architect APPROVED recomendada. 11/11 AUTO-DECISIONS PASS.
+  Zero PO_FIX_INLINE necessários. 4 concerns deferred (não bloqueiam @dev).
+  Modo de execução: YOLO mockable-only (precedente 6 stories APPROVED 9.4/10).
+  17 ACs / 10 Tasks / 13 ficheiros estimados (7 novos + 6 modificados) / ≥14 testes
+  novos + ≥153 preservados. EB3 Upstash non-blocking (vi.mock @upstash/redis).
+
+veredict:
+  verdict: "GO"
+  score: "9.5/10"
+  confidence: "HIGH"
+  rationale: >
+    Story drafted com rigor anti-hallucination excepcional. 6 hallucinations apanhados
+    pelo @sm + 4 BUG FIX (D48/D49/D50/D53) cross-confirmed pelo @po contra codebase real.
+    D50 em particular é descoberta de bug critical latent que valida o protocolo
+    anti-hallucination AIOX inteiro. Zero PO_FIX_INLINE necessários — testemunho do
+    cuidado do @sm. Score arredondado conservadoramente de 9.95 → 9.5.
+
+cross_confirms_critical_results:
+  - id: "D48 — QUOTA_BY_PLAN cross-confirm"
+    file_verified: "apps/web/src/lib/agent/rate-limiter.ts:40-45"
+    expected_per_spec: "{free:50, pessoal:1500, familia:3000, pro:10000}"
+    actual_in_codebase: "{free:100, pessoal:500, familia:2000, pro:10000}"
+    verdict: "CONFIRMED BUG"
+    impact: >
+      Família 2000 vs spec 3000 = subdimensionado -33%. Pessoal 500 vs spec 1500 = -67%.
+      Free 100 vs spec 50 = superdimensionado +100% (mas como hard-stop está broken
+      por D50, isto não causa danos em prod ainda). Pre-existing bug Story 2.6 push.
+    story_fix: "AC7 + D48 — corrige valores"
+    severity: "MEDIUM (alinhamento spec NFR20; sem incidente reportado em prod)"
+
+  - id: "D49 — Hard-stop 110% cross-confirm"
+    file_verified: "apps/web/src/lib/agent/rate-limiter.ts:149"
+    expected_per_spec: "Math.floor(limit * 1.1) — 110% threshold"
+    actual_in_codebase: "if (used >= limit) — 100% threshold sem buffer"
+    verdict: "CONFIRMED BUG"
+    impact: >
+      Hard-stop a 100% (não 110% como spec Architecture §4.6 linha 455).
+      Família real = 3000 actual, deveria ser 3300 (3000 * 1.1).
+      Pre-existing bug Story 2.6 push.
+    story_fix: "AC8 + D49 — corrige condição"
+    severity: "MEDIUM (alinhamento spec; sem incidente reportado em prod)"
+
+  - id: "D50 — RLS critical fix cross-confirm"
+    files_verified:
+      - "apps/web/src/lib/agent/audit-log.ts:182-197 — incrementQuota recebe db: Database param"
+      - "apps/web/src/app/api/agent/prompt/route.ts:33+59 — caller importa getDb + incrementQuota"
+      - "packages/db/migrations/0001_rls_policies.sql:353-362 — RLS policies bloqueiam authenticated"
+    expected_per_spec: "incrementQuota deve usar getServiceDb() — service_role ignora RLS"
+    actual_in_codebase: >
+      incrementQuota é chamado com getDb() (authenticated role) em todos os call sites de route.ts.
+      RLS policies em agent_quotas:
+        - agent_quotas_insert_blocked: with check (false) — INSERT bloqueado para authenticated
+        - agent_quotas_update_blocked: using (false) with check (false) — UPDATE bloqueado
+        - Comentário linha 362: "Apenas service_role gere counters (atomicidade + race conditions)."
+    verdict: "CONFIRMED CRITICAL BUG LATENTE"
+    impact: >
+      Em PRODUÇÃO Supabase com RLS enforced, incrementQuota FALHA SILENCIOSAMENTE em
+      TODOS os prompts (try/catch + Pino warn — não bloqueia response). Significa que
+      `agent_quotas.prompts_used` está perpetuamente em 0 desde push Story 2.6
+      (~2 semanas). Consequentemente checkQuota (que lê prompts_used) NUNCA bloqueia.
+      Hard-stop NFR20 está NÃO-FUNCIONAL em prod. Em CI/dev local sem RLS enforced ou
+      com Supabase local sem RLS, isto passa despercebido nos testes existentes.
+    severity: "CRITICAL (mas com mitigação contextual — tráfego MVP baixo + free tier de facto sem limite)"
+    story_fix: "AC9 + D50 — incrementQuota muda para getServiceDb() análogo markRunReverted Story 2.8 DN3"
+    timing_recommendation: >
+      Eurico (timing decision): Push 2.9 com prioridade alta pós-architect APPROVED.
+      NÃO criar hotfix separado — Story 2.9 é a janela natural (push duplicado seria
+      churn sem benefício; quota tracking broken há 2 semanas sem incidente).
+
+  - id: "D53 — Cache key householdPlan cross-confirm"
+    file_verified: "docs/architecture.md §4.6 linha 433"
+    expected_per_spec: "sha256(normalize(prompt) + household_plan)"
+    spawn_prompt_alleged: "sha256(prompt + household_id) — HALLUCINATION"
+    actual_in_codebase: "NA — cache.ts não existe ainda; este é design choice da Story 2.9"
+    verdict: "CONFIRMED — Architecture §4.6 explicit household_plan"
+    impact: >
+      Design correcto: cache per-plan tier (não per-household) maximiza hit rate.
+      Sem comprometer PII porque ClassificationResult contém apenas intents detectadas
+      (não dados pessoais).
+    story_fix: "AC2 + D53 — cache key = sha256(normalize(prompt) + householdPlan)"
+
+auto_decisions_classification:
+  total: 11
+  pass: 11
+  concerns: 0
+  fail: 0
+  decisions:
+    D44: { type: "ARCHITECTURAL", verdict: "PASS", note: "UpstashClientLike mockable — precedente 6 stories Done" }
+    D45: { type: "IMPLEMENTATION", verdict: "PASS", note: "node:crypto verified redaction.ts:32 — Edge-compatible" }
+    D46: { type: "CONFIGURATION", verdict: "PASS", note: "TTL 300s + env override alinha §4.6 + AGENT_RATE_LIMIT_PER_MINUTE pattern" }
+    D47: { type: "ARCHITECTURAL", verdict: "PASS", note: "Bypass apenas singleton consultar_dados — match literal §4.6" }
+    D48: { type: "BUG FIX (CROSS-CONFIRMED)", verdict: "PASS", note: "Bug pre-existing real; AC7 corrige" }
+    D49: { type: "BUG FIX (CROSS-CONFIRMED)", verdict: "PASS", note: "Bug pre-existing real; AC8 corrige" }
+    D50: { type: "RLS CRITICAL FIX (CROSS-CONFIRMED)", verdict: "PASS", note: "Critical latent bug; AC9 corrige análogo Story 2.8 DN3" }
+    D51: { type: "PROCESS", verdict: "PASS", note: "CodeRabbit skip consistente 2.2-2.8" }
+    D52: { type: "TESTING", verdict: "PASS", note: "Vitest mocks precedent Story 2.8 D43" }
+    D53: { type: "BUG FIX (CROSS-CONFIRMED)", verdict: "PASS", note: "Hallucination corrigida no draft" }
+    D54: { type: "SECURITY", verdict: "PASS", note: "getDb() reads + getServiceDb() writes em agent_quotas" }
+
+po_fix_inline_applied:
+  total: 0
+  note: >
+    Zero PO_FIX_INLINE necessários. Draft @sm já incorpora todas as 4 correcções correctas
+    via cross-confirm próprio anti-hallucination. @po re-verificou independentemente as
+    4 BUG FIX contra codebase real. 2 clarificações cosméticas documentadas em concerns
+    (AC11 trialing + AC15 __tests__/ dir) — não bloqueantes.
+
+concerns_for_architect_or_eurico:
+  C1:
+    title: "D50 RLS critical fix — timing urgency"
+    category: "Process / Prioritization"
+    severity: "HIGH (timing — não impl)"
+    detail: >
+      Story 2.9 fix incrementQuota é janela natural (não hotfix separado). Eurico avalia:
+      em prod, quota tracking broken desde push Story 2.6 (~2 semanas) — NFR20 hard-stop
+      NÃO-FUNCIONAL. Sem incidente reportado porque (a) tráfego MVP baixo, (b) free tier
+      de facto sem limite enquanto counter está em 0. Recomendação: push 2.9 prioridade
+      alta pós-architect APPROVED. NÃO criar hotfix separado.
+    deferred_to: "Eurico (timing decision) + @architect (gate analysis)"
+
+  C2:
+    title: "AC11 trialing mapping documentation cosmetic"
+    category: "Documentation / Cosmetic"
+    severity: "LOW"
+    detail: >
+      AC11 conclui correctamente `agent_quotas.plan = 'familia'` para households em trial
+      (per DP7 Architecture §6.4). Fraseologia "se planTierEnum não tem 'trialing'..."
+      sugere incerteza. Realidade verificada por @po: certeza absoluta — `'trialing'` está
+      em `subscriptions.status` enum (billing.ts:36), NÃO em `plan_tier` (tenancy.ts:30
+      tem apenas ['free', 'pessoal', 'familia', 'pro']). T6 deve documentar via comentário
+      inline em rate-limiter.ts:QUOTA_BY_PLAN referenciando Architecture §6.4.
+    deferred_to: "@dev T6 (cosmético, não bloqueia)"
+
+  C3:
+    title: "AC15 — __tests__/ dir não existe ainda"
+    category: "Filesystem / Cosmetic"
+    severity: "LOW"
+    detail: >
+      Directório apps/web/src/lib/agent/__tests__/ ainda não existe — T7 cria implicitamente
+      ao criar cache.test.ts. Sem necessidade de sub-task explícita. Convenção monorepo
+      já estabelecida (precedente classifier/__tests__/, planner-executor/__tests__/).
+    deferred_to: "@dev T7 (cosmético, não bloqueia)"
+
+  C4:
+    title: "DN9 cost router response sem undo_url — downstream UI compat"
+    category: "Architecture / Integration"
+    severity: "MEDIUM"
+    detail: >
+      Story define mode='executed' sem undo_url/undo_expires_at para direct-DB path.
+      Compatível com Story 2.8 D40 (ResultMessage lida com undoUrl ausente) e Story 2.8
+      PreviewCard refactor (ConfirmPayload shape — undo_url opcional). @architect deve
+      confirmar que UI components downstream (jarvis-chat, ResultMessage, PreviewCard)
+      lidam correctamente com este shape novo de response (response sem campos undo
+      no path direct-DB) ou se precisa de path-specific handling adicional.
+    deferred_to: "@architect gate"
+
+recommended_execution_order:
+  modo: "YOLO mockable-only (precedente 2.2-2.8 = 6 stories Done APPROVED 9.4/10)"
+  rationale: >
+    Story M com path bem-definido. 4 BUG FIX já mapeados e cross-confirmed.
+    Mocks Vitest cobrem Upstash/LLM. Path linear sem decisões abertas significativas.
+  sequence:
+    - step: 1
+      task: "T9 — pnpm --filter @meu-jarvis/web add @upstash/redis"
+      rationale: "Instalar dependência ANTES de T1 (T1 importa @upstash/redis)"
+    - step: 2
+      task: "T1 — Criar cache.ts (UpstashClientLike + UpstashCache + buildCacheKey)"
+      rationale: "Unblock AC1, AC2, AC3 + tests AC13"
+      critical_dev_notes: ["DN1 mockable-only", "DN2 cache key householdPlan", "DN3 node:crypto", "DN4 NUNCA log prompt cleartext"]
+    - step: 3
+      task: "T2 — Criar cost-router.ts (isSingleConsultarDados + 3 templates + executeDirectQuery)"
+      rationale: "Unblock AC4, AC5, AC6 + tests AC14"
+      critical_dev_notes: ["DN6 getDb() authenticated com RLS", "DN9 sem undo_url no response", "DN14 3 templates MVP"]
+    - step: 4
+      task: "T3 — Fix rate-limiter.ts (QUOTA_BY_PLAN + hard-stop 110% + period_end + headers)"
+      rationale: "Unblock AC7, AC8, AC10 + tests AC15 rate-limiter"
+      critical_dev_notes: ["DN7 hard-stop 110% Math.floor", "DN8 QUOTA_BY_PLAN corrigido", "DN12 period_end + N min", "DN13 PT-PT estrito"]
+    - step: 5
+      task: "T6 — Verificar e documentar Trial=Família (cosmetic comment per C2)"
+      rationale: "Concern C2 satisfaction — documentação inline rate-limiter.ts"
+    - step: 6
+      task: "T4 — Fix audit-log.ts (incrementQuota → getServiceDb)"
+      rationale: "Unblock AC9 + tests AC15 audit-log — CRITICAL FIX D50"
+      critical_dev_notes: ["DN5 agent_quotas writes precisam getServiceDb", "Análogo Story 2.8 DN3 markRunReverted"]
+    - step: 7
+      task: "T5 — Integração em route.ts (cache lookup + cost router + headers 429)"
+      rationale: "Unblock AC3+AC6+AC10 integration + tests AC16"
+      critical_dev_notes: ["DN10 incrementQuota chamado no path direct-DB", "DN11 householdPlan necessário", "OTel span annotations cache_hit + cost_router_bypass"]
+    - step: 8
+      task: "T7 — Vitest tests (cache.test.ts + cost-router.test.ts + rate-limiter.test.ts + audit-log.test.ts + integration)"
+      rationale: "Unblock AC13-AC16 (≥14 testes novos)"
+      critical_dev_notes: ["vi.mock('@upstash/redis')", "DN1 zero calls reais"]
+    - step: 9
+      task: "T8 — Runbook docs/runbooks/upstash-setup.md"
+      rationale: "Documentation para @devops EB3 provision pre-push"
+    - step: 10
+      task: "T10 — 5/5 quality gates GREEN (typecheck + lint + test + check:rls + build)"
+      rationale: "Final AC17 verification — match baseline Story 2.8 Done"
+      expected:
+        typecheck: "9/9 PASS 0 errors"
+        lint: "9/9 PASS 0 warnings (--max-warnings=0)"
+        test: "≥14 novos + ≥153 preservados (baseline 153 from Story 2.8 web tests)"
+        check_rls: "28 tabelas / 120 policies NFR5 PRESERVADA (zero novas tabelas)"
+        build: "Next.js 14 routes FULL TURBO sem erros"
+  parallelization_hints:
+    - "T3 + T4 podem correr em paralelo (ficheiros distintos rate-limiter.ts vs audit-log.ts)"
+    - "T7 pode ser distribuído pelos T1-T5 (test imediato após cada feature) OU bloco final"
+    - "T8 pode correr a qualquer momento (independent)"
+
+critical_dev_notes_inherited:
+  - id: "DN1"
+    title: "Mockable-only ZERO calls reais"
+    detail: "vi.mock('@upstash/redis') em todos os tests. Em CI sem env vars, UpstashCache modo degradado (sempre MISS) sem throw."
+  - id: "DN2"
+    title: "Cache key householdPlan NÃO householdId"
+    detail: "Architecture §4.6 literal. Dois utilizadores do mesmo plano partilham cache de ClassificationResult (intents — não PII). Maximiza hit rate."
+  - id: "DN3"
+    title: "SHA256 via node:crypto"
+    detail: "import { createHash } from 'node:crypto'; createHash('sha256').update(input).digest('hex'). Mesmo módulo de redaction.ts:hashPrompt."
+  - id: "DN4"
+    title: "NUNCA logar prompt cleartext"
+    detail: "cacheKey (hash) pode ser logado. body.prompt original nunca em logs Pino (NFR12)."
+  - id: "DN5"
+    title: "agent_quotas writes requerem getServiceDb()"
+    detail: "RLS bloqueia authenticated INSERT/UPDATE. Fix crítico em incrementQuota. getDb() pode ser mantido para SELECT em checkQuota (read-only permitido)."
+  - id: "DN6"
+    title: "consultar_dados direct-DB usa getDb()"
+    detail: "Authenticated + RLS. Reads de dados do utilizador SEMPRE authenticated. Nunca getServiceDb() para reads de domínio."
+  - id: "DN7"
+    title: "Hard-stop 110%"
+    detail: "Math.floor(limit * 1.1). Família 3000 → 3300. Testar limite exacto (3299 passa, 3300 bloqueia)."
+  - id: "DN8"
+    title: "QUOTA_BY_PLAN correcto"
+    detail: "{free:50, pessoal:1500, familia:3000, pro:10000}. Valores actuais errados vs Architecture §4.6."
+  - id: "DN9"
+    title: "Cost router response sem undo_url"
+    detail: "Operação consultar_dados read-only — sem reverse_op. Response: { mode: 'executed', run_id, results, summary } sem campos undo. Compatível Story 2.8 D40."
+  - id: "DN10"
+    title: "incrementQuota chamado no path direct-DB"
+    detail: "Quota é por prompt processado (inclui direct-DB). Counter incrementa independentemente de LLM ter sido chamado."
+  - id: "DN11"
+    title: "householdPlan necessário em route.ts"
+    detail: "Para calcular cacheKey, route.ts precisa de plan. Ler de households.plan via query simples. Fallback 'free' se não encontrado."
+  - id: "DN12"
+    title: "period_end em QuotaExceededError"
+    detail: "Para mensagem 'Próxima janela em N min', expandir SELECT em checkQuota para period_end. N = Math.ceil((period_end - now()) / 60000)."
+  - id: "DN13"
+    title: "PT-PT estrito"
+    detail: "'Limite de prompts atingido' (não 'Quota excedida'). 'Próxima janela em' (não 'Próximo período'). 'Cache hit — a reutilizar classificação'."
+  - id: "DN14"
+    title: "Templates consultar_dados MVP mínimo"
+    detail: "3 templates (count_tasks, count_finances, balance_summary). Catálogo expandido em Epic 3/4. Story 2.9 NÃO inventa templates além destes 3."
+  - id: "DN15"
+    title: "Estrutura lib/agent/"
+    detail: "cache.ts NOVO, cost-router.ts NOVO, audit-log.ts MOD, rate-limiter.ts MOD, __tests__/ NOVO dir + 4 files."
+
+baseline_state:
+  branch: "main"
+  origin_ahead: "1 commit ahead (d8ed611 sm draft 2.9) — NÃO pushed"
+  test_baseline: "153 web tests passing (Story 2.8 Done)"
+  quality_gates_baseline: "5/5 GREEN — typecheck 9/9 / lint 9/9 / test 153 / rls 28-120 / build 14 routes"
+  epic_state: "Epic 2 — 8/11 Done. Story 2.9 Ready v1.1 → @dev develop pending."
+
+file_list_estimate:
+  total: 13
+  novos: 7
+  novos_list:
+    - "apps/web/src/lib/agent/cache.ts"
+    - "apps/web/src/lib/agent/cost-router.ts"
+    - "apps/web/src/lib/agent/__tests__/cache.test.ts"
+    - "apps/web/src/lib/agent/__tests__/cost-router.test.ts"
+    - "apps/web/src/lib/agent/__tests__/rate-limiter.test.ts"
+    - "apps/web/src/lib/agent/__tests__/audit-log.test.ts"
+    - "docs/runbooks/upstash-setup.md"
+  modificados: 6
+  modificados_list:
+    - "apps/web/src/lib/agent/rate-limiter.ts (QUOTA_BY_PLAN + hard-stop 110% + period_end)"
+    - "apps/web/src/lib/agent/audit-log.ts (incrementQuota → getServiceDb)"
+    - "apps/web/src/app/api/agent/prompt/route.ts (cache + cost router + headers 429)"
+    - "apps/web/src/app/api/agent/prompt/__tests__/ (expandir testes integração)"
+    - "apps/web/package.json (+ @upstash/redis)"
+    - "pnpm-lock.yaml (lockfile actualizado)"
+
+predecessor_handoff: "mj-handoff-2.9-ready-for-po-20260512 (consumed 2026-05-12 01:30 by Pax — moved to archive/)"
+successor_handoff: "mj-handoff-2.9-ready-for-architect-{YYYYMMDD}.yaml (dev → architect *qa-gate 2.9, a criar por @dev após Ready for Review)"
+
+next_action: >
+  @dev *develop 2.9 — Modo YOLO mockable-only. Sequência T9→T1→T2→T3→T6→T4→T5→T7→T8→T10.
+  Critical fixes: D48 QUOTA_BY_PLAN values + D49 hard-stop 110% + D50 incrementQuota getServiceDb.
+  Esperado wall-clock ~6-8h (precedente Story 2.8 = 75min real vs ~9h estimate — cache + workflow optimizado).
+
+rules_inegociaveis:
+  - "PT-PT estrito (ACs, DN, mensagens, commit messages, tests, code comments)"
+  - "Mockable-only — ZERO calls reais a Upstash/Anthropic/OpenAI"
+  - "Anti-hallucination — verificar Architecture §4.6 + RLS 0001 + rate-limiter.ts actual antes de qualquer assumption"
+  - "@dev NUNCA faz git push (autoridade exclusiva @devops Gage)"
+  - "Story file updates pelo @dev: File List, Tasks checkboxes, Dev Agent Record. NÃO alterar AC scope/title"
+  - "Constitution Article IV — No Invention. Aderir estritamente aos 17 ACs + 3 templates MVP DN14"
+  - "Quality gates 5/5 GREEN obrigatórios antes de marcar Ready for Review"
