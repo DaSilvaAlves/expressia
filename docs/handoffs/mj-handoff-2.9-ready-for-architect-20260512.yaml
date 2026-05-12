@@ -1,0 +1,236 @@
+from_agent: "dev"
+from_agent_persona: "Dex (@dev)"
+to_agent: "architect"
+to_agent_persona: "Aria (@architect)"
+created: "2026-05-12T04:45:00Z"
+status: pending
+story_id: "2.9"
+story_path: "docs/stories/active/2.9.cost-router-cache-quotas.md"
+story_title: "Cost Router + Cache Upstash + Quotas (NFR20)"
+project_prefix: "mj"
+priority: "high"
+
+summary: >
+  Story 2.9 implementada em modo YOLO mockable-only por @dev (Dex). 17/17 ACs
+  implementados + 10/10 Tasks DONE (T1-T10). **5/5 quality gates GREEN**
+  (typecheck 9/9, lint 9/9 0 warnings, web tests 200/200 = 153 baseline + 47
+  novos — supera target ≥14 em 3.4×, check:rls 28 tabelas/120 policies NFR5
+  PRESERVADA, build 14 routes). Status Ready v1.1 → Ready for Review v1.2.
+  Wall-clock real ~75min (vs estimate 6-8h — cache + workflow optimizado +
+  precedente Story 2.8 75min). 3 [DEV-DECISION] documentadas para ratificação
+  (D55 incrementQuota signature change, D56 cost router fallback graceful,
+  D57 selectTemplate PT-PT 'ç' keyword fix). 3 BUG FIX cross-confirmed
+  implementados e verificados via tests (D48 QUOTA_BY_PLAN values, D49
+  hard-stop 110%, D50 incrementQuota RLS critical fix — agora usa
+  getServiceDb internamente). File List final: 8 novos + 7 modificados =
+  15 ficheiros (vs antecipada 13 — +1 __tests__/ dir implícito, +1 confirm
+  route caller updated, +1 route.test.ts QUOTA test adaptado).
+
+veredict_dev:
+  status: "Ready for Review"
+  version_bump: "1.1 → 1.2"
+  tasks_status: "10/10 DONE"
+  acs_status: "17/17 implementados"
+  quality_gates: "5/5 GREEN"
+  test_target: "47 novos (target ≥14 superado em 3.4×); 200 total web (baseline 153)"
+  wall_clock: "~75min real (vs ~6-8h estimate)"
+
+critical_bug_fixes_verified:
+  D48_QUOTA_BY_PLAN:
+    before: "{free:100, pessoal:500, familia:2000, pro:10000}"
+    after: "{free:50, pessoal:1500, familia:3000, pro:10000}"
+    verified_via: "rate-limiter.test.ts:14-28 (4 assertions PASS)"
+    impact: "Alinha com Architecture §4.6 tabela NFR20"
+  D49_HARD_STOP_110pct:
+    before: "if (used >= limit) — 100% threshold"
+    after: "if (used >= Math.floor(limit * 1.1)) — 110% threshold"
+    verified_via: "rate-limiter.test.ts:34-75 (boundary tests 3299 passa / 3300 bloqueia)"
+    impact: "Família 3000 → hard-stop em 3300 (+10% buffer per Architecture §4.6 'Hard-stop a 110% para evitar abuso')"
+  D50_INCREMENTQUOTA_RLS:
+    before: "incrementQuota(householdId, db: Database) — caller passava getDb() authenticated → RLS bloqueia INSERT/UPDATE → silently broken em prod"
+    after: "incrementQuota(householdId) — usa getServiceDb() internamente (D55 signature change)"
+    verified_via: "audit-log.test.ts:36-58 (4 tests: getServiceDb called 1×, getDb NOT called)"
+    impact: "CRITICAL latent bug fix — quota tracking funciona agora em prod com RLS enforced"
+    caller_sites_updated:
+      - "apps/web/src/app/api/agent/prompt/route.ts:404 (success path)"
+      - "apps/web/src/app/api/agent/prompt/route.ts:[novo direct-DB path]"
+      - "apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts:284 (confirm path)"
+
+dev_decisions_for_architect_ratification:
+  D55:
+    title: "incrementQuota signature change — drop db param"
+    rationale: >
+      Refactor de `incrementQuota(householdId, db: Database)` para
+      `incrementQuota(householdId)`. Função usa `getServiceDb()` internamente.
+      Razão: o caller pre-2.9 passava getDb() (authenticated) — o próprio bug
+      D50. Manter a signature seria pedir ao caller para sempre passar service
+      db (caller pode esquecer → regressão futura). Análogo a markRunReverted
+      Story 2.8 DN3 que também é auto-suficiente. Trade-off: 2 call sites
+      tocados em vez de 1, mas elimina permanentemente regressão D50.
+    trace: "Story 2.9 D50, Story 2.8 DN3 markRunReverted pattern"
+    ask: "Confirmar pattern para todas as operações de escrita em tabelas service_role_only"
+
+  D56:
+    title: "Cost router fallback graceful para executor"
+    rationale: >
+      Se `executeDirectQuery` lançar erro (DB connection, malformed query), o
+      handler em `route.ts` degrada para o path Planner+Executor normal ao
+      invés de retornar 500. Pino warn log + execução continua. Razão: cost
+      router é optimização de custo, não funcionalidade essencial. Padrão
+      consistente com cache lookup falha (também não-fatal).
+    trade_off: "Em casos onde executor ALSO falha, utilizador vê erro Planner/Executor em vez do erro original — mas isso é o mesmo erro baseline (regressão para path sem cost router). Custo é executor LLM call (não ideal mas aceitável)."
+    rejected_alternative: "Fail-fast 500 imediato preservaria fail-fast mas seria mais frágil em prod"
+    trace: "Architecture §4.6 'consulta directa DB' é optimização secundária"
+    ask: "Confirmar que fallback graceful é preferível a fail-fast 500"
+
+  D57:
+    title: "selectTemplate keyword fix — 'transac' → 'transa' (PT-PT 'ç')"
+    rationale: >
+      Durante T7 testes detectei que keyword 'transac' falha matching contra
+      'transações' porque 'transac' (length 7) ≠ 'transa' + 'ç' (U+00E7).
+      JavaScript substring matching não faz ASCII-fold. Fix: keyword
+      'transa' (6 chars — cobre todas as variantes PT-PT/PT-BR) + adicionei
+      'financ' (cobre 'financeiro').
+    trace: "cost-router.ts:selectTemplate linhas 89-99 post-fix. Tests cost-router.test.ts:64-67."
+    ask: "Informativo — fix interno sem impacto contractual"
+
+quality_gates_re_verification_data:
+  typecheck:
+    command: "pnpm typecheck"
+    result: "9/9 PASS, 0 errors"
+    cached: "8/9 (apenas @meu-jarvis/web recompilou — esperado)"
+    time: "26.121s"
+  lint:
+    command: "pnpm lint"
+    result: "9/9 PASS, 0 warnings"
+    flag: "--max-warnings=0"
+    time: "55.004s"
+  test_web:
+    command: "pnpm --filter @meu-jarvis/web test"
+    result: "200/200 passed (20 files)"
+    new_tests: 47
+    baseline: 153
+    multiplier_vs_target: "3.4× (target ≥14)"
+    time: "4.51s"
+    breakdown:
+      cache_test_ts: 13
+      cost_router_test_ts: 14
+      rate_limiter_test_ts: 11
+      audit_log_test_ts: 4
+      route_test_ts_new_integration: 3
+      route_test_ts_adapted_QUOTA: 2
+  check_rls:
+    command: "pnpm check:rls"
+    result: "28 tabelas / 120 policies NFR5 PRESERVADA"
+    new_tables_2_9: 0
+    note: "Story 2.9 reutiliza agent_quotas da Story 2.1 — zero migrations novas"
+  build:
+    command: "pnpm build"
+    result: "14 routes compiled successfully"
+    time: "22.1s"
+    static_routes: 7
+    dynamic_routes: 7
+    new_routes_in_2_9: 0
+    note: "Cost router é integração inline em /api/agent/prompt — sem nova route"
+
+concerns_for_architect_gate:
+  inherited_from_po:
+    - id: "C1"
+      title: "D50 timing — push prioridade alta após APPROVED"
+      severity: "HIGH (timing decision Eurico)"
+      detail: "Quota tracking broken em prod há ~2 semanas (NFR20 hard-stop NÃO-FUNCIONAL). Sem incidente reportado (tráfego MVP baixo + counter sempre 0 → free tier de facto sem limite). Recomendação: push 2.9 prioridade alta pós-architect APPROVED. NÃO criar hotfix separado (Story 2.9 é janela natural)."
+      ask: "Confirmar timing recommendation"
+    - id: "C2"
+      title: "AC11 trialing mapping documentation cosmetic"
+      severity: "LOW"
+      detail: "T6 satisfeita — comment inline em QUOTA_BY_PLAN JSDoc rate-limiter.ts referencia DP7 Architecture §6.4 + clarifica que 'trialing' está em subscriptions.status, NÃO em plan_tier"
+      status: "RESOLVED via T6 implementation"
+    - id: "C3"
+      title: "__tests__/ dir cosmetic"
+      severity: "LOW"
+      detail: "Directório apps/web/src/lib/agent/__tests__/ criado implicitamente por T7 (4 test files)"
+      status: "RESOLVED via T7"
+    - id: "C4"
+      title: "DN9 cost router response sem undo_url — UI downstream compat"
+      severity: "MEDIUM"
+      detail: "Path direct-DB retorna { mode: 'executed', run_id, results: { kind: 'direct_query', template_used, data }, summary } SEM undo_url/undo_expires_at. Compatível com Story 2.8 D40 (ResultMessage lida com undoUrl ausente). @architect deve confirmar que ResultMessage + jarvis-chat lidam graciosamente com este novo shape."
+      ask: "Cross-verificar resultMessage.tsx + jarvis-chat.tsx + preview-card.tsx response handling"
+
+  new_from_dev:
+    - id: "C5"
+      title: "D55 signature change incrementQuota — pattern futuras stories"
+      severity: "MEDIUM"
+      detail: "Removeu param db da signature; função usa getServiceDb internamente. Pattern para writes em tabelas com service_role_only RLS policies?"
+      ask: "Ratificar pattern para futuras stories (markRunReverted Story 2.8 e incrementQuota Story 2.9 ambos auto-suficientes)"
+    - id: "C6"
+      title: "D56 cost router fallback graceful — preferível a fail-fast 500"
+      severity: "MEDIUM"
+      detail: "executeDirectQuery falha → degrada para Planner+Executor (não 500). Padrão consistente com cache lookup falha."
+      ask: "Ratificar fallback strategy"
+    - id: "C7"
+      title: "D57 keyword fix 'transa' (sem 'c') para PT-PT 'ç'"
+      severity: "LOW (informativo)"
+      detail: "Bug subtle de encoding apanhado pelos tests. Sem impacto contractual."
+      status: "RESOLVED durante T7"
+
+file_list_final:
+  total: 15
+  novos: 8
+  novos_list:
+    - "apps/web/src/lib/agent/cache.ts"
+    - "apps/web/src/lib/agent/cost-router.ts"
+    - "apps/web/src/lib/agent/__tests__/cache.test.ts"
+    - "apps/web/src/lib/agent/__tests__/cost-router.test.ts"
+    - "apps/web/src/lib/agent/__tests__/rate-limiter.test.ts"
+    - "apps/web/src/lib/agent/__tests__/audit-log.test.ts"
+    - "apps/web/src/lib/agent/__tests__/ (directório implícito)"
+    - "docs/runbooks/upstash-setup.md"
+  modificados: 7
+  modificados_list:
+    - "apps/web/src/lib/agent/rate-limiter.ts (D48+D49+period_end+headers+Trial=Família doc)"
+    - "apps/web/src/lib/agent/audit-log.ts (D50 → getServiceDb + D55 signature change)"
+    - "apps/web/src/app/api/agent/prompt/route.ts (householdPlan lookup + cache + cost router + headers 429 + incrementQuota call update)"
+    - "apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts (incrementQuota call update D55)"
+    - "apps/web/src/app/api/agent/prompt/__tests__/route.test.ts (QUOTA test adaptado 110% + 3 integration tests AC16 + Upstash mock)"
+    - "apps/web/package.json (+ @upstash/redis ^1.38.0)"
+    - "pnpm-lock.yaml (auto-actualizado via pnpm install)"
+
+debug_incidents:
+  - id: "D57"
+    title: "selectTemplate keyword PT-PT 'ç' encoding"
+    detected_during: "T7 — `pnpm test` first run"
+    severity: "Low"
+    resolution_time_min: 2
+    resolution: "Substituí keyword 'transac' por 'transa' + adicionei 'financ' fallback"
+    escalation_needed: false
+
+baseline_state:
+  branch: "main"
+  origin_ahead_pre_dev: "2 commits (d8ed611 sm + bf24f16 po)"
+  origin_ahead_post_dev: "ainda 2 commits — @dev NÃO faz push (autoridade exclusiva @devops)"
+  test_baseline_pre_dev: "153 web tests"
+  test_actual_post_dev: "200 web tests (+47 novos)"
+  quality_gates_baseline: "5/5 GREEN — match Story 2.8 Done"
+  epic_state: "Epic 2 — 8/11 Done. Story 2.9 v1.2 Ready for Review → @architect *qa-gate pending."
+
+predecessor_handoff: "mj-handoff-2.9-ready-for-dev-20260512 (consumed 2026-05-12 04:45 by Dex — moved to archive/)"
+successor_handoff: "mj-handoff-2.9-ready-for-devops-close-{YYYYMMDD}.yaml (architect → devops, a criar por @architect após APPROVED)"
+
+next_action: >
+  @architect *qa-gate 2.9 — cross-domain gate (cost engineering + RLS + cache
+  integration + UI downstream compat). Foco recomendado:
+  (1) Ratificar 3 [DEV-DECISION] D55+D56+D57.
+  (2) Cross-confirm fix D50 efectivamente funciona em prod com RLS real
+      (verificar 0001:353-362 vs incrementQuota new signature).
+  (3) Verificar UI downstream compat (DN9 — cost router response sem undo_url
+      em ResultMessage + jarvis-chat + preview-card per C4).
+  (4) Confirmar 47 testes novos cobrem 17 ACs (test → AC traceability).
+  (5) Avaliar timing D50 push prioridade (C1) com Eurico.
+  (6) 5/5 quality gates re-verification opcional (já 100% GREEN em sessão @dev).
+
+rules_inegociaveis:
+  - "@architect NUNCA faz push (autoridade exclusiva @devops Gage)"
+  - "Story file updates @architect: PO Validation block / Dev Agent Record / Change Log @architect. NÃO alterar AC scope/title"
+  - "Constitution Article IV — No Invention. Validar 17 ACs implementados (nem mais nem menos)"
+  - "Anti-hallucination — verificar implementação contra ACs literal + cross-confirm 3 bug fix funciona realmente"
+  - "Gate verdict: APPROVED / CONCERNS / FAIL (com motivo se NOT APPROVED)"

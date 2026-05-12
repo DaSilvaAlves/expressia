@@ -83,6 +83,16 @@ vi.mock('openai', () => ({
   })),
 }));
 
+// Story 2.9 — mock Upstash Redis (modo degradado em CI sem env vars; aqui
+// explicit mock para garantir zero call real e MISS deterministico).
+vi.mock('@upstash/redis', () => ({
+  Redis: vi.fn().mockImplementation(() => ({
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue('OK'),
+    del: vi.fn().mockResolvedValue(1),
+  })),
+}));
+
 import { POST } from '@/app/api/agent/prompt/route';
 
 const TEST_USER_ID = '00000000-0000-0000-0000-000000000001';
@@ -392,19 +402,24 @@ describe('POST /api/agent/prompt — rate limit + quota (AC9)', () => {
     expect(body.error.details).toBeDefined();
   });
 
-  it('AC9 — 429 QUOTA_EXCEEDED quando prompts_used >= limit', async () => {
+  it('AC9 — 429 QUOTA_EXCEEDED quando prompts_used >= 110% limit (Story 2.9 D49)', async () => {
     let callIndex = 0;
+    const futurePeriodEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     mocks.dbExecuteMock.mockImplementation(async () => {
       callIndex++;
-      // 1: rate limit OK, 2: quota excedida
+      // 1: rate limit OK, 2: quota excedida (free hard-stop = 55 = floor(50*1.1); used=100 > 55)
       if (callIndex === 1) return [{ count: 1 }];
-      if (callIndex === 2) return [{ plan: 'free', prompts_used: 100 }];
+      if (callIndex === 2) return [{ plan: 'free', prompts_used: 100, period_end: futurePeriodEnd }];
       return [];
     });
     const res = await POST(makeRequest({ prompt: 'oi' }) as never);
     expect(res.status).toBe(429);
-    const body = (await res.json()) as { error: { code: string } };
+    // Story 2.9 AC10 — headers HTTP 429 standard.
+    expect(res.headers.get('X-Quota-Reset')).toBeTruthy();
+    expect(res.headers.get('Retry-After')).toBeTruthy();
+    const body = (await res.json()) as { error: { code: string; message: string } };
     expect(body.error.code).toBe('QUOTA_EXCEEDED');
+    expect(body.error.message).toContain('Limite de prompts atingido');
   });
 });
 
@@ -658,5 +673,131 @@ describe('POST /api/agent/prompt — Story 2.7 always_preview gate (FR4)', () =>
     expect(res.status).toBe(200);
     const body = (await res.json()) as { mode: string };
     expect(body.mode).toBe('executed'); // não crash; assume false; segue executed normal
+  });
+});
+
+// ─── Story 2.9 — Cost router + cache + 110% quota (AC16) ─────────────
+describe('POST /api/agent/prompt — Story 2.9 cost router + cache (AC16)', () => {
+  // Mock Upstash via @upstash/redis path (hoisted no top do file — vamos
+  // adicionar inline via vi.doMock para isolar este describe).
+  it('AC16(ii) — singleton consultar_dados → bypass Planner+Executor (cost router)', async () => {
+    let callIndex = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callIndex++;
+      switch (callIndex) {
+        case 1:
+          return [{ count: 1 }]; // rate limit
+        case 2:
+          return []; // quota
+        case 3:
+          return [{ id: 'run-uuid-test', created_at: new Date().toISOString() }];
+        case 4:
+          return [{ always_preview: false }]; // user_prefs
+        case 5:
+          return [{ plan: 'familia' }]; // households.plan
+        case 6:
+          return []; // updateAfterClassifier
+        case 7:
+          return [{ count: 5 }]; // executeDirectQuery count_tasks
+        default:
+          return [];
+      }
+    });
+
+    mocks.classifyMock.mockResolvedValue({
+      intents: [{ intent: 'consultar_dados', confidence: 0.92, raw_span: 'quantas tarefas tenho' }],
+      language: 'pt-PT',
+      needs_confirmation: false,
+      overall_confidence: 0.92,
+    });
+
+    const res = await POST(makeRequest({ prompt: 'quantas tarefas tenho?' }) as never);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      mode: string;
+      summary: string;
+      undo_url?: string;
+      results: { kind: string; template_used: string };
+    };
+    expect(body.mode).toBe('executed');
+    expect(body.results.kind).toBe('direct_query');
+    expect(body.results.template_used).toBe('count_tasks');
+    expect(body.summary).toContain('5');
+    // DN9 — sem undo_url em path direct-DB (read-only)
+    expect(body.undo_url).toBeUndefined();
+    // Planner+Executor NÃO devem ser chamados
+    expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('AC16 — multi-intent (consultar_dados + criar_tarefa) NÃO faz bypass — usa executor', async () => {
+    let callIndex = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callIndex++;
+      switch (callIndex) {
+        case 1:
+          return [{ count: 1 }];
+        case 2:
+          return [];
+        case 3:
+          return [{ id: 'run-uuid-test', created_at: new Date().toISOString() }];
+        case 4:
+          return [{ always_preview: false }];
+        case 5:
+          return [{ plan: 'familia' }];
+        default:
+          return [];
+      }
+    });
+
+    mocks.classifyMock.mockResolvedValue({
+      intents: [
+        { intent: 'consultar_dados', confidence: 0.85, raw_span: 'quantas tarefas' },
+        { intent: 'criar_tarefa', confidence: 0.85, raw_span: 'cria mais uma' },
+      ],
+      language: 'pt-PT',
+      needs_confirmation: false,
+      overall_confidence: 0.85,
+    });
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [{ toolName: 'create_task', input: { title: 'X' }, intent: 'criar_tarefa' }],
+      planReasoning: null,
+      latencyMs: 100,
+      tokensInput: 50,
+      tokensOutput: 20,
+      costEur: 0.0001,
+      cacheHit: false,
+    });
+    mocks.executorExecuteMock.mockResolvedValue({
+      success: true,
+      results: [{ toolName: 'create_task', output: { id: 'task-1' }, reverseOpId: 'rop-1' }],
+    });
+
+    const res = await POST(makeRequest({ prompt: 'quantas tarefas; cria mais uma' }) as never);
+    expect(res.status).toBe(200);
+    // Planner+Executor DEVEM ser chamados — multi-intent
+    expect(mocks.plannerPlanMock).toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).toHaveBeenCalled();
+  });
+
+  it('AC16(iii) — 429 QUOTA_EXCEEDED inclui headers X-Quota-Reset + Retry-After', async () => {
+    const futurePeriodEnd = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+    let callIndex = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callIndex++;
+      if (callIndex === 1) return [{ count: 1 }];
+      if (callIndex === 2)
+        return [{ plan: 'familia', prompts_used: 3300, period_end: futurePeriodEnd }];
+      return [];
+    });
+
+    const res = await POST(makeRequest({ prompt: 'oi' }) as never);
+    expect(res.status).toBe(429);
+    expect(res.headers.get('X-Quota-Reset')).toBeTruthy();
+    expect(res.headers.get('Retry-After')).toMatch(/^\d+$/);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('QUOTA_EXCEEDED');
+    expect(body.error.message).toContain('Limite de prompts atingido');
+    expect(body.error.message).toContain('Próxima janela em');
   });
 });

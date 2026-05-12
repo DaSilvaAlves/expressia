@@ -1,5 +1,5 @@
 /**
- * Audit log helpers — Story 2.6 AC10 + FR3.
+ * Audit log helpers — Story 2.6 AC10 + FR3, Story 2.9 D50 RLS fix.
  *
  * Persistência progressiva em `agent_runs`:
  *   - `insertAgentRun`        → INSERT inicial (status='classifying') no início do handler
@@ -7,15 +7,26 @@
  *   - `updateAfterPlanner`    → tool_calls + planner_model + tokens
  *   - `updateAfterExecutor`   → status terminal + completed_at + executor_model
  *   - `updatePreviewState`    → status='pending_preview' + confirm_expires_at
- *   - `incrementQuota`        → agent_quotas.prompts_used (NFR20)
+ *   - `incrementQuota`        → agent_quotas.prompts_used (NFR20) — **usa getServiceDb()**
  *
- * `getDb()` (role authenticated) para todos — mutação terminal é via trigger
- * imutabilidade da Story 2.1. Excepção: `markRunReverted` usa `getServiceDb()`
- * (justificada como NFR9 GDPR-purge-análoga em DN3 do handoff).
+ * `getDb()` (role authenticated) para `agent_runs.*` mutations — mutação terminal
+ * é via trigger imutabilidade da Story 2.1.
  *
- * Trace: Story 2.6 AC10 + FR3, NFR9, db-schema.md §4.4.
+ * **Excepções service_role (RLS bypass):**
+ *   - `markRunReverted` (Story 2.8 DN3) — undo executor, NFR9-análogo.
+ *   - `incrementQuota` (Story 2.9 D50) — INSERT/UPDATE em `agent_quotas` é
+ *     **BLOQUEADO** para `authenticated` em `0001_rls_policies.sql:353-362`
+ *     (`agent_quotas_insert_blocked` + `agent_quotas_update_blocked`).
+ *     Apenas service_role pode gerir counters (atomicidade + race conditions).
+ *     Bug latente pre-2.9: caller anterior passava `getDb()` → falha
+ *     silenciosamente em prod com RLS enforced. Fix análogo a `markRunReverted`.
+ *
+ * Trace: Story 2.6 AC10 + FR3, Story 2.9 AC9 + D50, NFR9, db-schema.md §4.4,
+ *        0001_rls_policies.sql:342-362.
  */
 import { sql } from 'drizzle-orm';
+
+import { getServiceDb } from '@/lib/agent/db-shim';
 
 /**
  * Type alias minimal — qualquer cliente Drizzle aceitando `execute(sql\`...\`)`.
@@ -176,11 +187,27 @@ export async function updatePreviewState(
  * Incrementa `agent_quotas.prompts_used` após sucesso (NFR20).
  * UPSERT — cria row no primeiro prompt do mês.
  *
- * Não-fatal se falhar — logado mas não bloqueia o response (NFR20 hard-stop
- * é no `checkQuota` ANTES de executar).
+ * **CRÍTICO (Story 2.9 D50 — fix RLS):** Usa `getServiceDb()` (service_role)
+ * obrigatoriamente porque as policies RLS em `0001_rls_policies.sql:353-362`
+ * BLOQUEIAM INSERT/UPDATE em `agent_quotas` para `authenticated`:
+ *
+ *   - `agent_quotas_insert_blocked` FOR INSERT to authenticated `with check (false)`
+ *   - `agent_quotas_update_blocked` FOR UPDATE to authenticated `using (false)`
+ *
+ * Pre-2.9 a função recebia `db: Database` do caller (`getDb()` authenticated)
+ * → falhava silenciosamente em prod com RLS enforced (try/catch + Pino warn no
+ * caller, sem incremento real). Hard-stop NFR20 era NÃO-FUNCIONAL em prod.
+ * Fix análogo a `markRunReverted` (Story 2.8 DN3).
+ *
+ * Não-fatal se falhar — logado pelo caller mas não bloqueia o response
+ * (NFR20 hard-stop é no `checkQuota` ANTES de executar). Mantém semântica
+ * pre-2.9 do ponto de vista do caller.
+ *
+ * Trace: Story 2.9 AC9 + D50 + DN5, Story 2.8 DN3, 0001_rls_policies.sql:342-362.
  */
-export async function incrementQuota(householdId: string, db: Database): Promise<void> {
-  await db.execute(sql`
+export async function incrementQuota(householdId: string): Promise<void> {
+  const serviceDb = getServiceDb();
+  await serviceDb.execute(sql`
     insert into agent_quotas (
       household_id, plan, period_start, period_end, prompts_used
     )

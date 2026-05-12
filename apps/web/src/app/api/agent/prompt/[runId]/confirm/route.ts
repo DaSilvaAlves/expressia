@@ -281,7 +281,8 @@ export async function POST(
       );
 
       try {
-        await incrementQuota(run.household_id, db);
+        // Story 2.9 D50 — incrementQuota usa getServiceDb() internamente.
+        await incrementQuota(run.household_id);
       } catch (qerr) {
         log.warn({ err: qerr }, 'incrementQuota falhou (não-fatal)');
       }

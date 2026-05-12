@@ -3,7 +3,10 @@ from_agent_persona: "Pax (@po)"
 to_agent: "dev"
 to_agent_persona: "Dex (@dev)"
 created: "2026-05-12T01:30:00Z"
-status: pending
+consumed: true
+consumed_at: "2026-05-12T04:45:00Z"
+consumed_by: "dev"
+status: consumed
 story_id: "2.9"
 story_path: "docs/stories/active/2.9.cost-router-cache-quotas.md"
 story_title: "Cost Router + Cache Upstash + Quotas (NFR20)"

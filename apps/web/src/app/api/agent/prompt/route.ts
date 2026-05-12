@@ -31,6 +31,8 @@ import { z } from 'zod';
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import { Classifier, ClassifierError, type ClassificationResult } from '@meu-jarvis/classifier';
 import { getDb } from '@/lib/agent/db-shim';
+import { buildCacheKey, getCacheClient, CACHE_TTL_SECONDS } from '@/lib/agent/cache';
+import { isSingleConsultarDados, executeDirectQuery } from '@/lib/agent/cost-router';
 import {
   childLogger,
   hashForCorrelation,
@@ -222,11 +224,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
         if (err instanceof QuotaExceededError) {
           annotateAgentPromptSpan(span, { status_code: 429 });
-          return apiError('QUOTA_EXCEEDED', err.message, 429, {
+          // Story 2.9 AC10 — headers HTTP 429 standard.
+          const secondsUntilReset = Math.max(
+            1,
+            Math.ceil((err.periodEnd.getTime() - Date.now()) / 1000),
+          );
+          const errResponse = apiError('QUOTA_EXCEEDED', err.message, 429, {
             plan: err.plan,
             used: err.used,
             limit: err.limit,
+            period_end: err.periodEnd.toISOString(),
           });
+          errResponse.headers.set('X-Quota-Reset', err.periodEnd.toISOString());
+          errResponse.headers.set('Retry-After', String(secondsUntilReset));
+          return errResponse;
         }
         throw err;
       }
@@ -261,27 +272,88 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       annotateAgentPromptSpan(span, { always_preview_active: alwaysPreview });
 
-      // ─── 6. Classifier ────────────────────────────────────────────
-      let classification: ClassificationResult;
+      // ─── 5c. Resolver householdPlan (Story 2.9 DN11) ──────────────
+      // Necessário para cacheKey (DN2 — householdPlan, NÃO householdId).
+      // Fallback 'free' se row não encontrada (defensivo).
+      let householdPlan: string = 'free';
       try {
-        const classifier = createClassifier();
-        classification = await classifier.classify({
-          text: body.prompt,
-          householdId,
-          userId: user.id,
-          traceId,
-        });
-        await updateAfterClassifier(
-          runId,
-          {
-            intentsDetected: classification.intents,
-            confidence: classification.overall_confidence,
-            classifierModel: 'gpt-4o-mini',
-          },
-          db,
-        );
+        const planRows = await db.execute<{ plan: string }>(sql`
+          select plan from public.households
+          where id = ${householdId}::uuid
+          limit 1
+        `);
+        householdPlan = planRows[0]?.plan ?? 'free';
       } catch (err) {
-        return handleClassifierError(err, span, runId, householdId, db);
+        log.warn({ err }, 'households.plan lookup falhou — assumindo plan=free');
+      }
+
+      // ─── 5d. Cache lookup ANTES do classifier (Story 2.9 AC3) ─────
+      // Cache key = sha256(normalize(prompt) + householdPlan) per Architecture
+      // §4.6 literal. HIT → bypass classifier (poupa ~€0.00006 + latency).
+      // Modo degradado: se Upstash ausente, get() retorna null sem throw.
+      const cacheKey = buildCacheKey(body.prompt, householdPlan);
+      let classification: ClassificationResult | null = null;
+      let cacheHit = false;
+      try {
+        const cached = await getCacheClient().get(cacheKey);
+        if (cached) {
+          try {
+            classification = JSON.parse(cached) as ClassificationResult;
+            cacheHit = true;
+            log.info({ cache_key: cacheKey.slice(0, 16) }, 'Cache hit — a reutilizar classificação');
+            // Persistir intents no audit log mesmo no path cache (FR3).
+            await updateAfterClassifier(
+              runId,
+              {
+                intentsDetected: classification.intents,
+                confidence: classification.overall_confidence,
+                classifierModel: 'gpt-4o-mini',
+              },
+              db,
+            );
+          } catch (parseErr) {
+            log.warn({ err: parseErr }, 'Cache value inválido — a reclassificar');
+            classification = null;
+          }
+        } else {
+          log.info({ cache_key: cacheKey.slice(0, 16) }, 'Cache miss — a classificar');
+        }
+      } catch (err) {
+        log.warn({ err }, 'Cache lookup falhou — a classificar');
+      }
+
+      annotateAgentPromptSpan(span, { cache_hit: cacheHit });
+
+      // ─── 6. Classifier (se cache MISS) ────────────────────────────
+      if (!classification) {
+        try {
+          const classifier = createClassifier();
+          classification = await classifier.classify({
+            text: body.prompt,
+            householdId,
+            userId: user.id,
+            traceId,
+          });
+          await updateAfterClassifier(
+            runId,
+            {
+              intentsDetected: classification.intents,
+              confidence: classification.overall_confidence,
+              classifierModel: 'gpt-4o-mini',
+            },
+            db,
+          );
+          // Cache SET — best-effort, falha é não-fatal.
+          try {
+            await getCacheClient().set(cacheKey, JSON.stringify(classification), {
+              ex: CACHE_TTL_SECONDS,
+            });
+          } catch (cacheErr) {
+            log.warn({ err: cacheErr }, 'Cache set falhou (não-fatal)');
+          }
+        } catch (err) {
+          return handleClassifierError(err, span, runId, householdId, db);
+        }
       }
 
       annotateAgentPromptSpan(span, {
@@ -292,6 +364,76 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // ─── 7. Branch FR4 — preview vs executed ──────────────────────
       // Story 2.7: gate adicional `alwaysPreview` (user pref) força preview
       // mesmo com confidence ≥ 0.70.
+      //
+      // Cost router (Story 2.9 AC6): bypass Planner+Executor para singleton
+      // `consultar_dados` — apenas se NÃO estamos em preview mode (preview já
+      // adia a execução até confirm; cost router é só para o path executed).
+      if (
+        !classification.needs_confirmation &&
+        !alwaysPreview &&
+        isSingleConsultarDados(classification.intents)
+      ) {
+        const rawSpan = classification.intents[0]?.raw_span;
+        let directResult;
+        try {
+          directResult = await executeDirectQuery(rawSpan, householdId, db);
+        } catch (err) {
+          // Cost router error: degrada para path Planner+Executor normal
+          // ao invés de devolver 500 — fallback graceful.
+          log.warn({ err }, 'Cost router direct query falhou — degradando para executor');
+          directResult = null;
+        }
+
+        if (directResult) {
+          const latencyMs = Date.now() - startedAt;
+          await updateAfterExecutor(
+            runId,
+            {
+              status: 'success',
+              latencyMs,
+              responseSummary: directResult.summary,
+              errorCode: null,
+              errorMessage: null,
+            },
+            db,
+          );
+
+          // Quota increment — Story 2.9 DN10 (quota é por prompt, não por LLM call).
+          try {
+            await incrementQuota(householdId);
+          } catch (err) {
+            log.warn({ err }, 'incrementQuota falhou (não-fatal) — path direct-DB');
+          }
+
+          annotateAgentPromptSpan(span, {
+            mode: 'executed',
+            tool_count: 0,
+            duration_ms: latencyMs,
+            cache_hit: cacheHit,
+            status_code: 200,
+            classifier_model: 'gpt-4o-mini',
+          });
+          log.info(
+            { run_id: runId, template: directResult.templateUsed },
+            'Consulta directa DB — executor bypassed',
+          );
+
+          // Response shape direct-DB: sem undo_url/undo_expires_at (read-only — DN9).
+          const directResponseBody = {
+            mode: 'executed' as const,
+            run_id: runId,
+            results: {
+              success: true,
+              kind: 'direct_query',
+              template_used: directResult.templateUsed,
+              data: directResult.data,
+            },
+            summary: directResult.summary,
+          };
+          return NextResponse.json(redactEndpointOutput(directResponseBody));
+        }
+      }
+
       if (classification.needs_confirmation || alwaysPreview) {
         const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5min D20
         await updatePreviewState(runId, expiresAt, db);
@@ -399,9 +541,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         db,
       );
 
-      // Increment quota (não-fatal se falhar)
+      // Increment quota (não-fatal se falhar) — Story 2.9 D50: usa getServiceDb()
+      // internamente porque RLS bloqueia INSERT/UPDATE em agent_quotas a authenticated.
       try {
-        await incrementQuota(householdId, db);
+        await incrementQuota(householdId);
       } catch (err) {
         log.warn({ err }, 'incrementQuota falhou (não-fatal)');
       }
