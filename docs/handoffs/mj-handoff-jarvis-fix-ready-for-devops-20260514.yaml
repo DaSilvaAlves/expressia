@@ -1,0 +1,107 @@
+from_agent: "dev"
+from_agent_persona: "Dex (@dev)"
+to_agent: "devops"
+to_agent_persona: "Gage (@devops)"
+created: "2026-05-14T23:55:00Z"
+status: pending
+consumed: false
+story_id: null
+story_note: "Sem story — hotfix de produção (fix directo, cirúrgico). Handoff predecessor: mj-handoff-jarvis-classifier-schema-bug-20260514 (consumed, em archive/)."
+project_prefix: "mj"
+priority: "high"
+
+summary: >
+  @dev (Dex) corrigiu o bug do classifier que deixava o /jarvis inoperável em
+  produção (400 da OpenAI por JSON Schema malformado) e implementou a spec de
+  UX de erro da Uma. Fix directo, sem story formal. 5/5 quality gates GREEN
+  (db-test é ENV-BLOCKER Docker offline conhecido — CI rls-gate cobre). Pronto
+  para @devops *pre-push + *push. Há 3 commits Story 2.9 já ahead de origin/main
+  que podem ir no mesmo push ou separados — decisão @devops no *pre-push.
+
+what_changed:
+  item_1_classifier_bug_fix:
+    file: "packages/classifier/src/classifier.ts"
+    change: >
+      Removida a opção `name` do `zodToJsonSchema` (linha ~290) — produzia
+      `{ $ref, definitions }` sem `type` no topo, rejeitado pela OpenAI com 400.
+      Além disso `strict: true` → `strict: false` em response_format.json_schema
+      [DEV-DECISION] — o strict mode da OpenAI rejeita keywords que o
+      ClassificationSchema gera (`const`, `minItems`/`maxItems`, `minimum`/
+      `maximum`); com `strict: false` o schema é guidance e a validação rigorosa
+      fica no `ClassificationSchema.safeParse` + retry 1× já existentes.
+    test: "packages/classifier/src/__tests__/classifier.test.ts — teste `strict` actualizado + teste de regressão NOVO que assert o shape inline do schema (fecha o gap que o mock mascarava)."
+  item_2_jarvis_error_ux:
+    spec: "docs/ux/jarvis-error-ux-spec.md"
+    files_new:
+      - "apps/web/src/app/(app)/jarvis/_components/error-messages.ts — errorMessageFor() mapeia os 12 códigos de erro do route.ts → mensagens PT-PT amigáveis"
+      - "apps/web/src/app/(app)/jarvis/_components/__tests__/error-messages.test.ts — 27 tests"
+    files_modified:
+      - "apps/web/src/app/(app)/jarvis/_components/jarvis-chat.tsx — usa errorMessageFor; o error.message técnico do servidor NUNCA é renderizado; 5xx → captureException (@sentry/nextjs); ramo 429 unificado no !res.ok (RATE_LIMIT_EXCEEDED vs QUOTA_EXCEEDED distinguidos por code — corrige o bug do fallback '60 segundos' no QUOTA)"
+      - "apps/web/src/app/(app)/jarvis/_components/__tests__/jarvis-chat.test.tsx — mock @sentry/nextjs + testes novos QUOTA_EXCEEDED e CLASSIFIER_ERROR (cenário real do bug observado)"
+
+dev_decision_for_ratification:
+  D1_strict_false:
+    title: "response_format.json_schema.strict: true → false no classifier"
+    rationale: >
+      Não havia key OpenAI real disponível no ambiente @dev para testar o
+      strict mode. Análise estática confirmou que o ClassificationSchema gera
+      keywords não suportadas pelo strict mode (`const`, `minItems`/`maxItems`,
+      `minimum`/`maximum`). `strict: false` elimina o risco de outro 400; a
+      validação rigorosa do output já é garantida por
+      `ClassificationSchema.safeParse` (classifier.ts:338) + retry 1×.
+    rejected_alternative: "`zodResponseFormat` de openai/helpers/zod — violaria Story 2.4 D9 (OpenAIClientLike é abstracção estrutural sem acoplamento ao SDK)."
+    ask: "Informativo. Pode ser ratificado por @architect num gate futuro se desejado — não bloqueia o push."
+
+commits_local:
+  note: "@dev fez os commits locais (autoridade @dev: git add/commit). Push é EXCLUSIVO @devops."
+  commits:
+    - "fix(classifier): corrigir JSON Schema malformado enviado à OpenAI"
+    - "feat(jarvis): mensagens de erro PT-PT amigáveis no chat"
+    - "chore(docs,handoffs): cascata jarvis fix — UX spec + runbook keys + handoffs"
+  not_included:
+    - "docs/marketing/* — alterações NÃO relacionadas (landing pages, copy) já no working tree antes desta cascata. @dev NÃO as tocou. @devops decide se entram no push ou ficam."
+
+quality_gates:
+  lint: "9/9 PASS, 0 warnings (--max-warnings=0)"
+  typecheck: "9/9 PASS"
+  test:
+    classifier: "79/79 PASS (7 files)"
+    web: "229/229 PASS (21 files) — baseline 200 + 27 error-messages.test + 2 jarvis-chat.test"
+    db_test: "ENV-BLOCKER — Docker daemon offline local ('Could not find a working container runtime strategy'). Zero código DB tocado nesta cascata. CI rls-gate job cobre. Precedente: Stories 2.8/2.9 NIT-006-NB."
+  build: "9/9 PASS, 14 routes Next.js (/jarvis 4.75 kB)"
+  check_rls: "EXIT 0, NFR5 preservada (zero tabelas com household_id tocadas)"
+
+pre_push_recommendations:
+  - "Re-verificar os 5 gates em FULL TURBO cache (precedente @devops Stories 2.8/2.9)."
+  - "db-test: re-run em CI rls-gate (Docker offline local não bloqueia — precedente push Story 2.7/2.8)."
+  - "CodeRabbit: @dev SKIPPED consistente com precedente. @devops pode correr *pre-push se desejar — toca packages/classifier (schema/provider handling) onde CodeRabbit é útil."
+  - "Decisão de scope do push: estes 3 commits + os 3 commits Story 2.9 já pendentes (d8ed611+bf24f16+6a0e482). Podem ir juntos OU o fix do classifier separado primeiro (é hotfix urgente — desbloqueia produção)."
+
+post_push_validation_REQUIRED:
+  owner: "Eurico / @devops no browser"
+  why: "A validação E2E com a key OpenAI real NÃO foi feita por @dev — a key é secret, fora do ambiente local."
+  steps:
+    - "Após push → Vercel auto-deploy fra1 fica Ready (~2-3min)."
+    - "Abrir https://expressia-black.vercel.app/jarvis (autenticado)."
+    - "Prompt simples ('olá', 'amanhã reunião 15h')."
+    - "Esperado: NÃO dar 400 nem 401. O classifier corre e devolve resultado/preview."
+    - "Se ainda houver erro: o jarvis-chat já mostra mensagem PT-PT amigável (não jargão) — pedir o detalhe técnico via Sentry/logs, não via ecrã."
+
+baseline_state:
+  branch: "main"
+  origin_ahead_pre_dev: "3 commits (Story 2.9: d8ed611 sm + bf24f16 po + 6a0e482 dev)"
+  origin_ahead_post_dev: "6 commits (3 Story 2.9 + 3 desta cascata jarvis fix)"
+  working_tree_after_commits: "docs/marketing/* permanece uncommitted (não relacionado — @dev não tocou)"
+
+next_action: >
+  @devops *pre-push — re-verificar os 5 quality gates em FULL TURBO, decidir
+  scope do push (fix classifier isolado vs junto com Story 2.9), executar
+  *push. Após deploy verde, pedir ao Eurico a validação E2E no browser
+  (post_push_validation_REQUIRED). Se @devops quiser, correr CodeRabbit
+  pre-push sobre packages/classifier.
+
+rules_inegociaveis:
+  - "Push é EXCLUSIVO @devops (Gage)"
+  - "5 quality gates re-verificados antes do push"
+  - "db-test ENV-BLOCKER não bloqueia push — CI rls-gate cobre (precedente)"
+  - "docs/marketing/* NÃO faz parte desta cascata — não incluir sem confirmação do Eurico"

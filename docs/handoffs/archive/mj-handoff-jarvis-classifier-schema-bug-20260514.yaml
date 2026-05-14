@@ -1,0 +1,176 @@
+from_agent: "devops"
+from_agent_persona: "Gage (@devops)"
+to_agent: "dev"
+to_agent_persona: "Dex (@dev)"
+created: "2026-05-14T23:15:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-14T23:50:00Z"
+consumed_by: "dev (Dex)"
+story_id: null
+story_note: "Sem story — bug de produção apanhado em validação funcional pós-deploy. @sm/@dev decide se vira story ou fix directo (recomendação: fix directo, é cirúrgico)."
+project_prefix: "mj"
+priority: "high"
+
+summary: >
+  Cascata de sessão Eurico: @ux-design-expert (Uma) diagnosticou /jarvis em
+  produção a falhar com 401 OpenAI → @devops (Gage) configurou OPENAI_API_KEY +
+  ANTHROPIC_API_KEY no Vercel e validou a infra (401 → 400, provando que a
+  autenticação OpenAI passa). O teste funcional pós-deploy expôs um SEGUNDO bug,
+  este de CÓDIGO: o classifier envia um JSON Schema malformado para a OpenAI
+  (structured output) e leva 400 Bad Request. Bug latente que o modo
+  "mockable-only" do Epic 2 nunca apanhou — só aparece com a OpenAI real a
+  validar o payload. Causa raiz localizada em classifier.ts:290. Fix é cirúrgico.
+  Item secundário (não-bloqueante): spec de UX de erro da Uma já entregue em
+  docs/ux/jarvis-error-ux-spec.md, a implementar a seguir.
+
+context:
+  what_works_now:
+    - "OPENAI_API_KEY + ANTHROPIC_API_KEY configuradas no Vercel (Production + Preview, Sensitive)"
+    - "Deployment de produção 2fyfepub2 (dpl_BVBRwB1BCwArXBqd8W5TFHXdUMEh) Ready, compute fra1, aliased a expressia-black.vercel.app"
+    - "Autenticação OpenAI confirmada — o erro mudou de 401 Unauthorized para 400 Bad Request"
+    - "Runbook completo: docs/runbooks/vercel-llm-keys-setup.md"
+  what_is_broken:
+    - "/jarvis ainda NÃO funciona end-to-end — qualquer prompt leva 400 da OpenAI no classifier"
+
+bug_primary:
+  title: "Classifier envia JSON Schema malformado à OpenAI — 400 Bad Request"
+  severity: "BLOQUEANTE — /jarvis inoperável em produção"
+  observed_error: >
+    Classifier LLM call failed (j): Provider openai returned 400 (bad request):
+    400 Invalid schema for [REDACTED] '[REDACTED]': schema must be a JSON Schema
+    of 'type: "object"', got 'type: "None"'.
+  location: "packages/classifier/src/classifier.ts:290-306 (método callLlmOnce)"
+  root_cause: >
+    Linha 290: zodToJsonSchema(ClassificationSchema, { name: 'classification',
+    $refStrategy: 'none' }). Passar a opção `name` faz a biblioteca
+    zod-to-json-schema envolver o output em { $ref: '#/definitions/classification',
+    definitions: { classification: {...} } }. O objecto de topo NÃO tem `type`.
+    Esse objecto é passado directamente em response_format.json_schema.schema
+    (linha 304) — a OpenAI exige que o schema de topo seja type:"object" e vê
+    type ausente ("None"), rejeitando com 400.
+  why_not_caught: >
+    Epic 2 inteiro foi desenvolvido mockable-only. O mock do OpenAI client
+    (packages/classifier/src/__fixtures__/mock-openai-client.ts) não valida o
+    schema enviado — devolve sempre uma resposta canned. Só a API real valida o
+    payload. Este é o primeiro contacto do classifier com a OpenAI real.
+  suggested_fix:
+    primary: >
+      Remover a opção `name` do zodToJsonSchema (linha 290-293) — sem `name`,
+      a biblioteca devolve o schema inline com `type: "object"` no topo, que é
+      o que a OpenAI espera. Manter `$refStrategy: 'none'`.
+    alternatives:
+      - "Extrair jsonSchema.definitions.classification antes de passar à OpenAI"
+      - "Usar zodResponseFormat do helper oficial da OpenAI SDK (openai/helpers/zod) — mais robusto, alinha com structured outputs"
+    verify_also: >
+      OpenAI structured outputs com strict:true (linha 303) exige
+      additionalProperties:false em TODOS os objectos aninhados e todos os
+      campos em `required`. Confirmar que ClassificationSchema (schemas.ts)
+      gera isso — se não, pode aparecer um 400 diferente a seguir. Testar com
+      a key real, não só com mock.
+  regression_guard: >
+    O mock atual passa testes mas não apanhou este bug. Recomendação: adicionar
+    um teste que assert o shape do schema enviado (jsonSchema.type === 'object'
+    no topo, sem $ref) — para que o mock deixe de mascarar este tipo de erro.
+  files_likely_touched:
+    - "packages/classifier/src/classifier.ts (fix linha 290)"
+    - "packages/classifier/src/__tests__/classifier.test.ts (teste de regressão do shape)"
+    - "packages/classifier/src/schemas.ts (verificar additionalProperties/required se strict:true falhar a seguir)"
+  env_versions:
+    openai_sdk: "^4.78.1 (apps/web/package.json)"
+    zod: "^3.23.8"
+    zod_to_json_schema: "ver packages/classifier/package.json"
+
+bug_secondary_non_blocking:
+  title: "Erro técnico cru exposto ao utilizador final no /jarvis"
+  severity: "MEDIUM — polish UX, não bloqueia"
+  detail: >
+    O screenshot do erro 400 mostra o problema que a Uma já tinha diagnosticado:
+    jarvis-chat.tsx mostra body.error.message técnico cru ("Classifier LLM call
+    failed (j): Provider openai returned 400...") directamente ao utilizador.
+    Expõe jargão, nome do provider e detalhes internos.
+  artifact: "docs/ux/jarvis-error-ux-spec.md (spec completa da Uma — 12 códigos de erro mapeados a mensagens PT-PT amigáveis + critérios de aceitação + bug QUOTA_EXCEEDED no fallback 429)"
+  recommendation: >
+    Implementar a seguir ao fix do bug primário. Idealmente no mesmo ciclo de
+    trabalho — quando o bug do schema estiver resolvido, o /jarvis vai mostrar
+    OUTRAS coisas (respostas válidas, previews, ou outros erros) e a UX de erro
+    limpa passa a importar de imediato.
+
+quality_gates_reminder:
+  note: >
+    Após o fix, correr os 5 quality gates antes de considerar pronto:
+    pnpm lint / typecheck / test / build / check:rls. O fix toca packages/classifier
+    — garantir que os testes do classifier passam com o novo shape do schema.
+
+baseline_state:
+  branch: "main"
+  origin_ahead: "3 commits (Story 2.9 — d8ed611 sm + bf24f16 po + 6a0e482 dev) NÃO pushed — assunto separado, não toca este bug"
+  working_tree: "alterações não commitadas em docs/marketing/ (não relacionadas) + docs/ux/ + docs/runbooks/ + docs/handoffs/ (esta cascata)"
+  vercel_deploy: "2fyfepub2 Ready em produção com ambas as keys — o fix do classifier precisará de novo deploy (push → Vercel auto-deploy, ou redeploy manual) para chegar a produção"
+
+next_action: >
+  @dev — corrigir o bug do schema do classifier (classifier.ts:290 — remover
+  opção `name` do zodToJsonSchema). Verificar adicionalmente o requisito
+  strict:true (additionalProperties:false + required em todos os objectos do
+  ClassificationSchema). Adicionar teste de regressão do shape do schema.
+  Correr os 5 quality gates. Testar com a key OpenAI REAL (não só mock) —
+  este bug só aparece contra a API real. Depois: implementar a spec de UX de
+  erro docs/ux/jarvis-error-ux-spec.md. Push para produção fica para @devops
+  (autoridade exclusiva) — pode ir junto com os 3 commits Story 2.9 pendentes
+  ou separado, decisão no momento do *pre-push.
+
+rules_inegociaveis:
+  - "@dev NUNCA faz push (autoridade exclusiva @devops Gage)"
+  - "Testar com credenciais reais — o bug é invisível em modo mockable-only"
+  - "5 quality gates GREEN antes de Ready for Review"
+  - "PT-PT estrito em qualquer mensagem nova"
+  - "Constitution Article IV — No Invention: corrigir o bug, não redesenhar o classifier"
+
+consumption_record:
+  consumed_by: "dev (Dex)"
+  consumed_at: "2026-05-14T23:50:00Z"
+  mode: "fix directo (sem story formal — hotfix cirúrgico, recomendado no handoff)"
+  bug_primary_fix:
+    file: "packages/classifier/src/classifier.ts:290-312"
+    change: >
+      Removida a opção `name: 'classification'` do `zodToJsonSchema` — sem
+      `name`, o schema sai inline com `type: 'object'` no topo (já não
+      `{ $ref, definitions }`). Resolve o 400 "got type: None".
+  dev_decision_strict_false:
+    file: "packages/classifier/src/classifier.ts:303"
+    change: "`strict: true` → `strict: false` em response_format.json_schema."
+    rationale: >
+      Análise estática confirmou o aviso do handoff: o `ClassificationSchema`
+      gera `const` (de `z.literal('pt-PT')`), `minItems`/`maxItems` (de
+      `.min(1).max(5)`) e `minimum`/`maximum` (de `.min(0).max(1)`) — keywords
+      que o strict mode da OpenAI rejeita → daria outro 400. Como não há key
+      real disponível para testar localmente e o classifier JÁ valida o output
+      com `ClassificationSchema.safeParse` (classifier.ts:338) + retry 1×
+      (callLlmWithRetry), `strict: false` é a escolha mínima e segura: o schema
+      passa a ser guidance best-effort, a validação rigorosa fica no Zod.
+      Alternativa rejeitada: `zodResponseFormat` de `openai/helpers/zod` —
+      violaria a decisão arquitectural Story 2.4 D9 (`OpenAIClientLike` é
+      abstracção estrutural, sem acoplamento ao SDK).
+    ask_devops: "Informativo — pode ser ratificado por @architect num gate futuro se desejado."
+  secondary_item_done:
+    spec: "docs/ux/jarvis-error-ux-spec.md (spec UX da Uma)"
+    files:
+      - "apps/web/src/app/(app)/jarvis/_components/error-messages.ts (novo) — errorMessageFor() mapeia 12 códigos → mensagens PT-PT"
+      - "apps/web/src/app/(app)/jarvis/_components/jarvis-chat.tsx (mod) — usa errorMessageFor; error.message técnico NUNCA renderizado; 5xx → captureException; ramo 429 unificado (RATE_LIMIT vs QUOTA por code)"
+      - "apps/web/src/app/(app)/jarvis/_components/__tests__/error-messages.test.ts (novo) — 27 tests, 12 códigos + fallback + anti-jargão"
+      - "apps/web/src/app/(app)/jarvis/_components/__tests__/jarvis-chat.test.tsx (mod) — mock @sentry/nextjs + testes QUOTA_EXCEEDED + CLASSIFIER_ERROR (cenário real do bug)"
+  regression_guard_added:
+    file: "packages/classifier/src/__tests__/classifier.test.ts"
+    test: "'schema é inline com type:object no topo — NÃO {$ref,definitions}' — assert directo do shape do payload; fecha o gap que o mock mascarava."
+  quality_gates:
+    lint: "9/9 PASS, 0 warnings"
+    typecheck: "9/9 PASS"
+    test: "classifier 79/79 PASS · web 229/229 PASS (baseline 200 + 27 error-messages + 2 jarvis-chat) · db-test ENV-BLOCKER Docker offline — CI rls-gate cobre (precedente Stories 2.8/2.9)"
+    build: "9/9 PASS, 14 routes"
+    check_rls: "EXIT 0, NFR5 preservada (zero tabelas tocadas)"
+  not_validated_e2e: >
+    A validação E2E com a key OpenAI real NÃO foi feita por @dev (a key é
+    secret, não está no ambiente local). O @devops/Eurico deve validar no
+    browser após o push + deploy: prompt simples no /jarvis não deve dar 400.
+  coderabbit: "SKIPPED — consistente com precedente Stories 2.2-2.9 (D12/D14/D22/D26/D33/D42). Hotfix cirúrgico urgente. @devops pode correr no *pre-push se desejar."
+  successor_handoff: "mj-handoff-jarvis-fix-ready-for-devops-20260514.yaml (dev → devops *pre-push)"
