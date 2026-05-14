@@ -20,7 +20,8 @@
  *  12. cancelar_ultima intent → classificado correctamente
  *  13. retry recupera output error → segunda call passa
  *  14. content vazio → ClassifierOutputError
- *  15. payload OpenAI tem response_format json_schema strict
+ *  15. payload OpenAI tem response_format json_schema (strict: false — DEV-DECISION)
+ *  16. schema enviado é inline (type:object) — não {$ref,definitions} [regressão bug 14/05]
  */
 import { describe, expect, it } from 'vitest';
 
@@ -313,7 +314,7 @@ describe('Classifier — retry behavior', () => {
 });
 
 describe('Classifier — payload OpenAI', () => {
-  it('inclui response_format.json_schema strict + system prompt no início', async () => {
+  it('inclui response_format.json_schema + system prompt no início', async () => {
     const { client, getLastPayload } = createMockOpenAIClient({
       type: 'success',
       result: buildValidResult(),
@@ -330,12 +331,42 @@ describe('Classifier — payload OpenAI', () => {
     const responseFormat = payload?.['response_format'] as Record<string, unknown> | undefined;
     expect(responseFormat?.['type']).toBe('json_schema');
     const jsonSchema = responseFormat?.['json_schema'] as Record<string, unknown> | undefined;
-    expect(jsonSchema?.['strict']).toBe(true);
+    // `strict: false` — ver [DEV-DECISION 14/05/2026] em classifier.ts: o strict
+    // mode da OpenAI rejeita keywords que o ClassificationSchema gera (`const`,
+    // `minItems`/`maxItems`, `minimum`/`maximum`). Validação rigorosa do output
+    // fica garantida por ClassificationSchema.safeParse + retry 1×.
+    expect(jsonSchema?.['strict']).toBe(false);
     expect(jsonSchema?.['name']).toBe('classification');
 
     const messages = payload?.['messages'] as Array<{ role: string; content: string }> | undefined;
     expect(messages?.[0]?.role).toBe('system');
     expect(messages?.[1]?.role).toBe('user');
     expect(messages?.[1]?.content).toBe(VALID_INPUT.text);
+  });
+
+  it('schema é inline com type:"object" no topo — NÃO {$ref,definitions} [regressão bug 14/05/2026]', async () => {
+    // Bug de produção 14/05/2026: passar `name` ao `zodToJsonSchema` envolvia o
+    // schema em `{ $ref: '#/definitions/classification', definitions: {...} }`
+    // — o objecto de topo ficava sem `type` e a OpenAI real rejeitava com 400
+    // ("schema must be a JSON Schema of 'type: object', got 'type: None'").
+    // O mock não validava o schema, por isso o bug só aparecia em produção.
+    // Este teste fecha esse gap — assert directo sobre o shape do payload.
+    const { client, getLastPayload } = createMockOpenAIClient({
+      type: 'success',
+      result: buildValidResult(),
+    });
+    const classifier = new Classifier(client);
+    await classifier.classify(VALID_INPUT);
+
+    const payload = getLastPayload();
+    const responseFormat = payload?.['response_format'] as Record<string, unknown> | undefined;
+    const jsonSchema = responseFormat?.['json_schema'] as Record<string, unknown> | undefined;
+    const schema = jsonSchema?.['schema'] as Record<string, unknown> | undefined;
+
+    expect(schema).toBeDefined();
+    expect(schema?.['type']).toBe('object');
+    expect(schema?.['$ref']).toBeUndefined();
+    expect(schema?.['definitions']).toBeUndefined();
+    expect(schema?.['properties']).toBeDefined();
   });
 });

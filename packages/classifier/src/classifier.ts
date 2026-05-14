@@ -287,8 +287,12 @@ export class Classifier {
   private async callLlmOnce(
     text: string,
   ): Promise<{ result: ClassificationResult; tokensInput: number; tokensOutput: number }> {
+    // `zodToJsonSchema` SEM a opção `name`: com `name`, a biblioteca envolve o
+    // resultado em `{ $ref, definitions }` — o objecto de topo fica sem `type` e
+    // a OpenAI rejeita com 400 ("schema must be ... 'type: object', got
+    // 'type: None'"). Sem `name`, o schema sai inline com `type: 'object'` no
+    // topo, que é o que `response_format.json_schema.schema` exige.
     const jsonSchema = zodToJsonSchema(ClassificationSchema, {
-      name: 'classification',
       $refStrategy: 'none',
     });
 
@@ -300,7 +304,14 @@ export class Classifier {
         type: 'json_schema',
         json_schema: {
           name: 'classification',
-          strict: true,
+          // `strict: false` — o subconjunto de JSON Schema do strict mode da
+          // OpenAI não aceita várias keywords que o `ClassificationSchema`
+          // gera: `const` (de `z.literal('pt-PT')`), `minItems`/`maxItems`
+          // (de `.min(1).max(5)`) e `minimum`/`maximum` (de `.min(0).max(1)`).
+          // Com `strict: false` o schema é guidance best-effort; a validação
+          // rigorosa do output fica garantida por `ClassificationSchema.safeParse`
+          // (abaixo) + retry 1× em `callLlmWithRetry`. [DEV-DECISION 14/05/2026]
+          strict: false,
           schema: jsonSchema,
         },
       },
