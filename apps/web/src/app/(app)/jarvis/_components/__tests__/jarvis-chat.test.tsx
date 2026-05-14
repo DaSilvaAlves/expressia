@@ -1,23 +1,30 @@
 /**
  * Tests UI — `JarvisChat` (Story 2.7 T6 + AC6/AC7/AC9).
  *
- * Cobertura ≥6 tests: render initial state, submit success → executed,
- * submit → preview → confirm → result, error 401 → redirect /entrar,
- * error 429 → mensagem PT-PT com retry seconds, error 5xx → mensagem genérica.
+ * Cobertura: render initial state, submit success → executed, submit →
+ * preview → confirm → result, error 401 → redirect /entrar, erros 4xx/5xx →
+ * mensagem PT-PT amigável via `errorMessageFor` (o `error.message` técnico
+ * nunca é renderizado — docs/ux/jarvis-error-ux-spec.md), 5xx → captureException.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 const pushMock = vi.fn();
+const captureExceptionMock = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: pushMock }),
+}));
+
+vi.mock('@sentry/nextjs', () => ({
+  captureException: (...args: unknown[]) => captureExceptionMock(...args),
 }));
 
 import { JarvisChat } from '@/app/(app)/jarvis/_components/jarvis-chat';
 
 beforeEach(() => {
   pushMock.mockReset();
+  captureExceptionMock.mockReset();
   global.fetch = vi.fn();
 });
 
@@ -128,29 +135,78 @@ describe('<JarvisChat />', () => {
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/entrar'));
   });
 
-  it('error 429 → mensagem PT-PT "Excedeste o limite"', async () => {
+  it('error 429 RATE_LIMIT_EXCEEDED → mensagem PT-PT com retry seconds', async () => {
     setFetchResponse(false, 429, {
       error: {
         code: 'RATE_LIMIT_EXCEEDED',
-        message: 'Rate limit',
+        message: 'Rate limit exceeded — internal detail',
         details: { retry_after_seconds: 30 },
       },
     });
     render(<JarvisChat />);
     await submitPrompt('oi');
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/excedeste o limite/i),
+      expect(screen.getByRole('alert')).toHaveTextContent(/depressa demais/i),
     );
     expect(screen.getByRole('alert')).toHaveTextContent(/30 segundos/);
+    // O `message` técnico do servidor nunca é renderizado.
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/internal detail/i);
   });
 
-  it('error 5xx → mensagem genérica PT-PT', async () => {
-    setFetchResponse(false, 500, { error: { message: 'Erro interno.' } });
+  it('error 429 QUOTA_EXCEEDED → janela mensal, NÃO "60 segundos"', async () => {
+    setFetchResponse(false, 429, {
+      error: {
+        code: 'QUOTA_EXCEEDED',
+        message: 'Quota exceeded',
+        details: { plan: 'familia', period_end: '2026-06-15T12:00:00.000Z' },
+      },
+    });
     render(<JarvisChat />);
     await submitPrompt('oi');
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/erro interno|temporário/i),
+      expect(screen.getByRole('alert')).toHaveTextContent(/limite de pedidos/i),
     );
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(/familia/);
+    expect(alert).not.toHaveTextContent(/60 segundos/);
+  });
+
+  it('error 400 CLASSIFIER_ERROR → mensagem amigável, jargão técnico NUNCA no ecrã', async () => {
+    // Cenário real do bug 14/05/2026: o backend devolvia
+    // "Classifier LLM call failed (j): Provider openai returned 400 ..." como
+    // error.message — e o frontend mostrava-o cru ao utilizador final.
+    setFetchResponse(false, 400, {
+      error: {
+        code: 'CLASSIFIER_ERROR',
+        message: 'Classifier LLM call failed (j): Provider openai returned 400 (bad request)',
+      },
+    });
+    render(<JarvisChat />);
+    await submitPrompt('olá');
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/reformular/i),
+    );
+    const alert = screen.getByRole('alert');
+    expect(alert).not.toHaveTextContent(/classifier/i);
+    expect(alert).not.toHaveTextContent(/provider/i);
+    expect(alert).not.toHaveTextContent(/openai/i);
+    // 400 não é 5xx → não vai para Sentry.
+    expect(captureExceptionMock).not.toHaveBeenCalled();
+  });
+
+  it('error 5xx → mensagem genérica PT-PT + captureException, sem message técnico', async () => {
+    setFetchResponse(false, 500, {
+      error: { code: 'INTERNAL_ERROR', message: 'Classifier crashed — stack trace internal' },
+    });
+    render(<JarvisChat />);
+    await submitPrompt('oi');
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/nosso lado|temporário/i),
+    );
+    // O `message` técnico cru NUNCA chega ao ecrã (spec §2).
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/stack trace/i);
+    // 5xx → capturado em Sentry para diagnóstico.
+    expect(captureExceptionMock).toHaveBeenCalledTimes(1);
   });
 
   it('fetch network error → mensagem genérica PT-PT', async () => {

@@ -3,7 +3,13 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { captureException } from '@sentry/nextjs';
+
 import { ChatInput } from '@/app/(app)/jarvis/_components/chat-input';
+import {
+  errorMessageFor,
+  type ErrorDetails,
+} from '@/app/(app)/jarvis/_components/error-messages';
 import { PreviewCard, type ConfirmPayload } from '@/app/(app)/jarvis/_components/preview-card';
 import { ResultMessage } from '@/app/(app)/jarvis/_components/result-message';
 
@@ -111,26 +117,28 @@ export function JarvisChat(): React.ReactElement {
           return;
         }
 
-        if (res.status === 429) {
-          const body = (await res.json().catch(() => ({}))) as {
-            error?: { details?: { retry_after_seconds?: number } };
-          };
-          const retry = body.error?.details?.retry_after_seconds ?? 60;
-          appendMessage({
-            kind: 'error',
-            id: makeId(),
-            text: `Excedeste o limite. Tenta de novo em ${retry} segundos.`,
-          });
-          return;
-        }
-
         if (!res.ok) {
-          // 4xx (não 401/429) ou 5xx — mensagem PT-PT genérica.
-          const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+          // Qualquer 4xx/5xx (excepto 401, tratado acima). O `error.code` decide
+          // a mensagem PT-PT amigável via `errorMessageFor`; o `error.message`
+          // técnico do servidor NUNCA é renderizado — em 5xx vai para Sentry.
+          // Cobre 429 (RATE_LIMIT_EXCEEDED + QUOTA_EXCEEDED distinguidos por code).
+          // Trace: docs/ux/jarvis-error-ux-spec.md.
+          const body = (await res.json().catch(() => ({}))) as {
+            error?: { code?: string; message?: string; details?: ErrorDetails };
+          };
+          if (res.status >= 500) {
+            captureException(
+              new Error(body.error?.message ?? `Jarvis prompt failed (HTTP ${res.status})`),
+              {
+                tags: { 'http.route': '/api/agent/prompt' },
+                extra: { http_status: res.status, error_code: body.error?.code ?? 'UNKNOWN' },
+              },
+            );
+          }
           appendMessage({
             kind: 'error',
             id: makeId(),
-            text: body.error?.message ?? 'Erro temporário. Tenta de novo.',
+            text: errorMessageFor(body.error?.code, body.error?.details),
           });
           return;
         }
