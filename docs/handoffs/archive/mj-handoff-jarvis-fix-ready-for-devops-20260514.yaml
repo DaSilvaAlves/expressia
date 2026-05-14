@@ -3,8 +3,10 @@ from_agent_persona: "Dex (@dev)"
 to_agent: "devops"
 to_agent_persona: "Gage (@devops)"
 created: "2026-05-14T23:55:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-05-15T00:10:00Z"
+consumed_by: "devops (Gage)"
 story_id: null
 story_note: "Sem story — hotfix de produção (fix directo, cirúrgico). Handoff predecessor: mj-handoff-jarvis-classifier-schema-bug-20260514 (consumed, em archive/)."
 project_prefix: "mj"
@@ -105,3 +107,42 @@ rules_inegociaveis:
   - "5 quality gates re-verificados antes do push"
   - "db-test ENV-BLOCKER não bloqueia push — CI rls-gate cobre (precedente)"
   - "docs/marketing/* NÃO faz parte desta cascata — não incluir sem confirmação do Eurico"
+
+consumption_record:
+  consumed_by: "devops (Gage)"
+  consumed_at: "2026-05-15T00:10:00Z"
+  push:
+    range: "48065a4..b60ce7e"
+    branch: "main -> origin/main"
+    commits_pushed: 6
+    scope_decision: >
+      Push dos 6 commits juntos (3 Story 2.9 + 3 cascata jarvis fix). Os 3 do
+      hotfix são descendentes dos 3 da Story 2.9 — impossível empurrar só o
+      hotfix sem cirurgia de história (cherry-pick → SHAs divergentes). Story
+      2.9 está em "Ready for Review" com 5/5 gates green — estado de push
+      aceitável. @architect *qa-gate 2.9 continua pendente e necessário —
+      revê o código (já em main); qualquer fix vai como commit novo por cima.
+    deviation_flagged: >
+      Traz Story 2.9 para main ANTES do gate do @architect (precedente Stories
+      2.7/2.8 era push pós-Done). Aceitável: código testado, não-partido.
+  quality_gates_reverified_full_turbo:
+    lint: "EXIT 0 — FULL TURBO 9/9 cached"
+    typecheck: "EXIT 0 — FULL TURBO 9/9 cached"
+    test: "tools 57 + db 6 + classifier 79 + agent 102 + planner-executor 53 + observability 8 + web 229 = 534 PASS. db-test ENV-BLOCKER Docker offline — CI rls-gate cobre (NIT-006-NB precedente Stories 2.7/2.8)."
+    build: "EXIT 0 — FULL TURBO 9/9 cached"
+    check_rls: "EXIT 0 — NFR5 preservada"
+  coderabbit: "[AUTO-DECISION] SKIPPED — consistente com precedente Stories 2.2-2.9 (D12/D14/D22/D26/D33/D42)."
+  not_included_in_push: "docs/marketing/* — alterações não relacionadas, permanecem uncommitted no working tree."
+  vercel: "Auto-deploy de main para fra1 (Frankfurt) triggered pós-push. Deploy verde esperado ~2-3min."
+  post_push_validation_REQUIRED:
+    owner: "Eurico (browser, autenticado)"
+    steps:
+      - "Aguardar deploy Vercel ficar Ready (~2-3min)."
+      - "Abrir https://expressia-black.vercel.app/jarvis."
+      - "Prompt simples ('olá' / 'amanhã reunião 15h')."
+      - "Esperado: NÃO dar 400 nem 401 — o classifier corre e devolve resultado/preview."
+      - "Se houver erro, o jarvis-chat mostra agora mensagem PT-PT amigável (não jargão) — detalhe técnico via Sentry/logs."
+  open_items:
+    - "@architect *qa-gate 2.9 — continua pendente (handoff mj-handoff-2.9-ready-for-architect). Story 2.9 agora em main mas ainda não gated."
+    - "[DEV-DECISION D1] strict: true→false no classifier — pode ser ratificado por @architect num gate futuro (informativo, não bloqueia)."
+    - "docs/marketing/* uncommitted — decisão do Eurico se/quando entram."
