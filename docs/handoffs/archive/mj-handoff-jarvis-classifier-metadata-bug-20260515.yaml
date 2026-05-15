@@ -3,8 +3,10 @@ from_agent_persona: "Gage (@devops)"
 to_agent: "dev"
 to_agent_persona: "Dex (@dev)"
 created: "2026-05-15T01:00:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-05-15T02:15:00Z"
+consumed_by: dev
 story_id: null
 story_note: "Sem story — terceiro bug em fila do hotfix /jarvis. Predecessor: mj-handoff-jarvis-fix-ready-for-devops-20260514 (consumed, em archive/)."
 project_prefix: "mj"
@@ -136,3 +138,34 @@ rules_inegociaveis:
   - "NÃO usar store:true para resolver o metadata — viola NFR12 PII + data residency UE"
   - "5 quality gates GREEN antes de Ready for Review"
   - "Constitution Article IV — No Invention: remover o campo, não redesenhar o classifier"
+
+consumption_record:
+  consumed_by: dev
+  consumed_at: "2026-05-15T02:15:00Z"
+  commit_local: "32ac564"
+  commit_subject: "fix(classifier): remover metadata do payload OpenAI — hotfix cascata /jarvis"
+  files_changed:
+    - "packages/classifier/src/classifier.ts — removido campo `metadata` do payload em callLlmOnce; removido import não-usado de CLASSIFIER_SYSTEM_PROMPT_VERSION (continua re-exportado via index.ts:62); comentário explicativo NFR12 + DEV-DECISION 15/05/2026 adicionado"
+    - "apps/web/src/app/api/agent/prompt/route.ts — handleClassifierError + handlePlannerExecutorError agora logam `error_code` + `err_message` em vez de `err.constructor.name` minificado"
+  bug_primary_fix: "Campo `metadata` removido do payload. NÃO foi adicionado `store: true` (regra inegociável NFR12). Teste classifier.test.ts NÃO assertava `metadata` — sem ajuste necessário."
+  bug_observability_fix: "Aplicado no mesmo ciclo. 4 sítios corrigidos (1 em handleClassifierError, 3 em handlePlannerExecutorError — ToolPlanGateError/ExecutorValidationError/PlannerError/ToolError). ExecutorValidationError não logava nada — agora loga. Verificado nos logs dos testes web: `error_code` e `err_message` visíveis."
+  full_payload_review:
+    verdict: "Sem 4º bug latente."
+    detail: >
+      Payload de callLlmOnce revisto contra OpenAI SDK v4.104.0 (versão resolvida
+      no pnpm-lock). Após remover `metadata`, o payload tem apenas model /
+      temperature / max_tokens / response_format / messages. model+messages
+      obrigatórios OK; temperature range 0-2 OK; response_format json_schema
+      aceite (Shared.ResponseFormatJSONSchema); max_tokens está @deprecated no SDK
+      em favor de max_completion_tokens MAS continua aceite para gpt-4o-mini
+      (modelo não-o-series) — não causa 400, é apenas aviso de deprecation. Não
+      tocado: trocar para max_completion_tokens seria mudança fora do scope do
+      hotfix (Article IV — No Invention) e o handoff confirmou explicitamente que
+      max_tokens é aceite para gpt-4o-mini.
+  quality_gates:
+    lint: "GREEN — pnpm lint 9/9, 'No ESLint warnings or errors'"
+    typecheck: "GREEN — pnpm typecheck 9/9"
+    test: "GREEN — classifier 79/79, web 229/229, todos os packages; db-test ENV-BLOCKED (Docker offline — CI rls-gate cobre, confirmado no handoff)"
+    build: "GREEN — pnpm build 9/9 (warnings de output em packages source-only são pré-existentes, não-fatais)"
+    check_rls: "GREEN — 'Todas as tabelas multi-tenant têm coverage completa'"
+  next_action: "@devops *pre-push + *push do commit 32ac564. Depois Eurico valida E2E no /jarvis com key OpenAI real."
