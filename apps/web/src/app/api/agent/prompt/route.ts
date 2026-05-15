@@ -603,7 +603,13 @@ async function handleClassifierError(
       },
       db,
     );
-    log.warn({ err_class: err.constructor.name }, 'Classifier error');
+    // `err.constructor.name` é minificado em produção (ex. "p") — inútil para
+    // diagnóstico. Logar `error_code` + `err.message` (do ClassifierLLMError já
+    // vem do ProviderError redacted — [REDACTED] visível, seguro para log).
+    log.warn(
+      { error_code: 'CLASSIFIER_ERROR', err_message: err.message },
+      'Classifier error',
+    );
     captureException(err, { ...sentrySafeContext({ route: ROUTE, householdId, runId }) });
     span.setAttribute('agent.prompt.status_code', 400);
     return apiError('CLASSIFIER_ERROR', err.message, 400, { run_id: runId });
@@ -645,29 +651,45 @@ async function handlePlannerExecutorError(
       db,
     );
 
+  // NOTA: logar `error_code` + `err.message` (não `err.constructor.name`, que
+  // o build de produção minifica para nomes inúteis tipo "p"). As mensagens
+  // destes errors já são seguras para log (sem PII crua).
   if (err instanceof ToolPlanGateError) {
     await failUpdate('TOOL_PLAN_GATE_ERROR', err.message);
-    log.warn({ err_class: 'ToolPlanGateError' }, 'Tool plan gate rejeitou plan');
+    log.warn(
+      { error_code: 'TOOL_PLAN_GATE_ERROR', err_message: err.message },
+      'Tool plan gate rejeitou plan',
+    );
     captureException(err, { ...sentrySafeContext({ route: ROUTE, householdId, runId }) });
     span.setAttribute('agent.prompt.status_code', 400);
     return apiError('TOOL_PLAN_GATE_ERROR', err.message, 400, { run_id: runId });
   }
   if (err instanceof ExecutorValidationError) {
     await failUpdate('EXECUTOR_VALIDATION_ERROR', err.message);
+    log.warn(
+      { error_code: 'EXECUTOR_VALIDATION_ERROR', err_message: err.message },
+      'Executor validation error',
+    );
     captureException(err, { ...sentrySafeContext({ route: ROUTE, householdId, runId }) });
     span.setAttribute('agent.prompt.status_code', 400);
     return apiError('EXECUTOR_VALIDATION_ERROR', err.message, 400, { run_id: runId });
   }
   if (err instanceof PlannerError) {
     await failUpdate('PLANNER_ERROR', err.message);
-    log.warn({ err_class: err.constructor.name }, 'Planner error');
+    log.warn(
+      { error_code: 'PLANNER_ERROR', err_message: err.message },
+      'Planner error',
+    );
     captureException(err, { ...sentrySafeContext({ route: ROUTE, householdId, runId }) });
     span.setAttribute('agent.prompt.status_code', 400);
     return apiError('PLANNER_ERROR', err.message, 400, { run_id: runId });
   }
   if (err instanceof ToolError) {
     await failUpdate('TOOL_EXECUTION_ERROR', err.message);
-    log.error({ err_class: err.constructor.name }, 'Tool execution error');
+    log.error(
+      { error_code: 'TOOL_EXECUTION_ERROR', err_message: err.message },
+      'Tool execution error',
+    );
     captureException(err, { ...sentrySafeContext({ route: ROUTE, householdId, runId }) });
     span.setAttribute('agent.prompt.status_code', 500);
     return apiError('TOOL_EXECUTION_ERROR', err.message, 500, { run_id: runId });

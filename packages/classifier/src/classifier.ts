@@ -53,10 +53,7 @@ import {
   ClassifierValidationError,
 } from './errors';
 import { detectNonPtPt } from './language-gate';
-import {
-  CLASSIFIER_SYSTEM_PROMPT,
-  CLASSIFIER_SYSTEM_PROMPT_VERSION,
-} from './prompts/classifier-system';
+import { CLASSIFIER_SYSTEM_PROMPT } from './prompts/classifier-system';
 import { annotateClassifierMetrics, withClassifierSpan } from './tracing';
 
 /**
@@ -319,10 +316,14 @@ export class Classifier {
         { role: 'system', content: CLASSIFIER_SYSTEM_PROMPT },
         { role: 'user', content: text },
       ],
-      // Tagging interno para correlação Sentry/OTel — NÃO contém PII.
-      metadata: {
-        prompt_version: CLASSIFIER_SYSTEM_PROMPT_VERSION,
-      },
+      // NOTA: NÃO enviar `metadata` no payload. A OpenAI Chat Completions API
+      // só aceita `metadata` quando `store: true` está presente — e `store: true`
+      // faria a OpenAI armazenar a completion (incluindo o prompt do utilizador
+      // com PII — nomes, valores, NIF) durante 30 dias, violando NFR12 (zero PII
+      // em terceiros) e a data residency UE do projecto. A correlação por
+      // `CLASSIFIER_SYSTEM_PROMPT_VERSION` continua garantida via OTel span
+      // (annotateClassifierMetrics) e logs Pino. [DEV-DECISION 15/05/2026 —
+      // hotfix cascata /jarvis: bug "metadata sem store:true" → OpenAI 400.]
     };
 
     let raw: unknown;
