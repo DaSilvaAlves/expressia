@@ -1,0 +1,138 @@
+from_agent: "devops"
+from_agent_persona: "Gage (@devops)"
+to_agent: "dev"
+to_agent_persona: "Dex (@dev)"
+created: "2026-05-15T01:00:00Z"
+status: pending
+consumed: false
+story_id: null
+story_note: "Sem story — terceiro bug em fila do hotfix /jarvis. Predecessor: mj-handoff-jarvis-fix-ready-for-devops-20260514 (consumed, em archive/)."
+project_prefix: "mj"
+priority: "high"
+
+summary: >
+  O fix do @dev (remover `name` do zodToJsonSchema) FUNCIONOU — o erro do schema
+  desapareceu. Mas a validação E2E pós-deploy revelou um TERCEIRO bug em fila:
+  o classifier envia `metadata: { prompt_version }` no payload da OpenAI Chat
+  Completions, e a API exige `store: true` para aceitar `metadata` → 400.
+  Diagnóstico DEFINITIVO obtido via logs Vercel (streaming) + query read-only à
+  tabela agent_runs. O /jarvis continua inoperável até este fix. Fix trivial:
+  remover o campo `metadata` do payload (NÃO adicionar store:true — ver abaixo).
+
+bug_diagnosis_definitive:
+  how_diagnosed: >
+    1. Logs Vercel (vercel logs streaming) mostraram `err_class: "p"` (minificado
+       — inútil) + `msg: "Classifier error"` + run_id. 2. Query read-only
+       SELECT error_message FROM agent_runs WHERE id = run_id revelou a mensagem
+       técnica real (que o route.ts NÃO loga — ver bug_observability abaixo).
+  error_queue_full_history:
+    - run: "994227ec (2026-05-14 18:45)"
+      error: "Provider openai returned 401"
+      status: "RESOLVIDO — @devops configurou OPENAI_API_KEY/ANTHROPIC_API_KEY no Vercel"
+    - run: "646f5f4c (2026-05-14 22:12)"
+      error: "Invalid schema ... schema must be a JSON Schema of 'type: object', got 'type: None'"
+      status: "RESOLVIDO — @dev removeu opção `name` do zodToJsonSchema"
+    - run: "0607a99e (2026-05-15 00:51) — prompt de validação E2E do Eurico"
+      error: "Classifier LLM call failed (j): Provider openai returned 400 (bad request): 400 The 'metadata' parameter is only allowed when 'store' is enabled."
+      status: "POR RESOLVER — este handoff"
+  confirmation: >
+    Os 3 runs failed mais recentes (b66699f4, 823f160b, 0607a99e) mostram TODOS
+    o erro do `metadata`. O erro do schema (type:None) só aparece no run mais
+    antigo (646f5f4c) — confirma que o fix do @dev resolveu o schema e expôs o
+    bug seguinte.
+
+bug_primary:
+  title: "Payload do classifier envia `metadata` sem `store: true` → OpenAI 400"
+  severity: "BLOQUEANTE — /jarvis inoperável em produção"
+  exact_error: "400 The 'metadata' parameter is only allowed when 'store' is enabled."
+  location: "packages/classifier/src/classifier.ts — método callLlmOnce, objecto `payload` (campo `metadata`, ~linhas 312-314)"
+  current_code: |
+    const payload = {
+      model: CLASSIFIER_MODEL,
+      temperature: 0,
+      max_tokens: 256,
+      response_format: { ... },
+      messages: [ ... ],
+      metadata: {
+        prompt_version: CLASSIFIER_SYSTEM_PROMPT_VERSION,
+      },
+    };
+  root_cause: >
+    A OpenAI Chat Completions API só aceita o parâmetro `metadata` quando
+    `store: true` também está presente. O payload tem `metadata` mas não `store`
+    → 400 Bad Request.
+  recommended_fix:
+    action: "REMOVER o campo `metadata` do objecto `payload`."
+    why_not_store_true: >
+      NÃO adicionar `store: true`. Isso faria a OpenAI ARMAZENAR a completion
+      (incluindo o prompt do utilizador, que contém PII — nomes, valores, NIF)
+      durante 30 dias nos servidores da OpenAI. Viola NFR12 (PII redaction /
+      zero PII em terceiros) e o princípio de data residency UE do projecto
+      (Vercel fra1 + Supabase eu-central-1). O classifier recebe `input.text`
+      cru do utilizador no `messages` — store:true exporia isso.
+    why_remove_is_safe: >
+      O `metadata` só carregava `prompt_version` para correlação. O
+      `CLASSIFIER_SYSTEM_PROMPT_VERSION` já é registado no OTel span
+      (annotateClassifierMetrics) e disponível para os logs Pino — a correlação
+      Sentry/OTel não se perde. Remover o campo é zero-impacto funcional.
+  files_likely_touched:
+    - "packages/classifier/src/classifier.ts (remover campo metadata do payload)"
+    - "packages/classifier/src/__tests__/classifier.test.ts (o teste 'inclui response_format.json_schema' faz assert do payload — verificar se asserta `metadata`; ajustar se sim)"
+
+bug_observability_collateral:
+  title: "route.ts:handleClassifierError loga err_class minificado, não err.message"
+  severity: "MEDIUM — não bloqueia, mas dificulta diagnóstico de produção"
+  detail: >
+    `apps/web/src/app/api/agent/prompt/route.ts` — handleClassifierError faz
+    `log.warn({ err_class: err.constructor.name }, 'Classifier error')`. Em
+    produção o build do Next.js MINIFICA os nomes de classe → `err.constructor.name`
+    vem como `"p"`, inútil. E o `err.message` (que tem a causa real) NÃO é logado
+    — só vai para o Sentry e para a coluna agent_runs.error_message. Resultado:
+    diagnosticar um erro de produção exigiu query manual ao DB.
+  recommended_fix: >
+    Logar `err.message` (ou pelo menos o `error_code` já mapeado, ex.
+    'CLASSIFIER_ERROR') no `log.warn`/`log.error` de handleClassifierError E
+    handlePlannerExecutorError. O Sentry já recebe o err completo; o log
+    estruturado Pino devia ter pelo menos a mensagem para correlação rápida.
+    NOTA PII: `err.message` do ClassifierLLMError vem do ProviderError já
+    redacted ([REDACTED] visível na mensagem) — seguro para log.
+  scope_note: >
+    Opcional neste ciclo — pode ir junto com o fix do metadata (mesmo PR mental)
+    ou ser deferido. Recomendação: incluir, é 1-2 linhas e poupa o próximo
+    diagnóstico.
+
+strong_recommendation:
+  review_full_payload: >
+    O padrão desta cascata foi "um bug de payload de cada vez revelado" (401 →
+    schema → metadata). Para NÃO haver um 4º bug, @dev deve rever o payload
+    COMPLETO do callLlmOnce contra a spec actual da OpenAI Chat Completions API
+    — campos: model, temperature, max_tokens, response_format, messages. O
+    `max_tokens` para gpt-4o-mini ainda é aceite (não precisa de
+    max_completion_tokens). O `response_format` já está corrigido. Mas confirmar
+    tudo de uma vez evita mais uma ronda.
+  e2e_validation: >
+    Se possível, testar com a key OpenAI real antes de marcar pronto. Se não for
+    possível (key é secret), o @devops/Eurico valida E2E logo após o deploy —
+    mas avisar que pode haver mais um bug em fila.
+
+quality_gates_reminder: "5 gates antes de Ready: lint / typecheck / test / build / check:rls. db-test ENV-BLOCKER Docker offline — CI rls-gate cobre."
+
+baseline_state:
+  branch: "main"
+  origin_sync: "main alinhado com origin/main (push da cascata anterior completo — 48065a4..5f5d96f)"
+  working_tree: "docs/marketing/* uncommitted (não relacionado). Script de diagnóstico _diag-query.mjs criado e APAGADO por @devops — não deixou rasto."
+  production: "Deployment da3flv214 Ready em fra1 — tem o fix do schema (@dev) mas ainda falha no metadata."
+
+next_action: >
+  @dev — remover o campo `metadata` do payload em classifier.ts (callLlmOnce).
+  Ajustar o teste do payload se assertar `metadata`. Recomendado: também
+  corrigir o log de handleClassifierError em route.ts para logar err.message/
+  error_code (bug de observabilidade). Rever o payload completo contra a OpenAI
+  API. Correr os 5 quality gates. Commit local. Depois @devops *pre-push +
+  *push. Eurico valida E2E no /jarvis.
+
+rules_inegociaveis:
+  - "@dev NUNCA faz push (autoridade exclusiva @devops Gage)"
+  - "NÃO usar store:true para resolver o metadata — viola NFR12 PII + data residency UE"
+  - "5 quality gates GREEN antes de Ready for Review"
+  - "Constitution Article IV — No Invention: remover o campo, não redesenhar o classifier"
