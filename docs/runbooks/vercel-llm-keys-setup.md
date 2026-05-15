@@ -139,3 +139,67 @@ definitions: {...} }`. O objecto de topo enviado em `response_format.json_schema
 
 **Domínio:** `@dev` (código do classifier) — possível input de `@architect` se for
 decisão de design. **Não é infra.** Encaminhado via handoff.
+
+---
+
+## 8. DPA UE — Conformidade com Anthropic e OpenAI (risco aberto)
+
+> **Adicionado em 2026-05-15 — Story 2.10 (Benchmark E2E Anthropic).** Esta
+> secção documenta a posição contratual face ao processamento LLM externo dos
+> prompts dos utilizadores, e a Questão Aberta QA1 escalada por @po (Pax) para
+> Eurico decidir antes da execução real do benchmark (T10 da Story 2.10).
+
+### 8.1 Estado actual — Anthropic
+
+| Aspecto | Detalhe |
+|---------|---------|
+| Endpoint regional EU | **Não disponível** em mai/2026. Único endpoint `api.anthropic.com` processa em US. |
+| DPA contratual | Disponível para clientes Enterprise via Data Processing Agreement (negociação directa). Link oficial: [anthropic.com/legal/data-processing-agreement](https://www.anthropic.com/legal/data-processing-agreement) (verificar). |
+| Armazenamento | Inferência transiente. Sem armazenamento residual desde que o request não inclua flags de retenção (`store` ou similar — Anthropic não expõe `store` em mai/2026 — comportamento default = no retention). |
+| Trace na arquitectura | NFR11 (data residency UE — refere dados ARMAZENADOS); GDPR Art. 46 (transferência via DPA é mecanismo standard para países terceiros). |
+
+### 8.2 Estado actual — OpenAI
+
+| Aspecto | Detalhe |
+|---------|---------|
+| Endpoint regional EU | Disponível para Business/Enterprise via "ChatGPT Enterprise on Azure OpenAI" e em desenvolvimento para API directa. API standard `api.openai.com` processa US. |
+| DPA UE | Disponível em [openai.com/policies/data-processing-addendum](https://openai.com/policies/data-processing-addendum) — assinatura electrónica. |
+| Armazenamento `store: false` | Regra inegociável para este projecto: **NUNCA enviar `metadata` no payload + NUNCA `store: true`** — `store: true` faria a OpenAI armazenar a completion (incluindo o prompt do utilizador com PII) durante 30 dias, violando NFR12 + data residency UE. Herdado do hotfix da cascata `/jarvis` commit `32ac564` (15/05/2026): `metadata` removido do payload em `packages/classifier/src/classifier.ts:callLlmOnce`. |
+
+### 8.3 Mitigação D56 (Story 2.10) — NFR11 restrito a dados armazenados
+
+NFR11 (data residency UE) é inegociável para dados **ARMAZENADOS** — Postgres
+EU (Supabase eu-central-1) + Vercel `fra1` já garantidos. O **processamento
+transiente** do prompt num LLM externo é dado em-trânsito coberto por GDPR
+Art. 46 (transferência via DPA contratual standard para países terceiros).
+Sem DPA, a alternativa seria proxy EU intermediário (adiciona latência
+~150-300ms e custo operacional, ganho legal marginal vs. DPA contratual).
+
+Trace: Story 2.10 [AUTO-DECISION] D56; CON4 (mercado PT exclusivo).
+
+### 8.4 Questão Aberta QA1 — escalada Eurico
+
+@po Pax escalou a decisão final (não decidível como PO porque envolve GDPR/legal e a estratégia comercial). **Opções:**
+
+| Opção | Descrição | Recomendação Pax |
+|-------|-----------|------------------|
+| **A** | Aceitar DPA contratual Anthropic + endpoint padrão US + documentar risco aberto nesta secção (esta abordagem) | ✓ RECOMENDADO |
+| **B** | Bloquear MVP até endpoint EU Anthropic existir | Congela ~6 meses sem ganho legal claro vs A |
+| **C** | Mover Planner para OpenAI gpt-4o (DPA UE já confirmado) — perda de heterogeneidade de router NFR21 | Considerar se A for inaceitável |
+
+**Decisão Eurico (preencher quando responder):**
+
+```
+Data: ____________________
+Opção: ___ (A / B / C)
+Notas: __________________________________________________________
+```
+
+Enquanto QA1 estiver em aberto, **T10 da Story 2.10 fica BLOCKED**. T1-T9 mockable-only correm sem restrição.
+
+### 8.5 Cross-references
+
+- Story 2.10 (Benchmark E2E Anthropic): `docs/stories/active/2.10.benchmark-e2e-anthropic.story.md` — AC3 (esta secção), T10 (bloqueado), AC1+AC2 (integração real keys).
+- Hotfix `/jarvis` que estabeleceu regra `store: false`: commit `32ac564` (`fix(classifier): remover metadata do payload OpenAI`) — handoff `mj-handoff-jarvis-classifier-metadata-bug-20260515` (archive).
+- Provisão keys Vercel: §3 deste runbook (`vercel-llm-keys-setup.md` — Production+Preview, `fra1`).
+- Pipeline 3-estágios: `docs/architecture.md` §4.

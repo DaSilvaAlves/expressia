@@ -1,0 +1,244 @@
+# =============================================================================
+# HANDOFF — Story 2.10 Ready Conditional (GO 8.5/10 @po Pax)
+# Próximo passo: @dev *develop 2.10 — modo YOLO mockable-only (T1-T9)
+# =============================================================================
+# Este handoff é AUTOSSUFICIENTE: contém todo o contexto que @dev precisa
+# para arrancar T1 sem voltar a ler @sm draft + @po validation completas.
+# =============================================================================
+
+id: mj-handoff-2.10-ready-for-dev-20260515
+from_agent: "po (Pax) — validate-story-draft Story 2.10 v0.2 (10-point checklist + cross-confirm anti-hallucination)"
+to_agent: "dev (Dex) — *develop 2.10 modo YOLO mockable-only T1-T9"
+created: "2026-05-15T03:30:00+01:00"
+status: consumed
+consumed: true
+consumed_at: "2026-05-15T11:10:00+01:00"
+consumed_by: "dev (Dex)"
+priority: high
+project_prefix: mj
+project: "meu-jarvis (Expressia — expressia.pt)"
+
+summary: |
+  @po Pax validou Story 2.10 v0.2 (Benchmark E2E Anthropic + 200 prompts PT-PT)
+  com score 8.5/10 → GO CONDITIONAL. Story passa pelos 10 pontos com 9 PASS +
+  1 CONCERN (anti-hallucination: 4 Should-Fix factuais não bloqueantes). 4
+  Open Questions @sm resolvidas: QA1 ESCALADA Eurico (DPA UE Anthropic), QA2
+  decidida (mocks tools no E2E — toolRegistry vazio confirmado), QA3 decidida
+  (undo 30s hard-cap MVP), QA4 decidida (3-step @dev→@po→Eurico curadoria
+  fixtures). @dev pode arrancar T1-T9 imediatamente em mockable-only mode
+  (precedente Stories 2.2-2.9). T10 (benchmark real execution com keys reais)
+  fica bloqueado até Eurico decidir QA1 — pode acontecer em paralelo. Tempo
+  estimado @dev: ~12h wall-clock (L estimate confirmado). Próximo passo único
+  e claro: `@dev *develop 2.10`. Esta story é o último marco Epic 2 antes do
+  benchmark real → spec real MVP-ready.
+
+# -----------------------------------------------------------------------------
+# CONTEXT — Estado Story 2.10 pós-validação @po
+# -----------------------------------------------------------------------------
+context:
+  story_id: "2.10"
+  story_title: "Benchmark E2E Anthropic: integração real pipeline 3-estágios (200 prompts PT-PT)"
+  story_path: "docs/stories/active/2.10.benchmark-e2e-anthropic.story.md"
+  story_status: "Ready (Conditional — 4 Should-Fix pré-T1, QA1 escalada Eurico bloqueia só T10)"
+  story_estimate: "L (~12h wall-clock)"
+  story_version: "0.2 (validada Pax 2026-05-15)"
+  branch: main
+  current_task: "Aguarda @dev *develop 2.10 — T1 (verificar AnthropicProvider lê ANTHROPIC_API_KEY) é arranque natural"
+
+  validation_score: "8.5/10"
+  validation_verdict: "GO CONDITIONAL"
+  validation_summary: |
+    10-point: 9 PASS + 1 CONCERN (Anti-hallucination Should-Fix) + 1 N/A (CodeRabbit
+    desactivado em core-config.yaml). Decisão final GO porque CONCERNs são factuais
+    corrigíveis em <30 min e não invalidam scope nem ACs.
+
+# -----------------------------------------------------------------------------
+# Should-Fix (4 itens) — @dev absorve no início de T1 (ou @sm corrige pré-handoff)
+# -----------------------------------------------------------------------------
+should_fix_pre_t1:
+  - id: SF1
+    issue: "EB1/EB2 marcados PENDING mas keys já estão em Vercel produção desde 2026-05-14"
+    evidence: |
+      docs/runbooks/vercel-llm-keys-setup.md status "✅ COMPLETO — keys configuradas, infra validada"
+      Meta-handoff mj-handoff-jarvis-cascade-closed-20260515 confirma 2 prompts E2E reais
+      em produção (expressia-black.vercel.app, 2026-05-15 ~02:15 WET).
+    fix: |
+      Em Bloqueadores Externos da story 2.10, mudar:
+        EB1 ANTHROPIC_API_KEY — PENDING → RESOLVIDO 2026-05-14 (Vercel fra1)
+        EB2 OPENAI_API_KEY    — PENDING → RESOLVIDO 2026-05-14 (Vercel fra1)
+      Manter EB3 Upstash como PENDING (modo degradado D57 aceitável).
+    effort: 2 min
+
+  - id: SF2
+    issue: "AC3/T3 cria runbook novo t10-api-keys-dpa-ue.md que duplica artefactos existentes"
+    evidence: |
+      docs/runbooks/vercel-llm-keys-setup.md + GUIA-vercel-llm-keys-passo-a-passo.md
+      já cobrem provisão Vercel completa. Criar terceiro runbook fragmenta.
+    fix: |
+      Em AC3/T3: substituir "Criar docs/runbooks/t10-api-keys-dpa-ue.md" por
+      "Estender docs/runbooks/vercel-llm-keys-setup.md adicionando secção '§8 DPA UE Anthropic — risco aberto'"
+      documentando mitigação D56 + decisão final QA1 (após Eurico responder).
+      Manter trace NFR11/NFR10/CON4 igual. Adicionar entrada em docs/runbooks/_INDEX.md se aplicável.
+    effort: 10 min (escreve secção em vez de runbook inteiro)
+
+  - id: SF3
+    issue: "Tools MVP NÃO estão registadas no toolRegistry — AC6 E2E precisa de tools mock"
+    evidence: |
+      grep packages/tools/ → zero toolRegistry.register(...) de tools concretas.
+      Apenas mocks em __tests__/ + __fixtures__/mock-tools.ts.
+      Stories 2.6-2.9 fecharam sem registar criar_tarefa, criar_financa_variavel, etc.
+    fix: |
+      Em AC6 + T6: adicionar nota explícita
+        "Pipeline E2E usa tools registadas em modo mock determinístico via
+         packages/tools/src/__fixtures__/mock-tools.ts (ou novos mocks análogos
+         para cada uma das 7 intents accionáveis). Tools reais ficam para
+         Story 2.11+ ou Epic 3. Trace: Story 2.3 AC3 (toolRegistry como SSoT,
+         registo de tools concretas é trabalho de stories funcionais)."
+      Em T6 sub-checkbox antes do pipeline: "[ ] Popular toolRegistry com mock
+      tools para cada intent accionável antes do pipeline E2E correr."
+    effort: 5 min
+
+  - id: SF4
+    issue: "Baseline '≥153 testes' em AC13 herdado da story 2.9 sem confirmação"
+    evidence: |
+      Story 2.9 Done refere "153 testes". Pode ter mudado com fixes downstream
+      (commit 32ac564 hotfix /jarvis classifier + audit-log).
+    fix: |
+      Em AC13: substituir "baseline Story 2.9: ≥153 testes" por
+      "baseline a confirmar com `pnpm test 2>&1 | tail -5` no início de T9".
+      Em T9 sub-checkbox: "[ ] Confirmar baseline pre-implementação e actualizar AC13."
+    effort: 2 min
+
+# -----------------------------------------------------------------------------
+# PO Decisions resolvidas (QA1-QA4)
+# -----------------------------------------------------------------------------
+po_decisions:
+  QA1:
+    topic: "DPA UE Anthropic"
+    status: ESCALATED_TO_EURICO
+    blocking_task: T10
+    recommendation_pax: |
+      Aceitar DPA contratual Anthropic + endpoint padrão US como mitigação MVP.
+      Manter NFR11 estritamente sobre dados armazenados (Postgres EU já garantido).
+      Bloquear MVP por endpoint EU Anthropic inexistente congelaria 6 meses
+      de roadmap sem ganho legal claro vs DPA contratual.
+    eurico_options:
+      - "(A) DPA contratual + risco aberto documentado (RECOMENDADO Pax)"
+      - "(B) Bloquear MVP até endpoint EU Anthropic existir"
+      - "(C) Mover Planner para OpenAI gpt-4o (DPA UE já confirmado, perda heterogeneidade router NFR21)"
+    impact_on_dev: |
+      @dev arranca T1-T9 sem aguardar Eurico (mockable-only não toca chaves reais).
+      T10 (manual benchmark real) só corre após Eurico responder.
+
+  QA2:
+    topic: "Escopo Tools MVP no benchmark E2E"
+    status: DECIDED_PAX
+    decision: "Mocks determinísticos de tools + LLM calls reais (Classifier OpenAI + Planner Anthropic)"
+    rationale: |
+      Pipeline cognitivo é o que se valida (classify → plan → execute side-effects).
+      OKR O2 KR2 mede precisão de classificação, não correctness de side-effects DB.
+      Tools concretas (criar_tarefa, criar_financa_variavel, etc.) são Story 2.11+ / Epic 3.
+    action_dev: "Popular toolRegistry com mock tools em T6 antes do pipeline E2E"
+
+  QA3:
+    topic: "Undo window 30s"
+    status: DECIDED_PAX
+    decision: "Hard-cap 30s — não configurável MVP Fase 1"
+    rationale: |
+      Architecture §4.5 + Story 2.8 estabelecem expires_at = now() + 30s.
+      Configurável requer schema delta, migration RLS, UI toggle — scope creep.
+      Constitution Art. V (Quality First) + Art. IV (No Invention).
+    action_dev: "Zero — manter story como está. Remover QA3 da lista Open Questions"
+
+  QA4:
+    topic: "Curadoria 200 prompts PT-PT"
+    status: DECIDED_PAX
+    decision: "3-step: @dev draft → @po revê amostragem 30 → Eurico approves antes push"
+    rationale: |
+      @dev autónomo é eficiente. @po é owner natural da qualidade pré-implementação
+      (mercado PT exclusivo regra absoluta). Eurico aprova porque accuracy benchmark
+      depende directamente da qualidade fixtures.
+    action_dev: |
+      Em T4 adicionar sub-checkbox: "[ ] Após geração, sinalizar @po para revisão amostral"
+      Em T9 (antes T10) adicionar: "[ ] Eurico aprovou os 200 fixtures (signal-off explícito)"
+
+# -----------------------------------------------------------------------------
+# Ficheiros canónicos para @dev abrir antes de T1
+# -----------------------------------------------------------------------------
+key_files_for_next_agent:
+  - path: "docs/stories/active/2.10.benchmark-e2e-anthropic.story.md"
+    purpose: "Story canónica com secções PO Validation + PO Decisions integradas (v0.2)"
+    priority: 1
+
+  - path: "packages/planner-executor/src/planner.ts"
+    purpose: "T1 — verificar que getProvider lê ANTHROPIC_API_KEY automaticamente do env"
+    priority: 2
+
+  - path: "packages/classifier/src/classifier.ts"
+    purpose: "T2 — verificar que getProvider lê OPENAI_API_KEY automaticamente do env"
+    priority: 2
+
+  - path: "packages/agent/src/providers/anthropic.ts"
+    purpose: "T1 — padrão fail-fast ProviderError quando apiKey ausente"
+    priority: 3
+
+  - path: "packages/agent/src/providers/openai.ts"
+    purpose: "T2 — padrão fail-fast ProviderError quando apiKey ausente"
+    priority: 3
+
+  - path: "packages/db-test/src/helpers/testcontainers.ts"
+    purpose: "T6 — reutilizar helper Postgres ephemeral (padrão Story 1.4)"
+    priority: 4
+
+  - path: "packages/tools/src/__fixtures__/mock-tools.ts"
+    purpose: "T6 — base para mocks de tools accionáveis (QA2 decisão)"
+    priority: 4
+
+  - path: "docs/runbooks/vercel-llm-keys-setup.md"
+    purpose: "T3 — estender com §8 DPA UE em vez de criar t10-api-keys-dpa-ue.md (SF2)"
+    priority: 5
+
+# -----------------------------------------------------------------------------
+# Execution plan @dev (sequência tasks T1-T10)
+# -----------------------------------------------------------------------------
+next_action: |
+  @dev *develop 2.10 — modo YOLO mockable-only
+
+  Sequência sugerida:
+    1. Absorver os 4 Should-Fix nos primeiros 30 min (SF1 + SF2 + SF3 + SF4)
+    2. T1 — Integração real ANTHROPIC_API_KEY no Planner (verificação + fail-fast)
+    3. T2 — Integração real OPENAI_API_KEY no Classifier (idem)
+    4. T3 — Estender vercel-llm-keys-setup.md §8 DPA UE (SF2 absorvido)
+    5. T4 — Gerar 200 fixtures PT-PT → sinalizar @po amostragem 30 → corrigir
+    6. T5 — Script run-benchmark.ts (classifier-only)
+    7. T6 — Script run-benchmark-e2e.ts (pipeline completo + mock tools QA2)
+    8. T7 — 12 testes Vitest mockable-only (4+5+3)
+    9. T8 — Scripts package.json @meu-jarvis/db-test
+   10. T9 — Quality gates 5/5 GREEN + Eurico approves fixtures (QA4)
+   11. T10 — APENAS após Eurico responder QA1. [MANUAL] benchmark real execution.
+
+  Bloqueadores aceitáveis:
+    - QA1 Eurico → bloqueia só T10
+    - EB3 Upstash → modo degradado D57 ok para T6/T7
+    - SF1-SF4 → @dev absorve em 30 min ou @sm corrige pré-handoff
+
+# -----------------------------------------------------------------------------
+# Constraints @dev (recordatório)
+# -----------------------------------------------------------------------------
+constraints:
+  - "PT-PT em todo o código + comments + error messages (NFR PT-PT exclusivo)"
+  - "Imports absolutos @/... — NUNCA relativos (Constitution Art. VI)"
+  - "Sem alterar ACs / scope / título da story sem voltar a @po"
+  - "Quality gates 5/5 verdes ANTES de marcar story Ready for Review"
+  - "Zero novas tabelas DB — check:rls baseline 28 tabelas / 120 policies preservada"
+  - "git push BLOQUEADO — exclusivo @devops após @qa gate APPROVED"
+  - "Fixtures: zero PII real (NIFs `999999990`, IBANs `PT50...0000`, nomes ficcionais)"
+
+# -----------------------------------------------------------------------------
+# Open follow-ups (após esta story)
+# -----------------------------------------------------------------------------
+open_followups:
+  - "Eurico responde QA1 (DPA UE Anthropic) — desbloqueia T10"
+  - "Eurico approves 200 fixtures PT-PT antes de @devops push (QA4)"
+  - "Story 2.11 (Dashboards Grafana Cloud EU) consome OTel spans gerados por esta story"
+  - "Story 3.x — registar tools concretas no toolRegistry (criar_tarefa, criar_financa_variavel, etc.) — bloqueado por esta story para feedback do benchmark"

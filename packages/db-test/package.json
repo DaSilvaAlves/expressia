@@ -2,22 +2,31 @@
   "name": "@meu-jarvis/db-test",
   "version": "0.1.0",
   "private": true,
-  "description": "Suite de testes RLS automatizada — meu-jarvis (Expressia). Vitest + Testcontainers Postgres 16 efémero. Trace: Story 1.4, NFR5.",
+  "description": "Suite de testes RLS automatizada + benchmark E2E pipeline AI — meu-jarvis (Expressia). Vitest + Testcontainers Postgres 16 efémero. Trace: Story 1.4 (RLS), Story 2.10 (benchmark), NFR5.",
   "type": "module",
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:benchmark": "vitest run --config vitest.benchmark.config.ts",
     "typecheck": "tsc --noEmit",
     "lint": "echo \"@meu-jarvis/db-test: lint herdado do typecheck — ver typecheck script\"",
     "build": "echo \"@meu-jarvis/db-test: package source-only (sem build step)\"",
-    "db:bootstrap": "tsx src/scripts/apply-bootstrap.ts"
+    "db:bootstrap": "tsx src/scripts/apply-bootstrap.ts",
+    "benchmark": "tsx src/benchmark/run-benchmark.ts",
+    "benchmark:e2e": "tsx src/benchmark/run-benchmark-e2e.ts"
   },
   "dependencies": {
+    "@meu-jarvis/agent": "workspace:*",
+    "@meu-jarvis/classifier": "workspace:*",
     "@meu-jarvis/db": "workspace:*",
+    "@meu-jarvis/planner-executor": "workspace:*",
+    "@meu-jarvis/tools": "workspace:*",
     "@testcontainers/postgresql": "^10.16.0",
     "drizzle-orm": "^0.34.0",
+    "openai": "^4.73.0",
     "postgres": "^3.4.9",
-    "testcontainers": "^10.16.0"
+    "testcontainers": "^10.16.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",
