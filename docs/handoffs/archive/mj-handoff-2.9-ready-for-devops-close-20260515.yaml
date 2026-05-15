@@ -1,0 +1,93 @@
+from_agent: "architect"
+from_agent_persona: "Aria (@architect)"
+to_agent: "devops"
+to_agent_persona: "Gage (@devops)"
+created: "2026-05-15T11:00:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-15T11:30:00Z"
+consumed_by: "devops"
+story_id: "2.9"
+story_path: "docs/stories/active/2.9.cost-router-cache-quotas.md"
+story_title: "Cost Router + Cache Upstash + Quotas (NFR20)"
+project_prefix: "mj"
+priority: "high"
+
+summary: >
+  Story 2.9 v1.3 Done — @architect gate APPROVED 9.5/10 HIGH confidence. 17/17 ACs PASS,
+  11/11 [AUTO-DECISION] D44-D54 RATIFIED, 3/3 [DEV-DECISION] D55+D56+D57 RATIFIED, 7/7
+  arquitectural checklist PASS, 9/9 NFRs PASS, 6/6 Constitution Articles PASS. **Push
+  prioridade alta** (C1 — D50 RLS fix corrige NFR20 hard-stop silently broken em prod ~3
+  semanas desde push Story 2.6: agent_quotas.prompts_used perpetuamente em 0 em prod).
+  Sem incidente reportado por tráfego MVP baixo + free tier de facto sem limite. Story 2.9
+  é janela natural — NÃO criar hotfix separado. Gate doc: docs/qa/gates/2.9-architect-gate.md.
+  Zero DOC-FIX necessária. 4 NIT non-blocking registados (NIT-006-NB Unicode normalisation
+  Epic 3+ / NIT-007-NB pattern D55 siblings revisita Story 3+ / NIT-008-NB Upstash region
+  naming verify pre-push / NIT-009-NB Vercel env vars verify pre-push).
+
+verdict:
+  status: "APPROVED"
+  score: "9.5/10"
+  confidence: "HIGH"
+  reviewer: "Aria (@architect)"
+  review_date: "2026-05-15"
+  story_version_reviewed: "v1.2 Ready for Review"
+  story_status_post_gate: "v1.3 Done"
+
+ratified_decisions:
+  D55:
+    title: "incrementQuota signature change — pattern para writes em service_role_only RLS"
+    verdict: "RATIFIED — pattern obrigatório forward-looking"
+    follow_up: "NIT-007-NB low — revisitar siblings em Story 3+"
+  D56:
+    title: "Cost router fallback graceful → executor (não 500)"
+    verdict: "RATIFIED — preferível a fail-fast para fragility-by-design"
+    verified_at: "route.ts:378-385"
+  D57:
+    title: "selectTemplate keyword 'transac' → 'transa' (PT-PT 'ç')"
+    verdict: "RATIFIED — fix interno encapsulado"
+    follow_up: "NIT-006-NB low — Unicode normalisation Epic 3+"
+
+c4_ui_downstream_verified:
+  cross_confirm: "PASS"
+  evidence:
+    - "apps/web/src/app/(app)/jarvis/_components/jarvis-chat.tsx:29 — undoUrl?: string (opcional)"
+    - "apps/web/src/app/(app)/jarvis/_components/preview-card.tsx:20 — undoUrl?: string (opcional)"
+    - "apps/web/src/app/(app)/jarvis/_components/__tests__/result-message.test.tsx:122 — test explícito sem undoUrl render gracioso"
+  impact: "Cost router response sem undo_url é gracioso para UI components — sem regressão UI"
+
+next_action_devops: >
+  *push 2.9 com prioridade alta — D50 RLS fix em prod ASAP. Verificações pre-push:
+  (1) Vercel env vars UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN provisionadas
+  (NIT-009-NB) ou modo degradado aceite explicitamente para fase MVP cedo.
+  (2) Confirmar Upstash region naming actual (eu-west-1 vs eu-central-1) — NIT-008-NB.
+  (3) CodeRabbit re-baseline agendada Story 2.10 (D51) — skip esperado para 2.9.
+  (4) Squash strategy ou rebase clean per `.github/workflows/ci.yaml` standards.
+
+commits_ahead_origin_main:
+  pre_dev: "2 commits (d8ed611 sm + bf24f16 po)"
+  post_dev: "ainda 2 commits — @dev não fez push (autoridade exclusiva @devops)"
+  expected_post_architect: "Commits adicionais: gate doc 2.9-architect-gate.md + story update v1.3 Done + este handoff. @devops squash ou multi-commit (per convenção projecto)."
+
+nfr_coverage_summary:
+  NFR5: "RLS preserved — 28 tabelas / 120 policies, zero migrations novas"
+  NFR12: "PII redaction — prompt cleartext NUNCA logado, cache key (hash) logged"
+  NFR20: "Custo LLM hard-stop 110% — agora FUNCIONAL em prod pós-push (estava broken)"
+  NFR8: "Observability — OTel spans cache_hit + cost_router_bypass"
+  NFR1: "Latency improvement — cache HIT (-80ms) + cost router (-700ms)"
+
+predecessor_handoff: "mj-handoff-2.9-ready-for-architect-20260512 (consumed 2026-05-15T11:00Z by architect — moved to archive/)"
+successor_handoff: "mj-handoff-session-pause-after-2.9-done-{YYYYMMDD}.yaml (após @devops push completo + monitoring 24h)"
+
+next_action: >
+  @devops *push 2.9 — squash/rebase commits Story 2.9 (sm + po + dev + architect gate +
+  handoffs) + push main com prioridade alta. Pós-push: smoke test prod (verificar
+  agent_quotas.prompts_used começa a incrementar pós-prompt), monitor Sentry 24h por
+  regressões cache/cost-router. Story 2.9 → docs/stories/completed/ após push successo.
+
+rules_inegociaveis:
+  - "@devops é EXCLUSIVO para git push / gh pr create"
+  - "Push sempre via main (este projecto é main-only conforme CLAUDE.md)"
+  - "CodeRabbit re-baseline diferido Story 2.10 (D51 ratificado)"
+  - "Pre-push: verificar Vercel env vars Upstash + smoke test build local"
+  - "Pós-push: move docs/stories/active/2.9.cost-router-cache-quotas.md → docs/stories/completed/"

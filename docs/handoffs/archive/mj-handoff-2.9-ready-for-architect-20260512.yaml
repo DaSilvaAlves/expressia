@@ -3,7 +3,11 @@ from_agent_persona: "Dex (@dev)"
 to_agent: "architect"
 to_agent_persona: "Aria (@architect)"
 created: "2026-05-12T04:45:00Z"
-status: pending
+status: consumed
+consumed: true
+consumed_at: "2026-05-15T11:00:00Z"
+consumed_by: "architect"
+consumption_outcome: "APPROVED 9.5/10 HIGH — 3/3 [DEV-DECISION] D55+D56+D57 RATIFIED. Gate doc: docs/qa/gates/2.9-architect-gate.md. Successor: mj-handoff-2.9-ready-for-devops-close-20260515.yaml"
 story_id: "2.9"
 story_path: "docs/stories/active/2.9.cost-router-cache-quotas.md"
 story_title: "Cost Router + Cache Upstash + Quotas (NFR20)"
