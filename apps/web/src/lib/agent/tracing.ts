@@ -5,7 +5,7 @@
  * `@meu-jarvis/observability` (Story 1.7), adicionando a camada de span de
  * topo `POST /api/agent/prompt` com attributes de negócio PII-safe.
  *
- * Sub-spans (`agent.classifier.call`, `agent.planner.call`,
+ * Sub-spans (`agent.classifier.classify`, `agent.planner.call`,
  * `agent.executor.run`) são emitidos pelos packages downstream
  * (`@meu-jarvis/classifier`, `@meu-jarvis/planner-executor`) — este wrapper
  * NÃO os duplica (D23: "não duplicar código de tracing").

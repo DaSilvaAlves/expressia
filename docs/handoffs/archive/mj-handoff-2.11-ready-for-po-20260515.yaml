@@ -1,0 +1,210 @@
+from_agent: "sm"
+from_agent_persona: "River (@sm) — drafted by Orion (@aiox-master) per Constitution Article II universal executor"
+to_agent: "po"
+created: "2026-05-15T13:00:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-15T13:30:00Z"
+consumed_by: "po"
+consumed_by_persona: "Pax (@po)"
+consumption_record: >
+  Consumido por Pax (@po) 2026-05-15 13:30 ao executar `*validate-story-draft 2.11`.
+  Veredicto: **GO 8.5/10 HIGH confidence** com 6 PO_FIX_INLINE críticos aplicados.
+  10/10 critérios checklist PASS (8.5/10 arredondado descontando 0.5 por hallucinations
+  vs codebase real requiring 6 fixes — precedente Story 2.7 v1.1 9.0/10 com 4 fixes,
+  Story 2.8 v1.1 9.0/10 com 3 fixes). Cross-confirm anti-hallucination contra 9 fontes
+  reais codebase detectou 6 hallucinations no draft @sm/Orion: (1) span name canónico
+  `agent.classifier.classify` (não `.call` per `packages/classifier/src/tracing.ts:26`);
+  (2) attrs whitelist count 11+12+12+8=43 (não 11+5+5+5=26 — verified em CLASSIFIER/PLANNER/EXECUTOR
+  _SPAN_ATTRIBUTE_KEYS arrays); (3) `intent_classifications` schema NÃO tem `is_correct`/
+  `expected_intent`/`actual_intent` (verified `packages/db/src/schema/agent.ts:146-177`);
+  (4a) classifier NÃO emite `cost_eur` em span (grep `packages/classifier/src` cost zero
+  matches); (4b) métricas Prometheus `agent_cache_hit_total{provider="upstash"}` +
+  `agent_anthropic_cache_hit_total` invented — attrs reais são `agent.prompt.cache_hit`
+  (route.ts:325) + `planner.cache_hit` (planner-executor/tracing.ts:41); (4c)
+  `rls_policy_violations_total` Architecture §9.2 NÃO implementada em codebase actual
+  (grep packages zero matches); (5) doc drift `apps/web/src/lib/agent/tracing.ts:8`
+  comment menciona `agent.classifier.call` errado. 6 PO_FIX_INLINE aplicados inline
+  na story v1.1 com referências precisas. 1 nova [DEV_DECISION D64] adicionada para
+  @architect ratificar estratégia OTel span attrs → Prometheus métricas. 6/6
+  [AUTO-DECISION] D58-D63 PASS após PO_FIX. 4 concerns deferred @architect.
+  Status Draft v1.0 → Ready v1.1 com PO Validation block + Change Log @po.
+  _INDEX.md row 2.11 actualizada com cabeçalho histórico detalhado.
+  Sucessor: `mj-handoff-2.11-ready-for-dev-20260515` (po → dev YOLO mockable-friendly).
+story_id: "2.11"
+story_path: "docs/stories/active/2.11.observability-dashboards-agent-health.md"
+story_title: "Observability Dashboards Agent Health (NFR13+NFR14+NFR15)"
+project_prefix: "mj"
+
+summary: >
+  Story 2.11 Draft v1.0 pronta para validação @po. Estimate S — alinhado EPIC-2-EXECUTION.yaml
+  linha 281-294. Epic 2 passa de "8/11 Done + 1 Partial (2.10) + 1 Backlog (2.11)" → "8/11 Done
+  + 1 Partial + 1 Draft (2.11)". 12 ACs (6 painéis Grafana JSON + runbook §7-§9 + 3 alarmes
+  + dual-emission ED4 re-eval + PT-PT + 5/5 quality gates), 8 Tasks T1-T8, 3 ficheiros tocados
+  antecipados (1 novo JSON + 1 markdown expand + 1 teste opcional Vitest). 6 [AUTO-DECISION]
+  @sm D58-D63 para @po review. **DN5 mockable-friendly NÃO bloqueia em Story 2.10 T10** —
+  painel accuracy lazy/empty-state até T10 popular `intent_classifications` (precedente padrão
+  Stories 2.2-2.9 mockable-only). Reuse TOTAL infra Story 1.7 (Grafana stack, 8 secrets, package
+  `@meu-jarvis/observability`). Zero secrets novos pedidos.
+
+context:
+  epic_state: >
+    Epic 2 — 8/11 Done (2.1+2.2+2.3+2.4+2.5+2.6+2.7+2.8+2.9) + 1 Partial (2.10 — T1-T9 done,
+    T10 BLOCKED pending Eurico QA1 DPA UE Anthropic) + 1 Draft (2.11 Story atual).
+  baseline_tests: "504 testes passing baseline (200 web Story 2.9 + 304 outros packages)"
+  baseline_quality_gates: >
+    5/5 GREEN — typecheck 9/9 / lint 9/9 0 warnings / test 504 / check:rls 28/120 NFR5 PRESERVADA
+    / build 14 routes (last verified em @devops *push 2.10 partial 2026-05-15 12:20)
+  predecessor_story: "2.10.benchmark-e2e-anthropic.story.md Partial Done v0.5 (QA gate parcial CONCERNS 8.7/10 HIGH)"
+  dependency_status:
+    - "Story 2.6 ✓ Done — endpoint POST /api/agent/prompt é fonte dos spans `withAgentPromptSpan`"
+    - "Story 2.10 Partial — T1-T9 done, T10 BLOCKED em Eurico DPA UE Anthropic"
+    - "Story 1.7 ✓ Done — infra Grafana+Sentry+secrets+package observability reused"
+  cascade_jarvis_resolved: >
+    Cascata /jarvis encerrada 2026-05-15 02:30 (handoff jarvis-cascade-closed). Classifier OpenAI
+    REAL em produção a emitir spans `agent.classifier.call` — Story 2.11 painéis 1-2-3-5-6 já têm
+    dados reais para validar queries após activação UI. Apenas painel 4 (accuracy) é dependente
+    soft de T10.
+
+auto_decisions_for_po_review:
+  - id: D58
+    classification: "STRATEGIC"
+    decision: "Story 2.11 mockable-friendly — não bloqueia em Story 2.10 T10"
+    rationale: >
+      Painel accuracy lazy/empty-state documentado runbook §7.3 até T10 popular
+      `intent_classifications`. Wait-for-T10 atrasaria Epic 2 close indefinidamente
+      (T10 BLOCKED em decisão humana DPA UE). Precedente: 8 stories Done APPROVED 9.4-9.5/10
+      em modo mockable-only (2.2-2.9).
+    status: "PASS — padrão bem estabelecido"
+  - id: D59
+    classification: "ARCHITECTURAL"
+    decision: "Dual-emission Sentry+OTel re-evaluation deferred a Epic 7 (ED4)"
+    rationale: >
+      Recomendação @sm = manter dual-emission no MVP (Sentry replay diferenciador DX,
+      ambos free tier €0/mês). Re-avaliar Epic 7 (Platform & Compliance) com 90+ dias
+      prod. ED4 prometia re-avaliação Story 2.11 — @sm documenta decisão de adiar com
+      justificação concreta.
+    status: "REVIEW — @po valida se documentação suficiente, @architect ratifica final"
+  - id: D60
+    classification: "CONFIGURATION"
+    decision: "Alarme channel (Slack vs email vs PagerDuty) deferido a @architect gate"
+    rationale: >
+      Eurico ainda não definiu Slack workspace nem ferramenta de oncall. Recomendação
+      @sm = email único `eurico@…` MVP zero custo. Alternativas documentadas para
+      @architect ratificar.
+    status: "REVIEW — @po confirma deferral apropriado"
+  - id: D61
+    classification: "ORGANIZATIONAL"
+    decision: "Runbook expand `observability-setup.md` §7-§9 vs new file"
+    rationale: >
+      Single-file mais fácil manter (zero duplicação cross-references). Runbook actual
+      tem 6 secções coerentes — agent-specific dashboards é extensão natural. @dev pode
+      reverter se ficheiro ultrapassar 1000 linhas (limite manutenibilidade).
+    status: "PASS — decisão pragmática"
+  - id: D62
+    classification: "DEFERRAL"
+    decision: "UI activation Grafana deferred pós-deploy production"
+    rationale: >
+      Precedente directo Story 1.7 Tasks 7-8 PARTIAL (handoff `mj-handoff-1.7-post-deploy-grafana-20260508`
+      ainda pending). Activação UI requer dados reais para validar queries — impossível em CI/dev.
+      Story marcada Done quando: scaffold JSON + queries documentadas + alarmes documentados.
+    status: "PASS — precedente verificado"
+  - id: D63
+    classification: "TESTING"
+    decision: "AC10 smoke test JSON schema OPCIONAL mas recomendado"
+    rationale: >
+      1 teste Vitest validando JSON parseável + 6 painéis + titles + queries não-vazias.
+      Defesa em profundidade contra JSON malformado merged. Custo: ~10 linhas teste,
+      FULL TURBO cache hit. Recomendação: incluir.
+    status: "REVIEW — @po confirma se quer obrigar ou manter opcional"
+
+anti_hallucination_cross_confirms:
+  - source: "docs/architecture.md:776"
+    confirms: "AC1 dashboard '1. Agent Health' — latência p50/p95/p99, error rate por intent, cost €/dia, accuracy benchmark"
+  - source: "docs/architecture.md:760-765"
+    confirms: "AC3 alarmes thresholds — agent.latency.p95 >10s 5min, agent.intent_accuracy <88%, agent.cost.eur_per_household_24h >35% MRR rolling 7d"
+  - source: "docs/prd.md:110-112"
+    confirms: "NFR13 OTel desde Epic 1 + NFR14 dashboards essenciais + NFR15 alertas operacionais"
+  - source: "docs/epics/EPIC-2-EXECUTION.yaml:281-294"
+    confirms: "Story 2.11 estimate S, executor @dev, quality_gate @architect, depends_on [2.6, 2.10], blocked_by_external [] (sem bloqueador externo)"
+  - source: "apps/web/src/lib/agent/tracing.ts:38-51"
+    confirms: "11 attrs whitelist span POST /api/agent/prompt (household_id, intent_class, confidence_min, mode, tool_count, duration_ms, classifier_model, executor_model, cache_hit, status_code, always_preview_active)"
+  - source: "docs/dashboards/grafana-epic1.json:1-40"
+    confirms: "Scaffold pattern Story 1.7 — `__comment` topo + panels array + thresholds + queries — base para Story 2.11"
+  - source: "docs/runbooks/observability-setup.md (precedente §5-§6)"
+    confirms: "Pattern queries documentadas + alertas documentados + activação UI deferida — Story 2.11 expand §7-§9"
+  - source: "docs/handoffs/mj-handoff-jarvis-cascade-closed-20260515.yaml"
+    confirms: "Classifier OpenAI REAL em produção emitindo spans — Painéis 1-2-3-5-6 já têm dados reais para validar queries"
+  - source: "docs/epics/EPIC-2-EXECUTION.yaml:411-421 (ED4)"
+    confirms: "Decision log ED4 prometia re-avaliação dual-emission Story 2.11 — @sm aplica re-avaliação documentando recomendação"
+
+10_point_checklist_for_po:
+  - 1: "Title clear → Story 2.11 'Observability Dashboards Agent Health (NFR13+NFR14+NFR15)'"
+  - 2: "User story format → 'Como developer/operator... quero painéis Grafana... para detectar regressões'"
+  - 3: "Acceptance criteria testáveis → 12 ACs todos com trace + threshold + comportamento esperado"
+  - 4: "Scope alignment → S confirmed (3 ficheiros tocados, zero código TS produção alterado)"
+  - 5: "Dependencies → 2.6 ✓, 2.10 Partial (DN5 mockable não bloqueia), 1.7 ✓ infra reused"
+  - 6: "Estimate S razoável → 3-4h wall-clock estimado (vs precedente 2.9 ~75min config-heavy)"
+  - 7: "Business value claro → R1+R2+R3 mitigação (precisão, latência, custo) + NFR15 alarmes operacionais"
+  - 8: "Dev Notes risks documentados → 11 DN1-DN11 com source-tree + decisões + alternativas"
+  - 9: "DoD inferível → 12 ACs + 5/5 quality gates + handoff sucessor po→dev"
+  - 10: "Alignment Architecture/PRD/Epic → §9.4 Agent Health literal, NFR13/14/15 PRD, EPIC-2 row 2.11"
+
+concerns_for_architect_gate:
+  - id: C1
+    description: "D59 dual-emission Sentry+OTel re-evaluation — ratificar deferral a Epic 7"
+    severity: "low"
+    rationale: "ED4 promised re-avaliação Story 2.11; @sm cumpre documentando recomendação + justificação concreta para deferral"
+  - id: C2
+    description: "D60 alarme channel — ratificar email único MVP vs alternativas"
+    severity: "low"
+    rationale: "Eurico precisa de decisão pragmática; @architect pode ordenar Slack se equipa cresce iminentemente"
+  - id: C3
+    description: "D58 mockable-friendly accuracy panel — ratificar empty-state pattern vs wait-for-T10"
+    severity: "low"
+    rationale: "Padrão 8 stories Done APPROVED 9.4-9.5/10; ratificação cosmética"
+
+scope_summary_alignment:
+  epic_plan_says: >
+    'Painel Grafana "Agent Health" (latência p95, custo eur_per_household_24h,
+    intent_accuracy nightly, RLS denials, cache hit rates Upstash + Anthropic).
+    Reuse infra da Story 1.7 (OTel + Grafana eu-west-6). Alarmes:
+    p95>10s, custo>35% MRR rolling 7d, accuracy<88%. Dashboard JSON
+    versionado em docs/dashboards/.'
+  story_delivers: >
+    AC1 6 painéis (latência p50/p95/p99 + error rate por intent + custo €/dia top 10
+    households + accuracy lazy + cache hit rate Upstash+Anthropic + RLS denials)
+    + AC3 3 alarmes (p95>10s + custo>35% MRR 7d + accuracy<88%)
+    + AC2 runbook §7-§9 queries documentadas
+    + Reuse total infra Story 1.7
+    + Dashboard JSON versionado `docs/dashboards/grafana-agent-health.json`
+  alignment: "PASS — scope @sm = scope EPIC plan + bonus (3 painéis a mais que o estritamente requerido: error rate por intent, RLS denials, dual cache hit Upstash+Anthropic vs single)"
+
+next_action: >
+  Pax (@po) executar `*validate-story-draft 2.11` em sessão próxima ou neste terminal.
+  Veredicto esperado: GO (high confidence) — story tem scope S claro, alignment EPIC perfeito,
+  reuse infra total, zero código novo TS, 6 [AUTO-DECISION] D58-D63 documentadas com
+  justificações concretas e cross-confirm anti-hallucination contra 9 fontes reais codebase.
+  Apenas 3 concerns low-severity para deferral a @architect gate (D59, D60, D58 ratificação).
+  Sucessor handoff: `mj-handoff-2.11-ready-for-dev-{date}` (po → dev YOLO mockable-friendly).
+
+next_command_suggested: "@po *validate-story-draft 2.11"
+estimated_wall_clock: "~30-45min @po validation (precedente 2.9 ~45min, 2.10 ~30min config-heavy)"
+priority: "medium"
+
+blocking: false
+deferred_decisions:
+  - id: "D59 dual-emission re-eval Epic 7"
+    deferred_to: "@architect gate"
+  - id: "D60 alarme channel"
+    deferred_to: "@architect gate"
+  - id: "D62 UI activation pós-deploy"
+    deferred_to: "post-deploy handoff (precedente Story 1.7)"
+
+notes: |
+  - Story 2.11 fecha peça final Epic 2 (per EPIC-2 critical_path + parallelization_opportunities §S211).
+  - Zero código TS produção alterado — esta é story de CONFIGURAÇÃO (JSON dashboard + Markdown runbook).
+  - 5/5 quality gates GREEN target via FULL TURBO cache hit (zero touch apps/web ou packages).
+  - Pipeline AI continua mockable-only/partial — esta story prepara terreno para activação UI quando T10 desbloquear.
+  - Após Story 2.11 Done: Epic 2 = 9/11 Done + 1 Partial (2.10) + 1 Done (2.11) = efectivamente 10/11 com
+    asterisco (Story 2.10 T10 pendente humano-action DPA UE Anthropic, fora do controle AI).

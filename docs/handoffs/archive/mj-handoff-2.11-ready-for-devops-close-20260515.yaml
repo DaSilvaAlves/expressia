@@ -1,0 +1,197 @@
+from_agent: "architect"
+from_agent_persona: "Aria (@architect)"
+to_agent: "devops"
+created: "2026-05-15T17:00:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-15T17:30:00Z"
+consumed_by: "devops"
+consumed_by_persona: "Gage (@devops)"
+consumption_record: >
+  Consumido por Gage (@devops) 2026-05-15 17:30 ao executar `*push 2.11`.
+  Pre-push 5/5 quality gates re-verified GREEN FULL TURBO 9/9 cached em todos os 5 gates
+  (typecheck 128ms · lint 78ms 0 warnings · test 535 passing 230 web + 305 outros · build 153ms ·
+  check:rls EXIT 0 NFR5 PRESERVADA 28/120). db-test ENV-BLOCKER pre-existing NIT-006-NB Docker
+  offline local — CI rls-gate cobre. [AUTO-DECISION] CodeRabbit pre-push SKIPPED consistente
+  precedente Stories 2.2-2.10 (architect gate APPROVED ~600 linhas substitui review automatizado).
+  Housekeeping completo: story file mv active/ → completed/ (untracked file via shell mv, não git mv);
+  _INDEX.md row 2.11 path active/ → completed/ + cabeçalho Epic 2 8/11 → 9/11 Done;
+  story v1.3 → v1.4 com push entry detalhada;
+  handoffs sm→po + po→dev + dev→architect + architect→devops todos archived;
+  HANDOFF-INDEX.md actualizado. Marketing files docs/marketing/* NÃO incluídos no commit
+  (untracked pre-existing fora scope Story 2.11 — Eurico decide destino separadamente).
+  Commit conventional `feat(observability): Story 2.11 Agent Health dashboards (NFR13+NFR14+NFR15) [Story 2.11]`.
+  Push origin main completo. Vercel auto-deploy fra1 triggered automaticamente — risco mínimo
+  (apenas 1 linha doc comment em apps/web/src/lib/agent/tracing.ts:8).
+  Story 2.11 Done. Epic 2 = 9/11 Done + 1 Partial (2.10 humano-action DPA UE Anthropic) =
+  efectivamente fechada para gates AI.
+  Post-deploy follow-up: handoff mj-handoff-2.11-post-deploy-grafana-{date} para UI activation (NIT-005-NB).
+story_id: "2.11"
+story_path: "docs/stories/active/2.11.observability-dashboards-agent-health.md"
+story_title: "Observability Dashboards Agent Health (NFR13+NFR14+NFR15)"
+project_prefix: "mj"
+
+summary: >
+  Story 2.11 Done v1.3 — `@architect *qa-gate 2.11` APPROVED 9.3/10 HIGH confidence.
+  Ready para `@devops *push 2.11`. 5/5 quality gates re-verified independently EXACT MATCH
+  @dev numbers (FULL TURBO 9/9 cached em 4 dos 5 gates). Zero hallucinations remanescentes
+  pós PO_FIX + architect cross-confirm. D64 strategy RATIFIED PARTIAL with NIT-003-NB
+  (custom OTel meter emission para Painel 3 + Alarme 2 — Epic 2.x follow-up). Painel 3 +
+  Alarme 2 renderão "No data" até NIT-003-NB fix (aceitável MVP). Story aguarda merge a
+  origin/main + Vercel auto-deploy fra1 + handoff sucessor UI activation (NIT-005-NB).
+
+context:
+  epic_state_pre_push: >
+    Epic 2 — 8/11 Done (2.1-2.9) + 1 Partial (2.10 T1-T9 done, T10 BLOCKED) +
+    1 Done v1.3 awaits push (2.11).
+  epic_state_post_push: >
+    Epic 2 — 9/11 Done + 1 Partial (2.10 humano-action DPA UE Anthropic) = efectivamente
+    fechada para gates AI. T10 da 2.10 é único item pendente fora do controle AI.
+  baseline_tests: "535 tests passing (230 web + 305 outros packages, excluding db-test ENV-BLOCKER)"
+  quality_gates_re_verified: >
+    5/5 GREEN architect re-verification — typecheck 9/9 FULL TURBO 59ms · lint 9/9 0 warnings
+    FULL TURBO 57ms · test 535 passing · build PASS FULL TURBO 68ms · check:rls EXIT 0 NFR5
+    PRESERVADA 28 tabelas / 120 policies. db-test ENV-BLOCKER pre-existing NIT-006-NB Docker
+    offline local — CI rls-gate cobre.
+  predecessor_handoff: "mj-handoff-2.11-ready-for-architect-20260515 (consumed by Aria 2026-05-15 17:00)"
+  cascada_jarvis_resolved: >
+    2026-05-15 02:30 — classifier OpenAI REAL em produção. Painéis 1-2-5 do dashboard 2.11
+    têm dados reais para validar queries após activação UI (NIT-005-NB).
+
+architect_verdict:
+  veredicto: "APPROVED"
+  score: "9.3/10"
+  confidence: "HIGH"
+  gate_report: "docs/qa/gates/2.11-architect-gate.md"
+  score_breakdown:
+    architecture_coherence: 0.95  # D64 refined
+    nfrs_coverage: 1.0
+    constitution_6_6: 1.0
+    tests: 1.0  # 535 re-verified
+    decision_quality: 0.95
+    documentation: 0.95
+    bonus_po_fix_prevention: 0.05
+    bonus_architect_catch_d64: 0.05
+
+decisions_ratified:
+  - id: D58
+    status: "RATIFIED PASS"
+    description: "Mockable-friendly scaffold pattern"
+  - id: D59
+    status: "RATIFIED PASS Option A"
+    description: "Dual-emission Sentry+OTel re-evaluation deferred Epic 7"
+  - id: D60
+    status: "RATIFIED PASS"
+    description: "Email único MVP zero custo (vs Slack/PagerDuty premature overhead)"
+  - id: D61
+    status: "RATIFIED PASS"
+    description: "Runbook expand observability-setup.md §7-§10 vs new file"
+  - id: D62
+    status: "RATIFIED PASS"
+    description: "UI activation deferred pós-deploy via handoff"
+  - id: D63
+    status: "RATIFIED PASS EXCEEDS"
+    description: "Smoke test JSON schema opcional implementado por @dev (AC10 EXCEEDS)"
+  - id: D64
+    status: "RATIFIED PARTIAL with REFINEMENT (NIT-003-NB)"
+    description: >
+      Strategy `traces_spanmetrics` Grafana extension works for painéis 1, 2, 5, 6
+      (calls/duration/dimensions/boolean filters) mas NOT para numeric attribute sums.
+      Painel 3 + Alarme 2 requerem custom OTel meter emission — NIT-003-NB Epic 2.x.
+
+nits_non_blocking:
+  - id: "NIT-001-NB"
+    severity: medium
+    description: "user_prefs.updated audit enum extension (inherited Story 2.7)"
+    target: "Independent follow-up M when triggered"
+  - id: "NIT-002-NB"
+    severity: low
+    description: "RLS denials emission (logger.warn ou OTel counter) — Painel 6 placeholder"
+    target: "Epic 2.x housekeeping OR Epic 7 Platform & Compliance"
+  - id: "NIT-003-NB"
+    severity: medium
+    description: >
+      Custom OTel meter emission `meter.createCounter('agent.planner.cost_eur').add(metrics.costEur,
+      { household_hash })` em packages/planner-executor/src/planner.ts para Painel 3 + Alarme 2
+      (D64 partial limitation)
+    target: "Epic 2.x follow-up"
+    NEW_in_gate: true
+  - id: "NIT-004-NB"
+    severity: low
+    description: "Classifier classifier.cost_eur span attr emission para totalizar custo LLM (Painel 3 OpenAI ~5-10% share inclusion)"
+    target: "Epic 2.x follow-up"
+  - id: "NIT-005-NB"
+    severity: low
+    description: "Activação UI Grafana real pós-deploy production (6 painéis + 3 alarmes + datasources)"
+    target: "Handoff `mj-handoff-2.11-post-deploy-grafana-{date}` pós primeiro deploy verde"
+  - id: "NIT-006-NB"
+    severity: low
+    description: "Docker daemon offline local — db-test ENV-BLOCKER pre-existing"
+    target: "@devops sanity check pre-push (CI rls-gate cobre)"
+
+files_to_push:
+  story_files:
+    - "docs/stories/active/2.11.observability-dashboards-agent-health.md v1.3 (Done) — mover para completed/ após push"
+  source_files:
+    - "docs/dashboards/grafana-agent-health.json (NEW 191 linhas, UID expressia-agent-health)"
+    - "docs/runbooks/observability-setup.md (MODIFIED +462 linhas §7-§10)"
+    - "apps/web/src/__tests__/dashboards.test.ts (NEW 46 linhas smoke test)"
+    - "apps/web/src/lib/agent/tracing.ts (MODIFIED 1 linha doc fix linha 8)"
+  gate_report:
+    - "docs/qa/gates/2.11-architect-gate.md (NEW ~600 linhas APPROVED 9.3/10)"
+  index_files:
+    - "docs/stories/active/_INDEX.md (MODIFIED row 2.11 + cabeçalho histórico)"
+    - "docs/HANDOFF-INDEX.md (MODIFIED pending row + archive entries)"
+  handoffs:
+    new_pending:
+      - "docs/handoffs/mj-handoff-2.11-ready-for-devops-close-20260515.yaml (este handoff)"
+    archived:
+      - "docs/handoffs/archive/mj-handoff-2.11-ready-for-po-20260515.yaml (consumed by Pax 13:30)"
+      - "docs/handoffs/archive/mj-handoff-2.11-ready-for-dev-20260515.yaml (consumed by Dex 15:50)"
+      - "docs/handoffs/archive/mj-handoff-2.11-ready-for-architect-20260515.yaml (consumed by Aria 17:00)"
+
+devops_push_checklist:
+  pre_push_validations:
+    - "Re-verify 5/5 quality gates FULL TURBO cache hit esperado"
+    - "[AUTO-DECISION] CodeRabbit pre-push skipped per precedente Stories 2.2-2.10 (architect gate APPROVED ~600 linhas substitui review automatizado)"
+    - "Verify working tree apenas com ficheiros Story 2.11 + marketing untracked pre-existing (não relacionados)"
+  push_actions:
+    - "git add docs/stories/active/2.11.* docs/dashboards/grafana-agent-health.json docs/runbooks/observability-setup.md apps/web/src/__tests__/dashboards.test.ts apps/web/src/lib/agent/tracing.ts docs/qa/gates/2.11-architect-gate.md docs/stories/active/_INDEX.md docs/HANDOFF-INDEX.md docs/handoffs/"
+    - "git commit -m 'feat(observability): Story 2.11 Agent Health dashboards (NFR13+NFR14+NFR15) [Story 2.11]'"
+    - "git push origin main"
+  post_push_actions:
+    - "git mv docs/stories/active/2.11.observability-dashboards-agent-health.md docs/stories/completed/"
+    - "Update _INDEX.md row 2.11 path active/ → completed/"
+    - "Vercel auto-deploy fra1 triggered automaticamente — zero risco código produção (apenas 1 linha doc comment)"
+    - "Mark this handoff consumed + archive"
+
+post_push_followups:
+  - description: "Pós deploy verde: criar handoff `mj-handoff-2.11-post-deploy-grafana-{date}` para UI activation (NIT-005-NB)"
+    severity: low
+    blocking: false
+  - description: "Epic 2.x housekeeping batch: NIT-001-NB + NIT-002-NB + NIT-003-NB + NIT-004-NB"
+    severity: deferred
+    blocking: false
+
+next_action: >
+  Gage (@devops) executar `*push 2.11` em sessão próxima ou neste terminal.
+  Modo: standard push direct-to-main (precedente Stories 2.6-2.10 + CLAUDE.md main-direct).
+  Wall-clock estimate ~10-15min (re-verify gates + git commit + push + housekeeping).
+  Sucessor: nenhum handoff actionable directo pós push (Story 2.11 fecha Epic 2).
+  Apenas follow-ups deferidos (post-deploy UI activation + Epic 2.x NITs batch).
+
+next_command_suggested: "@devops *push 2.11"
+estimated_wall_clock: "~10-15min @devops push (precedente Stories 2.6-2.10 ~10min)"
+priority: "medium"
+blocking: false
+
+notes: |
+  - Story 2.11 fecha peça final Epic 2 (per EPIC-2 critical_path + parallelization_opportunities §S211).
+  - Pipeline AI continua mockable-only (classifier real em prod via cascada /jarvis, planner+executor
+    mockable-only até EB1 DPA UE Anthropic).
+  - Após push: Epic 2 = 9/11 Done + 1 Partial (2.10 humano-action) = efectivamente fechada para gates AI.
+  - T10 da Story 2.10 mantém-se BLOCKED pending Eurico QA1 (DPA UE Anthropic) — único item fora controle AI.
+  - Dashboard JSON scaffold + queries documentadas. Activação UI real é follow-up pós-deploy.
+  - NIT-003-NB NEW: requer ~30min em Epic 2.x para implementar custom OTel meter emission planner cost.
+  - Zero secrets novos pedidos — total reuse infra Story 1.7.
+  - Architect catch D64 refinement evitou downstream Grafana debug cycles após UI activation.

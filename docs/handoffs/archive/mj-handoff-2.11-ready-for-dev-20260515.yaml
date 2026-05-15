@@ -1,0 +1,168 @@
+from_agent: "po"
+from_agent_persona: "Pax (@po)"
+to_agent: "dev"
+created: "2026-05-15T13:30:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-15T15:50:00Z"
+consumed_by: "dev"
+consumed_by_persona: "Dex (@dev)"
+consumption_record: >
+  Consumido por Dex (@dev) 2026-05-15 15:50 ao executar `*develop 2.11` modo YOLO mockable-friendly.
+  8/8 Tasks DONE · 5/5 quality gates GREEN · 6 ficheiros tocados.
+  Wall-clock real ~45min (vs estimate 3-4h) — config-heavy story sem código TS produção; FULL TURBO cache hit.
+  6 PO_FIX_INLINE da v1.1 honrados estritamente: (1) span name `agent.classifier.classify` em queries dashboard + runbook §7.2; (2) attrs count `11+12+12+8=43` documentados em runbook §7.2 com listagem completa real; (3) painel 4 accuracy via OTel meter Gauge `agent.intent_accuracy_ratio` exportada por `packages/agent-bench/runner.ts` (não SQL contra colunas inexistentes); (4a) painel 3 custo via PromQL aggregation sobre `traces_spanmetrics_sum_planner_cost_eur{span_name="agent.planner.call"}` real; (4b) painel 5 cache hit via PromQL sobre attrs reais `agent.prompt.cache_hit` + `planner.cache_hit`; (4c) painel 6 RLS placeholder LogQL com `noValue` empty state documentando NIT-002-NB; (5) T5.4 doc drift `apps/web/src/lib/agent/tracing.ts:8` corrigido `agent.classifier.call` → `agent.classifier.classify` (1 linha).
+  1 [DEV_DECISION D64] adicionada: estratégia `traces_spanmetrics` Grafana extension vs custom OTel meter emission para painéis 3+5+alarme 2 — recomendação @dev = `traces_spanmetrics` (zero código TS novo, decisão de configuração Grafana). Deferred formalmente @architect gate.
+  1 debug incident resolved: DI1 typecheck FAIL — `expect(value, 'label')` 2-arg form não suportado nas TS types Vitest desta versão (TS2554 x4). Resolução: removidas labels custom dos 4 calls, single-arg form.
+  Sucessor: `mj-handoff-2.11-ready-for-architect-20260515` (dev → architect *qa-gate cross-domain — observability/configuration).
+story_id: "2.11"
+story_path: "docs/stories/active/2.11.observability-dashboards-agent-health.md"
+story_title: "Observability Dashboards Agent Health (NFR13+NFR14+NFR15)"
+project_prefix: "mj"
+
+summary: >
+  Story 2.11 Ready v1.1 pronta para `@dev *develop 2.11` modo YOLO mockable-friendly.
+  Veredicto @po GO 8.5/10 HIGH confidence com 6 PO_FIX_INLINE críticos aplicados
+  corrigindo hallucinations vs codebase real. 12 ACs · 8 Tasks (incluindo nova T5.4
+  doc drift fix) · 3-4 ficheiros tocados (1 novo `docs/dashboards/grafana-agent-health.json`
+  + 1 markdown expand `docs/runbooks/observability-setup.md` §7-§9 + 1 teste opcional
+  `apps/web/src/__tests__/dashboards.test.ts` + 1 doc fix `apps/web/src/lib/agent/tracing.ts:8`
+  via T5.4). 5/5 quality gates target GREEN via FULL TURBO cache hit (zero touch
+  apps/web ou packages código produção excepto 1 linha comment fix). Estimate
+  wall-clock ~3-4h.
+
+context:
+  epic_state: >
+    Epic 2 — 8/11 Done (2.1-2.9) + 1 Partial (2.10 T1-T9 done, T10 BLOCKED) +
+    1 Ready (2.11 Story atual)
+  baseline_tests: "504 testes passing baseline (200 web Story 2.9 + 304 outros)"
+  baseline_quality_gates: >
+    5/5 GREEN — typecheck 9/9 / lint 9/9 0 warnings / test 504 / check:rls 28/120
+    NFR5 PRESERVADA / build 14 routes (verified @devops *push 2.10 partial 2026-05-15 12:20)
+  cascada_jarvis_resolved: >
+    Classifier OpenAI REAL em produção emitindo spans `agent.classifier.classify` —
+    painéis 1-2-3-5 têm dados reais validáveis após activação UI. Painel 4 accuracy
+    lazy/empty-state até Story 2.10 T10 desbloquear. Painel 6 RLS placeholder até
+    emission follow-up.
+
+po_fixes_to_implement:
+  - id: 1
+    location: "Toda a story (replace_all)"
+    description: "Span name `agent.classifier.call` → `agent.classifier.classify` (já corrigido na story v1.1; @dev apenas validar coherência com queries no JSON dashboard)"
+    severity: critical
+    status: "applied in story v1.1 (5 ocorrências corrigidas)"
+  - id: 2
+    location: "AC2 §7.2 + T2.2"
+    description: "Attrs count corrigido para `11+12+12+8=43` com listagem completa real"
+    severity: critical
+    status: "applied in story v1.1"
+  - id: 3
+    location: "AC1 painel 4 + DN3"
+    description: "Accuracy data flow via OTel meter Gauge `agent.intent_accuracy_ratio` emitida pelo `packages/agent-bench/runner.ts` Story 2.10 (comparison em-memory contra fixtures vs intent_classifications.intent das agent_runs)"
+    severity: critical
+    status: "applied in story v1.1; @dev usa esta query no JSON dashboard"
+  - id: "4a"
+    location: "AC1 painel 3"
+    description: "Custo via PromQL aggregation sobre attr real `planner.cost_eur` ([DEV_DECISION D64] OTel→Prometheus strategy deferred @architect). Custo classifier OpenAI omitted MVP (5-10% NFR21 share — acceptable)"
+    severity: critical
+    status: "applied in story v1.1"
+  - id: "4b"
+    location: "AC1 painel 5"
+    description: "Cache hit via PromQL sobre attrs reais `agent.prompt.cache_hit` + `planner.cache_hit` (não métricas Prometheus invented)"
+    severity: critical
+    status: "applied in story v1.1"
+  - id: "4c"
+    location: "AC1 painel 6"
+    description: "RLS denials placeholder query LogQL + NIT-002-NB documentado para emission follow-up (`rls.policy_violations_total` não implementada)"
+    severity: critical
+    status: "applied in story v1.1; painel renderá 'No data' até follow-up"
+  - id: 5
+    location: "T5.4 (nova sub-task) — `apps/web/src/lib/agent/tracing.ts:8`"
+    description: "Doc drift fix: comment `agent.classifier.call` → `agent.classifier.classify`. Cosmético, low-effort, 1 linha."
+    severity: low
+    status: "task added v1.1; @dev executa durante implementação"
+
+concerns_for_architect_gate:
+  - id: C1
+    severity: medium
+    description: "[DEV_DECISION D64] OTel span attrs → Prometheus métricas strategy"
+    detail: >
+      AC1 painéis 3, 5 + AC3 alarme 2 assumem que Grafana Cloud `traces_spanmetrics`
+      extension converte automaticamente span attrs em métricas Prometheus queryable
+      via PromQL `sum(rate(traces_spanmetrics_calls_total{...}))`. Alternativa: custom
+      OTel meter emission no codebase (cada componente que faz cálculo derivado também
+      emite Gauge/Counter explicitly). @architect decide path canónico.
+  - id: C2
+    severity: low
+    description: "Painel 6 RLS denials lazy/placeholder (NIT-002-NB)"
+    detail: >
+      Métrica `rls.policy_violations_total` Architecture §9.2 não implementada em
+      codebase actual. Painel renderá 'No data'. Follow-up: emission via
+      `logger.warn({ event: 'rls.policy_violation' })` no error handler Drizzle
+      ou custom OTel counter. Deferred Epic 2.x housekeeping ou Epic 7 Platform.
+  - id: C3
+    severity: low
+    description: "Painel 3 custo classifier OpenAI omitido"
+    detail: >
+      Apenas `planner.cost_eur` é contado. Classifier OpenAI é ~5-10% do total LLM
+      cost (NFR21 modelo barato). Follow-up natural: adicionar `classifier.cost_eur`
+      span attr emission. Aceitável MVP.
+  - id: C4
+    severity: low
+    description: "D59 dual-emission Sentry+OTel re-evaluation"
+    detail: >
+      ED4 prometia re-avaliação Story 2.11. @sm recomenda manter MVP + re-avaliar
+      Epic 7 com 90+ dias prod. @architect ratifica ou ordena deep-dive avaliação.
+
+implementation_guidance_for_dev:
+  mode: "YOLO mockable-friendly"
+  estimate_wall_clock: "~3-4h (story config-heavy similar a 2.9 ~75min mas com runbook expansion + JSON dashboard)"
+
+  task_sequence:
+    - "T1 (Dashboard JSON scaffold) — criar `docs/dashboards/grafana-agent-health.json` baseado no shape `grafana-epic1.json`; 6 painéis com queries PromQL/LogQL completas (cuidado especial: painel 4 OTel meter, painel 3 traces_spanmetrics, painel 5 traces_spanmetrics, painel 6 LogQL placeholder)"
+    - "T2 (Runbook §7) — expand `docs/runbooks/observability-setup.md` com §7.1 painéis, §7.2 43 attrs reais, §7.3 empty states (Story 2.10 T10 BLOCKED + EB3 PENDING + tráfego baixo MVP), §7.4 activação UI 5 passos"
+    - "T3 (Alarmes §8) — 3 alarmes Grafana documentados com query/window/severity/channel/acção"
+    - "T4 (Dual-emission §9) — documentar ED4 re-evaluation com recomendação @sm + [DEV-DECISION D59]"
+    - "T5 (PT-PT + doc drift) — verificar PT-PT estrito + T5.4 fix doc comment `apps/web/src/lib/agent/tracing.ts:8`"
+    - "T6 (Smoke test opcional) — recomendado: 1 teste Vitest validando JSON parseável + 6 painéis + titles PT-PT + queries não-vazias"
+    - "T7 (Quality gates 5/5) — typecheck/lint/test/build/check:rls FULL TURBO cache hit esperado"
+    - "T8 (Handoff dev→architect)"
+
+  critical_files_to_verify_before_committing:
+    - "packages/classifier/src/tracing.ts:26,42-55 (span name + 12 attrs)"
+    - "packages/planner-executor/src/tracing.ts:36-49,115-124 (12 + 8 attrs)"
+    - "apps/web/src/lib/agent/tracing.ts:38-51 (11 attrs top span) + linha 8 (doc fix)"
+    - "apps/web/src/app/api/agent/prompt/route.ts:325 (cache_hit attr emission point)"
+    - "packages/db/src/schema/agent.ts:146-177 (intent_classifications real schema sem is_correct)"
+
+  mockable_pattern:
+    - "Zero código TS produção alterado (excepto 1 linha doc comment fix T5.4)"
+    - "JSON dashboard + Markdown runbook são artefactos config-only"
+    - "Smoke test usa Node fs + JSON.parse — sem mocks de rede ou Grafana API"
+    - "Quality gates 5/5 GREEN target FULL TURBO cache hit (zero source change excepto comment)"
+
+  expected_outputs_for_handoff_to_architect:
+    - "docs/dashboards/grafana-agent-health.json (novo, ~150-200 linhas)"
+    - "docs/runbooks/observability-setup.md (expanded §7-§9, +~250-300 linhas)"
+    - "apps/web/src/__tests__/dashboards.test.ts (opcional, +~20 linhas)"
+    - "apps/web/src/lib/agent/tracing.ts (1 linha doc fix linha 8)"
+    - "story 2.11 v1.1 → v1.2 com File List + Dev Notes Completion + Change Log @dev"
+
+next_action: >
+  Dex (@dev) executar `*develop 2.11` em sessão próxima ou neste terminal.
+  Modo: YOLO mockable-friendly. Estimate ~3-4h wall-clock.
+  Quality gates target: 5/5 GREEN FULL TURBO cache hit.
+  Sucessor: `mj-handoff-2.11-ready-for-architect-{date}` (dev → architect *qa-gate).
+
+next_command_suggested: "@dev *develop 2.11"
+priority: "medium"
+blocking: false
+
+notes: |
+  - Story 2.11 é peça final Epic 2 (per EPIC-2 critical_path).
+  - Pipeline AI continua mockable-only (precedente 2.2-2.9 + 2.10 Partial).
+  - Após Story 2.11 Done: Epic 2 efectivamente fechada (9/11 Done + 1 Partial 2.10 humano-action).
+  - 6 PO_FIX_INLINE já aplicados — @dev não precisa de re-fix, apenas implementar
+    conforme story v1.1 corrigida.
+  - 1 [DEV_DECISION D64] aberta sobre OTel→Prometheus strategy — @dev pode optar e
+    documentar; @architect ratifica no gate.

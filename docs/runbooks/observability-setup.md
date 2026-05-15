@@ -256,3 +256,191 @@ logger.info({ household_id: 'abc' }, 'Pedido recebido');
 - PRD NFRs: NFR4, NFR12, NFR13, NFR14, NFR15
 - Handoff de criação dos secrets: `docs/handoffs/archive/mj-handoff-secrets-configured-20260507.yaml`
 - Handoff Story 1.7 ready for dev: `docs/handoffs/archive/mj-handoff-story-1.7-ready-for-dev-20260508.yaml`
+
+---
+
+## §7 Dashboard "Agent Health" (Story 2.11)
+
+Dashboard Epic 2 dedicado ao pipeline AI multi-intent: classifier (OpenAI gpt-4o-mini) → planner (Anthropic Claude Sonnet) → executor (atómico Postgres). Ficheiro scaffold versionado: `docs/dashboards/grafana-agent-health.json` (6 painéis).
+
+**Estado actual:** Mockable-friendly — JSON scaffold + queries documentadas; activação UI deferida pós-deploy production (precedente Story 1.7 Tasks 7-8 PARTIAL).
+
+### §7.1 Painéis (6)
+
+| # | Título | Tipo | Query (resumida) | Datasource | Unit | Thresholds |
+|---|--------|------|------------------|------------|------|-----------|
+| 1 | Latência `/api/agent/prompt` (p50/p95/p99) | timeseries | `histogram_quantile(0.5\|0.95\|0.99, sum(rate(http_server_duration_milliseconds_bucket{http_route="/api/agent/prompt"}[5m])) by (le))` | Prometheus | ms | green 0 / yellow 6000 (NFR1) / red 10000 (NFR15) |
+| 2 | Taxa de erro por intent | timeseries | `sum by (intent_class) (rate(http_server_response_count{http_route="/api/agent/prompt", http_status_code=~"5.."}[5m])) / sum by (intent_class) (...)` | Prometheus | % | green 0 / yellow 1% / red 5% |
+| 3 | Custo planner €/dia top 10 households | timeseries | `topk(10, sum by (household_hash) (increase(traces_spanmetrics_sum_planner_cost_eur{span_name="agent.planner.call"}[24h])))` | Prometheus | EUR | green 0 / yellow €1 / red €5 |
+| 4 | Precisão do benchmark | stat | `avg_over_time(agent_intent_accuracy_ratio[7d])` (OTel meter Gauge Story 2.10) | Prometheus | % | red 0 / yellow 88% / green 90% |
+| 5 | Hit rate de cache (Upstash + Anthropic) | timeseries | 2 séries via `traces_spanmetrics_calls_total{span_name=..., ..._cache_hit="true"}` ÷ total | Prometheus | % | red 0 / yellow 15% / green 60% |
+| 6 | Violações RLS (placeholder NIT-002-NB) | stat | `count_over_time({job="expressia-web"} \|= "rls.policy_violation" [5m])` | Loki | count | green 0 / red ≥1 |
+
+**Datasource UIDs:** placeholders no scaffold — IDs reais obtidos via UI Grafana após import (§7.4 abaixo).
+
+### §7.2 Span attributes consumidos (43 attrs whitelist)
+
+Total **11 + 12 + 12 + 8 = 43 attrs** distribuídos por 4 spans canónicos (post-PO_FIX_INLINE 2 cross-confirm contra `*_SPAN_ATTRIBUTE_KEYS` arrays reais):
+
+**Top span — `POST /api/agent/prompt` (11 attrs)** — `apps/web/src/lib/agent/tracing.ts:38-51`:
+
+| # | Attribute | Tipo | Notas |
+|---|-----------|------|-------|
+| 1 | `agent.prompt.household_id` | UUID | tenant identifier (não PII) |
+| 2 | `agent.prompt.intent_class` | string | enum value — primeira intent detectada |
+| 3 | `agent.prompt.confidence_min` | float | min confidence dos intents |
+| 4 | `agent.prompt.mode` | enum `preview`\|`executed` | preview-then-confirm decision |
+| 5 | `agent.prompt.tool_count` | integer | tools invocadas |
+| 6 | `agent.prompt.duration_ms` | integer | latência total |
+| 7 | `agent.prompt.classifier_model` | enum | ex: `gpt-4o-mini` |
+| 8 | `agent.prompt.executor_model` | enum | ex: `claude-sonnet-4-5` |
+| 9 | `agent.prompt.cache_hit` | boolean | Upstash classifier cache (Story 2.9 AC3) |
+| 10 | `agent.prompt.status_code` | integer | HTTP status |
+| 11 | `agent.prompt.always_preview_active` | boolean | Story 2.7 FR4 toggle |
+
+**Sub-span — `agent.classifier.classify` (12 attrs)** — `packages/classifier/src/tracing.ts:42-55` (`CLASSIFIER_SPAN_ATTRIBUTE_KEYS`):
+
+`classifier.model` · `classifier.input_length` · `classifier.intent_count` · `classifier.overall_confidence` · `classifier.language_detected` · `classifier.duration_ms` · `classifier.tokens_input` · `classifier.tokens_output` · `classifier.success` · `classifier.error_class` · `classifier.user_hash` · `classifier.trace_id`
+
+**OMISSÃO MVP:** classifier NÃO emite `cost_eur` attr (grep confirmou zero matches em `packages/classifier/src` para cost/pricing). Custo OpenAI é computed downstream por `packages/agent/src/pricing.ts` mas não exportado como span attr. Per NFR21 (modelo barato), custo classifier é ~5-10% do total LLM cost — aceitável omissão MVP; Epic 2.x follow-up natural: adicionar `classifier.cost_eur` emission.
+
+**Sub-span — `agent.planner.call` (12 attrs)** — `packages/planner-executor/src/tracing.ts:36-49` (`PLANNER_SPAN_ATTRIBUTE_KEYS`):
+
+`planner.model` · `planner.intent_count` · `planner.intent_unique_types` · `planner.tool_call_count` · `planner.cache_hit` · `planner.duration_ms` · `planner.tokens_input` · `planner.tokens_output` · `planner.cost_eur` · `planner.success` · `planner.error_class` · `planner.household_hash`
+
+**Sub-span — `agent.executor.run` (8 attrs)** — `packages/planner-executor/src/tracing.ts:115-124` (`EXECUTOR_SPAN_ATTRIBUTE_KEYS`):
+
+`executor.tool_count` · `executor.duration_ms` · `executor.success` · `executor.rolled_back` · `executor.failed_tool_name` · `executor.reverse_op_count` · `executor.run_id` · `executor.household_hash`
+
+**Spans tool — `agent.tool.call` + `agent.tool.atomic`** (Story 2.3, `packages/tools/src/tracing.ts:26,31`): parent-child de `agent.executor.run` — documentar para deep-dive debug mas não consumidos directamente pelos 6 painéis MVP.
+
+### §7.3 Empty states esperados
+
+| Cenário | Painel afectado | Comportamento | Resolução |
+|---------|-----------------|----------------|-----------|
+| Story 2.10 T10 BLOCKED (DPA UE Anthropic pending) | Painel 4 (accuracy) | Renderá "Sem dados" — métrica `agent.intent_accuracy_ratio` nunca emitida | Eurico decide opção A/B/C runbook DPA UE → executar `pnpm --filter @meu-jarvis/agent-bench run bench:real` |
+| EB3 Upstash não provisionado | Painel 5 série (a) Upstash | Renderá taxa = 0% (modo degradado Story 2.9 AC1 sem crash) | Eurico provisiona Upstash Redis EU Frankfurt + secrets `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` em Vercel runtime |
+| Tráfego baixo MVP (< 50 prompts/dia) | Painel 1 (latência) | p95 com poucos buckets — alta variância visual | Ajustar query window de `[5m]` para `[1h]` em early days; voltar a `[5m]` quando volume estabilizar |
+| Emission `rls.policy_violation` não implementada | Painel 6 (RLS) | Renderá 0 sempre — NIT-002-NB documentado | Epic 2.x housekeeping ou Epic 7 Platform: adicionar `logger.warn({ event: 'rls.policy_violation', table, query })` em error handler Drizzle |
+| Anthropic planner mockable-only (EB1 pending) | Painéis 3, 5 série (b) | Métricas zero — Sonnet nunca invocado em prod | Eurico decide opção A/B/C DPA UE Anthropic → planner+executor saem de mockable-only |
+
+### §7.4 Activação UI pós-deploy (5 passos)
+
+Deferido para handoff `mj-handoff-2.11-post-deploy-grafana-{date}.yaml` (precedente directo Story 1.7 Tasks 7-8 PARTIAL):
+
+1. **Login** em `https://expressia.grafana.net` com credenciais OAuth Eurico.
+2. **Importar dashboard** — Dashboards → New → Import → JSON upload `docs/dashboards/grafana-agent-health.json`.
+3. **Seleccionar datasources** no wizard de import: Prometheus (para painéis 1-5) + Loki (para painel 6).
+4. **Confirmar queries renderam** — abrir cada painel, verificar:
+   - Painéis 1-2-5 (séries primárias): dados reais imediatamente (tráfego /jarvis pós cascada resolvida 2026-05-15).
+   - Painel 3 (custo): dados reais se planner Sonnet activo OR empty se mockable-only.
+   - Painel 4 (accuracy): empty até Story 2.10 T10.
+   - Painel 6 (RLS): empty (NIT-002-NB).
+5. **Export populated** — Dashboard → Share → Export → Save to file → substituir `docs/dashboards/grafana-agent-health.json` com export que contém UIDs reais de datasources + `version` incrementado. Commit via `@devops *push`.
+
+---
+
+## §8 Alertas Agent Health (NFR15)
+
+3 alarmes Grafana Alerting documentados — activação UI deferida pós-deploy via handoff (precedente Story 1.7 Task 8 PARTIAL).
+
+### §8.1 Alarme 1 — Latência p95 alta
+
+| Campo | Valor |
+|-------|-------|
+| Query | `histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket{http_route="/api/agent/prompt"}[5m])) by (le)) > 10000` |
+| Janela | 5 min |
+| Severity | HIGH |
+| Notification channel | recomendação **email único `eurico@…`** MVP zero custo ([AUTO-DECISION D60] deferido @architect gate; alternativas: Slack `#expressia-alerts` futuro multi-dev, PagerDuty free tier futuro 5+ devs) |
+| Acção recomendada | (i) verificar Vercel Status para outage `fra1`; (ii) verificar OpenAI/Anthropic status pages (DPA UE endpoints); (iii) abrir painel 1 + 5 para identificar se latência é classifier OR planner OR cache miss; (iv) se persistir > 30min, escalar manualmente |
+| Trace | NFR15 PRD §3 ("latência p95 do agente > 10s em 5 min"), Architecture §9.2 alarme `agent.latency.p95`, R2 mitigação Epic plan |
+
+### §8.2 Alarme 2 — Custo LLM excede 35% MRR (7d rolling)
+
+| Campo | Valor |
+|-------|-------|
+| Query | `(sum(increase(traces_spanmetrics_sum_planner_cost_eur{span_name="agent.planner.call"}[7d])) / sum(billing_mrr_eur_total)) > 0.35` |
+| Janela | 7 dias rolling |
+| Severity | HIGH |
+| Notification channel | mesmo canal alarme 1 (email único MVP, [AUTO-DECISION D60]) |
+| Acção recomendada | (i) verificar painel 3 para identificar households top-cost; (ii) verificar se hard-stop 110% Story 2.9 AC8 está a funcionar (`incrementQuota` agora via `getServiceDb()` per Story 2.9 D50); (iii) se sustained > 7d, escalar review pricing tiers Architecture §6.4 |
+| Trace | Architecture §9.2 alarme `agent.cost.eur_per_household_24h` (`> 35% MRR rolling 7d → alarme`), NFR20, R3 mitigação Epic plan |
+| Pré-condição | métrica `billing_mrr_eur_total` será emitida quando Stripe billing integration entrar (Epic 7 Platform & Compliance — fora de scope MVP); até lá alarme renderá "No data" |
+
+### §8.3 Alarme 3 — Precisão do benchmark < 88%
+
+| Campo | Valor |
+|-------|-------|
+| Query | `avg_over_time(agent_intent_accuracy_ratio[24h]) < 0.88` |
+| Janela | 24h (alinhado benchmark CI nightly Architecture §10.3) |
+| Severity | MEDIUM (abre ticket, não bloqueia pipeline) |
+| Notification channel | mesmo canal alarme 1 (email único MVP, [AUTO-DECISION D60]) |
+| Acção recomendada | (i) verificar painel 4 para tendência últimos 7d; (ii) re-correr benchmark `pnpm --filter @meu-jarvis/agent-bench run bench:real` para confirmar regressão; (iii) abrir issue tracking + estratégia mitigação R1 (re-tuning prompts classifier OR upgrade modelo) |
+| Trace | Architecture §9.2 alarme `agent.intent_accuracy` (`< 88% → ticket auto`), Epic 2 AC6 (precisão ≥ 90% — target 2pp acima do alarme buffer), R1 mitigação |
+| Pré-condição | Story 2.10 T10 desbloqueado (Eurico QA1 DPA UE Anthropic); até lá alarme renderá "No data" + nunca dispara |
+
+### §8.4 Activação UI dos alarmes (deferido)
+
+Deferido para handoff `mj-handoff-2.11-post-deploy-grafana-{date}.yaml`. Workflow UI:
+
+1. Alerting → Alert rules → New alert rule por cada alarme acima.
+2. Configurar Notification policy → contact point (email recomendado MVP).
+3. Test fire — simular condição para validar canal.
+4. Confirmar silenciamento durante deploy windows.
+
+---
+
+## §9 Decisão dual-emission Sentry+OTel — re-evaluation (Epic ED4)
+
+**Contexto:** EPIC-2 decision log ED4 (2026-05-08) prometia re-avaliar dual-emission em Story 2.11.
+
+**Status actual (Story 1.7 Done):** Stack mantém dual-emission:
+- **Sentry SDK** para errors via `captureException` em `packages/observability/src/sentry.ts` — replay com PII redaction (NFR12), DSN EU Frankfurt (`o4510848200278016.ingest.de.sentry.io`).
+- **Grafana via OTel** para métricas + traces + logs via `@vercel/otel` → `otlp-gateway-prod-eu-west-6.grafana.net/otlp`.
+
+### §9.1 Avaliação @sm (drafted)
+
+Após 4 meses prod (estimado pós-Epic 2 launch ~Q3 2026), avaliar:
+
+| Dimensão | Métrica |
+|----------|---------|
+| Volume duplicado | events Sentry vs error logs Grafana — overlap esperado, quantificar |
+| Custo combinado | Sentry free tier (até 5k errors/mês) + Grafana free tier (10k metrics + 50GB logs) — ambos €0 hoje |
+| DX prós | Sentry replay + breadcrumbs (Architecture §14.4 ADR-004); Grafana correlation traces↔logs↔metrics |
+| DX contras | manter 2 dashboards; alertas duplicados a configurar; mental overhead 2 plataformas |
+| Migration custo | Sentry → Grafana via OpenTelemetry SDK supported, ~2 semanas refactor |
+
+### §9.2 Recomendação @sm (formalizada nesta story v1.1)
+
+**Manter dual-emission no MVP** — três razões:
+
+1. **Sentry replay é diferenciador DX para debug** — Architecture §14.4 ADR-004 reconhece valor único; Grafana logs não oferecem session replay nativo.
+2. **Zero pressão de custo** — ambos €0/mês no free tier; sem incentivo financeiro para migrar.
+3. **4 meses prod é insuficiente** — observability fatigue só emerge com volume real (estimated 5k+ households Epic 7+); avaliar formalmente em Epic 7 (Platform & Compliance) com 90+ dias prod metrics.
+
+### §9.3 Decisão deferida [DEV_DECISION D59]
+
+@architect gate ratifica:
+
+- **Opção A (recomendação @sm):** manter dual-emission, re-avaliar formalmente Epic 7 com base em métricas reais 90+ dias prod.
+- **Opção B (deep-dive):** ordenar @architect análise técnica + cost projection ANTES de Epic 7 launch para baseline informada.
+- **Opção C (migrate now):** consolidar em Grafana-only via OpenTelemetry SDK migration — rejeitada pelo @sm por baixa relevância MVP.
+
+**Trace:** EPIC-2 decision_log ED4, Architecture §14.4 ADR-004 (dual-emission ADR), [AUTO-DECISION D59] Story 2.11.
+
+---
+
+## §10 Referências Story 2.11
+
+- Arquitectura: `docs/architecture.md` §9.4 (Agent Health), §9.2 (métricas-chave), §14.4 ADR-004
+- PRD: NFR13 + NFR14 + NFR15 (linhas 110-112)
+- Epic plan: `docs/epics/EPIC-2-EXECUTION.yaml` linhas 281-294 (Story 2.11 scope_summary)
+- Story file: `docs/stories/active/2.11.observability-dashboards-agent-health.md`
+- Dashboard scaffold: `docs/dashboards/grafana-agent-health.json` (6 painéis)
+- Precedente Story 1.7: `docs/dashboards/grafana-epic1.json` (4 painéis Epic 1)
+- Handoffs: `docs/handoffs/archive/mj-handoff-2.11-ready-for-po-20260515.yaml` + `mj-handoff-2.11-ready-for-dev-20260515.yaml`
+- Tracing canónico:
+  - `packages/classifier/src/tracing.ts:26,42-55` — `agent.classifier.classify` + 12 attrs
+  - `packages/planner-executor/src/tracing.ts:36-49,115-124` — `agent.planner.call` 12 + `agent.executor.run` 8 attrs
+  - `packages/tools/src/tracing.ts:26,31` — `agent.tool.call` + `agent.tool.atomic` (parent-child)
+  - `apps/web/src/lib/agent/tracing.ts:38-51` — top span 11 attrs whitelist

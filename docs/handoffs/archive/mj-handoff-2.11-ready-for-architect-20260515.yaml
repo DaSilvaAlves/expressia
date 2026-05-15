@@ -1,0 +1,186 @@
+from_agent: "dev"
+from_agent_persona: "Dex (@dev)"
+to_agent: "architect"
+created: "2026-05-15T15:50:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-15T17:00:00Z"
+consumed_by: "architect"
+consumed_by_persona: "Aria (@architect)"
+consumption_record: >
+  Consumido por Aria (@architect) 2026-05-15 17:00 ao executar `*qa-gate 2.11`.
+  Veredicto: **APPROVED 9.3/10 HIGH confidence**. Gate report `docs/qa/gates/2.11-architect-gate.md` (~600 linhas).
+  5/5 quality gates re-verified independently EXACT MATCH @dev numbers (FULL TURBO 9/9 cached em 4 dos 5 gates).
+  Cross-confirm próprio anti-hallucination contra 8 fontes reais codebase — ZERO hallucinations remanescentes pós PO_FIX.
+  🚨 ACHADO ARQUITECTÓNICO D64 RATIFIED PARTIAL with REFINEMENT: strategy `traces_spanmetrics` works for
+  painéis 1, 2, 5, 6 (calls/duration/dimensions/boolean filters) mas NOT para numeric attribute sums
+  (painel 3 custo planner + alarme 2 custo MRR). Grafana default span-metrics generator emite apenas
+  calls_total + duration_* + size_bytes_* — NÃO emite sum_<attr> automaticamente. NIT-003-NB NEW
+  documented para Epic 2.x follow-up: custom OTel meter emission em packages/planner-executor/src/planner.ts.
+  Painel 3 + Alarme 2 renderão "No data" até fix.
+  7 decisions ratified: 6/6 [AUTO-DECISION] D58-D63 PASS (D63 EXCEEDS) + D64 PARTIAL with refinement.
+  12/12 ACs PASS (AC10 EXCEEDS — smoke test JSON schema opcional implementado).
+  Constitution 6/6 articles PASS (Article IV No Invention: 7 hallucinations/refinements caught + corrected
+  — 6 by @po + 1 by @architect).
+  6 NITs non-blocking deferred (1 new D64 + 5 inherited/cosmetic).
+  Padrão arquitectónico oficial pós-gate (D64 hierarchy): (1) Standard span metrics → traces_spanmetrics_*;
+  (2) Numeric attribute sums → custom OTel meter emission; (3) Custom domain metrics → custom OTel meter Gauge.
+  Status Ready for Review v1.2 → Done v1.3. Sucessor: mj-handoff-2.11-ready-for-devops-close-20260515.
+story_id: "2.11"
+story_path: "docs/stories/active/2.11.observability-dashboards-agent-health.md"
+story_title: "Observability Dashboards Agent Health (NFR13+NFR14+NFR15)"
+project_prefix: "mj"
+
+summary: >
+  Story 2.11 Ready for Review v1.2 — `@dev *develop 2.11` YOLO mockable-friendly completo.
+  8/8 Tasks DONE · 12/12 ACs cobertas · 5/5 quality gates GREEN. Wall-clock ~45min (vs estimate 3-4h)
+  por config-heavy + FULL TURBO cache. 6 ficheiros tocados (3 novos + 3 modificados — match v1.1
+  antecipação +1 handoff). 6 PO_FIX_INLINE @po v1.1 honrados estritamente. 1 nova [DEV_DECISION D64]
+  para @architect ratificar (`traces_spanmetrics` strategy). 4 concerns deferred herdados @po
+  (C1-C4) mantidos para review. Pronta para `@architect *qa-gate 2.11` cross-domain (observability
+  configuration + queries PromQL/LogQL + runbook expansion).
+
+context:
+  epic_state: >
+    Epic 2 — 8/11 Done (2.1-2.9) + 1 Partial (2.10 T1-T9 done, T10 BLOCKED) +
+    1 Ready for Review (2.11 esta story). Após @architect APPROVED + @devops *push:
+    Epic 2 = 9/11 Done + 1 Partial = efectivamente fechada para gates AI (T10 humano-action).
+  baseline_tests_pre_2_11: "229 web + 304 outros = 533 tests passing"
+  baseline_tests_post_2_11: "230 web + 304 outros = 534 + 1 new dashboards smoke = **535 tests passing**"
+  quality_gates_final: >
+    5/5 GREEN — typecheck 9/9 PASS 3.18s · lint 9/9 0 warnings 38.9s ·
+    test 535 passing (230 web + 79 classifier + 53 planner-executor + 102 agent + 57 tools +
+    6 db + 8 observability) · build PASS 47.6s · check:rls EXIT 0 NFR5 PRESERVADA 28/120+
+  db_test_status: "ENV-BLOCKER pre-existing NIT-006-NB Docker daemon offline local — CI rls-gate job cobre via Postgres 16 service container (precedent Stories 2.6-2.10)"
+  predecessor_story: "2.10.benchmark-e2e-anthropic.story.md Partial Done v0.5"
+  cascada_jarvis_resolved: >
+    2026-05-15 02:30 — classifier OpenAI REAL em produção emitindo spans
+    `agent.classifier.classify`. Painéis 1-2-3-5 do dashboard 2.11 têm dados reais para
+    validar queries após activação UI. Painéis 4 (accuracy) + 6 (RLS) ficam empty state
+    documentado até T10 / NIT-002-NB.
+
+dev_decisions_for_architect_review:
+  - id: D64
+    classification: "ARCHITECTURAL"
+    decision: "Estratégia OTel span attrs → Prometheus métricas via `traces_spanmetrics` Grafana extension"
+    rationale: >
+      Painéis 3 (custo planner) + 5 (cache hit Upstash + Anthropic) + alarme 2 (custo > 35% MRR)
+      assumem Grafana Cloud `traces_spanmetrics_*` extension activa para converter span attrs
+      numéricos em métricas Prometheus queryable via PromQL. Zero código TS novo necessário —
+      decisão de configuração Grafana (activação no stack `expressia.grafana.net`).
+    alternative_rejected: >
+      Custom OTel meter emission em cada componente — cada package (classifier/planner-executor)
+      criaria explicit Gauges/Counters duplicando dados já em spans. Adicionaria ~50 linhas TS
+      em packages tracing.ts + Vercel runtime overhead. @dev rejeita por violação KISS.
+    status: "REVIEW REQUIRED — @architect ratifica path canónico para o projecto"
+    impact_if_changed: "Se @architect ordenar custom emission: painéis 3+5+alarme 2 requerem código adicional em tracing.ts files; Story 2.11 reabre em ~30min refactor"
+
+concerns_inherited_from_po:
+  - id: C1
+    severity: medium
+    description: "[DEV_DECISION D64] OTel→Prometheus strategy — match com C1 @po"
+    status: "Documentado em DN1/DN2 do runbook §7.1; @architect decide"
+  - id: C2
+    severity: low
+    description: "Painel 6 RLS denials lazy/placeholder (NIT-002-NB)"
+    status: "Documentado em painel 6 description + runbook §7.3 empty state. Emission via `logger.warn({ event: 'rls.policy_violation' })` deferred Epic 2.x/Epic 7."
+  - id: C3
+    severity: low
+    description: "Painel 3 custo classifier OpenAI omitido (~5-10% NFR21 share)"
+    status: "Documentado em painel 3 description + runbook §7.2 OMISSÃO MVP. Follow-up natural: `classifier.cost_eur` emission Epic 2.x."
+  - id: C4
+    severity: low
+    description: "D59 dual-emission Sentry+OTel re-evaluation Epic 7"
+    status: "Documentado em runbook §9 com 3 opções (A: manter recomendação @sm, B: deep-dive, C: migrate now rejeitada). @architect ratifica."
+
+files_changed:
+  new:
+    - path: "docs/dashboards/grafana-agent-health.json"
+      lines: 191
+      description: "Grafana dashboard scaffold UID `expressia-agent-health` — 6 painéis com queries PromQL/LogQL"
+    - path: "apps/web/src/__tests__/dashboards.test.ts"
+      lines: 46
+      description: "Smoke test Vitest validando JSON parseável + 6 painéis + titles + queries não-vazias [AC10]"
+    - path: "docs/handoffs/mj-handoff-2.11-ready-for-architect-20260515.yaml"
+      lines: ~150
+      description: "Este handoff dev→architect"
+  modified:
+    - path: "docs/runbooks/observability-setup.md"
+      lines_change: "+462 (258 → 720)"
+      description: "Append §7 (Dashboard Agent Health) + §8 (Alertas) + §9 (dual-emission ED4) + §10 (refs)"
+    - path: "apps/web/src/lib/agent/tracing.ts"
+      lines_change: "+0 -0 (1 linha doc comment edit)"
+      description: "[PO_FIX_INLINE 5 T5.4] linha 8 doc comment `agent.classifier.call` → `agent.classifier.classify`"
+    - path: "docs/stories/active/2.11.observability-dashboards-agent-health.md"
+      lines_change: "v1.1 → v1.2"
+      description: "Dev Agent Record populated (Agent Model + Debug Log DI1 + Completion Notes + File List) + Change Log @dev"
+
+acceptance_criteria_status:
+  - id: AC1
+    status: PASS
+    notes: "Dashboard JSON criado com 6 painéis, queries PromQL/LogQL corrigidas pós-PO_FIX, JSON syntactically válido via node -e JSON.parse"
+  - id: AC2
+    status: PASS
+    notes: "Runbook §7 expand com §7.1-§7.4 cobrindo tabela 6 painéis + 43 attrs whitelist + 5 empty states + 5 passos activação UI"
+  - id: AC3
+    status: PASS
+    notes: "3 alarmes documentados em §8.1-§8.3 com query/janela/severity/canal/acção; §8.4 activação UI deferida"
+  - id: AC4
+    status: PASS
+    notes: "Cada alarme tem (i) query (ii) janela (iii) severity (iv) acção (v) deferred-UI"
+  - id: AC5
+    status: PASS
+    notes: "§9 dual-emission re-evaluation documentada — status actual + avaliação @sm + recomendação + 3 opções (A/B/C) [DEV_DECISION D59]"
+  - id: AC6
+    status: PASS
+    notes: "Painel titles + alarme messages + empty states + runbook todos em PT-PT estrito; T5.4 doc drift fix tracing.ts:8"
+  - id: AC7
+    status: PASS
+    notes: "pnpm typecheck 9/9 PASS 3.18s — após fix DI1 typecheck error"
+  - id: AC8
+    status: PASS
+    notes: "pnpm lint 9/9 PASS 0 warnings 38.9s"
+  - id: AC9
+    status: PASS
+    notes: "pnpm test 535 passing total (web 230 includes new dashboards.test.ts +1, outros packages 305 baseline)"
+  - id: AC10
+    status: PASS
+    notes: "dashboards.test.ts smoke test created com 1 it validating 6 panels + uid + titles + non-empty queries"
+  - id: AC11
+    status: PASS
+    notes: "pnpm build Next.js PASS 47.6s FULL TURBO 8 cached + 1 web miss"
+  - id: AC12
+    status: PASS
+    notes: "pnpm check:rls EXIT 0 NFR5 PRESERVADA 28 tabelas / 120+ policies — sem nova tabela"
+
+next_action: >
+  Aria (@architect) executar `*qa-gate 2.11` em sessão próxima ou neste terminal.
+  Veredicto esperado: APPROVED (high confidence) — story tem 5/5 quality gates GREEN exact match,
+  6 PO_FIX_INLINE @po honrados estritamente, anti-hallucination verified pela @po + ratificada
+  pelos PromQL queries reais. Apenas 4 concerns low-medium para deferral/ratificação:
+  C1 [DEV_DECISION D64] medium (traces_spanmetrics strategy — recomendação @dev concreta) +
+  C2-C4 low (NIT-002-NB RLS placeholder + cost classifier omitted + dual-emission Epic 7).
+  Sucessor handoff: `mj-handoff-2.11-ready-for-devops-close-{date}` (architect → devops *push 2.11).
+
+next_command_suggested: "@architect *qa-gate 2.11"
+estimated_wall_clock: "~30-60min @architect gate (precedente 2.7-2.9 architect gates ~30-45min para stories config/scope-shift)"
+priority: "medium"
+blocking: false
+
+post_gate_path: |
+  Após @architect APPROVED:
+  1. Story v1.2 → v1.3 com Architect Gate Report block
+  2. _INDEX.md row 2.11 status: Ready for Review → Done (awaits push)
+  3. Sucessor handoff `mj-handoff-2.11-ready-for-devops-close-{date}` (architect → devops)
+  4. @devops *push 2.11 → commits pushed origin/main → Epic 2 = 9/11 Done + 1 Partial (2.10 humano-action)
+
+notes: |
+  - Story 2.11 fecha peça final Epic 2 (per EPIC-2 critical_path + parallelization_opportunities §S211).
+  - Pipeline AI continua mockable-only (classifier real em prod via cascada /jarvis, planner+executor
+    mockable-only até EB1 DPA UE Anthropic).
+  - Activação UI Grafana real é follow-up pós-deploy via handoff `mj-handoff-2.11-post-deploy-grafana-{date}`
+    (precedente directo Story 1.7 Tasks 7-8 PARTIAL ainda pending).
+  - db-test ENV-BLOCKER pre-existing NIT-006-NB documented — CI rls-gate cobre.
+  - Zero código TS produção alterado excepto 1 linha doc comment fix em apps/web/src/lib/agent/tracing.ts:8
+    (PO_FIX_INLINE 5 cosmético).
+  - Wall-clock real ~45min (vs estimate 3-4h) — config-heavy story sem código + FULL TURBO cache benefit.

@@ -1,0 +1,213 @@
+{
+  "__comment": "Grafana dashboard scaffold — Epic 2 Story 2.11 (Agent Health Observability). Substituir por export completo após criação na UI Grafana (https://expressia.grafana.net) com dados reais de production. Workflow activação UI: (1) login expressia.grafana.net, (2) Dashboards → Import → upload este ficheiro, (3) seleccionar datasources Prometheus + Loki, (4) confirmar 6 painéis renderam (alguns lazy/empty até Story 2.10 T10 desbloquear OU emission RLS implementada), (5) Dashboard → Share → Export → substituir este ficheiro com export populated UID. Stack: expressia.grafana.net (eu-west-6 Ireland). Trace: Architecture §9.4 (Agent Health: latência p50/p95/p99, error rate por intent, cost €/dia, accuracy benchmark), §9.2 métricas-chave, NFR13+NFR14+NFR15. **NOTA mockable-friendly:** Queries documentadas; activação UI deferida pós-deploy via handoff (precedente Story 1.7). [DEV_DECISION D64] painéis 3+5 assumem Grafana Cloud `traces_spanmetrics` extension activa para converter span attrs em métricas Prometheus — alternativa custom OTel meter emission deferida @architect gate.",
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Expressia — Epic 2 Agent Health observability (latência pipeline AI, taxa de erro por intent, custo planner, precisão benchmark, hit rate de cache, violações RLS). Story 2.11. Trace: Architecture §9.4 + NFR13/14/15.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Latência /api/agent/prompt (p50/p95/p99)",
+      "type": "timeseries",
+      "description": "Latência pipeline AI completo (classifier → planner → executor). Target: p95 < 6000ms (NFR1). Alarme: p95 > 10000ms (NFR15). Trace: AC1 painel 1, Architecture §9.2 agent.latency.p95.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_duration_milliseconds_bucket{http_route=\"/api/agent/prompt\"}[5m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket{http_route=\"/api/agent/prompt\"}[5m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum(rate(http_server_duration_milliseconds_bucket{http_route=\"/api/agent/prompt\"}[5m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 6000 },
+              { "color": "red", "value": 10000 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "title": "Taxa de erro por intent — /api/agent/prompt",
+      "type": "timeseries",
+      "description": "Error rate 5xx agrupada por intent_class (attr emitido por agent.prompt.intent_class). Target: < 1% (NFR15). Alarme: > 1% em 5min. Trace: AC1 painel 2, apps/web/src/lib/agent/tracing.ts:39 (whitelist attr).",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (intent_class) (rate(http_server_response_count{http_route=\"/api/agent/prompt\", http_status_code=~\"5..\"}[5m])) / sum by (intent_class) (rate(http_server_response_count{http_route=\"/api/agent/prompt\"}[5m]))",
+          "legendFormat": "{{intent_class}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 0.01 },
+              { "color": "red", "value": 0.05 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "id": 3,
+      "title": "Custo planner €/dia — top 10 households",
+      "type": "timeseries",
+      "description": "Custo Anthropic planner agregado por household (24h rolling). Top 10 households por consumo. Métrica derivada do span attr planner.cost_eur (packages/planner-executor/src/tracing.ts:97) via traces_spanmetrics extension. **OMISSÃO MVP:** classifier OpenAI custo (~5-10% NFR21 share) não está incluído — classifier não emite cost_eur attr. Follow-up Epic 2.x: adicionar classifier.cost_eur emission. Trace: AC1 painel 3 + PO_FIX_INLINE 4a + [DEV_DECISION D64].",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, sum by (household_hash) (increase(traces_spanmetrics_sum_planner_cost_eur{span_name=\"agent.planner.call\"}[24h])))",
+          "legendFormat": "{{household_hash}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "id": 4,
+      "title": "Precisão do benchmark (intent accuracy)",
+      "type": "stat",
+      "description": "Métrica OTel custom gauge agent.intent_accuracy_ratio emitida pelo harness packages/agent-bench/runner.ts (Story 2.10). Pipeline: (i) lê fixtures 200-prompts-pt-pt.jsonl expected_intents[], (ii) consome intent_classifications.intent das agent_runs, (iii) compute accuracy = matched/total em-memory, (iv) emit meter.createGauge('agent.intent_accuracy_ratio').record(accuracy). **EMPTY STATE até Story 2.10 T10 desbloquear** (Eurico decisão QA1 DPA UE Anthropic). Target: ≥ 90% (Epic 2 AC6). Alarme: < 88% (NFR15). Trace: AC1 painel 4 + PO_FIX_INLINE 3 + Architecture §9.2 agent.intent_accuracy.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "avg_over_time(agent_intent_accuracy_ratio[7d])",
+          "legendFormat": "accuracy"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": 0 },
+              { "color": "yellow", "value": 0.88 },
+              { "color": "green", "value": 0.9 }
+            ]
+          },
+          "noValue": "Sem dados — execute benchmark Story 2.10 T10 (pnpm --filter @meu-jarvis/agent-bench run bench:real) para popular esta métrica."
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+    },
+    {
+      "id": 5,
+      "title": "Hit rate de cache (Upstash classifier + Anthropic prompt)",
+      "type": "timeseries",
+      "description": "Duas séries: (a) Upstash classifier cache via attr agent.prompt.cache_hit (route.ts:325, Story 2.9 AC3); (b) Anthropic prompt cache via attr planner.cache_hit (planner-executor/tracing.ts:41, Story 2.5). Pre-condição: Grafana Cloud traces_spanmetrics extension activa OR custom OTel meter emit. Targets Epic plan: Upstash ≥ 15% pós 7d prod; Anthropic ≥ 60% horário pico. Trace: AC1 painel 5 + PO_FIX_INLINE 4b + [DEV_DECISION D64].",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(traces_spanmetrics_calls_total{span_name=\"POST /api/agent/prompt\", agent_prompt_cache_hit=\"true\"}[5m])) / sum(rate(traces_spanmetrics_calls_total{span_name=\"POST /api/agent/prompt\"}[5m]))",
+          "legendFormat": "Upstash classifier"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(traces_spanmetrics_calls_total{span_name=\"agent.planner.call\", planner_cache_hit=\"true\"}[5m])) / sum(rate(traces_spanmetrics_calls_total{span_name=\"agent.planner.call\"}[5m]))",
+          "legendFormat": "Anthropic prompt cache"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": 0 },
+              { "color": "yellow", "value": 0.15 },
+              { "color": "green", "value": 0.6 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+    },
+    {
+      "id": 6,
+      "title": "Violações RLS (placeholder NIT-002-NB)",
+      "type": "stat",
+      "description": "Painel PLACEHOLDER FUTURE WORK — métrica rls.policy_violations_total Architecture §9.2 NÃO implementada no codebase actual (grep packages/ zero matches). Query LogQL assume future emission via logger.warn({ event: 'rls.policy_violation', table, query }) em error handler Drizzle. Threshold: > 0 CRITICAL (qualquer denial é incidente — NFR5). **Empty state esperado até emission implementada (NIT-002-NB).** Follow-up: Epic 2.x housekeeping ou Epic 7 Platform & Compliance. Trace: AC1 painel 6 + PO_FIX_INLINE 4c.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count_over_time({job=\"expressia-web\"} |= \"rls.policy_violation\" [5m])",
+          "legendFormat": "violations"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "noValue": "Sem dados — emission rls.policy_violation não implementada (NIT-002-NB Epic 2.x follow-up)."
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["expressia", "epic2", "agent", "observability", "story-2.11"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "Europe/Lisbon",
+  "title": "Expressia — Agent Health (Epic 2)",
+  "uid": "expressia-agent-health",
+  "version": 1,
+  "weekStart": ""
+}
