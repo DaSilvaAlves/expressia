@@ -1,0 +1,391 @@
+from_agent: "devops"
+from_agent_persona: "Gage (@devops) — sessão de meta-handoff cross-terminal"
+to_agent: "any"
+to_agent_options: ["pm", "sm", "aiox-master"]
+created: "2026-05-15T18:30:00Z"
+status: pending
+consumed: false
+
+story_id: "epic3-kickoff"
+story_path: "docs/prd.md (§6.3 Epic 3 — Módulo Tarefas, linhas 291-311)"
+story_title: "Epic 3 Kickoff — Módulo Tarefas (CRUD + recorrência + 3 vistas + tags + tools cérebro)"
+project_prefix: "mj"
+priority: medium
+blocking: false
+type: meta-handoff-cross-terminal
+
+summary: >
+  Sessão actual fechou Epic 2 efectivamente (Story 2.11 Done v1.4 pushed `255773e` em
+  `origin/main`, CI run `25934025410` SUCCESS 3m11s). Epic 2 = 9/11 Done + 1 Partial
+  (2.10 humano-action DPA UE Anthropic) — único item pendente fora controle AI.
+  Eurico decidiu **avançar Epic 3 (Tarefas) noutro terminal**. Handoff portátil contém
+  todo o contexto necessário: estado actual + 2 opções de arranque (PM canonical vs SM
+  lean) + scope Epic 3 (8 stories sugeridas PRD §6.3) + blockers + state git/CI/Vercel.
+
+context:
+  session_summary: >
+    Sessão Eurico 2026-05-15 13:00-18:30 (~5h30) executou full SDC Story 2.11 num único
+    terminal: @sm draft v1.0 (Orion delegado) → @po validate v1.1 GO 8.5/10 (6 PO_FIX_INLINE
+    críticos anti-hallucination) → @dev impl v1.2 YOLO mockable-friendly (~45min FULL
+    TURBO cache) → @architect gate v1.3 APPROVED 9.3/10 HIGH (D64 RATIFIED PARTIAL +
+    NIT-003-NB NEW) → @devops push v1.4 commit `255773e`.
+
+  epic_2_state_final: >
+    Epic 2 — Cérebro AI Multi-Intent: **9/11 Done + 1 Partial (2.10) + 0 Backlog**.
+    Effectively closed for AI gates.
+    - 2.1 Schema agent (Done v1.3 APPROVED 9.5/10)
+    - 2.2 Package agent + provider abstraction (Done v1.3 APPROVED 9.4/10)
+    - 2.3 Tool Registry Foundation (Done v1.3 APPROVED 9.5/10)
+    - 2.4 Classifier PT-PT (Done v1.4 APPROVED 9.4/10)
+    - 2.5 Planner+Executor (Done v1.4 APPROVED 9.4/10)
+    - 2.6 Endpoint /api/agent/prompt (Done v1.4 APPROVED 9.4/10)
+    - 2.7 Preview-then-confirm + UI Chat (Done v1.4 APPROVED 9.4/10)
+    - 2.8 Undo + Inngest cleanup (Done v1.4 APPROVED 9.4/10)
+    - 2.9 Cost router + cache + quotas (Done v1.4 APPROVED 9.5/10)
+    - 2.10 Benchmark E2E Anthropic — **Partial Done v0.5** (T1-T9 done; T10 BLOCKED humano-action DPA UE Anthropic)
+    - 2.11 Observability dashboards Agent Health (Done v1.4 APPROVED 9.3/10) — pushed `255773e`
+
+  pipeline_ai_status: >
+    Classifier OpenAI REAL em produção (cascada /jarvis resolved 2026-05-15 02:30).
+    Planner+Executor Anthropic continua mockable-only até EB1 DPA UE Anthropic resolved
+    (T10 da Story 2.10).
+
+  cascada_jarvis_summary: >
+    3 bugs sequenciais resolvidos 2026-05-14/15 no caminho POST /api/agent/prompt →
+    classifier.callLlmOnce → OpenAI: (1) 401 unauthorized keys faltavam Vercel; (2) 400
+    Invalid schema type:None zodToJsonSchema malformado; (3) 400 metadata only allowed
+    when store enabled. NÃO foi adicionado store:true (viola NFR12 PII + UE data
+    residency — armazenamento OpenAI 30 dias dos prompts crus).
+
+  git_state:
+    branch: main
+    head: "255773e"
+    head_message: "feat(observability): Story 2.11 Agent Health dashboards (NFR13+NFR14+NFR15) [Story 2.11]"
+    origin_main_sync: synced
+    working_tree: >
+      Limpo excepto 10 ficheiros marketing (`docs/marketing/*.md`, `.pdf`, `.mp4`)
+      untracked + 1 deleted (`landing-page-expressia-draft.md`). NÃO relacionados Story
+      2.11 nem Epic 2 — Eurico decide destino separadamente. Não bloqueiam Epic 3.
+
+  ci_state:
+    last_run: "25934025410"
+    status: SUCCESS
+    duration: "3m11s"
+    timestamp: "2026-05-15T18:17:01Z"
+
+  vercel_state:
+    auto_deploy: triggered
+    region: fra1
+    risk: minimal
+    risk_detail: "apenas 1 linha doc comment em apps/web/src/lib/agent/tracing.ts:8 — sem código produção alterado"
+
+  external_blockers_status:
+    - id: EB1
+      title: "Anthropic API key DPA UE"
+      status: PENDING
+      blocking: "Story 2.10 T10 only (não bloqueia Epic 3)"
+      action_owner: Eurico
+      decision: "Decisão QA1 entre opção A/B/C runbook docs/runbooks/vercel-llm-keys-setup.md §8.4"
+    - id: EB2
+      title: "OpenAI API key DPA UE"
+      status: RESOLVED
+      resolved_date: "2026-05-14"
+      detail: "Vercel fra1 keys provisioned, classifier real em produção"
+    - id: EB3
+      title: "Upstash Redis EU Frankfurt"
+      status: PENDING
+      blocking: "Story 2.9 cache integrado mockable-only (não bloqueia Epic 3)"
+      action_owner: "Eurico → @devops"
+
+decision_pending:
+  question: "Como arrancar Epic 3 — opção A canonical (PM-first) ou opção B lean (SM-first)?"
+
+  option_A_pm_canonical:
+    name: "PM canonical — `@pm *create-epic 3`"
+    agent: "@pm (Morgan)"
+    output: >
+      `docs/epics/EPIC-3-EXECUTION.yaml` com plan completo: 8+ stories detalhadas +
+      dependency graph + decision points (DP) + risk register (R1-RN) + estimates_summary +
+      bloqueadores externos + parallelization opportunities.
+    effort: "~1-2h @pm wall-clock"
+    pros:
+      - "Precedente Epic 2 plan (11 stories planned via EPIC-2-EXECUTION.yaml)"
+      - "@sm depois tem input estruturado (vs ler PRD raw)"
+      - "Decisões DPs validadas com Eurico antes de drafting"
+      - "Risk register documentado upfront (R1 schema race conditions, R2 Kanban perf, etc.)"
+      - "Dependency graph prevent drift entre stories 3.1-3.8"
+    cons:
+      - "1-2h overhead vs lean approach"
+      - "Pode parecer over-engineering para Epic CRUD-standard"
+    recommended_when: "Epic com >5 stories OU dependências não-triviais OU decisões estratégicas profundas"
+
+  option_B_sm_lean:
+    name: "SM lean — `@sm *draft 3.1` directo"
+    agent: "@sm (River)"
+    output: "Story 3.1 v1.0 Draft (Schema tasks + RLS) directamente"
+    effort: "~45min @sm wall-clock"
+    pros:
+      - "Mais rápido — straight to value"
+      - "Epic 3 é PRD-clear (CRUD standard)"
+      - "Story 3.1 é técnico standard (schema + RLS), sem decisões estratégicas profundas"
+      - "Próximas stories drafted incrementally se necessário"
+    cons:
+      - "Sem dependency graph formal"
+      - "Sem risk register upfront"
+      - "Stories drafted ad-hoc — risco drift entre 3.1 e 3.4 (UI complexo)"
+    recommended_when: "Epic <5 stories OU PRD muito claro OU primeira story é técnica trivial"
+
+  gage_recommendation: >
+    Opção A (PM canonical). Razões:
+    (1) Epic 3 tem 8 stories sugeridas com dependências não-triviais;
+    (2) Stories 3.4 (Kanban drag-and-drop) + 3.5 (Calendário) são UI complexo (L estimate provável);
+    (3) Story 3.7 introduz Inngest cron (provider já em codebase via Story 2.8 mas novo use-case);
+    (4) Story 3.8 integra Epic 2 (3 tools cérebro novos no toolRegistry);
+    (5) Precedente Epic 2 plan provou valor — 11 stories executadas com 0 drift, decision_log
+        ED1-ED5 referenciado em todas as stories.
+
+epic_3_scope:
+  prd_reference: "docs/prd.md §6.3 (linhas 291-311)"
+
+  goal: >
+    Entregar CRUD completo de tarefas com recorrência, 3 vistas (lista/Kanban/calendário),
+    tags globais por household, drag-and-drop, e tools de cérebro AI integradas
+    (criar_tarefa, completar_tarefa, listar_tarefas).
+
+  stories_suggested:
+    - id: "3.1"
+      title: "Schema tasks, task_recurrences, tags, task_tags"
+      estimate_likely: M
+      type: data-engineer
+      executor: "@dev OR @data-engineer"
+      quality_gate: "@architect"
+      dependencies: []
+      notes: >
+        4 tabelas novas com RLS 4-policies cada (16 policies novas). Migration 0009 ou
+        next sequence. Schema deve seguir convenções Stories 2.1: household_id FK +
+        created_at + updated_at + (where applicable) created_by FK users.id.
+        agent.ts schema já tem `tasks` reference em tools registry (Story 2.3).
+        **Cross-confirm cuidado:** verify se tabelas tasks JÁ existem (provavelmente sim
+        via Story 2.3 tool registry seed OR ainda não — cross-confirm com schema files).
+
+    - id: "3.2"
+      title: "API routes CRUD tarefas (auth + RLS)"
+      estimate_likely: M
+      type: api
+      executor: "@dev"
+      quality_gate: "@architect"
+      dependencies: ["3.1"]
+      notes: >
+        REST endpoints /api/tasks (GET list/POST create/PATCH update/DELETE). Auth via
+        Supabase JWT. RLS automatic via getDb() pattern Story 1.5. Pagination + filters
+        via query params. Service: packages/tasks/ ou apps/web/lib/tasks/ (TBD).
+
+    - id: "3.3"
+      title: "Vista lista com filtros + ordenação"
+      estimate_likely: M
+      type: frontend
+      executor: "@dev (com @ux-design-expert review)"
+      quality_gate: "@architect (UI review)"
+      dependencies: ["3.2"]
+      notes: >
+        Next.js page /tasks com lista server-side rendered (RSC). Filtros (status, tag,
+        due date range) + ordenação (created/due/priority). Empty state PT-PT.
+
+    - id: "3.4"
+      title: "Vista Kanban com colunas + drag-and-drop"
+      estimate_likely: L
+      type: frontend
+      executor: "@dev (com @ux-design-expert design)"
+      quality_gate: "@architect"
+      dependencies: ["3.2"]
+      notes: >
+        UI complexo. Library candidata: @dnd-kit/core (modern, accessible, mouse+keyboard).
+        Colunas configuráveis per household (kanban_columns table — JÁ EXISTE schema per
+        Story 1.3 tenancy.ts). Persistência drag-end via PATCH /api/tasks/:id { status }.
+
+    - id: "3.5"
+      title: "Vista calendário semanal com drag entre dias"
+      estimate_likely: L
+      type: frontend
+      executor: "@dev (com @ux-design-expert design)"
+      quality_gate: "@architect"
+      dependencies: ["3.2"]
+      notes: >
+        UI complexo. Vista semanal Mon-Sun com tarefas agrupadas por due_date.
+        Drag-and-drop entre dias persiste via PATCH /api/tasks/:id { due_date }.
+        Library candidata: react-big-calendar OR custom implementation.
+
+    - id: "3.6"
+      title: "Sistema de tags globais (criar/listar/aplicar)"
+      estimate_likely: S
+      type: full-stack
+      executor: "@dev"
+      quality_gate: "@architect"
+      dependencies: ["3.1", "3.2"]
+      notes: >
+        CRUD tags + many-to-many task_tags. UI inline tag autocomplete.
+
+    - id: "3.7"
+      title: "Geração automática instâncias recorrentes (cron diário Inngest)"
+      estimate_likely: M
+      type: backend-job
+      executor: "@dev"
+      quality_gate: "@architect"
+      dependencies: ["3.1", "3.2"]
+      notes: >
+        Reuse Inngest setup Story 2.8 (apps/web/src/lib/inngest/). Function
+        `generate-recurring-tasks` cron `0 3 * * *` UTC. Lê task_recurrences (rrule string)
+        + gera instances até 90 dias horizon (PRD AC2 Epic 3). Library: rrule.js.
+        EB4 Inngest workspace EU Frankfurt deve estar provisionado pre-push (já era
+        bloqueador Story 2.8 — verificar status).
+
+    - id: "3.8"
+      title: "Tools cérebro: criar_tarefa, completar_tarefa, listar_tarefas, listar_atrasadas"
+      estimate_likely: M
+      type: integration
+      executor: "@dev"
+      quality_gate: "@architect"
+      dependencies: ["3.2", "Epic 2 ✓"]
+      notes: >
+        Reuse Story 2.3 toolRegistry pattern. 4 tools novos com Zod schemas. Reverse
+        ops para criar_tarefa + completar_tarefa (FR6 undo Story 2.8 pattern). Pricing
+        OK (anthropic + openai unchanged). Integration test E2E via /api/agent/prompt
+        chamando estes tools.
+
+  acceptance_criteria_epic:
+    - AC1: "Criar tarefa via UI ou via cérebro tem mesmo resultado persistido"
+    - AC2: "Recorrência semanal/mensal/dias-úteis funciona em horizonte de 90 dias"
+    - AC3: "Drag-and-drop em Kanban e calendário persiste sem reload"
+    - AC4: "Tarefa criada num household não é visível noutro household (RLS)"
+
+  quality_gates_note: "AS de Epic 2 + UX review de @ux-design-expert"
+
+  estimated_effort: "1S + 4M + 2L = 7-9 sprints (1 dev, dependendo Kanban/Calendário UI complexity)"
+
+architectural_context:
+  patterns_inherited_from_epic_2:
+    - "Mockable-only Vitest pattern (Stories 2.2-2.10)"
+    - "RLS DO block em 0001_rls_policies.sql para tabelas novas (Stories 2.6/2.7)"
+    - "Cross-package `./` imports per Architecture §3"
+    - "Components inline em apps/web/src/app/(app)/{feature}/_components/ (Story 2.7 pattern)"
+    - "[AUTO-DECISION] CodeRabbit pre-push SKIPPED (architect gate substitui)"
+    - "PT-PT vocabulário estrito (CLAUDE.md)"
+    - "@devops exclusive push (rules)"
+    - "anti-hallucination cross-confirm rigoroso (PO + architect)"
+    - "Custom OTel meter emission para numeric span attrs (D64 hierarchy Story 2.11)"
+
+  tracing_pattern_for_epic_3:
+    - "Cada tool cérebro novo (3.8) deve emitir span agent.tool.call (Story 2.3 pattern)"
+    - "Spans tools são parent-child de agent.executor.run (Story 2.5)"
+    - "Whitelist attrs sem PII (NFR12)"
+    - "household_hash via hashForCorrelation (não raw household_id em alguns spans)"
+
+  schema_rls_template:
+    - "Convenção: id uuid PK + household_id uuid FK ON DELETE CASCADE + created_at/updated_at timestamptz + (onde aplicável) created_by uuid FK users.id"
+    - "RLS 4 policies obrigatórias: select_member + insert_member + update_member + delete_member (NFR5 bloqueia merge)"
+    - "Migrations sequential numbered: 0009_tasks_schema.sql etc."
+
+next_action: >
+  Sessão futura noutro terminal: Eurico activa @pm OU @sm baseado na decisão Opção A vs B.
+
+  **Opção A recomendada Gage:**
+  ```
+  @pm *create-epic 3
+  ```
+  Output: docs/epics/EPIC-3-EXECUTION.yaml com plan completo. Sucessor: @sm *draft 3.1.
+
+  **Opção B alternativa:**
+  ```
+  @sm *draft 3.1
+  ```
+  Output: docs/stories/active/3.1.tasks-schema.md v1.0 Draft. Sucessor: @po *validate-story-draft 3.1.
+
+next_command_suggested_primary: "@pm *create-epic 3"
+next_command_suggested_alternative: "@sm *draft 3.1"
+
+estimated_wall_clock_decision: "~5min Eurico para escolher A vs B"
+estimated_wall_clock_after_decision:
+  option_A: "~1-2h @pm full plan + ~45min @sm draft 3.1 = ~2-3h total para Story 3.1 Draft v1.0"
+  option_B: "~45min @sm draft 3.1 = ~45min para Story 3.1 Draft v1.0"
+
+deferred_followups:
+  - id: "T10 Story 2.10 unblock"
+    description: "Decisão Eurico DPA UE Anthropic — opções A/B/C runbook docs/runbooks/vercel-llm-keys-setup.md §8.4"
+    blocking_for: "Story 2.10 final Done gate (planner+executor real em produção)"
+    not_blocking_for: "Epic 3 (CRUD tarefas + UI são independentes do pipeline AI)"
+
+  - id: "Marketing files cleanup"
+    description: "10 ficheiros docs/marketing/* untracked + 1 deleted — Eurico decide gitignore vs commit vs /market-* input"
+    blocking_for: "Working tree limpa"
+    not_blocking_for: "Qualquer development"
+
+  - id: "Story 2.11 post-deploy UI activation"
+    description: "Login expressia.grafana.net + import dashboard JSON + 3 alarme channels (NIT-005-NB low priority)"
+    blocking_for: "Dashboard real visualização em produção"
+    not_blocking_for: "Epic 3"
+    handoff_target: "mj-handoff-2.11-post-deploy-grafana-{date}.yaml (a criar pós primeiro deploy verde fra1)"
+
+  - id: "Epic 2.x housekeeping batch (NIT-001-NB + NIT-002-NB + NIT-003-NB + NIT-004-NB)"
+    description: >
+      4 NITs deferred Epic 2 podem ser endereçados em batch mini-epic ~3-4h:
+      NIT-001 user_prefs.updated audit enum extension (herdado 2.7);
+      NIT-002 RLS denials emission via logger.warn or OTel counter (Story 2.11 painel 6);
+      NIT-003 NEW custom OTel meter agent.planner.cost_eur emission (Story 2.11 D64 painel 3);
+      NIT-004 classifier.cost_eur span attr emission (Story 2.11 painel 3 OpenAI share)
+    blocking_for: "Story 2.11 painéis 3, 6 + Alarme 2 funcionais com dados reais"
+    not_blocking_for: "Epic 3"
+
+critical_rules_to_remember:
+  - "Apenas @devops faz git push e gh pr create (rules ~/.claude/rules/agent-authority.md)"
+  - "@dev pode git add/commit/status/diff/log/branch local — NÃO push"
+  - "PT-PT exclusivo PT-PT (não PT-BR) — utilizar não usar, eliminar não deletar, ficheiro não arquivo"
+  - "EUR único formato PT-PT (€8,88 vírgula decimal)"
+  - "EU data residency: Vercel fra1 + Supabase eu-central-1 + Grafana eu-west-6 + Sentry Frankfurt"
+  - "NFR5 bloqueia merge — toda tabela com household_id requer 4 RLS policies (check:rls gate)"
+  - "Constitution Article IV No Invention — sempre cross-confirm contra codebase real"
+  - "Mockable-only/friendly pattern Stories 2.2-2.11 — Vitest mocks até EB resolved"
+  - "5/5 quality gates GREEN obrigatório pre-push (typecheck + lint + test + build + check:rls)"
+  - "[AUTO-DECISION] CodeRabbit pre-push SKIPPED quando architect gate APPROVED ~600 linhas"
+  - "db-test ENV-BLOCKER NIT-006-NB Docker offline local — CI rls-gate cobre"
+  - "Anti-hallucination cross-confirm contra fontes reais (Drizzle schema files, *_SPAN_ATTRIBUTE_KEYS arrays, etc.)"
+
+contextual_files_to_load_in_new_session:
+  primary:
+    - "docs/HANDOFF-INDEX.md (este handoff aparece em pending)"
+    - "docs/handoffs/mj-handoff-epic3-kickoff-20260515.yaml (este ficheiro)"
+    - "docs/prd.md §6.3 Epic 3 (linhas 291-311) — scope authoritative"
+    - "docs/stories/active/_INDEX.md — vê histórico Epic 1+2 + onde adicionar Epic 3 entries"
+  reference:
+    - "docs/epics/EPIC-2-EXECUTION.yaml — template para EPIC-3-EXECUTION.yaml (se Opção A)"
+    - "docs/stories/completed/2.11.* — exemplo recente Done v1.4 com SDC completo (precedente)"
+    - "docs/architecture.md §3 (multi-tenancy + RLS pattern) + §4 (system architecture)"
+    - "CLAUDE.md (project standards, language, conventions)"
+
+session_metrics_summary:
+  duration: "~5h30 (13:00-18:30 WET)"
+  agents_invoked: ["aiox-master", "aiox-po", "aiox-dev", "aiox-architect", "aiox-devops"]
+  stories_advanced: 1  # Story 2.11 Draft → Done v1.4 pushed
+  commits_pushed: 1  # 255773e
+  ci_runs_success: 1  # 25934025410
+  handoffs_created_consumed:
+    created: 5  # sm→po, po→dev, dev→architect, architect→devops, este meta-handoff
+    consumed: 4  # 4 SDC handoffs all consumed/archived
+  quality_gates_runs: 4  # @dev pre-mark + @architect re-verify + @devops pre-push + (CI verify)
+  po_fix_inline_applied: 6  # Story 2.11 anti-hallucination
+  architect_finding: 1  # D64 partial-ratification + NIT-003-NB NEW
+  epic_2_progression: "8/11 Done → 9/11 Done + 1 Partial = effectively closed for AI gates"
+
+notes: |
+  - Este handoff é **meta-handoff cross-terminal** — não é actionable directly por um agente
+    SDC, mas serve de contexto rico para Eurico iniciar Epic 3 noutro terminal.
+  - Sessão futura DEVE começar por:
+    (1) Ler docs/HANDOFF-INDEX.md (este aparece em pending);
+    (2) Ler este YAML completo;
+    (3) Confirmar git status (working tree pode ter marketing files untracked + este handoff
+        pushed pendente — Gage push abaixo);
+    (4) Decidir A vs B + invocar agente correcto.
+  - Pipeline AI continua mockable-only para planner+executor — Epic 3 é independente.
+  - Marketing files NÃO são bloqueador Epic 3 mas vale mencionar a Eurico.
+  - Após push deste handoff: cross-terminal pode fazer git pull + ver tudo.
+  - **Status terminal actual:** Vai entrar em pause após este handoff pushed. Próxima sessão
+    é cross-terminal noutro terminal.
