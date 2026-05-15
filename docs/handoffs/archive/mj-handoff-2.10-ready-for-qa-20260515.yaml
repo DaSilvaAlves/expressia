@@ -13,8 +13,10 @@ id: mj-handoff-2.10-ready-for-qa-20260515
 from_agent: "dev (Dex) — *develop 2.10 T1-T9 mockable-only YOLO"
 to_agent: "qa (Quinn) — *qa-gate 2.10 (parcial T1-T9 + AC11)"
 created: "2026-05-15T11:35:00+01:00"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-05-15T12:05:00+01:00"
+consumed_by: "qa (Quinn) — *qa-gate 2.10 parcial CONCERNS-light 8.7/10 HIGH"
 priority: medium
 project_prefix: mj
 project: "meu-jarvis (Expressia — expressia.pt)"

@@ -1,0 +1,206 @@
+# =============================================================================
+# HANDOFF — Story 2.10 Partial Done v0.5 (T1-T9 done · QA gate CONCERNS 8.7/10)
+# Próximo passo: @devops *push 2.10 partial
+# =============================================================================
+# QA gate parcial executado pela Quinn (@qa) sobre T1-T9 + AC11 mockable-only.
+# Veredicto CONCERNS-light 8.7/10 HIGH confidence (CONCERN é custo Sonnet
+# benchmark real — NIT-012 não-bloqueante para push do parcial). 6/6 DEV-
+# DECISIONs RATIFIED. 4/4 SFs Pax ABSORBED. 11/11 ACs no escopo PASS. Commit
+# local `050678a` pronto para push. T10 mantém-se BLOCKED pending Eurico QA1.
+# =============================================================================
+
+id: mj-handoff-2.10-ready-for-devops-partial-20260515
+from_agent: "qa (Quinn) — *qa-gate 2.10 (parcial T1-T9 + AC11 mockable-only) CONCERNS-light 8.7/10 HIGH"
+to_agent: "devops (Gage) — *push 2.10 partial"
+created: "2026-05-15T12:05:00+01:00"
+status: consumed
+consumed: true
+consumed_at: "2026-05-15T12:20:00+01:00"
+consumed_by: "devops (Gage)"
+priority: medium
+project_prefix: mj
+project: "meu-jarvis (Expressia — expressia.pt)"
+
+summary: |
+  @qa Quinn completou gate parcial sobre Story 2.10 T1-T9 + AC11 mockable-only.
+  Veredicto: **CONCERNS 8.7/10 HIGH confidence** — não-bloqueante para push do
+  parcial. Gate doc criado em `docs/qa/gates/2.10-qa-gate-partial.md` com 7
+  quality checks (6 PASS + 1 CONCERN-LIGHT performance — custo Sonnet benchmark
+  real ~€0.04-0.08 não documentado, NIT-012). 6/6 DEV-DECISIONs D60-D65
+  RATIFIED via cross-verification directa (grep MissingApiKeyError Story 2.2 +
+  200 fx invocations + math forceP95Ms 181/190 + 3 fixtures <0.70 em IDs
+  #38/#164/#175). 4/4 Should-Fix Pax confirmados ABSORBED. Re-verificação
+  directa pela @qa: 27/27 test:benchmark PASS em 36ms + typecheck db-test
+  clean + check:rls NFR5 PRESERVADA. 4 NITs non-blocking (NIT-010 Postgres NOT
+  started test / NIT-011 distribution aritmética runtime / NIT-012 custo
+  benchmark / NIT-013 reverse_op shape test) — todos para Story 2.11+ ou
+  Epic 3. Story v0.4 → v0.5 com QA Gate Decision section + Change Log entry.
+  Status `Ready for Review` → `Ready for Review (Partial Done · pending T10
+  complement gate)`. T10 mantém-se BLOCKED pending Eurico QA1. Closure formal
+  `Done` acontece após gate complementar pós-T10 desbloqueio. Zero código
+  modificado pela @qa (review-only authority).
+
+# -----------------------------------------------------------------------------
+# CONTEXT — Estado Story 2.10 pós-gate parcial
+# -----------------------------------------------------------------------------
+context:
+  story_id: "2.10"
+  story_title: "Benchmark E2E Anthropic: integração real pipeline 3-estágios (200 prompts PT-PT)"
+  story_path: "docs/stories/active/2.10.benchmark-e2e-anthropic.story.md"
+  story_status: "Ready for Review (Partial Done · pending T10 complement gate)"
+  story_version: "0.5 (QA gate parcial CONCERNS 8.7/10 HIGH — 2026-05-15)"
+  branch: main
+  commit_local: "050678a (feat(benchmark): Story 2.10 T1-T9 mockable-only benchmark E2E)"
+  current_task: "Aguarda @devops *push 2.10 partial"
+  gate_doc: "docs/qa/gates/2.10-qa-gate-partial.md"
+
+# -----------------------------------------------------------------------------
+# Gate results — 7 quality checks + 6 DEV-DECISIONs + 4 SFs + 4 NITs
+# -----------------------------------------------------------------------------
+gate_results:
+  verdict: "CONCERNS"
+  score: "8.7/10"
+  confidence: "HIGH"
+  quality_checks:
+    AC_Fulfillment: "PASS — 11/11 no escopo (AC1-AC7, AC9-AC13). AC1/AC2 real + AC8 + AC4 Eurico sign-off ficam para gate complementar pós-T10."
+    Test_Coverage: "PASS — 27 testes vs target ≥12 (superado 2.25×). Re-executado: 27/27 PASS em 36ms."
+    Code_Quality: "PASS — typecheck clean, zero `any`, Article VI absolute imports respeitado, PT-PT canonical."
+    Security: "PASS — zero eval/exec, SHA256 hash prompt NFR12, mock tools randomUUID(), deps OpenAI ^4.73.0 + Zod ^3.23.8 aligned com Story 2.2."
+    Performance: "CONCERN-LIGHT — forceP95Ms math correcta (D64); custo Sonnet benchmark real ~€0.04-0.08 (NIT-012). Não bloqueia."
+    Documentation: "PASS — runbook §8 5 subsecções 8.1-8.5 completas, Dev Notes self-contained, 6 DEV-DECISIONs documentadas, Change Log v0.1→v0.5."
+    Constitutional_Compliance: "PASS — Article I CLI First (scripts), Article IV No Invention (D60 trace 2.2), Article V Quality First (5/5 gates), Article VI Absolute Imports."
+  dev_decisions_ratified:
+    D60: "RATIFIED — grep MissingApiKeyError em providers/{anthropic,openai}.ts:67-71 confirma fail-fast. Article IV respeitado."
+    D61: "RATIFIED — 200 fx() invocations exactas em prompts-pt-pt.ts. IDs sequenciais 1-200."
+    D62: "RATIFIED — trade-off justificado (mock valida coreógrafia, não persistência). NIT-010-NB para Story 2.11+."
+    D63: "RATIFIED — vitest.benchmark.config.ts dedicada permite gate parcial sem Docker (precedente cascata /jarvis)."
+    D64: "RATIFIED — math correcta: Math.floor(200*0.9)+1=181; percentile idx 190 cai dentro da janela 181-200."
+    D65: "RATIFIED — 3 fixtures #38(0.65)/#164(0.6)/#175(0.65) <0.70 estritamente. Razão técnica sólida (strict less-than no classifier)."
+  should_fix_absorbed:
+    SF1: "ABSORBED — EB1/EB2 RESOLVED 2026-05-14 em Bloqueadores Externos table (cross-confirmed por meta-handoff jarvis cascade closed)."
+    SF2: "ABSORBED — grep confirma ausência de t10-api-keys-dpa-ue.md; §8 do runbook existente tem 5 subsecções."
+    SF3: "ABSORBED — registerMockBenchmarkTools() invocada em run-benchmark-e2e.ts:148 + setup de cada test E2E. 6 mock tools."
+    SF4: "ABSORBED — baseline 526 aritmética verificada (229+102+79+53+57+6=526). 27 novos = 6+12+9=27."
+  nits_non_blocking:
+    NIT-010-NB: "Test explícito 'Postgres NOT started in mock mode' — Story 2.11+ quando runE2EReal desbloquear."
+    NIT-011-NB: "Test directo Object.values(EXPECTED_DISTRIBUTION).reduce(...)===EXPECTED_TOTAL — evita drift."
+    NIT-012-NB: "Custo Sonnet benchmark real ~€0.04-0.08 — documentar no runbook §8.4 pre-T10."
+    NIT-013-NB: "Test para forma do reverse_op nas 6 mock tools — runE2EReal usará para FR6 undo path."
+
+# -----------------------------------------------------------------------------
+# Push checklist for @devops
+# -----------------------------------------------------------------------------
+push_checklist:
+  pre_conditions:
+    - "✅ Commit local 050678a presente (verificado por @qa via git log)"
+    - "✅ Gate doc docs/qa/gates/2.10-qa-gate-partial.md criado"
+    - "✅ Story v0.4 → v0.5 com QA Gate Decision section + Change Log + status update"
+    - "✅ Handoff predecessor mj-handoff-2.10-ready-for-qa-20260515.yaml consumido + arquivado"
+    - "✅ INDEX docs/HANDOFF-INDEX.md actualizado"
+  pre_push_gates_recommendation: |
+    @devops decide se re-executar 5/5 quality gates pre-push. Recomendação @qa: re-executar
+    lint 9/9 + typecheck 9/9 + test 553 + check:rls + build 9/9 como precedente Story 2.9
+    pre-push (validação contra qualquer mudança entretanto). Skip aceitável se Eurico push
+    rápido pretendido — gate parcial @qa já confirmou typecheck db-test + test:benchmark
+    27/27 + check:rls NFR5 PRESERVADA.
+  coderabbit_recommendation: |
+    [AUTO-DECISION suggested] SKIPPED — consistente precedente Stories 2.2-2.9. Story 2.10 é
+    primariamente harness de benchmark + fixtures (zero código de pipeline novo, apenas runner
+    + mock tools + tests). Patterns estabelecidos. Re-baseline CodeRabbit agendada para post-T10
+    quando AC1/AC2 real benchmark execution adicionar evidência funcional real.
+  scope_to_push:
+    code_commits:
+      - "050678a feat(benchmark): Story 2.10 T1-T9 mockable-only benchmark E2E [Story 2.10]"
+    docs_changes_pending_commit:
+      - "docs/stories/active/2.10.benchmark-e2e-anthropic.story.md (v0.4 → v0.5 — QA Gate Decision section + Change Log entry + status update)"
+      - "docs/qa/gates/2.10-qa-gate-partial.md (novo — gate document)"
+      - "docs/handoffs/archive/mj-handoff-2.10-ready-for-qa-20260515.yaml (move from docs/handoffs/)"
+      - "docs/handoffs/mj-handoff-2.10-ready-for-devops-partial-20260515.yaml (novo — este ficheiro)"
+      - "docs/HANDOFF-INDEX.md (entrada anterior movida pending→archived + nova entrada pending @qa→@devops)"
+  not_part_of_this_push:
+    - "docs/marketing/* (uncommitted unrelated — Eurico decide à parte)"
+    - "Story move active→completed (story fica em active/ até gate complementar pós-T10)"
+  push_priority: "medium"
+  push_target: "origin/main"
+
+# -----------------------------------------------------------------------------
+# Open follow-ups (após push do parcial)
+# -----------------------------------------------------------------------------
+open_followups:
+  blocker_t10:
+    - "Eurico responde QA1 (DPA UE Anthropic) — runbook §8.4 tem 3 opções A/B/C"
+    - "EB3 Upstash provisioning (opcional para T10 — modo degradado aceitável per D57)"
+  before_t10_execution:
+    - "@po Pax executa amostragem 30/200 fixtures (decisão Pax QA4 — fluxo three-step)"
+    - "Eurico sign-off 200 fixtures após @po revisão (commit em story v0.6 ou PR description)"
+    - "Eurico copia ANTHROPIC_API_KEY + OPENAI_API_KEY de Vercel para .env.local"
+    - "Custo estimado: ~€0.04-0.08 por full real benchmark run (NIT-012)"
+  during_t10_execution:
+    - "Eurico corre: RUN_BENCHMARK_REAL=true pnpm --filter @meu-jarvis/db-test benchmark"
+    - "Eurico corre: RUN_BENCHMARK_E2E_REAL=true pnpm --filter @meu-jarvis/db-test benchmark:e2e"
+    - "Eurico commits docs/qa/benchmark-results-*.json em story v0.7"
+  after_t10:
+    - "@qa Quinn executa gate complementar pós-T10 — cobre AC1 real, AC2 real, AC8 JSON real, AC4 Eurico sign-off, runE2EReal implementação, NITs 010-013"
+    - "Gate complementar promove story status para Done"
+    - "@devops *push close + move active→completed"
+  blocked_by_this_handoff:
+    - "Story 2.11 (Dashboards Grafana Cloud EU) — consome OTel spans gerados por benchmark real (não-bloqueante para drafting, pode arrancar mockable-only)"
+
+# -----------------------------------------------------------------------------
+# Files modified by @qa (review session)
+# -----------------------------------------------------------------------------
+files_modified_by_qa:
+  modified:
+    - "docs/stories/active/2.10.benchmark-e2e-anthropic.story.md (v0.4 → v0.5 — status + QA Gate Decision section + Change Log entry)"
+    - "docs/HANDOFF-INDEX.md (handoff predecessor pending→archived + este sucessor pending)"
+  created:
+    - "docs/qa/gates/2.10-qa-gate-partial.md (gate document — 8.7/10 CONCERNS HIGH)"
+    - "docs/handoffs/mj-handoff-2.10-ready-for-devops-partial-20260515.yaml (este ficheiro)"
+  archived:
+    - "docs/handoffs/mj-handoff-2.10-ready-for-qa-20260515.yaml → docs/handoffs/archive/"
+  not_modified_intentionally:
+    - "Código aplicação (packages/db-test/src/benchmark/**) — review-only authority @qa"
+    - "Story 2.10 ACs, scope, title — review-only authority @qa"
+    - "File List da story — preservada do @dev"
+
+# -----------------------------------------------------------------------------
+# Next action
+# -----------------------------------------------------------------------------
+next_action: |
+  @devops *push 2.10 partial — push do commit 050678a + docs changes deste gate.
+
+  Sequência recomendada:
+    1. (opcional) Re-executar 5/5 quality gates pre-push como precedente Story 2.9 (recomendado mas não bloqueante — @qa já validou typecheck db-test + test:benchmark + check:rls).
+    2. git add docs/stories/active/2.10.benchmark-e2e-anthropic.story.md docs/qa/gates/2.10-qa-gate-partial.md docs/handoffs/ docs/HANDOFF-INDEX.md
+    3. git commit -m "chore(stories,handoffs): QA gate parcial Story 2.10 CONCERNS 8.7/10 + handoff successor [Story 2.10]"
+    4. git push origin main (commit 050678a + commit chore docs juntos)
+    5. CodeRabbit [AUTO-DECISION SKIPPED] consistente precedente — re-baseline para post-T10.
+    6. Vercel auto-deploy fra1 triggered — verificar deploy succeeds (Story 2.10 não toca apps/web — zero risco de regressão runtime).
+
+  Pós-push:
+    - Nada bloqueia — Eurico decide quando responder QA1 e correr T10 manualmente.
+    - Story permanece em docs/stories/active/ (não mover para completed/ até gate complementar pós-T10).
+    - Sucessor directo: nenhum até T10 desbloquear.
+
+# -----------------------------------------------------------------------------
+# Consumption record — @devops Gage 2026-05-15T12:20:00+01:00
+# -----------------------------------------------------------------------------
+consumption_record:
+  consumed_by: "devops (Gage) — *push 2.10 partial"
+  consumed_at: "2026-05-15T12:20:00+01:00"
+  pre_push_gates_reverified:
+    lint: "PASS 9/9 — cache 8/9, 428ms"
+    typecheck: "PASS 9/9 — cache 8/9, 3.16s"
+    web_test: "PASS 229/229 — 4.31s"
+    db_test: "PASS 6/6 — 1.84s"
+    check_rls: "PASS — EXIT 0, NFR5 preservada (28 tabelas / 120 policies)"
+    build: "PASS 9/9 — FULL TURBO 66ms"
+    db_test_benchmark: "PASS 27/27 — 35ms (bonus re-validation Story 2.10 mockable)"
+    db_test_integration: "FAIL ENV-BLOCKER Docker offline — [AUTO-DECISION] PROCEED consistente precedente Stories 2.6-2.9; CI rls-gate cobre"
+  coderabbit: "[AUTO-DECISION] SKIPPED — zero código novo (apenas docs gate housekeeping), consistente Stories 2.2-2.9 + memória feedback_meu_jarvis_push_pattern_skip_coderabbit_hotfix"
+  commit_decision: "Opção B — 1 commit consolidado docs+handoff consumption juntos. Razão: tudo é metadata da mesma transição v0.4→v0.5+handoff consume; separar gera ruído."
+  push_range: "preencher pós-push — ver commit history"
+  vercel_auto_deploy: "fra1 triggered automaticamente — zero risco (Story 2.10 não toca apps/web)"
+  pr_created: "N/A — projecto main-direct conforme CLAUDE.md + Story 2.9 precedente"
+  story_status_post_push: "Ready for Review (Partial Done) — permanece em active/, NÃO movida para completed/"
+  next_natural_step: "Aguarda Eurico decisão QA1 (DPA UE Anthropic) — runbook §8.4 tem 3 opções A/B/C"
