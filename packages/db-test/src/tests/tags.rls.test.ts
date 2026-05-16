@@ -48,4 +48,35 @@ describe('RLS isolation: tags', () => {
       expect(rows.map((r) => r.name)).toEqual(['casa']);
     });
   });
+
+  // Story 3.1 AC5/AC6 — extension UPDATE+DELETE cross-household.
+  // Nota PO_FIX F1: tags DELETE usa policy `tags_delete_owner_admin` (0001:416-418).
+  // userA/userB são `role: 'owner'` dos seus households (seedTwoHouseholds), logo
+  // o RLS USING filtra antes do role check — userB obtém 0 rows affected (não permission denied).
+  test('cross-household UPDATE bloqueado: userB não actualiza tag do householdA', async () => {
+    const { householdA, householdB, userB } = await seedTwoHouseholds();
+    const tagId = await insertTag(admin(), householdA.id, 'original');
+
+    await asUser(userB.id, householdB.id, async (sql) => {
+      const result = await sql`update public.tags set name = 'hijacked' where id = ${tagId}`;
+      expect(result.count).toBe(0);
+    });
+
+    const rows = await admin()<{ name: string }[]>`select name from public.tags where id = ${tagId}`;
+    expect(rows[0]?.name).toBe('original');
+  });
+
+  test('cross-household DELETE bloqueado: userB não apaga tag do householdA (variant owner_admin)', async () => {
+    const { householdA, householdB, userB } = await seedTwoHouseholds();
+    const tagId = await insertTag(admin(), householdA.id, 'a-apagar');
+
+    await asUser(userB.id, householdB.id, async (sql) => {
+      const result = await sql`delete from public.tags where id = ${tagId}`;
+      // RLS USING filtra (userB não é owner/admin do householdA) → 0 rows affected.
+      expect(result.count).toBe(0);
+    });
+
+    const rows = await admin()<{ n: number }[]>`select count(*)::int as n from public.tags where id = ${tagId}`;
+    expect(rows[0]?.n).toBe(1);
+  });
 });

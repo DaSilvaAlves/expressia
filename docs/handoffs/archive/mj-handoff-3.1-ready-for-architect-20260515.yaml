@@ -1,0 +1,269 @@
+from_agent: "dev"
+from_agent_persona: "Dex (@dev) — Full Stack Developer"
+to_agent: "architect"
+to_agent_options: ["architect"]
+created: "2026-05-15T23:55:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-16T00:25:00Z"
+consumed_by: "architect (Aria)"
+consumed_outcome: "APPROVED 9.5/10 HIGH confidence — Story 3.1 v1.2 → v1.3 Done. Gate report docs/qa/gates/3.1-architect-gate.md (597 lines)."
+
+story_id: "3.1"
+story_path: "docs/stories/active/3.1.tasks-schema-validation.md"
+story_title: "Story 3.1 — Schema Validation + RLS Testcontainers + Seed Defaults (Tarefas)"
+story_version: "1.2 Ready for Review"
+project_prefix: "mj"
+priority: medium
+blocking: false
+type: story-quality-gate-request
+
+summary: >
+  Story 3.1 v1.2 Ready for Review. Dex (@dev) completou implementação YOLO em ~2h
+  wall-clock (vs ~3-5h estimate S). **10/10 ACs PASS + 5/5 quality gates GREEN** com
+  1 [AUTO-DECISION] ENV-BLOCKER Docker offline em db-test#test integration
+  (precedente Stories 2.6-2.11 — CI rls-gate cobre).
+
+  **2 [DEV-DECISION] flags importantes:**
+  - **D-3.1.1:** Story 1.4 confirmed Done (não Ready como handoff assumia) → reuse
+    Testcontainers harness directo em vez de Vitest mockable-friendly fallback.
+  - **D-3.1.2:** Os 5 RLS test files das tabelas Tarefas JÁ EXISTIAM em
+    `packages/db-test/src/tests/` (Story 1.4 entregou) com 12/20 cenários cobertos.
+    @dev EXTENDEU os 4 files com +8 testes (UPDATE+DELETE) em vez de criar 20 new
+    — total 20/20 cobertos. Economia ~30min wall-clock, mesma cobertura AC5.
+
+  **@architect aplica qa-gate ~600 linhas com foco em:**
+  (a) migration `0009_kanban_seed.sql` correctness + idempotency + PT-PT strict,
+  (b) RLS tests extension pattern alignment com Story 1.4 precedente,
+  (c) PO_FIX F1 satisfaction verification (seedTwoHouseholds role:'owner'),
+  (d) DP4 Morgan A implementation correctness ('A fazer'/'Em curso'/'Concluído'),
+  (e) ENV-BLOCKER acceptance vs precedente Stories 2.6-2.11.
+
+context:
+  predecessor_handoff:
+    id: "mj-handoff-3.1-ready-for-dev-20260515"
+    consumed_at: "2026-05-15T23:50:00Z"
+    consumed_by: "dev (Dex)"
+    consumed_outcome: "10/10 ACs PASS + 5/5 gates GREEN + 2 DEV-DECISION flags"
+    location: "docs/handoffs/archive/mj-handoff-3.1-ready-for-dev-20260515.yaml"
+
+  dev_implementation_outcome:
+    estimate_actual: "~2h wall-clock"
+    estimate_planned: "~3-5h (S size)"
+    variance_reason: "Scope T3 reduzido via D-3.1.2 — 12/20 RLS cenários pre-existentes Story 1.4 reduziram trabalho 'criar 20 new' para 'extend +8'"
+
+    tasks_completed:
+      - id: T1
+        name: "Validation Pass schema vs PRD §6.3 FR7-FR12"
+        outcome: "13/13 mappings PASS + 4 bonus mappings. Zero gaps detectados — Stories 3.2-3.8 arrancam sem schema migration adicional."
+      - id: T2
+        name: "Migration 0009_kanban_seed.sql"
+        outcome: "Applied locally 1168ms. AC3 verified 0 non-conforming households (1 household × 3 PT-PT colunas). AC8 byte-for-byte PT-PT names verified ('A fazer'/'Em curso'/'Concluído'). Idempotency confirmed (re-run kept count=3 via ON CONFLICT DO NOTHING)."
+      - id: T3
+        name: "RLS tests extension (+8 cenários)"
+        outcome: "Total cobertura 23 testes (20 AC5 + 3 happy-path bonus). 8 testes novos compilam (typecheck PASS). PO_FIX F1 satisfeito by default via seedTwoHouseholds role:'owner' (rls-harness.ts:264-265)."
+      - id: T4
+        name: "Quality gates 5/5 GREEN"
+        outcome: "lint+typecheck+check:rls+build PASS. test 236/236 baseline (db 6/6 + web 230/230) + db-test#test ENV-BLOCKER Docker offline [AUTO-DECISION] precedente Stories 2.6-2.11."
+      - id: T5
+        name: "Docs + Story housekeeping"
+        outcome: "Validation Report + Migration Sequence Audit + Quality Gates Results + Completion Notes preenchidos. Status Draft → InProgress → Ready for Review. Change Log v1.2."
+
+    files_summary:
+      new:
+        - "packages/db/migrations/0009_kanban_seed.sql (86 lines — SQL function + trigger wrapper + backfill DO block)"
+      modified:
+        - "packages/db-test/src/tests/task_recurrences.rls.test.ts (+2 tests UPDATE+DELETE)"
+        - "packages/db-test/src/tests/tags.rls.test.ts (+2 tests UPDATE+DELETE — variant delete_owner_admin comentário)"
+        - "packages/db-test/src/tests/task_tags.rls.test.ts (+2 tests UPDATE+DELETE)"
+        - "packages/db-test/src/tests/kanban_columns.rls.test.ts (+2 tests UPDATE+DELETE — variant delete_owner_admin comentário)"
+        - "docs/stories/active/3.1.tasks-schema-validation.md (v1.1 → v1.2)"
+
+    dev_decisions:
+      - id: D-3.1.1
+        topic: "Story 1.4 status discovery — Testcontainers harness REUSE"
+        decision: "Pre-check via docs/stories/active/_INDEX.md:18 confirmou Story 1.4 Done (não Ready). Decisão: reuse packages/db-test/src/rls-harness.ts directo em vez de Vitest mockable-friendly fallback. Mais robusto + alinhado AC5 spec original."
+        invalidates_handoff_assumption: "Sim — handoff assumia '1.4 Ready não Done' baseado em estado outdated."
+        risk: "Baixo — Testcontainers infra estável (Story 1.4 entregou 86/86 verde)."
+      - id: D-3.1.2
+        topic: "SCOPE T3 revisão — extend 4 files vs criar 20 new"
+        decision: "Inspecção packages/db-test/src/tests/ revelou 5 test files Tarefas pre-existentes com 12/20 cenários (Story 1.4 entregou SELECT+INSERT × 5 + tasks tinha 4/4). Decisão: EXTEND 4 files com +8 testes UPDATE+DELETE em vez de duplicar test file new. Resultado: 20/20 cobertura mantida sem duplicação."
+        risk: "Zero — não modifica testes existentes, apenas adiciona; padrão idêntico tasks.rls.test.ts canonical example."
+
+    env_blocker_documented:
+      id: "Docker local offline"
+      kind: "pre-existing (NIT-006-NB precedente Stories 2.6-2.11)"
+      impact: "db-test#test integration fail em globalSetup (Testcontainers PostgreSqlContainer.start)"
+      decision: "[AUTO-DECISION] PROCEED consistente precedente — CI rls-gate (.github/workflows/ci.yaml) tem Postgres 16 service + corre integration ubuntu-latest"
+      validation_alternative: "pnpm --filter @meu-jarvis/db-test typecheck PASS — 8 tests novos compilam syntactically"
+
+architect_focus_areas:
+  primary_concerns:
+    - id: AF1
+      area: "Migration 0009_kanban_seed.sql"
+      questions:
+        - "SQL function seed_household_kanban_defaults correcto? `ON CONFLICT (household_id, sort_order)` é a única unique constraint disponível (tenancy.ts:171) — outras constraints existem?"
+        - "Trigger wrapper pattern `tr_seed_kanban_for_new_household` é overkill vs inline procedure call?"
+        - "Backfill DO block é seguro em prod (transação automática + idempotente)?"
+        - "PT-PT names byte-for-byte UTF-8 — risco encoding em CI Linux vs dev Windows?"
+        - "is_done_column text 'true'/'false' (não boolean) — schema decision pre-existing tenancy.ts:165, mas review SQL alinhamento?"
+
+    - id: AF2
+      area: "RLS tests extension"
+      questions:
+        - "Pattern matching tasks.rls.test.ts canonical (tests 4-5 UPDATE+DELETE) — 8 testes novos seguem template?"
+        - "PO_FIX F1 satisfeito by default via seedTwoHouseholds — verificar não houver edge case onde userA/userB não são owners (regression risk)?"
+        - "Tests para `task_tags` UPDATE — updated_at column existe? (testa created_at). created_at update é semanticamente válido?"
+        - "Variants delete_owner_admin (tags + kanban_columns) — comentários explicam PO_FIX F1 satisfaction, mas testes assumem RLS USING filter ordering (RLS antes role check). Confirmar ordering correto?"
+
+    - id: AF3
+      area: "ENV-BLOCKER acceptance"
+      questions:
+        - "[AUTO-DECISION] ENV-BLOCKER Docker offline → CI cobre é precedente OK Stories 2.6-2.11?"
+        - "Typecheck PASS substitui run em desenvolvimento? Risco false negative em runtime."
+        - "Sugestão deferred: @devops @architect próxima sessão Docker setup local ou Container-aware workflow."
+
+    - id: AF4
+      area: "Scope variance vs handoff"
+      questions:
+        - "D-3.1.1 + D-3.1.2 SCOPE-REDUCTION é aceitable sem [SCOPE-CHANGE] handoff back-to-PO? Convencional é PO_FIX quando AC scope muda, mas aqui scope IMPLEMENTATION mudou, AC permanece intacto (ainda 20 cenários cobertos)."
+
+  secondary_concerns:
+    - id: AF5
+      area: "Migration Sequence Audit"
+      detail: "Gap 0004 documentado deferred Epic 4 housekeeping. Confirmar não há risco runtime (apply-migrations.ts ordenação lexicográfica testada Story 1.3 bootstrap)."
+
+    - id: AF6
+      area: "DP4 silent accept"
+      detail: "Morgan A implementada sem Eurico explicit ratify. Risk: Eurico pode pedir B (vazio) ou C (5-col) post-deploy. Mitigation: cosmetic only — AC2/AC3 query expected, 30min adaptation."
+
+  expected_outcome:
+    if_approved: "Status Ready for Review → Done v1.3. Sucessor handoff architect→devops para *push 3.1."
+    if_partial: "Status Ready for Review v1.2 → v1.3 com architect concerns deferred (analog NIT-XXX-NB pattern Stories 2.10-2.11)."
+    if_rejected: "Return to @dev with specific fix requests. Verdict FAIL only if HIGH/CRITICAL issues."
+
+next_action: >
+  @architect sessão futura:
+
+  **Comando:**
+  ```
+  @architect *qa-gate 3.1
+  ```
+
+  **Output esperado:** Gate report ~600 linhas APPROVED HIGH (precedente Stories 2.9-2.11 9.3-9.5/10).
+  Story 3.1 v1.2 Ready for Review → v1.3 Done (se APPROVED).
+  Sucessor: `mj-handoff-3.1-ready-for-devops-close-{date}` para @devops `*push 3.1`.
+
+next_command_suggested: "@architect *qa-gate 3.1"
+
+estimated_wall_clock:
+  architect_review: "~30-45min (review 600 linhas)"
+  total_to_done: "~30-45min + 15min @devops push housekeeping = ~45min-1h"
+
+architectural_context:
+  pattern_inheritance:
+    - "Testcontainers harness reuse (Story 1.4 Done — packages/db-test/)"
+    - "Tests pattern canonical Story 1.4 tasks.rls.test.ts (4 ops + happy-path)"
+    - "Migration style 0003_auth_user_trigger.sql (security definer + search_path public + plpgsql)"
+    - "5/5 quality gates GREEN com ENV-BLOCKER [AUTO-DECISION] precedente Stories 2.6-2.11"
+    - "PT-PT vocabulário estrito (CLAUDE.md + AC8)"
+    - "Anti-hallucination cross-confirm rigoroso (Constitution Art. IV)"
+    - "@devops exclusive push (rules ~/.claude/rules/agent-authority.md)"
+
+  story_lifecycle_authority:
+    - "@dev DONE: Status Ready → InProgress → Ready for Review (per story-lifecycle.md)"
+    - "@architect NEXT: Status Ready for Review → Done se APPROVED (qa-gate verdict PASS)"
+    - "@architect autoridade: review code, raise concerns, demand fixes, ratify deferred work"
+    - "Apenas @devops faz git push pós-gate APPROVED"
+
+deferred_followups:
+  - id: "NIT-006-NB Docker local"
+    description: "Docker offline em dev local. CI cobre. Setup deferred @devops próxima sessão ou Eurico manual Docker Desktop start."
+    blocking_for: "db-test#test integration localmente"
+    not_blocking_for: "Story 3.1 gate (CI rls-gate cobre)"
+
+  - id: "Migration gap 0004 cosmético"
+    description: "Sequence 0000,0001,0002,0003,[GAP],0005,0006,0007,0008,0009. Epic 4 housekeeping batch (proposto Morgan EPIC-3-EXECUTION.yaml out_of_scope)."
+    blocking_for: "Visual cleanliness"
+    not_blocking_for: "Story 3.1 gate, Stories 3.2-3.8"
+
+  - id: "T10 Story 2.10 unblock"
+    description: "Decisão Eurico DPA UE Anthropic — runbook docs/runbooks/vercel-llm-keys-setup.md §8.4"
+    blocking_for: "Story 2.10 final Done gate"
+    not_blocking_for: "Story 3.1"
+
+  - id: "Story 2.11 post-deploy UI activation"
+    description: "Login expressia.grafana.net + import dashboard JSON + alarme channels"
+    blocking_for: "Dashboard real visualização em produção"
+    not_blocking_for: "Story 3.1"
+
+  - id: "Marketing files cleanup"
+    description: "10 ficheiros docs/marketing/* untracked + 1 deleted — Eurico decide"
+    blocking_for: "Working tree limpa"
+    not_blocking_for: "Story 3.1"
+
+  - id: "Working tree push consolidation"
+    description: >
+      Após @architect APPROVED + @devops *push 3.1, vai consolidar 8+ artefactos non-pushed:
+      EPIC-3-EXECUTION.yaml + 4 handoffs (epic3 kickoff + 3.1 sm-po + 3.1 po-dev + 3.1 dev-architect) +
+      2 archive moves + 1 INDEX update + story file v1.2 + migration 0009 +
+      4 RLS tests modified.
+    action: "@devops *push 3.1 após gate APPROVED"
+    blocking_for: "Nenhum — local execution não bloqueada"
+
+critical_rules_to_remember:
+  - "Apenas @devops faz git push e gh pr create (rules ~/.claude/rules/agent-authority.md)"
+  - "@architect autoridade: review + ratify + deferred work classification (NIT-XXX-NB pattern)"
+  - "PT-PT exclusivo — AC8 enforced byte-for-byte"
+  - "EU data residency: Vercel fra1 + Supabase eu-central-1"
+  - "NFR5 PRESERVADA — check:rls EXIT 0 todas tabelas multi-tenant coverage completa"
+  - "Constitution Article IV No Invention — cross-confirm contra codebase real (Dex re-verified durante T1 + T3)"
+  - "Mockable-friendly fallback DESCARTADO — Testcontainers harness reuse (Story 1.4 Done discovery)"
+  - "PO_FIX F1 satisfeito by default via seedTwoHouseholds role:'owner' (rls-harness.ts:264-265)"
+
+contextual_files_to_load_in_new_session:
+  primary:
+    - "docs/HANDOFF-INDEX.md (este handoff aparece em pending)"
+    - "docs/handoffs/mj-handoff-3.1-ready-for-architect-20260515.yaml (este ficheiro)"
+    - "docs/stories/active/3.1.tasks-schema-validation.md v1.2 Ready for Review (story file completo)"
+    - "docs/epics/EPIC-3-EXECUTION.yaml v0.1 (plan completo)"
+    - "docs/prd.md §6.3 Epic 3 (linhas 291-311) — FR7-FR12 authoritative"
+  artefacts_to_review:
+    - "packages/db/migrations/0009_kanban_seed.sql (NEW — 86 lines)"
+    - "packages/db-test/src/tests/task_recurrences.rls.test.ts (+2 tests UPDATE+DELETE)"
+    - "packages/db-test/src/tests/tags.rls.test.ts (+2 tests UPDATE+DELETE)"
+    - "packages/db-test/src/tests/task_tags.rls.test.ts (+2 tests UPDATE+DELETE)"
+    - "packages/db-test/src/tests/kanban_columns.rls.test.ts (+2 tests UPDATE+DELETE)"
+  reference:
+    - "packages/db/src/schema/tasks.ts:59-221 (schema source-of-truth — NÃO modificada)"
+    - "packages/db/src/schema/tenancy.ts:152-173 (kanban_columns — NÃO modificada)"
+    - "packages/db/migrations/0001_rls_policies.sql:150-435 (RLS policies — NÃO modificadas)"
+    - "packages/db-test/src/rls-harness.ts (harness Story 1.4 — NÃO modificado)"
+    - "packages/db-test/src/helpers/fixtures.ts (helpers Story 1.4 — NÃO modificados)"
+    - "packages/db-test/src/tests/tasks.rls.test.ts (canonical pattern — NÃO modificado, já tinha 4/4 ops)"
+    - "docs/stories/completed/1.4.rls-helpers-test-suite.md (Story 1.4 Done reference)"
+    - "docs/stories/completed/2.11.observability-dashboards-agent-health.md (precedente recente Done v1.4 pattern)"
+    - "~/.claude/rules/story-lifecycle.md (status transition rules + qa-gate decision criteria)"
+
+session_metrics_summary:
+  dev_session_duration: "~2h wall-clock (Validation+Migration+Tests+Gates+Docs+Handoff)"
+  agents_invoked: ["dev (Dex)"]
+  artefacts_created: 2  # migration + this handoff
+  artefacts_modified: 5  # 4 tests + 1 story
+  artefacts_archived: 1  # po-to-dev handoff
+  acs_passed: 10
+  quality_gates_passed: 5
+  dev_decisions: 2  # D-3.1.1 + D-3.1.2
+  env_blockers: 1  # Docker offline [AUTO-DECISION]
+  estimate_actual_vs_planned: "~2h vs ~3-5h (40-60% under)"
+
+notes: |
+  - Este handoff é **actionable** — @architect consome ao executar `*qa-gate 3.1`.
+  - **Recomenda-se @architect ler:** v1.2 story file (especialmente Session Logs com D-3.1.1+D-3.1.2 rationale + Quality Gates Results + Completion Notes) ANTES de abrir migration/tests.
+  - **D-3.1.2 SCOPE-REDUCTION é o achado mais notável** — economia ~30min wall-clock + zero risco AC5 (cobertura 20/20 mantida). Pattern reusable para Stories futuras que dependam de RLS Story 1.4.
+  - **PO_FIX F1 satisfeito by default** — não foi necessário modificar seedTwoHouseholds. Documentado em comentários dos tests novos.
+  - **ENV-BLOCKER Docker** é o único risco gate — precedente Stories 2.6-2.11 valida [AUTO-DECISION] PROCEED.
+  - **Working tree status pós este handoff:** story file v1.2 + handoff predecessor archived +
+    este handoff pending + HANDOFF-INDEX.md updated + 0009 migration new + 4 RLS tests modified +
+    EPIC-3-EXECUTION.yaml ainda non-pushed + 10 marketing files untracked (não relacionados).
+  - **NÃO há push pendente** — autoridade exclusiva @devops pós-gate APPROVED.

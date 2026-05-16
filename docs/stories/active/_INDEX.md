@@ -181,4 +181,36 @@ Ver `docs/epics/EPIC-2-EXECUTION.yaml` para dependency graph completo.
 
 ---
 
-*Índice criado por River (@sm) em 2026-05-04. Toda a implementação deve seguir o Story Development Cycle: @dev implementa → @qa/@architect gate → @devops merge.*
+## Stories da Epic 3 — Módulo Tarefas
+
+**Plan completo:** `docs/epics/EPIC-3-EXECUTION.yaml` v0.1 (Morgan @pm, 2026-05-15).
+**Epic Goal:** CRUD completo de tarefas com recorrência + 3 vistas (lista/Kanban/calendário) + tags globais + tools cérebro AI integradas. Ver PRD §6.3 (linhas 291-311) + EPIC-3-EXECUTION.yaml.
+
+**Cross-confirm anti-hallucination (sessão @pm 2026-05-15):** schema `tasks`+`task_recurrences`+`tags`+`task_tags` em `packages/db/src/schema/tasks.ts:59-221` **JÁ COMPLETO**; `kanban_columns` em `tenancy.ts:152-173` **JÁ COMPLETO**; RLS 20 policies em `0001_rls_policies.sql:150-399` **JÁ COMPLETO**; FK circular `tasks.recurrence_id` em `0000:474-475` **APLICADA**; Inngest setup Story 2.8 **REUSE**; toolRegistry Story 2.3 **REUSE**. Story 3.1 redefinida M→S (validation+RLS tests+seed defaults, NÃO criar schema).
+
+| Story | Ficheiro | Título | Status | Owner | Estimate | Bloqueadores |
+|-------|---------|--------|--------|-------|----------|-------------|
+| 3.1 | [3.1.tasks-schema-validation.md](../completed/3.1.tasks-schema-validation.md) | Schema validation + RLS Testcontainers + seed defaults (Tarefas) | **Done v1.3** ✓ | @sm → @po → @dev → @architect → @devops | **S** (revised down from M per ED2) | **Done 2026-05-16 — architect gate APPROVED 9.5/10 HIGH** (empata Story 2.9 recordista Epic 2). Gate report: `docs/qa/gates/3.1-architect-gate.md` (597 linhas). 10/10 ACs PASS + 5/5 quality gates GREEN. DP4 Morgan A implementada (3-col PT-PT 'A fazer/Em curso/Concluído'). Migration 0009 aplicada + 8 RLS tests novos (extend pattern Story 1.4 harness). |
+| 3.2 | — | API routes CRUD tarefas + tags + recurrences (auth + RLS) | Backlog | @dev | M | Depende 3.1 |
+| 3.3 | — | Vista lista com filtros + ordenação + bulk actions | Backlog | @dev (+ @ux-design-expert) | M | Depende 3.2 |
+| 3.4 | — | Vista Kanban com colunas configuráveis + drag-and-drop | Backlog | @dev (+ @ux-design-expert) | L | Depende 3.2; DP1: A @dnd-kit/core (ratificado front-end-spec.md:1510) |
+| 3.5 | — | Vista calendário semanal com drag entre dias | Backlog | @dev (+ @ux-design-expert) | L | Depende 3.2; **DP2 NEW** aguarda Eurico (Morgan recomendação A: custom 7-col grid + @dnd-kit) |
+| 3.6 | — | Sistema de tags globais (criar/listar/aplicar inline) | Backlog | @dev | S | Depende 3.1 + 3.2 |
+| 3.7 | — | Inngest function generate-recurring-tasks (cron diário) | Backlog | @dev | M | Depende 3.1 + 3.2; EB4 Inngest workspace EU push only (dev local OK) |
+| 3.8 | — | Tools cérebro: criar_tarefa, completar_tarefa, listar_tarefas, listar_atrasadas | Backlog | @dev | M | Depende 3.2 + Epic 2 ✓; **DP5** aguarda Eurico (Morgan recomendação A: scope minimal) |
+
+---
+
+## Critical Path Epic 3
+
+```
+3.1 → 3.2 → {3.3 || 3.4 || 3.5 || 3.6 || 3.7 || 3.8 paralelos}
+```
+
+Total: 2S + 4M + 2L = 5-6 sprints (1 dev) OU 3-4 sprints (2 devs paralelo após 3.2). Saving ~1-2 sprints vs estimate inicial (Story 3.1 M→S). Ver `docs/epics/EPIC-3-EXECUTION.yaml` para dependency graph completo + decision_log ED1-ED12 + risks R1-R8.
+
+**Epic 3 Progress: 1/8 Done** (3.1 ✓ · 3.2-3.8 Backlog). Próximo: `@sm *draft 3.2` (API routes CRUD).
+
+---
+
+*Índice criado por River (@sm) em 2026-05-04. Actualizado 2026-05-16 com Story 3.1 Done v1.3 (architect gate APPROVED 9.5/10 HIGH). Toda a implementação deve seguir o Story Development Cycle: @dev implementa → @qa/@architect gate → @devops merge.*

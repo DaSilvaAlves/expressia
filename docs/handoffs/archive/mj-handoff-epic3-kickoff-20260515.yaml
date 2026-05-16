@@ -3,8 +3,21 @@ from_agent_persona: "Gage (@devops) — sessão de meta-handoff cross-terminal"
 to_agent: "any"
 to_agent_options: ["pm", "sm", "aiox-master"]
 created: "2026-05-15T18:30:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-05-15T18:50:00Z"
+consumed_by: "pm (Morgan)"
+consumption_outcome: >
+  Eurico escolheu Opção A (PM canonical). Morgan executou *create-epic 3 com
+  cross-confirm anti-hallucination contra codebase real. Output:
+  `docs/epics/EPIC-3-EXECUTION.yaml` v0.1 (502 linhas) com 8 stories detalhadas,
+  decision_log ED1-ED12 (5 já decididos via evidência codebase, 3 aguardam
+  Eurico DP2+DP4+DP5), risks R1-R8, dependency_graph + parallelization,
+  requirements_coverage FR/NFR/CON. 6 pre-existentes confirmados
+  (schema/RLS/FK/Inngest/toolRegistry) — Story 3.1 redefinida M→S (validation
+  vs criar schema). Estimate total 2S+4M+2L = 5-6 sprints (saving ~1-2 vs
+  handoff inicial). Sucessor: `mj-handoff-epic3-plan-ready-for-sm-20260515.yaml`
+  (pm → sm/po) para *draft 3.1 após Eurico ratificar DPs pendentes.
 
 story_id: "epic3-kickoff"
 story_path: "docs/prd.md (§6.3 Epic 3 — Módulo Tarefas, linhas 291-311)"

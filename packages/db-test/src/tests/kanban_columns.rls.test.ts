@@ -45,4 +45,37 @@ describe('RLS isolation: kanban_columns', () => {
       expect(rows.map((r) => r.name)).toEqual(['A Fazer']);
     });
   });
+
+  // Story 3.1 AC5/AC6 — extension UPDATE+DELETE cross-household.
+  // Nota PO_FIX F1: kanban_columns DELETE usa policy `kanban_columns_delete_owner_admin` (0001:166-168).
+  // userA/userB são `role: 'owner'` dos seus households (seedTwoHouseholds), logo o RLS USING
+  // filtra antes do role check — userB obtém 0 rows affected (não permission denied).
+  test('cross-household UPDATE bloqueado: userB não actualiza coluna do householdA', async () => {
+    const { householdA, householdB, userB } = await seedTwoHouseholds();
+    const colId = await insertKanbanColumn(admin(), householdA.id, { name: 'Original', sortOrder: 50 });
+
+    await asUser(userB.id, householdB.id, async (sql) => {
+      const result = await sql`update public.kanban_columns set name = 'Hijacked' where id = ${colId}`;
+      expect(result.count).toBe(0);
+    });
+
+    const rows = await admin()<{ name: string }[]>`select name from public.kanban_columns where id = ${colId}`;
+    expect(rows[0]?.name).toBe('Original');
+  });
+
+  test('cross-household DELETE bloqueado: userB não apaga coluna do householdA (variant owner_admin)', async () => {
+    const { householdA, householdB, userB } = await seedTwoHouseholds();
+    const colId = await insertKanbanColumn(admin(), householdA.id, { name: 'A apagar', sortOrder: 51 });
+
+    await asUser(userB.id, householdB.id, async (sql) => {
+      const result = await sql`delete from public.kanban_columns where id = ${colId}`;
+      // RLS USING filtra (userB não é owner/admin do householdA) → 0 rows affected.
+      expect(result.count).toBe(0);
+    });
+
+    const rows = await admin()<{ n: number }[]>`
+      select count(*)::int as n from public.kanban_columns where id = ${colId}
+    `;
+    expect(rows[0]?.n).toBe(1);
+  });
 });

@@ -1,0 +1,275 @@
+from_agent: "architect"
+from_agent_persona: "Aria (@architect) — Holistic System Architect"
+to_agent: "devops"
+to_agent_options: ["devops"]
+created: "2026-05-16T00:30:00Z"
+status: pending
+consumed: false
+
+story_id: "3.1"
+story_path: "docs/stories/active/3.1.tasks-schema-validation.md"
+story_title: "Story 3.1 — Schema Validation + RLS Testcontainers + Seed Defaults (Tarefas)"
+story_version: "1.3 Done (post-architect-gate APPROVED 9.5/10)"
+project_prefix: "mj"
+priority: high
+blocking: false
+type: story-close-and-push
+
+summary: >
+  Story 3.1 v1.3 Done. Architect gate APPROVED **9.5/10 HIGH confidence** —
+  empata Story 2.9 (recordista Epic 2). Gate report 597 linhas em
+  `docs/qa/gates/3.1-architect-gate.md`. Zero hallucinations detectadas em
+  cross-confirm independente 10 fontes. 2/2 [DEV-DECISION] D-3.1.1+D-3.1.2
+  RATIFIED PASS. PO_FIX F1 verified satisfeito by default via
+  `seedTwoHouseholds role:'owner'` (rls-harness.ts:264-265).
+
+  **@devops *push 3.1 consolida 9+ artefactos non-pushed:**
+  - EPIC-3-EXECUTION.yaml (pre-existing untracked Epic 3 plan)
+  - 5 handoffs cycle Story 3.1 (kickoff + sm-po + po-dev + dev-architect + este architect-devops)
+  - 4 archive moves (handoffs consumed)
+  - HANDOFF-INDEX.md updated
+  - docs/stories/active/_INDEX.md (move 3.1 → completed)
+  - docs/stories/active/3.1.tasks-schema-validation.md → completed/ (v1.3)
+  - docs/qa/gates/3.1-architect-gate.md (NEW gate report)
+  - packages/db/migrations/0009_kanban_seed.sql (NEW migration)
+  - packages/db-test/src/tests/{task_recurrences,tags,task_tags,kanban_columns}.rls.test.ts (4 MODIFIED)
+
+architect_gate_outcome:
+  verdict: "APPROVED"
+  score: "9.5/10 HIGH confidence"
+  date: "2026-05-16"
+  precedent_position: "Empata Story 2.9 (recordista Epic 2 9.5/10)"
+  gate_report: "docs/qa/gates/3.1-architect-gate.md"
+  gate_report_size: "597 lines"
+
+  score_breakdown:
+    architecture_coherence: 1.0
+    nfrs_coverage: 1.0
+    constitution_6_articles: 1.0
+    tests: 0.95
+    decision_quality: 0.95
+    documentation: 1.0
+    bonus_engineering_judgment: 0.10
+    bonus_pofix_prevention: 0.05
+    total: 9.5
+
+  re_verifications_5_5:
+    - gate: "typecheck"
+      result: "9/9 PASS · FULL TURBO 9/9 cached · 56ms"
+    - gate: "lint"
+      result: "9/9 PASS · 0 warnings · FULL TURBO 9/9 cached · 53ms"
+    - gate: "check:rls"
+      result: "EXIT 0 · NFR5 PRESERVADA — 5 tabelas Tarefas com cobertura completa"
+    - gate: "db-test typecheck (focused)"
+      result: "PASS · 100% cached · 8 tests novos compilam syntactically"
+    - gate: "UTF-8 encoding migration 0009"
+      result: 'file confirma "Unicode text, UTF-8 text" sem BOM · grep PT-PT names byte-for-byte verified'
+
+  cross_confirm_anti_hallucination:
+    sources_verified: 10
+    hallucinations_detected: 0
+    notable_verifications:
+      - "kanbanColumns schema cols match migration INSERT statement"
+      - "tags + task_tags + task_recurrences RLS policies line numbers concretos (403-418/420-435/386-401)"
+      - "seedTwoHouseholds role:'owner' literal (rls-harness.ts:264-265)"
+      - "PT-PT names UTF-8 byte-for-byte (ç=U+00E7, í=U+00ED) verified via grep + file"
+
+  acs_passed: 10
+  acs_failed: 0
+  decisions_ratified: 4  # D-3.1.1 + D-3.1.2 + Docker ENV-BLOCKER + DP4 silent accept
+
+context:
+  predecessor_handoff:
+    id: "mj-handoff-3.1-ready-for-architect-20260515"
+    consumed_at: "2026-05-16T00:25:00Z"
+    consumed_by: "architect (Aria)"
+    consumed_outcome: "APPROVED 9.5/10 HIGH confidence"
+    location: "docs/handoffs/archive/mj-handoff-3.1-ready-for-architect-20260515.yaml"
+
+  story_lifecycle_complete:
+    - phase: "draft"
+      agent: "@sm (River)"
+      date: "2026-05-15"
+      output: "v1.0 — 10 ACs + 5 tasks/subtasks, cross-confirm @sm contra codebase real"
+    - phase: "validate"
+      agent: "@po (Pax)"
+      date: "2026-05-15"
+      output: "v1.1 GO 10/10 + PO_FIX_INLINE F1 (tags variant note + concrete line numbers)"
+    - phase: "implement"
+      agent: "@dev (Dex)"
+      date: "2026-05-15"
+      output: "v1.2 Ready for Review — 10/10 ACs PASS + 5/5 gates GREEN + 2 [DEV-DECISION] flags + 1 [AUTO-DECISION] ENV-BLOCKER"
+    - phase: "architect-gate"
+      agent: "@architect (Aria)"
+      date: "2026-05-16"
+      output: "v1.3 Done — APPROVED 9.5/10 HIGH"
+    - phase: "push (PENDING — this handoff)"
+      agent: "@devops (Gage)"
+      date: "TBD"
+      output: "Consolidate 9+ artefactos + git push + close cycle"
+
+next_action: |
+  @devops *push 3.1
+
+  **Pre-push checklist:**
+  1. Validate working tree consistent — verify 9+ artefactos esperados:
+     - NEW: docs/qa/gates/3.1-architect-gate.md
+     - NEW: docs/handoffs/mj-handoff-3.1-ready-for-devops-close-20260516.yaml (este)
+     - NEW: packages/db/migrations/0009_kanban_seed.sql
+     - MODIFIED: packages/db-test/src/tests/{task_recurrences,tags,task_tags,kanban_columns}.rls.test.ts
+     - MODIFIED: docs/stories/active/3.1.tasks-schema-validation.md (v1.3 Done)
+     - MODIFIED: docs/HANDOFF-INDEX.md
+     - MODIFIED: docs/stories/active/_INDEX.md (Story 3.1 → completed marker)
+     - PRE-EXISTING UNTRACKED: docs/epics/EPIC-3-EXECUTION.yaml
+     - ARCHIVE MOVES (4): mj-handoff-{epic3-kickoff,3.1-ready-for-po,3.1-ready-for-dev,3.1-ready-for-architect}-20260515.yaml
+
+  2. Move story file: `docs/stories/active/3.1.tasks-schema-validation.md` → `docs/stories/completed/3.1.tasks-schema-validation.md`
+
+  3. Update `docs/stories/active/_INDEX.md` — Story 3.1 entry: Ready for Review → Done · move from active section to completed
+
+  4. Mark this handoff consumed (after push successful):
+     - consumed: true
+     - consumed_at: <ISO-8601 timestamp>
+     - consumed_by: "devops (Gage)"
+     - status: consumed
+     - move file → docs/handoffs/archive/
+
+  5. Marketing files cleanup decision (10 untracked):
+     - docs/marketing/ad_strategy_v1.md
+     - docs/marketing/iris_copy.pdf
+     - docs/marketing/landing-page-iris.md (replaces deleted landing-page-expressia-draft.md)
+     - docs/marketing/onboarding_email_v1.md
+     - docs/marketing/siris-apresent.mp4
+     - docs/marketing/social_copy_v1.md
+     - docs/marketing/video_prompts_v1.md
+     - docs/marketing/video_scripts_v1.md
+     - docs/marketing/"iris".pdf
+     **Recommendation:** Eurico decide commit (separate commit chore(marketing): import iris assets) ou git stash/discard. NÃO bloqueia push 3.1 — pode ficar untracked.
+
+  6. CodeRabbit run pre-PR (per @devops standard workflow):
+     ```
+     wsl bash -c 'cd /mnt/c/Users/XPS/Documents/meu-jarvis && ~/.local/bin/coderabbit --prompt-only --base main'
+     ```
+     Expected: zero CRITICAL/HIGH issues — gate already APPROVED 9.5/10. Self-healing 2 iterations max if minor issues surface.
+
+  7. Conventional commit message suggestion:
+     ```
+     feat(db,tasks): Story 3.1 schema validation + RLS tests extension + kanban seed defaults [Story 3.1]
+
+     - Migration 0009_kanban_seed.sql: SQL function + AFTER INSERT trigger + idempotent backfill PT-PT defaults
+     - 4 RLS test files extended with +8 tests UPDATE+DELETE cross-household (20/20 AC5 coverage)
+     - Architect gate APPROVED 9.5/10 HIGH confidence (docs/qa/gates/3.1-architect-gate.md)
+     - 10/10 ACs PASS + 5/5 quality gates GREEN
+     - Constitution 6/6 articles compliant
+
+     Co-Authored-By: Aria @architect
+     Co-Authored-By: Dex @dev
+     Co-Authored-By: Pax @po
+     Co-Authored-By: River @sm
+     ```
+
+next_command_suggested: "@devops *push 3.1"
+
+estimated_wall_clock:
+  devops_push: "~15-20min (working tree validation + story file move + INDEX updates + handoff archive + CodeRabbit pre-PR + commit + push + PR description)"
+  total_to_full_close: "~20min"
+
+deferred_followups:
+  - id: "NIT-006-NB Docker local"
+    description: "Docker offline em dev local. CI rls-gate cobre via Postgres 16 service ubuntu-latest. Setup deferred @devops próxima sessão (*setup-mcp-docker) ou Eurico Docker Desktop start manual."
+    priority: P3
+    blocking_for: "db-test#test integration localmente"
+    not_blocking_for: "Story 3.1 close, Stories 3.2-3.8"
+
+  - id: "Migration gap 0004 cosmético"
+    description: "Sequence 0000,0001,0002,0003,[GAP],0005,0006,0007,0008,0009. Cosmético — apply-migrations.ts ordena lexicograficamente, gap não causa runtime error. Epic 4 housekeeping batch (proposto Morgan EPIC-3-EXECUTION.yaml out_of_scope)."
+    priority: P3
+    blocking_for: "Visual cleanliness"
+    not_blocking_for: "Stories 3.X"
+
+  - id: "DP4 Eurico explicit ratify"
+    description: "Morgan A (3-col 'A fazer'/'Em curso'/'Concluído') aceita silenciosamente per PO Validation Block. Risk cosmetic se Eurico discordar post-deploy (~30min adaptation via migration 0010). @sm Story 3.4 deve confirmar antes de UI wireframes."
+    priority: P2
+    blocking_for: "Confidence DP4 final state"
+    not_blocking_for: "Story 3.1 close"
+
+  - id: "NIT-001-3.1 task_tags updated_at"
+    description: "Schema task_tags (tasks.ts:201-221) não tem updated_at audit field. Future Story 3.6 sistema tags pode considerar adicionar. Não bloqueia 3.1."
+    priority: P3
+    blocking_for: "task_tags audit consistency"
+    not_blocking_for: "Story 3.1 close, Story 3.6"
+
+  - id: "Story 2.10 + 2.11 outstanding"
+    description: "Story 2.10 T10 Eurico DPA UE Anthropic decisão · Story 2.11 post-deploy UI activation Grafana. Não bloqueiam Epic 3."
+    priority: P2
+    blocking_for: "Epic 2 final close"
+    not_blocking_for: "Epic 3"
+
+architectural_context:
+  pattern_inheritance:
+    - "Architect gate APPROVED 9.5/10 HIGH (empata recordista Epic 2)"
+    - "[DEV-DECISION] D-3.1.1 anti-hallucination correto (Story 1.4 Done discovery)"
+    - "[DEV-DECISION] D-3.1.2 SCOPE-REDUCTION HIGH-VALUE (extend vs duplicate — DRY)"
+    - "PO_FIX F1 satisfeito by default (sem extra setup necessário)"
+    - "ENV-BLOCKER Docker [AUTO-DECISION] PROCEED consistente Stories 2.6-2.11"
+    - "PT-PT byte-for-byte verified (ç + í UTF-8 sem BOM)"
+    - "Anti-hallucination cross-confirm tri-validated (@sm + @po + @architect)"
+    - "@devops exclusive push (rules ~/.claude/rules/agent-authority.md)"
+
+  story_lifecycle_authority:
+    - "@architect DONE: Status Ready for Review → Done com gate APPROVED 9.5/10"
+    - "@devops NEXT: *push 3.1 consolidates working tree + close cycle"
+    - "@architect autoridade: review code, raise concerns, demand fixes, ratify deferred work"
+    - "Apenas @devops faz git push pós-gate APPROVED"
+
+critical_rules_to_remember:
+  - "Apenas @devops faz git push e gh pr create (rules ~/.claude/rules/agent-authority.md)"
+  - "PT-PT exclusivo — AC8 enforced byte-for-byte (verified UTF-8 sem BOM)"
+  - "EU data residency: Vercel fra1 + Supabase eu-central-1"
+  - "NFR5 PRESERVADA — check:rls EXIT 0 todas tabelas multi-tenant coverage completa (re-verified independently)"
+  - "Constitution Article IV No Invention — cross-confirm tri-validated (zero hallucinations)"
+  - "Story file v1.3 Done — sucessor handoff este apenas para close + push"
+  - "Marketing files (10 untracked) — Eurico decide commit/discard separadamente, NÃO bloqueia 3.1"
+
+contextual_files_to_load_in_new_session:
+  primary:
+    - "docs/HANDOFF-INDEX.md (este handoff aparece em pending)"
+    - "docs/handoffs/mj-handoff-3.1-ready-for-devops-close-20260516.yaml (este ficheiro)"
+    - "docs/qa/gates/3.1-architect-gate.md (gate report 597 linhas — REVIEW antes de push)"
+    - "docs/stories/active/3.1.tasks-schema-validation.md v1.3 Done (story file completo)"
+  artefacts_to_push:
+    - "docs/qa/gates/3.1-architect-gate.md (NEW)"
+    - "docs/handoffs/mj-handoff-3.1-ready-for-devops-close-20260516.yaml (NEW)"
+    - "packages/db/migrations/0009_kanban_seed.sql (NEW)"
+    - "packages/db-test/src/tests/task_recurrences.rls.test.ts (MODIFIED +2 tests)"
+    - "packages/db-test/src/tests/tags.rls.test.ts (MODIFIED +2 tests)"
+    - "packages/db-test/src/tests/task_tags.rls.test.ts (MODIFIED +2 tests)"
+    - "packages/db-test/src/tests/kanban_columns.rls.test.ts (MODIFIED +2 tests)"
+    - "docs/stories/active/3.1.tasks-schema-validation.md → completed/ (v1.3)"
+    - "docs/stories/active/_INDEX.md (Story 3.1 marker move)"
+    - "docs/HANDOFF-INDEX.md (consume this + others)"
+    - "Archive moves (4 handoffs consumed)"
+    - "EPIC-3-EXECUTION.yaml (pre-existing untracked)"
+  reference:
+    - "~/.claude/rules/agent-authority.md (push exclusivity)"
+    - "~/.claude/rules/handoff-central.md (consume + archive protocol)"
+    - "~/.claude/rules/story-lifecycle.md (Done status transition + close cycle)"
+
+session_metrics_summary:
+  architect_session_duration: "~30-40min (Read 8 files + grep PT-PT + UTF-8 check + check:rls + lint+typecheck FULL TURBO + 597 lines gate report + story update + handoff create)"
+  agents_invoked: ["architect (Aria)"]
+  artefacts_created: 2  # gate report + this handoff
+  artefacts_modified: 1  # story file v1.2 → v1.3
+  artefacts_archived: 1  # dev-to-architect handoff
+  acs_passed: 10
+  decisions_ratified: 4
+  hallucinations_detected: 0
+  cross_confirm_sources: 10
+
+notes: |
+  - Este handoff é **actionable** — @devops consome ao executar `*push 3.1`.
+  - **@devops deve LER:** gate report `docs/qa/gates/3.1-architect-gate.md` (597 linhas) ANTES de `*push 3.1` para entender escopo + decisions ratified + recommendations forward.
+  - **Working tree consolidation crítica:** 9+ artefactos non-pushed cobrem múltiplas áreas — verificar git status antes de push para garantir nada perdido.
+  - **CodeRabbit pre-PR recomendado:** Gate já APPROVED 9.5/10, mas CodeRabbit é defesa em profundidade @devops standard workflow. Self-healing 2 iterations.
+  - **Marketing files separadas:** Recommendation Eurico decide commit/discard antes ou depois — NÃO bloqueia push 3.1.
+  - **Sucessor após este handoff:** Story 3.2 (API routes CRUD tarefas) — @sm próxima sessão.

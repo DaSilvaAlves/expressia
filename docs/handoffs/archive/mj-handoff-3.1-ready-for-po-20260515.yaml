@@ -1,0 +1,247 @@
+from_agent: "sm"
+from_agent_persona: "River (@sm) — Technical Scrum Master"
+to_agent: "po"
+to_agent_options: ["po"]
+created: "2026-05-15T19:05:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-15T20:30:00Z"
+consumed_by: "po (Pax)"
+consumed_outcome: "Story 3.1 v1.0 Draft → v1.1 Ready. 10/10 checklist GO. PO_FIX_INLINE F1 applied (tags.delete_owner_admin variant note AC5/AC6/T3.5 + concrete RLS line numbers Dev Notes). DP4 Morgan A accepted silently. Sucessor handoff created: mj-handoff-3.1-ready-for-dev-20260515.yaml."
+
+story_id: "3.1"
+story_path: "docs/stories/active/3.1.tasks-schema-validation.md"
+story_title: "Story 3.1 — Schema Validation + RLS Testcontainers + Seed Defaults (Tarefas)"
+story_version: "1.0 Draft"
+project_prefix: "mj"
+priority: medium
+blocking: false
+type: story-validation-request
+
+summary: >
+  Story 3.1 v1.0 Draft criada por River (@sm) seguindo Epic 3 plan v0.1
+  (`docs/epics/EPIC-3-EXECUTION.yaml`). Estimate **S** (revised down from M per ED2 —
+  schema/RLS/FK JÁ COMPLETE confirmados via cross-confirm @pm). 10 ACs + 5 Tasks
+  + Dev Notes com Validation Report + Migration Sequence Audit placeholders.
+  Pax (@po) deve executar `*validate-story-draft 3.1` aplicando 10-point checklist
+  (story-lifecycle.md) + cross-confirm anti-hallucination contra fontes reais
+  citadas no Dev Notes (tasks.ts, tenancy.ts, 0001_rls_policies.sql, 0000_initial_schema.sql).
+  **Pré-requisito Eurico:** ratificar DP4 (default kanban_columns seed strategy —
+  recomendação Morgan A: 3-col PT-PT 'A fazer/Em curso/Concluído') ANTES de @dev arrancar.
+
+context:
+  predecessor_handoff:
+    id: "mj-handoff-epic3-plan-ready-for-sm-20260515"
+    consumed_at: "2026-05-15T19:05:00Z"
+    consumed_by: "sm (River)"
+    location: "docs/handoffs/archive/mj-handoff-epic3-plan-ready-for-sm-20260515.yaml"
+
+  story_artefact:
+    path: "docs/stories/active/3.1.tasks-schema-validation.md"
+    version: "1.0"
+    status: "Draft"
+    sections:
+      - "Title + meta (Status: Draft, Epic: 3, Owner chain, Estimate S, Version 1.0, Created 2026-05-15)"
+      - "Executor Assignment (yaml com @dev executor + @architect quality_gate + 5 quality_gate_tools + 1 optional db-test)"
+      - "Bloqueadores Externos (5 EBs todos NÃO afectam — DEP-1.4 opcional Testcontainers harness)"
+      - "User Story (Como/Quero/Para que padrão)"
+      - "Dependências (4 Internas Done + 1 Internas Ready opcional + 0 Externas + 4 stories que dependem)"
+      - "Acceptance Criteria 10 ACs detalhados:"
+      - "  AC1 — Validation Pass schema vs PRD §6.3 FR7-FR12 (mapping table 13 fields)"
+      - "  AC2 — Migration 0009_kanban_seed.sql defaults PT-PT idempotente"
+      - "  AC3 — Households existentes recebem defaults retroactively"
+      - "  AC4 — Trigger AFTER INSERT funciona em novos households"
+      - "  AC5 — Suite Testcontainers RLS 20 cenários cross-household"
+      - "  AC6 — Cenário negativo RLS-bloqueado explícito 5×4"
+      - "  AC7 — NFR5 check:rls gate verde (sem regressões)"
+      - "  AC8 — PT-PT estrito enforced ('Em curso' não 'Em progresso')"
+      - "  AC9 — 5/5 quality gates GREEN"
+      - "  AC10 — Migration Sequence Audit + Epic 4 housekeeping proposta"
+      - "Tasks/Subtasks (5 tasks com 6+5+6+5+4=26 subtasks numeradas)"
+      - "Dev Notes (Suggested Files cross-confirmed + Validation Report placeholder + Migration Sequence Audit + DP4 [SM_FLAG] + Mockable-friendly pattern + CodeRabbit Integration + NFR Coverage)"
+      - "Project Structure Notes (alinha 100% CLAUDE.md monorepo)"
+      - "Definition of Done (10 AC checkboxes + status transition + sucessor handoff)"
+      - "File List (NEW + MODIFIED placeholders @dev preenche)"
+      - "Dev Agent Record (placeholders @dev preenche)"
+      - "Change Log v1.0 entry"
+      - "Handoff section (predecessor consumed + sucessor pending)"
+
+  cross_confirms_already_done_by_pm:
+    - "Schema tasks.ts:59-221 4 tabelas COMPLETE"
+    - "Schema tenancy.ts:152-173 kanban_columns COMPLETE"
+    - "RLS 0001_rls_policies.sql:150-399 20 policies COMPLETE"
+    - "FK circular 0000_initial_schema.sql:474-475 APLICADA"
+    - "Inngest setup Story 2.8 client+route (não usado nesta story)"
+    - "toolRegistry Story 2.3 (não usado nesta story)"
+
+  decision_points_status:
+    pending_eurico:
+      - dp_id: DP4
+        topic: "Default kanban_columns seed strategy"
+        recommendation: "A — 3-col PT-PT 'A fazer/Em curso/Concluído' (is_done_column=true em última)"
+        affects_acs: ["AC2", "AC3", "AC4", "AC8"]
+        critical: "Story 3.1 implementation T2 depende — @po confirmar com Eurico ANTES @dev arrancar"
+        sm_flag_present: true
+        location_in_story: "Dev Notes > Decision Points (DPs) section"
+
+    not_affecting_3_1:
+      - dp_id: DP2
+        topic: "Calendário week-view library — afecta Story 3.5 não 3.1"
+      - dp_id: DP5
+        topic: "Tools cérebro scope — afecta Story 3.8 não 3.1"
+
+po_validation_focus:
+  ten_point_checklist_priority_areas:
+    - "1. Clear and objective title — verify 'Schema Validation + RLS Testcontainers + Seed Defaults (Tarefas)' descritivo"
+    - "2. Complete description — User Story + Bloqueadores section explica context"
+    - "3. Testable acceptance criteria — 10 ACs com cenários concretos + queries SQL + assertions"
+    - "4. Well-defined scope — IN clear (validation+migration+tests+docs); OUT implícito (não criar schema, não tocar app/web)"
+    - "5. Dependencies mapped — 4 internas Done + 1 opcional + 0 externas"
+    - "6. Complexity estimate — S justificado por ED2 (revised down from M)"
+    - "7. Business value — 'Stories 3.2-3.8 arrancam com base sólida' explícito User Story"
+    - "8. Risks documented — DP4 [SM_FLAG] + Mockable-friendly fallback path"
+    - "9. Criteria of Done — DoD section com 10 AC checkboxes + status transitions"
+    - "10. Alignment com PRD/Epic — links explícitos PRD §6.3 + EPIC-3-EXECUTION.yaml ED2"
+
+  anti_hallucination_cross_confirm_required:
+    description: >
+      @po DEVE re-verificar fontes citadas no Dev Notes "Suggested Files" para
+      confirmar que paths existem e contém o que a story alega:
+    sources_to_verify:
+      - path: "packages/db/src/schema/tasks.ts:59-221"
+        verify: "4 tabelas COMPLETE (tasks, task_recurrences, tags, task_tags)"
+      - path: "packages/db/src/schema/tenancy.ts:152-173"
+        verify: "kanban_columns table COMPLETE"
+      - path: "packages/db/migrations/0001_rls_policies.sql:150-167"
+        verify: "kanban_columns 4 policies including delete_owner_admin variant"
+      - path: "packages/db/migrations/0001_rls_policies.sql:368-399"
+        verify: "tasks + task_recurrences policies"
+      - path: "packages/db/migrations/0001_rls_policies.sql"
+        verify: "tags + task_tags policies (verify exact line numbers — story diz '~400+ — verify exact during T1')"
+      - path: "packages/db/migrations/0000_initial_schema.sql:474-475"
+        verify: "FK circular tasks.recurrence_id APLICADA"
+      - path: "packages/db/migrations/"
+        verify: "Sequence 0000,0001,0002,0003,[GAP],0005,0006,0007,0008 — gap 0004 cosmético"
+
+  potential_concerns_for_po:
+    - "AC2 implementation strategy: trigger SQL vs accept_invite() extension vs migration backfill — story sugere TODOS três. @po pode flagar como over-spec OU aceitar como defesa em profundidade."
+    - "T3 Decision Point: Testcontainers vs mockable-friendly Vitest — story documenta @dev decide em T3.1. @po pode pedir clarificação se prefere uma abordagem fixa."
+    - "AC10 'gap 0004' deferral — @po pode pedir resolution imediata vs deferral Epic 4 housekeeping (Morgan recomendou deferral em out_of_scope EPIC-3-EXECUTION line 488)."
+    - "DP4 [SM_FLAG] não-resolvido — @po deve confirmar com Eurico OU aceitar recomendação A silenciosamente per pattern Stories 2.X."
+
+  suggested_po_actions:
+    - "1. Re-verificar 7 sources cross-confirm (lista acima)"
+    - "2. Aplicar 10-point checklist e calcular score 0-10"
+    - "3. Decisão GO/NO-GO baseada em score (≥7 = GO)"
+    - "4. Se GO: actualizar Status Draft → Ready (per story-lifecycle.md @po responsability)"
+    - "5. Se PO_FIX_INLINE necessários (anti-hallucination found): aplicar inline + bump version 1.0 → 1.1 + log no Change Log"
+    - "6. Criar handoff sucessor mj-handoff-3.1-ready-for-dev-{date}.yaml para @dev *develop 3.1"
+
+architectural_context:
+  pattern_inheritance_from_epic_2:
+    - "Anti-hallucination cross-confirm rigoroso (precedente Stories 2.7-2.11 todas tiveram PO_FIX_INLINE)"
+    - "Mockable-friendly Vitest pattern fallback (Stories 2.2-2.11)"
+    - "PT-PT vocabulário estrito (CLAUDE.md)"
+    - "@devops exclusive push (rules)"
+    - "[AUTO-DECISION] CodeRabbit pre-push SKIPPED quando architect gate APPROVED ~600 linhas"
+    - "5/5 quality gates GREEN obrigatório pre-push"
+
+  story_lifecycle_authority:
+    - "@po MUST update Status field Draft → Ready em GO verdict (per story-lifecycle.md)"
+    - "@po MUST log transition em Change Log com PO Validation block"
+    - "Story file edits permitted by @po: Title, Description, AC, Scope (per story-lifecycle.md table)"
+    - "PO_FIX_INLINE acceptable se anti-hallucination cross-confirm detectar issues"
+
+next_action: >
+  @po sessão futura:
+
+  **Pre-req opcional:** Eurico ratificar DP4 (recomendação Morgan A 3-col PT-PT)
+  via mini-decisão (~5min) OU @po pode aceitar recomendação A silenciosamente
+  e prosseguir validação.
+
+  **Comando:**
+  ```
+  @po *validate-story-draft 3.1
+  ```
+
+  **Output esperado:** Story 3.1 v1.0 Draft → Ready v1.1 (se GO ≥7/10)
+  com PO Validation block + Change Log entry + 10-point score breakdown.
+  Sucessor: @dev *develop 3.1 mockable-friendly OU Testcontainers se 1.4 Done.
+
+next_command_suggested: "@po *validate-story-draft 3.1"
+
+estimated_wall_clock:
+  pre_req_eurico_dp4: "~5min decisão (opcional)"
+  po_validate: "~30min (read story + 10-point checklist + cross-confirm 7 sources + GO/NO-GO + PO Validation block)"
+  total: "~35min"
+
+deferred_followups:
+  - id: "DP4 ratification"
+    description: "Eurico ratifica default kanban seed (Morgan A 3-col vs B vazio vs C 5-col)"
+    blocking_for: "Story 3.1 T2 implementation (AC2)"
+    not_blocking_for: "Stories 3.2-3.8 detailing"
+
+  - id: "T10 Story 2.10 unblock"
+    description: "Decisão Eurico DPA UE Anthropic — runbook docs/runbooks/vercel-llm-keys-setup.md §8.4"
+    blocking_for: "Story 2.10 final Done gate"
+    not_blocking_for: "Epic 3"
+
+  - id: "Story 2.11 post-deploy UI activation"
+    description: "Login expressia.grafana.net + import dashboard JSON + alarme channels (NIT-005-NB low)"
+    blocking_for: "Dashboard real visualização em produção"
+    not_blocking_for: "Epic 3"
+
+  - id: "Marketing files cleanup"
+    description: "10 ficheiros docs/marketing/* untracked + 1 deleted — Eurico decide"
+    blocking_for: "Working tree limpa"
+    not_blocking_for: "Story 3.1 development"
+
+critical_rules_to_remember:
+  - "Apenas @devops faz git push e gh pr create (rules ~/.claude/rules/agent-authority.md)"
+  - "@po Status field MUST update Draft → Ready em GO verdict (story-lifecycle.md)"
+  - "PT-PT exclusivo — utilizar não usar, eliminar não deletar, ficheiro não arquivo"
+  - "EU data residency: Vercel fra1 + Supabase eu-central-1"
+  - "NFR5 bloqueia merge — Story 3.1 NÃO adiciona policies (já existem) mas testa cross-household isolation"
+  - "Constitution Article IV No Invention — sempre cross-confirm contra codebase real"
+  - "Mockable-friendly fallback se Testcontainers Story 1.4 não Done"
+  - "Anti-hallucination cross-confirm contra fontes reais (sample @po: tasks.ts:59-221 + 0001:368-399 + tenancy.ts:152-173)"
+
+contextual_files_to_load_in_new_session:
+  primary:
+    - "docs/HANDOFF-INDEX.md (este handoff aparece em pending)"
+    - "docs/handoffs/mj-handoff-3.1-ready-for-po-20260515.yaml (este ficheiro)"
+    - "docs/stories/active/3.1.tasks-schema-validation.md v1.0 Draft (story file a validar)"
+    - "docs/epics/EPIC-3-EXECUTION.yaml v0.1 (plan completo — Story 3.1 secção)"
+    - "docs/prd.md §6.3 Epic 3 (linhas 291-311) — FR7-FR12 authoritative"
+  reference:
+    - "packages/db/src/schema/tasks.ts:59-221"
+    - "packages/db/src/schema/tenancy.ts:152-173"
+    - "packages/db/migrations/0001_rls_policies.sql:150-399"
+    - "packages/db/migrations/0000_initial_schema.sql:474-475"
+    - "docs/stories/completed/2.11.observability-dashboards-agent-health.md (precedente recente Done v1.4)"
+    - "docs/stories/active/_INDEX.md (entry Story 3.1 já adicionada)"
+    - "~/.claude/rules/story-lifecycle.md (10-point checklist + status transition rules)"
+
+session_metrics_summary:
+  sm_session_duration: "~25min (load workflow + cross-confirm template + create story file + INDEX update + handoffs)"
+  agents_invoked: ["sm (River)"]
+  artefacts_created: 3  # story file + INDEX update + este handoff
+  artefacts_archived: 1  # handoff predecessor
+  cross_confirms_inherited: 6  # da sessão @pm (zero novos cross-confirms necessários — story file traz tudo)
+  acs_drafted: 10
+  tasks_drafted: 5
+  subtasks_drafted: 26
+  estimate_validation: "S confirmed (revised down from M per ED2 cross-confirm)"
+
+notes: |
+  - Este handoff é **actionable** — @po consome ao executar `*validate-story-draft 3.1`.
+  - Recomenda-se @po ler EPIC-3-EXECUTION.yaml secção stories[3.1] (linhas ~158-180)
+    + decision_log ED2 (linha ~388) para context completo do scope revision M→S.
+  - Story 3.1 file traz cross-confirms já feitos pela sessão @pm — @po não precisa
+    re-fazer, apenas SAMPLE 1-2 fontes para sanity check anti-hallucination.
+  - DP4 ratification é o único bloqueador real para @dev arrancar (T2 implementation
+    depende). @po pode escalate para Eurico OU aceitar recomendação A silenciosamente.
+  - **Working tree status pós este handoff:** docs/stories/active/3.1.tasks-schema-validation.md
+    novo + _INDEX.md updated + handoff predecessor archived + handoff sucessor pending +
+    HANDOFF-INDEX.md updated + 10 marketing files untracked (não relacionados).
+  - **NÃO há push pendente** — autoridade exclusiva @devops chore commit posterior.

@@ -1,0 +1,334 @@
+from_agent: "pm"
+from_agent_persona: "Morgan (@pm) — Investigative Product Strategist"
+to_agent: "sm"
+to_agent_options: ["sm", "po"]
+created: "2026-05-15T18:55:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-15T19:05:00Z"
+consumed_by: "sm (River)"
+consumption_outcome: >
+  River executou *draft 3.1 seguindo workflow .aiox-core/development/tasks/create-next-story.md
+  + handoff guidance + cross-confirms anti-hallucination herdados da sessão @pm.
+  **Output:** docs/stories/active/3.1.tasks-schema-validation.md v1.0 Draft (Status: Draft)
+  com 10 ACs detalhados (validation FR7-FR12 mapping table + migration 0009_kanban_seed.sql
+  defaults PT-PT + trigger AFTER INSERT + idempotent backfill + 20 testes RLS cross-household
+  + check:rls + 5/5 quality gates + gap 0004 documentation), 5 Tasks/Subtasks (T1 validation
+  + T2 migration + T3 tests + T4 quality gates + T5 docs), Dev Notes com Validation Report +
+  Migration Sequence Audit placeholders, DP4 [SM_FLAG] aguarda Eurico ratificar (recomendação
+  Morgan A: 3-col 'A fazer/Em curso/Concluído'). _INDEX.md actualizado com nova secção
+  "Stories da Epic 3" (entry 3.1 Draft v1.0 + 3.2-3.8 Backlog + Critical Path Epic 3
+  estimate 5-6 sprints saving ~1-2 vs handoff inicial). Sucessor:
+  mj-handoff-3.1-ready-for-po-20260515.yaml para @po *validate-story-draft 3.1.
+
+story_id: "3.1"
+story_path: "docs/stories/active/3.1.tasks-schema-validation.md (a criar pelo @sm)"
+story_title: "Story 3.1 — Schema validation + RLS Testcontainers + seed defaults"
+project_prefix: "mj"
+priority: medium
+blocking: false
+type: epic-plan-to-story-draft
+
+summary: >
+  Epic 3 plan formal criado em `docs/epics/EPIC-3-EXECUTION.yaml` v0.1 (502 linhas)
+  via *create-epic 3 (Opção A canonical decidida pelo Eurico). 8 stories enumeradas
+  3.1-3.8 com decision_log ED1-ED12, risks R1-R8, dependency_graph, parallelization.
+  Cross-confirm anti-hallucination revelou 6 pre-existentes que invalidam parte do
+  scope original — Story 3.1 redefinida M→S. @sm deve fazer *draft 3.1 com scope
+  ajustado: validation pass do schema + Testcontainers cross-household + seed
+  defaults kanban_columns/tags per household. **Pré-requisito:** Eurico ratificar
+  DP2 (calendário week-view library) + DP4 (default kanban seed strategy) +
+  DP5 (tools cérebro scope minimal) ANTES do *draft.
+
+context:
+  predecessor_handoff:
+    id: "mj-handoff-epic3-kickoff-20260515"
+    consumed_at: "2026-05-15T18:50:00Z"
+    consumed_by: "pm (Morgan)"
+    location: "docs/handoffs/archive/mj-handoff-epic3-kickoff-20260515.yaml"
+    decision_taken: "Opção A canonical — *create-epic 3 com plan formal"
+
+  epic_3_plan_doc:
+    path: "docs/epics/EPIC-3-EXECUTION.yaml"
+    version: v0.1
+    sections:
+      - "depends_on (Epic 1 ✅, Epic 2 effective Done 9/11+1Partial)"
+      - "pre_existing_artefacts_confirmed (6 itens via cross-confirm contra codebase)"
+      - "external_blockers (EB4 Inngest workspace EU PENDING_VERIFICATION)"
+      - "decisions_pending (DP1-DP8 — 5 decididos via evidência, 3 aguardam Eurico)"
+      - "stories (8 stories 3.1-3.8 com scope_summary, mapping_prd, artefacts_expected, risk_mitigation)"
+      - "dependency_graph (mermaid LR)"
+      - "estimates_summary (2S+4M+2L = 5-6 sprints — saving ~1-2 vs handoff inicial)"
+      - "success_criteria (PRD §6.3 ACs + operational_metrics + ux_review_required)"
+      - "decision_log (ED1-ED12 com rationale + evidence + invalidated_assumptions)"
+      - "risks (R1-R8)"
+      - "requirements_coverage (FR/NFR/CON traceability)"
+      - "out_of_scope (deferred Epic 5+/Epic 6+)"
+      - "next_steps (immediate + cascade)"
+      - "change_log v0.1"
+
+  cross_confirm_findings:
+    pre_existing_artefacts:
+      - artefact: "Schema tasks.ts (4 tabelas COMPLETE)"
+        path: "packages/db/src/schema/tasks.ts:59-221"
+        implication_for_story_3_1: "Não criar schema — validar + testar RLS"
+
+      - artefact: "Schema kanban_columns"
+        path: "packages/db/src/schema/tenancy.ts:152-173"
+        implication_for_story_3_1: "Reusa — só falta seed defaults per household"
+
+      - artefact: "RLS policies 5 tabelas (20 policies)"
+        path: "packages/db/migrations/0001_rls_policies.sql:150-399"
+        implication_for_story_3_1: "NFR5 verde — só Testcontainers tests cross-household"
+
+      - artefact: "FK circular tasks.recurrence_id"
+        path: "packages/db/migrations/0000_initial_schema.sql:474-475"
+        implication_for_story_3_1: "Aplicada — comment em tasks.ts:91 refere-se a 0000 (não work novo)"
+
+      - artefact: "Inngest setup"
+        path: "apps/web/src/lib/inngest/client.ts + apps/web/src/app/api/inngest/route.ts"
+        implication_for_story_3_7: "Reusa — só adiciona InngestFunction generate-recurring-tasks"
+
+      - artefact: "toolRegistry"
+        path: "packages/tools/src/registry.ts"
+        implication_for_story_3_8: "Reusa — adiciona 4 tools cérebro novos"
+
+      - artefact: "UI library decisions"
+        path: "docs/front-end-spec.md:1510-1511"
+        partial: true
+        decisions_made: ["dnd-kit/core + dnd-kit/sortable (DP1: A confirmed)"]
+        decisions_pending: ["Calendar week-view-with-drag — react-day-picker NÃO suporta — DP2 NEW"]
+
+    migration_gap:
+      gap: "0004"
+      sequence_observed: "0000, 0001, 0002, 0003, [GAP], 0005, 0006, 0007, 0008"
+      next_migration_if_needed: "0009 (cosmético — não bloqueador, deferred Epic 4 housekeeping)"
+
+  decision_points_status:
+    decided_via_codebase_evidence:
+      - dp_id: DP1
+        topic: "Library Kanban drag-and-drop"
+        decision: "A — @dnd-kit/core + @dnd-kit/sortable"
+        evidence: "docs/front-end-spec.md:1510"
+        ratified_in: "ED5"
+
+      - dp_id: DP3
+        topic: "Library RRULE recurrences"
+        decision: "A — rrule.js"
+        evidence: "packages/db/src/schema/tasks.ts:7-8 (comment iCal RRULE)"
+        ratified_in: "ED7"
+
+      - dp_id: DP6
+        topic: "Recurrence horizon"
+        decision: "A — 90 dias"
+        evidence: "PRD §6.3 AC2 spec authoritative"
+        ratified_in: "ED10"
+
+      - dp_id: DP7
+        topic: "Drag-and-drop persistence"
+        decision: "A — Optimistic UI + revert on PATCH error"
+        evidence: "Padrão indústria (Linear/Notion/Trello)"
+        ratified_in: "ED11"
+
+      - dp_id: DP8
+        topic: "Tags inline criar UX"
+        decision: "A — Autocomplete + 'Criar nova tag' option"
+        evidence: "Padrão indústria (GitHub/Linear/Notion)"
+        ratified_in: "ED12"
+
+    pending_eurico_ratification:
+      - dp_id: DP2
+        topic: "Calendário week-view library"
+        recommendation: "A — Custom 7-col CSS grid + @dnd-kit (reuse Story 3.4 + zero new dep)"
+        alternatives: ["B — react-big-calendar (~80kb extra)", "C — FullCalendar (license commercial REJECT)"]
+        critical_note: "front-end-spec.md:1511 indica react-day-picker mas é date picker NÃO week-view"
+        affects_stories: ["3.5"]
+        blocking: "Story 3.5 detalhamento"
+
+      - dp_id: DP4
+        topic: "Default kanban_columns seed per household"
+        recommendation: "A — 'A fazer / Em curso / Concluído' (3-col PT-PT, is_done_column=true em última)"
+        alternatives: ["B — Vazio (user cria first access)", "C — 5-col mais granular"]
+        affects_stories: ["3.1"]
+        blocking: "Story 3.1 implementation strategy (trigger SQL vs migration vs accept_invite extension)"
+
+      - dp_id: DP5
+        topic: "Tools cérebro Story 3.8 scope criar_tarefa"
+        recommendation: "A — Minimal (title + dueDate + priority opcional)"
+        alternatives: ["B — Full (title+dueDate+priority+assignee+tags+kanban_column)"]
+        rationale_a: "Precedente Story 2.3 DP6 (tools mínimas)"
+        affects_stories: ["3.8"]
+        blocking: "Story 3.8 detalhamento (Zod schema scope)"
+
+  story_3_1_redefined_scope:
+    title: "Schema validation + RLS Testcontainers + seed defaults"
+    estimate: S
+    estimate_revised_from: M
+    revision_reason: "6 pre-existentes confirmados — não criar schema nem RLS, foco em validation+tests+seed"
+
+    key_tasks_suggested:
+      - "T1: Validation pass — verify schema actual `tasks.ts` + `tenancy.ts:kanban_columns` cobrem PRD §6.3 FR7-FR12 sem gaps"
+      - "T2: Migration 0009_kanban_seed.sql — INSERT default kanban_columns 3-col PT-PT per household existente + trigger AFTER INSERT em households (DP4: A se ratificada)"
+      - "T3: Tests RLS Testcontainers cross-household — 5 tabelas × 4 policies = 20 cenários (reuse Story 1.4 harness se Done; senão Vitest mockable-friendly)"
+      - "T4: Documentação story sobre gap 0004 cosmético + propor renumber Epic 4 housekeeping"
+      - "T5: Quality gates 5/5 GREEN (lint + typecheck + test + build + check:rls)"
+
+    acceptance_criteria_seed:
+      - "AC1: Validation report confirma zero gaps schema vs PRD §6.3 FR7-FR12"
+      - "AC2: Migration 0009_kanban_seed.sql aplicada em CI rls-gate sem erros"
+      - "AC3: Households existentes (semente Story 1.3) recebem 3 kanban_columns default ('A fazer'/'Em curso'/'Concluído') idempotente"
+      - "AC4: Trigger AFTER INSERT em households cria 3 kanban_columns automaticamente"
+      - "AC5: 20 testes RLS Testcontainers cross-household (5 tabelas × 4 policies) PASS"
+      - "AC6: Cenário 'tentar SELECT/INSERT/UPDATE/DELETE row de outro household' RETORNA 0 rows (RLS bloqueia)"
+      - "AC7: NFR5 check:rls gate verde — 0 tabelas sem policies"
+      - "AC8: PT-PT estrito em error messages + seed data"
+      - "AC9: 5/5 quality gates GREEN"
+      - "AC10: Documentation no story aborda gap 0004 + propõe Epic 4 housekeeping"
+
+    artefacts_expected:
+      - "docs/stories/active/3.1.tasks-schema-validation.md (novo)"
+      - "packages/db/migrations/0009_kanban_seed.sql (novo) — INSERT defaults + trigger"
+      - "packages/db/test/rls-tasks.test.ts (novo) — 20 cenários Testcontainers (ou Vitest mockable-friendly se 1.4 não Done)"
+      - "Documentação no story sobre gap 0004"
+
+    dependencies:
+      epic_done: ["1.3 (schema bootstrap)", "1.5 (auth+JWT for RLS)", "Epic 2 effectively Done"]
+      story_ready_optional: ["1.4 Testcontainers harness — se Done facilita T3, senão Vitest mockable-friendly"]
+      external_blockers: []
+
+    risk_mitigation_focus:
+      - "R1 (Kanban perf) — seed apenas 3-col evita >5 user-created upfront"
+      - "R4 (RLS leak via API) — Testcontainers tests cross-household são primeira linha de defesa"
+
+architectural_context:
+  pattern_inheritance_from_epic_2:
+    - "Mockable-friendly Vitest pattern (Stories 2.2-2.11) — usar para Story 3.1 se Testcontainers não disponível"
+    - "RLS DO block em 0001_rls_policies.sql para tabelas novas (Stories 2.6/2.7) — Story 3.1 NÃO adiciona porque schema/RLS COMPLETE"
+    - "PT-PT vocabulário estrito — seed data 'A fazer/Em curso/Concluído' (não 'A fazer/Em progresso/Concluído' BR-style)"
+    - "@devops exclusive push (rules)"
+    - "[AUTO-DECISION] CodeRabbit pre-push SKIPPED quando architect gate APPROVED ~600 linhas"
+    - "Anti-hallucination cross-confirm rigoroso — verificar contra codebase real ANTES de alegar"
+
+  schema_template:
+    - "Convenção respeitada por tasks.ts: id uuid + householdId FK CASCADE + createdByUserId FK auth.users + createdAt/updatedAt timestamptz"
+    - "Indexes: householdIdx + statusIdx + dueDateIdx + createdByIdx + assignedIdx + kanbanIdx + overdueIdx"
+    - "Checks: dueTimeFormat (HH:MM 24h regex)"
+
+  rls_policies_template:
+    - "0001_rls_policies.sql:368-385 (tasks): select_member + insert_member + update_member + delete_member"
+    - "0001_rls_policies.sql:386-399 (task_recurrences): mesmas 4"
+    - "kanban_columns:155-167: select_member + insert_member + update_member + delete_owner_admin (variant — apenas owner/admin pode delete)"
+    - "task_tags pivot: householdId denormalizado para RLS direct sem JOIN"
+
+next_action: >
+  @sm sessão futura:
+
+  **Pré-requisito:** Eurico ratificar 3 DPs pendentes (DP2 + DP4 + DP5) — Morgan
+  recomenda agendar mini-sessão decisão (~10min) OU @sm pode arrancar com
+  recomendações Morgan (DP4: A 3-col, DP5: A minimal) e flag DP2 como [SM_FLAG]
+  para Story 3.5 detalhamento posterior (Story 3.1 não é afectada por DP2).
+
+  **Comando:**
+  ```
+  @sm *draft 3.1
+  ```
+
+  **Output esperado:** `docs/stories/active/3.1.tasks-schema-validation.md` v1.0 Draft
+  com 10 ACs, 5+ Tasks, dependencies validated, scope ajustado (S não M),
+  cross-confirm próprio @sm anti-hallucination. Sucessor: @po *validate-story-draft 3.1.
+
+next_command_suggested: "@sm *draft 3.1"
+
+estimated_wall_clock:
+  pre_req_eurico_dps: "~10min decisão DP2+DP4+DP5"
+  sm_draft: "~45min (S size)"
+  po_validate: "~30min"
+  dev_implement: "~3-5h (S size: validation+migration+20 tests+docs)"
+  architect_gate: "~30min"
+  devops_push: "~15min"
+  total_story_3_1: "~5-7h wall-clock"
+
+deferred_followups:
+  - id: "T10 Story 2.10 unblock"
+    description: "Decisão Eurico DPA UE Anthropic — runbook docs/runbooks/vercel-llm-keys-setup.md §8.4"
+    blocking_for: "Story 2.10 final Done gate (planner+executor real em produção)"
+    not_blocking_for: "Epic 3 (CRUD tarefas + UI são independentes do pipeline AI)"
+
+  - id: "Story 2.11 post-deploy UI activation"
+    description: "Login expressia.grafana.net + import dashboard JSON + alarme channels (NIT-005-NB low)"
+    blocking_for: "Dashboard real visualização em produção"
+    not_blocking_for: "Epic 3"
+
+  - id: "EB4 Inngest workspace EU Frankfurt verification"
+    description: "@devops verifica via dashboard Inngest se workspace EU provisionado durante Story 2.8 push"
+    blocking_for: "Story 3.7 push em produção"
+    not_blocking_for: "Story 3.7 dev local com `npx inngest-cli dev`"
+
+  - id: "Marketing files cleanup"
+    description: "10 ficheiros docs/marketing/* untracked + 1 deleted — Eurico decide gitignore vs commit vs /market-* input"
+    blocking_for: "Working tree limpa"
+    not_blocking_for: "Qualquer development"
+
+  - id: "Migration gap 0004 renumber"
+    description: "Sequence 0000-0003,0005-0008 cosmético — propor renumber em Epic 4 housekeeping"
+    blocking_for: "None"
+    not_blocking_for: "Tudo"
+
+critical_rules_to_remember:
+  - "Apenas @devops faz git push e gh pr create (rules ~/.claude/rules/agent-authority.md)"
+  - "@sm *draft cria story file mas NÃO modifica schema nem código (Constitution Article II — Agent Authority)"
+  - "PT-PT exclusivo (não PT-BR) — utilizar não usar, eliminar não deletar"
+  - "EU data residency: Vercel fra1 + Supabase eu-central-1 + Grafana eu-west-6 + Sentry Frankfurt"
+  - "NFR5 bloqueia merge — Story 3.1 NÃO adiciona policies (já existem) mas testa cross-household isolation"
+  - "Constitution Article IV No Invention — sempre cross-confirm contra codebase real"
+  - "Mockable-friendly pattern Stories 2.2-2.11 — Vitest mocks até Testcontainers Story 1.4 Done"
+  - "5/5 quality gates GREEN obrigatório pre-push"
+  - "Anti-hallucination cross-confirm contra fontes reais (sample @sm: tasks.ts:59-221 + 0001_rls_policies.sql:368-399)"
+
+contextual_files_to_load_in_new_session:
+  primary:
+    - "docs/HANDOFF-INDEX.md (este handoff aparece em pending)"
+    - "docs/handoffs/mj-handoff-epic3-plan-ready-for-sm-20260515.yaml (este ficheiro)"
+    - "docs/epics/EPIC-3-EXECUTION.yaml v0.1 (plan completo — Story 3.1 secção)"
+    - "docs/prd.md §6.3 Epic 3 (linhas 291-311) — scope authoritative FR7-FR12"
+  reference:
+    - "packages/db/src/schema/tasks.ts:59-221 (schema confirmed COMPLETE)"
+    - "packages/db/src/schema/tenancy.ts:152-173 (kanban_columns confirmed)"
+    - "packages/db/migrations/0001_rls_policies.sql:150-399 (RLS confirmed)"
+    - "packages/db/migrations/0000_initial_schema.sql:474-475 (FK circular confirmed)"
+    - "docs/stories/completed/2.11.* — exemplo recente Done v1.4 com SDC completo (precedente)"
+    - "docs/stories/active/_INDEX.md — adicionar entry Story 3.1"
+  optional:
+    - "docs/stories/active/1.4.* — Testcontainers harness se Done para T3 reuse"
+    - "docs/runbooks/inngest-setup.md — para EB4 verification Story 3.7"
+
+session_metrics_summary:
+  pm_session_duration: "~30min (load handoff predecessor + cross-confirm + plan creation)"
+  agents_invoked: ["pm (Morgan)"]
+  artefacts_created: 3  # EPIC-3-EXECUTION.yaml + handoff predecessor consumed + este sucessor
+  cross_confirms_completed: 6  # schema/RLS/FK/Inngest/toolRegistry/UI libs
+  decisions_documented: 12  # ED1-ED12
+  risks_documented: 8  # R1-R8
+  stories_planned: 8  # 3.1-3.8
+  estimate_savings: "1-2 sprints vs handoff inicial (Story 3.1 M→S)"
+  hallucinations_prevented_by_cross_confirm: 5  # Story 3.1 scope completely different vs handoff suggestion + DP2 calendar lib + react-day-picker scope confusion + Inngest setup pre-existing + toolRegistry pre-existing
+
+notes: |
+  - Este handoff é **actionable** — @sm consome ao executar `*draft 3.1`.
+  - Recomenda-se @sm ler EPIC-3-EXECUTION.yaml COMPLETO antes de drafting (não só
+    secção Story 3.1) para apanhar decision_log + dependencies + parallelization
+    + cross-confirms já feitos.
+  - DP2 (calendário) NÃO afecta Story 3.1 — só Story 3.5. @sm pode arrancar 3.1
+    sem decisão DP2.
+  - DP4 (default kanban) AFECTA Story 3.1 — recomendação Morgan A (3-col PT-PT).
+    Se Eurico ratificar diferente (B vazio ou C 5-col), AC3+AC4+T2 ajustam.
+  - DP5 (tools scope) NÃO afecta Story 3.1 — só Story 3.8.
+  - **Working tree status:** após este handoff push, working tree terá:
+    (a) este handoff novo em pending (será removido quando @sm consumir),
+    (b) handoff predecessor archived,
+    (c) HANDOFF-INDEX.md updated,
+    (d) EPIC-3-EXECUTION.yaml novo,
+    (e) 10 ficheiros marketing untracked + 1 deleted (não relacionados — Eurico decide separadamente).
+  - **NÃO há push pendente nesta sessão @pm** — autoridade exclusiva @devops.
+    Próximo @devops session pode fazer chore commit destes artefactos planeamento
+    (epic plan + handoffs + INDEX update).

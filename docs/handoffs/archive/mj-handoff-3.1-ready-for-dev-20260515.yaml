@@ -1,0 +1,260 @@
+from_agent: "po"
+from_agent_persona: "Pax (@po) — Product Owner"
+to_agent: "dev"
+to_agent_options: ["dev"]
+created: "2026-05-15T20:35:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-15T23:50:00Z"
+consumed_by: "dev (Dex)"
+consumed_outcome: "Story 3.1 v1.1 Ready → v1.2 Ready for Review. 10/10 ACs PASS + 5/5 quality gates GREEN. Wall-clock ~2h vs ~3-5h estimate. 2 [DEV-DECISION] flags: D-3.1.1 Story 1.4 Done discovery (reuse Testcontainers vs mockable fallback) + D-3.1.2 SCOPE T3 revised (12/20 pre-existing → +8 extension vs criar 20 new). PO_FIX F1 satisfied by default via seedTwoHouseholds role:'owner'. ENV-BLOCKER Docker offline [AUTO-DECISION] PROCEED precedente Stories 2.6-2.11 → CI rls-gate cobre. Sucessor: mj-handoff-3.1-ready-for-architect-20260515.yaml."
+
+story_id: "3.1"
+story_path: "docs/stories/active/3.1.tasks-schema-validation.md"
+story_title: "Story 3.1 — Schema Validation + RLS Testcontainers + Seed Defaults (Tarefas)"
+story_version: "1.1 Ready"
+project_prefix: "mj"
+priority: medium
+blocking: false
+type: story-implementation-request
+
+summary: >
+  Story 3.1 v1.1 Ready validada por Pax (@po) com 10/10 checklist GO + 1 PO_FIX_INLINE
+  minor (tags.delete_owner_admin variant note + concrete RLS line numbers em Dev Notes).
+  Anti-hallucination cross-confirm 7/7 fontes PASS (com line drifts minor 1-2 lines —
+  dentro tolerance Constitution Art. IV). DP4 Morgan A 'A fazer/Em curso/Concluído'
+  PT-PT accepted silently per pattern Stories 2.X.
+
+  **@dev arranca `*develop 3.1`** executando 5 tasks (26 subtasks) na ordem:
+  T1 Validation Pass → T2 Migration 0009 → T3 RLS tests 20 cenários →
+  T4 Quality gates 5/5 GREEN → T5 Docs + housekeeping. Estimate S (3-5h wall-clock).
+
+context:
+  predecessor_handoff:
+    id: "mj-handoff-3.1-ready-for-po-20260515"
+    consumed_at: "2026-05-15T20:30:00Z"
+    consumed_by: "po (Pax)"
+    consumed_outcome: "10/10 GO + PO_FIX_INLINE F1"
+    location: "docs/handoffs/archive/mj-handoff-3.1-ready-for-po-20260515.yaml"
+
+  po_validation_outcome:
+    verdict: "GO"
+    score: "10/10"
+    threshold: ">=7"
+    fixes_applied:
+      - id: "F1"
+        type: "PO_FIX_INLINE"
+        severity: "minor — defensive refinement"
+        scope: "AC5 table + AC6 + T3.5 + Dev Notes Suggested Files"
+        reason: >
+          v1.0 anotava apenas kanban_columns DELETE como variant owner_admin (T20).
+          Verificação @po revelou tags também tem variant delete_owner_admin
+          (0001:416-418). Sem fix, T12 (DELETE tags cross-household) podia ter
+          falso-positivo (falhar por privilege em vez de RLS).
+        version_bump: "1.0 → 1.1"
+
+    dp4_decision:
+      topic: "Default kanban_columns seed strategy"
+      outcome: "Morgan recommendation A accepted silently — 3-col PT-PT 'A fazer/Em curso/Concluído'"
+      pattern: "Consistent with Stories 2.X silent-accept pattern"
+      eurico_can_override: "Yes — @dev T2 implementation pode adaptar se Eurico discordar (cosmetic only — AC2/AC3 query expected)"
+
+  cross_confirm_anti_hallucination_summary:
+    sources_verified: 7
+    sources_pass: 7
+    line_drifts:
+      - "tasks.ts:59-221 — em range, no drift"
+      - "tenancy.ts:152-173 — exact"
+      - "0001:150-167 (kanban) — actual 150-168 (off-by-1 minor)"
+      - "0001:368-385 (tasks) — actual 368-384 (off-by-1 minor)"
+      - "0001:386-399 (task_recurrences) — actual 386-401 (off-by-2 minor)"
+      - "0001:~400+ (tags+task_tags) — concretizado pelo @po: tags 403-418, task_tags 420-435"
+      - "0000:474-475 (FK circular) — exact"
+    tolerance: "Constitution Article IV — line numbers off-by-1-2 dentro tolerance esperada"
+    findings_summary: >
+      1 PO_FIX_INLINE minor (tags.delete_owner_admin variant — defensive fix to prevent
+      false-positive in T12 RLS test). Restante story sólida sem invenção detectada.
+
+  story_artefact_v1_1:
+    path: "docs/stories/active/3.1.tasks-schema-validation.md"
+    version: "1.1"
+    status: "Ready"
+    sections_modified_by_po:
+      - "Title meta: Status Draft → Ready; Version 1.0 → 1.1; PO Validation line added"
+      - "AC5 table: T12 footnote adicionado (tags delete_owner_admin)"
+      - "AC5 nova subsecção 'Variants nota (PO_FIX_INLINE v1.1)'"
+      - "AC6 DELETE bullet: estende caveat a tags + kanban_columns"
+      - "T3.5: estende verificação a tags variant + setup helpers clarification"
+      - "Dev Notes Suggested Files RLS policies: line numbers concretos substituem 'verify durante T1'"
+      - "PO Validation Block adicionado (10-point score + anti-hallucination summary + PO_FIX_INLINE rationale + DP4 decision + verdict)"
+      - "Change Log entry v1.1 (@po Pax)"
+      - "Handoff section: predecessor archived + sucessor pending @dev"
+
+dev_implementation_focus:
+  approach: "Sequential 5-task execution per Story 3.1 v1.1 Tasks/Subtasks section (26 subtasks)"
+
+  task_order:
+    - id: "T1"
+      name: "Validation Pass schema vs PRD §6.3 FR7-FR12 (AC1)"
+      effort: "~30min — read-only audit"
+      blocking_if_gaps: "Se gaps detectados, criar handoff SCOPE-CHANGE para @po antes T2"
+    - id: "T2"
+      name: "Criar migration 0009_kanban_seed.sql (AC2+AC3+AC8)"
+      effort: "~45min — SQL function + trigger + backfill + PT-PT strict"
+      requires: "T1 PASS"
+    - id: "T3"
+      name: "Tests RLS cross-household 20 cenários (AC5+AC6)"
+      effort: "~90min — depende DP T3.1 (Testcontainers vs mockable)"
+      decision_point: "T3.1 Story 1.4 status check — Testcontainers se Done, Vitest mockable-friendly se Ready"
+      critical_for_po_fix_f1: "T12 e T20 setup helpers — U1 e U2 owner/admin dos seus households"
+    - id: "T4"
+      name: "Quality gates 5/5 GREEN (AC9)"
+      effort: "~20min — local pre-mark"
+      gates: ["pnpm lint", "pnpm typecheck", "pnpm test", "pnpm build", "pnpm check:rls"]
+    - id: "T5"
+      name: "Documentação + Story housekeeping (AC10)"
+      effort: "~15min — Validation Report + Migration Sequence Audit + status transition"
+
+  total_estimate: "~3-5h wall-clock (S size confirmed)"
+
+  decision_points_pre_resolved:
+    DP4: "Morgan A accepted silently — implement AC2(a) as documented"
+  decision_points_dev_owns:
+    T3.1: "Testcontainers vs mockable — check Story 1.4 status antes T3.2"
+    T2_helper_idempotency: "ON CONFLICT (household_id, sort_order) DO NOTHING — constraint pre-existing per tenancy.ts:171"
+
+  critical_setup_for_po_fix_f1:
+    description: >
+      Para T12 (tags DELETE cross-household) e T20 (kanban_columns DELETE cross-household)
+      o setup helpers DEVEM garantir:
+      - U1 é owner/admin do H1 (caso contrário não consegue criar tag/kanban initially)
+      - U2 é owner/admin do H2 (caso contrário falha por privilege em vez de RLS — falso-positivo)
+    implementation_hint: >
+      Setup helper `createTestHousehold(name)` deve insert user com role 'owner' em
+      household_members. Se mockable-friendly Vitest, mock role 'owner'.
+
+next_action: >
+  @dev sessão futura:
+
+  **Pre-arranque:** Verificar status Story 1.4 Testcontainers harness (Done vs Ready)
+  para decidir T3.1 (Testcontainers reuse vs Vitest mockable-friendly).
+
+  **Comando:**
+  ```
+  @dev *develop 3.1
+  ```
+
+  **Output esperado:** Story 3.1 v1.1 Ready → v1.2 InProgress → v1.3 Ready for Review
+  com File List preenchido + Dev Agent Record + Quality Gates 5/5 GREEN + 20/20 RLS tests
+  PASS + Migration 0009 aplicada + Validation Report completo.
+
+  Sucessor: @architect *review 3.1 quality gate (target ~600 linhas approval).
+
+next_command_suggested: "@dev *develop 3.1"
+
+estimated_wall_clock:
+  pre_check_story_1_4_status: "~5min"
+  dev_implementation: "~3-5h (S size: validation+migration+20 tests+docs)"
+  architect_gate: "~30min review ~600 linhas"
+  total: "~4-6h"
+
+architectural_context:
+  pattern_inheritance:
+    - "Mockable-friendly Vitest pattern (precedente Stories 2.2-2.11 — 8 stories Done)"
+    - "PT-PT vocabulário estrito (CLAUDE.md + AC8)"
+    - "@devops exclusive push (rules ~/.claude/rules/agent-authority.md)"
+    - "[AUTO-DECISION] CodeRabbit pre-push SKIPPED quando architect gate APPROVED ~600 linhas"
+    - "5/5 quality gates GREEN obrigatório pre-push"
+    - "Anti-hallucination cross-confirm contra codebase real (Constitution Art. IV)"
+
+  story_lifecycle_authority:
+    - "@dev MUST update Status Ready → InProgress quando arranca"
+    - "@dev MUST update Status InProgress → Ready for Review quando 5/5 gates GREEN"
+    - "Story file edits permitted by @dev: File List, Dev Agent Record (Session Logs, Completion Notes, Quality Gates Results), task checkboxes [ ] → [x]"
+    - "@dev NÃO pode editar: Title, AC, Scope (@po authority)"
+
+  rls_test_critical_setup:
+    description: >
+      Para o PO_FIX_INLINE F1 funcionar, o test setup helper deve criar households
+      onde U1 e U2 são owner/admin dos respectivos households. Sem isto, T12 (tags DELETE)
+      e T20 (kanban_columns DELETE) podem falhar por privilege em vez de RLS isolation.
+    test_files_relevant:
+      - "packages/db-test/src/rls/tasks-isolation.test.ts (se Testcontainers)"
+      - "packages/db/test/rls-tasks.test.ts (se mockable-friendly)"
+
+deferred_followups:
+  - id: "T10 Story 2.10 unblock"
+    description: "Decisão Eurico DPA UE Anthropic — runbook docs/runbooks/vercel-llm-keys-setup.md §8.4"
+    blocking_for: "Story 2.10 final Done gate"
+    not_blocking_for: "Story 3.1"
+
+  - id: "Story 2.11 post-deploy UI activation"
+    description: "Login expressia.grafana.net + import dashboard JSON + alarme channels (NIT-005-NB low)"
+    blocking_for: "Dashboard real visualização em produção"
+    not_blocking_for: "Story 3.1"
+
+  - id: "Marketing files cleanup"
+    description: "10 ficheiros docs/marketing/* untracked + 1 deleted — Eurico decide"
+    blocking_for: "Working tree limpa"
+    not_blocking_for: "Story 3.1 development"
+
+  - id: "Working tree push consolidation"
+    description: >
+      5 artefactos planeamento Story 3.1 ainda non-pushed:
+      EPIC-3-EXECUTION.yaml + 2 handoffs new (epic3 kickoff + 3.1 po-to-dev) +
+      2 archive moves (epic3 plan + 3.1 sm-to-po) + 1 INDEX update + 1 story file v1.1.
+    action: "Invoke @devops *push quando Eurico decidir consolidar"
+    blocking_for: "Nenhum — local execution não bloqueada"
+
+critical_rules_to_remember:
+  - "Apenas @devops faz git push e gh pr create (rules ~/.claude/rules/agent-authority.md)"
+  - "@dev Status field MUST update Ready → InProgress quando arranca + InProgress → Ready for Review quando 5/5 gates GREEN"
+  - "PT-PT exclusivo — utilizar não usar, eliminar não deletar, ficheiro não arquivo (AC8 enforced)"
+  - "EU data residency: Vercel fra1 + Supabase eu-central-1"
+  - "NFR5 bloqueia merge — Story 3.1 NÃO adiciona policies (já existem) mas testa cross-household isolation"
+  - "Constitution Article IV No Invention — sempre cross-confirm contra codebase real"
+  - "Mockable-friendly fallback se Testcontainers Story 1.4 não Done"
+  - "Setup helpers críticos para T12 + T20: U1 e U2 devem ser owner/admin dos seus households (PO_FIX_INLINE F1)"
+
+contextual_files_to_load_in_new_session:
+  primary:
+    - "docs/HANDOFF-INDEX.md (este handoff aparece em pending)"
+    - "docs/handoffs/mj-handoff-3.1-ready-for-dev-20260515.yaml (este ficheiro)"
+    - "docs/stories/active/3.1.tasks-schema-validation.md v1.1 Ready (story file)"
+    - "docs/epics/EPIC-3-EXECUTION.yaml v0.1 (plan completo — Story 3.1 secção)"
+    - "docs/prd.md §6.3 Epic 3 (linhas 291-311) — FR7-FR12 authoritative"
+  reference:
+    - "packages/db/src/schema/tasks.ts:59-221"
+    - "packages/db/src/schema/tenancy.ts:152-173"
+    - "packages/db/migrations/0001_rls_policies.sql:150-168 (kanban), 368-384 (tasks), 386-401 (task_recurrences), 403-418 (tags), 420-435 (task_tags)"
+    - "packages/db/migrations/0000_initial_schema.sql:472-475 (FK circular)"
+    - "packages/db/src/scripts/apply-migrations.ts (runner — set local check_function_bodies = off já presente)"
+    - "docs/stories/completed/2.11.observability-dashboards-agent-health.md (precedente recente Done v1.4 — mockable-friendly pattern)"
+    - "docs/stories/active/1.4.testcontainers-rls-suite.md (verify Done/Ready antes T3.1 decision)"
+    - "apps/web/src/app/api/agent/__tests__/route.test.ts (precedente mockable Story 2.6)"
+    - "packages/agent/src/__tests__/ (precedentes mockable Stories 2.2-2.5)"
+    - "~/.claude/rules/story-lifecycle.md (status transition rules)"
+
+session_metrics_summary:
+  po_session_duration: "~25min (read story+handoff + 7-source cross-confirm + 10-point checklist + PO_FIX_INLINE inline + handoffs)"
+  agents_invoked: ["po (Pax)"]
+  artefacts_created: 2  # po-to-dev handoff + HANDOFF-INDEX update
+  artefacts_archived: 1  # sm-to-po handoff
+  artefacts_modified: 1  # story file v1.0 → v1.1
+  cross_confirms_done: 7  # sample anti-hallucination
+  po_fixes_applied: 1  # F1 tags.delete_owner_admin variant
+  checklist_score: "10/10 GO"
+  estimate_validation: "S confirmed (no scope change applied)"
+
+notes: |
+  - Este handoff é **actionable** — @dev consome ao executar `*develop 3.1`.
+  - Pre-check recomendado: status Story 1.4 antes T3.1 decision (Testcontainers vs mockable).
+  - DP4 já resolvido (Morgan A silent accept) — @dev implementa AC2(a) sem necessidade
+    de escalate a Eurico. Se Eurico mudar de ideias post-implementation, @dev pode
+    adaptar (cosmético em AC2 + AC3 query).
+  - PO_FIX_INLINE F1 (tags.delete_owner_admin) é a **única** alteração de scope minor
+    introduzida pela validação @po — todo o resto da story v1.0 mantém-se.
+  - **Working tree status pós este handoff:** docs/stories/active/3.1.tasks-schema-validation.md
+    v1.1 + handoff predecessor archived + handoff sucessor pending + HANDOFF-INDEX.md
+    updated + 10 marketing files untracked (não relacionados).
+  - **NÃO há push pendente** — autoridade exclusiva @devops chore commit posterior.

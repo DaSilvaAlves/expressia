@@ -37,4 +37,39 @@ describe('RLS isolation: task_recurrences', () => {
     });
     expect(blocked).toBe(true);
   });
+
+  // Story 3.1 AC5/AC6 — extension UPDATE+DELETE cross-household.
+  test('cross-household UPDATE bloqueado: userB não actualiza recurrence do householdA', async () => {
+    const { householdA, householdB, userA, userB } = await seedTwoHouseholds();
+    const taskId = await insertTask(admin(), householdA.id, userA.id);
+    const recurrenceId = await insertTaskRecurrence(admin(), householdA.id, taskId);
+
+    await asUser(userB.id, householdB.id, async (sql) => {
+      const result = await sql`
+        update public.task_recurrences set frequency = 'daily' where id = ${recurrenceId}
+      `;
+      expect(result.count).toBe(0);
+    });
+
+    const rows = await admin()<{ frequency: string }[]>`
+      select frequency from public.task_recurrences where id = ${recurrenceId}
+    `;
+    expect(rows[0]?.frequency).toBe('weekly');
+  });
+
+  test('cross-household DELETE bloqueado: userB não apaga recurrence do householdA', async () => {
+    const { householdA, householdB, userA, userB } = await seedTwoHouseholds();
+    const taskId = await insertTask(admin(), householdA.id, userA.id);
+    const recurrenceId = await insertTaskRecurrence(admin(), householdA.id, taskId);
+
+    await asUser(userB.id, householdB.id, async (sql) => {
+      const result = await sql`delete from public.task_recurrences where id = ${recurrenceId}`;
+      expect(result.count).toBe(0);
+    });
+
+    const rows = await admin()<{ n: number }[]>`
+      select count(*)::int as n from public.task_recurrences where id = ${recurrenceId}
+    `;
+    expect(rows[0]?.n).toBe(1);
+  });
 });

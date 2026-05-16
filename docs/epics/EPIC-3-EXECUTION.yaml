@@ -1,0 +1,801 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# EPIC-3-EXECUTION — Módulo Tarefas
+# ═══════════════════════════════════════════════════════════════════════════
+# Ficheiro de orquestração do Epic 3. Sucessor de EPIC-2-EXECUTION.yaml
+# (Done v1.4 efectivo — 9/11 Done + 1 Partial 2.10 humano-action DPA UE).
+#
+# Autoridade: @pm (Morgan) — exclusiva para epic orchestration
+# (rule `agent-authority.md` — `*execute-epic` / EPIC-{ID}-EXECUTION.yaml).
+#
+# Status: kickoff (planning ratificado pós cross-confirm anti-hallucination —
+# 6 pre-existentes confirmados invalidando sub-set do scope sugerido pelo
+# handoff `mj-handoff-epic3-kickoff-20260515.yaml` Gage. Aguarda validação
+# Eurico em §8 antes de @sm arrancar com `*draft 3.1`).
+
+epic_id: 3
+epic_title: "Módulo Tarefas"
+epic_goal: >
+  Entregar CRUD completo de tarefas com recorrência (iCal RRULE, horizonte
+  90 dias), 3 vistas (lista / Kanban com colunas configuráveis / calendário
+  semanal), tags globais por household, drag-and-drop persistente, e tools
+  de cérebro AI integradas (criar_tarefa, completar_tarefa, listar_tarefas,
+  listar_atrasadas) reutilizando o pipeline Epic 2.
+
+mvp_phase: 1
+created: 2026-05-15T18:35:00+01:00
+created_by: pm (Morgan)
+plan_doc: "docs/epics/EPIC-3-EXECUTION.yaml (este ficheiro — não há plan separado)"
+plan_version: v0.1
+prd_section: "§6.3 Epic 3 — Módulo Tarefas (linhas 291-311)"
+architecture_section: "§3.1 grupo Tarefas + §3.2 RLS pattern"
+predecessor_handoff: "docs/handoffs/mj-handoff-epic3-kickoff-20260515.yaml (consumed by Morgan 2026-05-15)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# DEPENDENCIES
+# ───────────────────────────────────────────────────────────────────────────
+depends_on:
+  epics:
+    - epic_id: 1
+      title: "Foundation & Multi-Tenant Core"
+      status: Done
+      stories_done: ["1.1", "1.2", "1.3", "1.5", "1.6", "1.7"]
+      stories_ready: ["1.4 (Testcontainers RLS suite — não bloqueia Epic 3 mas Story 3.1 reusa harness se Done antes)"]
+      verified: 2026-05-08T12:00:00+01:00
+
+    - epic_id: 2
+      title: "Cérebro AI Multi-Intent"
+      status: "Effectively Done (9/11 Done + 1 Partial 2.10 humano-action DPA UE)"
+      stories_done: ["2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.11"]
+      stories_partial: ["2.10 (T1-T9 Done · T10 BLOCKED pending Eurico DPA UE Anthropic — não bloqueia Epic 3)"]
+      verified: 2026-05-15T18:30:00+01:00
+      verification_notes: >
+        Pipeline AI Classifier OpenAI REAL em produção (cascada /jarvis resolved
+        2026-05-15 02:30). Planner+Executor Anthropic continua mockable-only até
+        EB1 DPA UE Anthropic resolved — mas tools cérebro Story 3.8 podem ser
+        desenvolvidas mockable-friendly (precedente Stories 2.2-2.11).
+        toolRegistry estável em packages/tools/src/registry.ts.
+        Inngest setup estável em apps/web/src/lib/inngest/client.ts +
+        apps/web/src/app/api/inngest/route.ts.
+
+  pre_existing_artefacts_confirmed:
+    - artefact: "Schema tasks (tasks + task_recurrences + tags + task_tags)"
+      path: "packages/db/src/schema/tasks.ts:59-221"
+      status: COMPLETE
+      implication: "Story 3.1 redefinida — não cria schema, valida + testes RLS + seed defaults"
+
+    - artefact: "Schema kanban_columns"
+      path: "packages/db/src/schema/tenancy.ts:152-173"
+      status: COMPLETE
+      implication: "Story 3.4 reusa — só falta seed defaults per household"
+
+    - artefact: "RLS policies tasks/task_recurrences/tags/task_tags/kanban_columns"
+      path: "packages/db/migrations/0001_rls_policies.sql:150-399"
+      status: COMPLETE
+      implication: "NFR5 coverage gate verde — Story 3.1 só valida + testa cross-household isolation"
+
+    - artefact: "FK circular tasks.recurrence_id → task_recurrences.id"
+      path: "packages/db/migrations/0000_initial_schema.sql:474-475"
+      status: APPLIED
+      implication: "Comment em tasks.ts:91 (`FK definida abaixo via SQL`) refere-se a 0000 — não é Story 3.1 work"
+
+    - artefact: "Inngest setup (client + route handler)"
+      path: "apps/web/src/lib/inngest/client.ts + apps/web/src/app/api/inngest/route.ts"
+      status: COMPLETE
+      implication: "Story 3.7 reusa — só adiciona InngestFunction generate-recurring-tasks"
+
+    - artefact: "toolRegistry pattern"
+      path: "packages/tools/src/registry.ts"
+      status: COMPLETE
+      implication: "Story 3.8 reusa — adiciona 4 tools cérebro novos"
+
+    - artefact: "UI library decisions (parcial)"
+      path: "docs/front-end-spec.md:1510-1511"
+      status: PARTIAL
+      decisions_made:
+        - "Drag-drop: @dnd-kit/core + @dnd-kit/sortable (DP1 já decidido)"
+      decisions_pending:
+        - "Calendar week-view-with-drag: react-day-picker spec actual NÃO suporta — DP2 NEW"
+
+  external_blockers:
+    - id: EB4
+      title: "Inngest workspace EU Frankfurt provisioning (production)"
+      status: PENDING_VERIFICATION
+      blocking_stories: ["3.7 push only (dev local funciona com `npx inngest-cli dev`)"]
+      action_owner: "Eurico → @devops"
+      notes: >
+        Inngest setup local existe (Story 2.8). Para Story 3.7 cron diário em
+        produção, workspace EU Frankfurt deve estar provisionado em Inngest
+        Cloud. Verificar via `docs/runbooks/inngest-setup.md` se já feito
+        durante Story 2.8 push (provável — Story 2.8 Done v1.4 pushed).
+
+    - id: EB1
+      title: "Anthropic API key DPA UE (Sonnet 4.5)"
+      status: PENDING
+      blocking_stories: ["NONE em Epic 3 — Story 3.8 desenvolve mockable-friendly"]
+      action_owner: Eurico
+      notes: "Continua bloqueador Story 2.10 T10 (Epic 2). Não bloqueia Epic 3."
+
+  decisions_pending:
+    note: >
+      As 8 decisões pendentes (DP1-DP8) abaixo precisam de validação Eurico
+      ANTES de @sm detalhar stories afectadas. Recomendações Morgan já no
+      decision_log (ED5-ED12). Validação pode ser por handoff sucessor ou
+      sessão dedicada.
+    must_validate_before_sm_drafts:
+      - dp_id: DP1
+        topic: "Library Kanban drag-and-drop"
+        affects_stories: ["3.4"]
+        recommendation: "A — @dnd-kit/core + @dnd-kit/sortable (front-end-spec.md:1510 já indicado)"
+        already_decided_in: "docs/front-end-spec.md:1510"
+
+      - dp_id: DP2
+        topic: "Library calendário week-view com drag entre dias"
+        affects_stories: ["3.5"]
+        recommendation: "A — Custom CSS grid 7-col + @dnd-kit (reuse Story 3.4 + zero new dep + UX consistente)"
+        alternatives:
+          - "B — react-big-calendar (battle-tested mas dep extra ~80kb)"
+          - "C — FullCalendar (license commercial — REJECT)"
+        critical_note: >
+          front-end-spec.md:1511 indica `react-day-picker` mas essa lib é
+          date-picker (mês/ano), NÃO suporta week-view-with-drag-between-days.
+          DP2 é decisão NEW.
+
+      - dp_id: DP3
+        topic: "Library RRULE para recorrências"
+        affects_stories: ["3.7"]
+        recommendation: "A — rrule.js (iCal RFC 5545 standard, referenciado em tasks.ts:7-8)"
+        alternatives:
+          - "B — Custom enum-only handler (rejeita custom_rrule field)"
+
+      - dp_id: DP4
+        topic: "Default kanban_columns per household (onboarding seed)"
+        affects_stories: ["3.1"]
+        recommendation: "A — 'A fazer / Em curso / Concluído' (3-col PT-PT, is_done_column=true em última)"
+        alternatives:
+          - "B — Vazio (user cria primeiro acesso)"
+          - "C — 5-col mais granular ('Backlog / A fazer / Em curso / Em revisão / Concluído')"
+
+      - dp_id: DP5
+        topic: "Tools cérebro Story 3.8 — scope criar_tarefa"
+        affects_stories: ["3.8"]
+        recommendation: "A — Minimal (title + dueDate + priority opcional)"
+        alternatives:
+          - "B — Full (title + dueDate + priority + assignee + tags + kanban_column)"
+        rationale_a: >
+          Precedente Story 2.3 DP6 (tools mínimas). Iterar full features em
+          Epic 5+ quando Tarefas UI estável.
+
+    can_defer_to_pre_flight:
+      - dp_id: DP6
+        topic: "Recurrence horizon (90 dias spec PRD vs 30 dias conservador)"
+        recommendation: "A — 90 dias (PRD §6.3 AC2 spec)"
+
+      - dp_id: DP7
+        topic: "Drag-and-drop persistence (optimistic vs confirm-first)"
+        recommendation: "A — Optimistic UI + revert on PATCH error (UX padrão)"
+
+      - dp_id: DP8
+        topic: "Tags inline criar (autocomplete vs modal dedicado)"
+        recommendation: "A — Autocomplete inline com 'Criar nova tag' option (UX padrão moderno)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# STORIES BREAKDOWN (alinhado com PRD §6.3 — 8 stories)
+# ───────────────────────────────────────────────────────────────────────────
+stories:
+  - id: "3.1"
+    title: "Schema validation + RLS Testcontainers tests + seed defaults"
+    estimate: S
+    estimate_revised_from: M
+    estimate_revision_reason: >
+      Cross-confirm anti-hallucination revelou schema completo + RLS policies
+      + FK circular JÁ APLICADAS. Story rebaixada de M (criar schema) para S
+      (validar + testes RLS + seed defaults kanban_columns/tags).
+    executor: "@dev (com @data-engineer review se necessário)"
+    quality_gate: "@architect"
+    depends_on: ["epic-1.3", "epic-1.5", "epic-2 ✓"]
+    blocked_by_external: []
+    scope_summary: >
+      (a) Validation pass do schema actual (tasks.ts + tenancy.ts:152-173) contra
+      PRD §6.3 + db-schema.md — confirmar zero gaps; (b) Testes RLS Testcontainers
+      cross-household para 5 tabelas × 4 policies = 20 cenários (prefer reuse
+      Story 1.4 harness se Done; senão suite mockable-friendly Vitest);
+      (c) Seed defaults: 3 kanban_columns ('A fazer'/'Em curso'/'Concluído' com
+      is_done_column=true em última) per household — trigger Postgres em
+      0009_kanban_seed.sql OU SQL function `seed_household_defaults()` chamada
+      em accept_invite() existente; (d) Verify migration sequence (gap 0004
+      observado — não-bloqueador, mas next migration é 0009).
+    mapping_prd: ["FR7-FR12", "NFR5", "NFR9 (audit imutável tasks)"]
+    artefacts_expected:
+      - "Story file 3.1.tasks-schema-validation.md em docs/stories/active/"
+      - "Migration 0009_kanban_seed.sql (default columns per household)"
+      - "packages/db/test/rls-tasks.test.ts (20 cenários cross-household)"
+      - "Documentação no story sobre gap 0004 (cosmetic — propor renumber em Epic 4+ housekeeping)"
+    risk_mitigation: ["R1 (kanban perf — seed 3 cols evita >5 user-created upfront)"]
+
+  - id: "3.2"
+    title: "API routes CRUD tarefas + tags + recurrences (auth + RLS)"
+    estimate: M
+    executor: "@dev"
+    quality_gate: "@architect"
+    depends_on: ["3.1"]
+    blocked_by_external: []
+    scope_summary: >
+      REST endpoints sob `apps/web/src/app/api/`:
+      - /tasks (GET list paginado + filters; POST create; PATCH update; DELETE soft)
+      - /tasks/[id] (GET single)
+      - /tasks/[id]/move (PATCH para drag-and-drop — kanban_column_id + kanban_position)
+      - /tags (GET list per household; POST create; PATCH update; DELETE)
+      - /tasks/[id]/tags (POST attach; DELETE detach)
+      - /recurrences (GET list; POST create + spawn template task; PATCH; DELETE)
+      Auth via Supabase JWT. RLS automático via getDb() pattern Story 1.5.
+      Pagination cursor-based (per limit=50). Filters via query params: status,
+      tag_id, due_date_from/to, kanban_column_id, assigned_to_user_id, project.
+      Zod schemas reuse `packages/tasks/` ou inline em `apps/web/src/lib/api-tasks/`
+      (DP a decidir em pré-flight).
+      Service de drag-and-drop: PATCH atómico (UPDATE kanban_column_id + position
+      em transacção, rebalanceia positions sibling se necessário).
+    mapping_prd: ["FR7", "FR8", "FR9", "FR10", "FR12", "NFR5"]
+    artefacts_expected:
+      - "8+ route handlers em apps/web/src/app/api/{tasks,tags,recurrences}/"
+      - "Zod schemas centralizados em apps/web/src/lib/api-schemas/tasks.ts"
+      - "Tests integration mockable-friendly Vitest (60+ tests)"
+    risk_mitigation: ["R2 (drag race conditions)", "R4 (RLS leak via API)"]
+
+  - id: "3.3"
+    title: "Vista lista com filtros + ordenação + bulk actions"
+    estimate: M
+    executor: "@dev (com @ux-design-expert review)"
+    quality_gate: "@architect"
+    depends_on: ["3.2"]
+    blocked_by_external: []
+    scope_summary: >
+      Next.js page `/tarefas` (RSC com client islands para filters):
+      - Server-rendered initial list (50 items)
+      - Filters URL-state (status, tag, due_date_range, project, assigned_to)
+      - Sort: created_at desc | due_date asc | priority desc | title asc
+      - Bulk actions: marcar concluído, eliminar, mudar prioridade
+      - Empty state PT-PT com CTA "Criar primeira tarefa"
+      - Atrasadas section dedicada (FR11 trigger — due_date < today AND status
+        NOT IN (done, archived))
+      - Mobile responsive (cards stacked vs table)
+    mapping_prd: ["FR9 (vista lista)", "FR11 (atrasadas)"]
+    artefacts_expected:
+      - "apps/web/src/app/(app)/tarefas/page.tsx (RSC)"
+      - "apps/web/src/app/(app)/tarefas/_components/{TaskList,TaskFilters,TaskRow,EmptyState,BulkActionsBar}.tsx"
+      - "Tests Vitest + RTL (~25 tests UI)"
+
+  - id: "3.4"
+    title: "Vista Kanban com colunas configuráveis + drag-and-drop"
+    estimate: L
+    executor: "@dev (com @ux-design-expert design pre-flight)"
+    quality_gate: "@architect"
+    depends_on: ["3.2"]
+    blocked_by_external: []
+    scope_summary: >
+      Next.js page `/tarefas/kanban` (RSC + client island Kanban):
+      - Library: @dnd-kit/core + @dnd-kit/sortable (DP1: A — confirmed front-end-spec.md:1510)
+      - Colunas configuráveis per household (kanban_columns table — Story 1.3 schema)
+      - Drag-and-drop entre colunas (PATCH /api/tasks/[id]/move atómico)
+      - Drag-and-drop intra-coluna (reorder kanban_position)
+      - Add/edit/delete colunas (PATCH /api/kanban-columns — sub-task se não criado em 3.2)
+      - Optimistic UI (DP7: A) com revert on PATCH error + toast erro PT-PT
+      - Acessibilidade: keyboard navigation (Space pick, Arrow move, Enter drop)
+      - Mobile: scroll horizontal entre colunas + tap-and-hold para drag
+    mapping_prd: ["FR9 (vista Kanban)", "FR10 (drag-and-drop)"]
+    artefacts_expected:
+      - "apps/web/src/app/(app)/tarefas/kanban/page.tsx"
+      - "apps/web/src/app/(app)/tarefas/kanban/_components/{KanbanBoard,KanbanColumn,KanbanCard,ColumnConfig}.tsx"
+      - "Tests Vitest + RTL drag scenarios (~30 tests)"
+      - "package.json deps: @dnd-kit/core + @dnd-kit/sortable"
+    risk_mitigation: ["R1 (perf >100 tasks)", "R7 (mobile UX drag)"]
+
+  - id: "3.5"
+    title: "Vista calendário semanal com drag entre dias"
+    estimate: L
+    executor: "@dev (com @ux-design-expert design pre-flight + @architect DP2 ratificada)"
+    quality_gate: "@architect"
+    depends_on: ["3.2"]
+    blocked_by_external: []
+    scope_summary: >
+      Next.js page `/tarefas/calendario` (RSC + client island Week):
+      - Library: Custom 7-col CSS grid + @dnd-kit (DP2: A recommended) OU
+        react-big-calendar (DP2: B — necessita aprovação Eurico)
+      - Vista semana Mon-Sun (PT-PT week start Monday — date-fns locale pt-PT)
+      - Tarefas agrupadas por due_date no dia respectivo
+      - Drag-and-drop entre dias (PATCH /api/tasks/[id] { due_date })
+      - Navegação semana anterior/próxima/hoje
+      - Tarefas sem due_date listadas em "Por agendar" sidebar
+      - Mobile: vista 1-dia com swipe horizontal (react-swipeable)
+    mapping_prd: ["FR9 (vista calendário)", "FR10 (drag-and-drop)"]
+    artefacts_expected:
+      - "apps/web/src/app/(app)/tarefas/calendario/page.tsx"
+      - "apps/web/src/app/(app)/tarefas/calendario/_components/{WeekView,DayColumn,TaskCard,UnscheduledSidebar}.tsx"
+      - "Tests Vitest + RTL (~20 tests, drag scenarios + DST edge cases)"
+    risk_mitigation: ["R3 (DST PT 2x/ano)", "R5 (week start Monday)"]
+
+  - id: "3.6"
+    title: "Sistema de tags globais (criar/listar/aplicar inline)"
+    estimate: S
+    executor: "@dev"
+    quality_gate: "@architect"
+    depends_on: ["3.1", "3.2"]
+    blocked_by_external: []
+    scope_summary: >
+      UI components partilhados pelas 3 vistas:
+      - TagPicker (autocomplete inline com "Criar nova tag" — DP8: A)
+        - Fuzzy search case-insensitive em tags do household
+        - Color picker básico (8 presets hex)
+        - Inline create sem modal
+      - TagBadge (display chip com cor)
+      - TagFilter (multi-select para vistas lista/kanban)
+      - Page `/configuracoes/tags` para CRUD completo (rename, delete, merge)
+      Many-to-many: task_tags (pivot já existe + householdId denormalizado para
+      RLS direct sem JOIN — confirmed schema).
+    mapping_prd: ["FR12"]
+    artefacts_expected:
+      - "apps/web/src/components/tags/{TagPicker,TagBadge,TagFilter}.tsx"
+      - "apps/web/src/app/(app)/configuracoes/tags/page.tsx"
+      - "Tests Vitest + RTL (~15 tests, fuzzy + create inline)"
+
+  - id: "3.7"
+    title: "Inngest function generate-recurring-tasks (cron diário)"
+    estimate: M
+    executor: "@dev"
+    quality_gate: "@architect"
+    depends_on: ["3.1", "3.2"]
+    blocked_by_external: ["EB4 push only — dev local com `npx inngest-cli dev` não bloqueia"]
+    scope_summary: >
+      Reuse Inngest setup Story 2.8 (apps/web/src/lib/inngest/):
+      - Nova function `generate-recurring-tasks` em apps/web/src/lib/inngest/functions/
+      - Cron diário "0 3 * * *" UTC (3:00 UTC = 4:00 WET inverno / 5:00 WEST verão)
+      - Lê task_recurrences WHERE active=true AND next_run_on <= today
+      - Para cada recurrence: usar rrule.js (DP3: A) para gerar instâncias até
+        90 dias horizon (DP6: A)
+      - Idempotent key: (template_task_id, target_date) — INSERT ON CONFLICT DO NOTHING
+        (mitiga R2 — Inngest at-least-once delivery)
+      - Update task_recurrences.next_run_on = next instance after horizon
+      - Métricas: count_generated, count_skipped, latency — span OTel
+        agent.recurrences.generate (reuse @vercel/otel pattern Story 1.7)
+      - Audit log INSERT em audit_log com type='recurrences_generated' (mitiga
+        NIT-001-NB Epic 2 housekeeping batch — adicionar enum value se ausente)
+    mapping_prd: ["FR8", "Epic 3 AC2"]
+    artefacts_expected:
+      - "apps/web/src/lib/inngest/functions/generate-recurring-tasks.ts"
+      - "apps/web/src/lib/recurrences/rrule-helpers.ts (timezone-aware Europe/Lisbon)"
+      - "Tests Vitest mockable-friendly (~25 tests, RRULE expansion + DST + idempotent)"
+      - "Runbook docs/runbooks/inngest-recurrences-runbook.md (deploy + monitor + rollback)"
+      - "package.json deps: rrule + date-fns-tz (se ainda não instalado)"
+    risk_mitigation: ["R2 (at-least-once duplicação)", "R3 (DST PT)", "R6 (Inngest workspace EU)"]
+
+  - id: "3.8"
+    title: "Tools cérebro: criar_tarefa, completar_tarefa, listar_tarefas, listar_atrasadas"
+    estimate: M
+    executor: "@dev"
+    quality_gate: "@architect"
+    depends_on: ["3.2", "epic-2 ✓"]
+    blocked_by_external: []
+    scope_summary: >
+      Reuse toolRegistry Story 2.3 (packages/tools/src/registry.ts):
+      - 4 novos tools com Zod schemas em packages/tools/src/tasks/:
+        - criar_tarefa (input: title + dueDate + priority opcional — DP5: A minimal)
+          → reverse_op declarativo: { kind: 'task.delete', task_id }
+        - completar_tarefa (input: task_id_or_title) → fuzzy match by title
+          → reverse_op: { kind: 'task.uncomplete', task_id, prev_completed_at: null }
+        - listar_tarefas (input: filters opcionais — status, due_date_range, tag)
+          → read-only, sem reverse_op (FR6 não-aplicável)
+        - listar_atrasadas (input: limit opcional default 10) → read-only
+      - Cada tool emite span agent.tool.call (Story 2.3 pattern) com whitelist
+        attrs sem PII (NFR12) e household_hash (não raw household_id)
+      - Spans tools são child de agent.executor.run (Story 2.5 hierarchy)
+      - Integration tests E2E mockable-friendly via /api/agent/prompt → classifier
+        intent='criar_tarefa' → planner → executor → tools → DB INSERT verified
+      - Tests cross-confirm reverse_op funciona via /api/agent/undo/{runId}
+        (pattern Story 2.8 herdado)
+    mapping_prd: ["FR2 (multi-intent integration)", "FR6 (undo 30s)", "Epic 3 AC1"]
+    artefacts_expected:
+      - "packages/tools/src/tasks/{criar-tarefa,completar-tarefa,listar-tarefas,listar-atrasadas}.ts"
+      - "packages/tools/src/tasks/__tests__/*.test.ts (~30 tests por tool)"
+      - "packages/tools/src/index.ts: re-export 4 tools + register em registry"
+      - "Integration tests apps/web/src/app/api/agent/__tests__/tasks-flow.test.ts"
+    risk_mitigation: ["R6 (reverse_op completeness Story 2.8 pattern)"]
+    architectural_decisions:
+      - "Mockable-friendly continua mesmo após EB1 DPA UE Anthropic resolved — pattern Stories 2.2-2.11"
+      - "Tools cérebro são L4 (apps work) + extend packages/tools (L4) — NUNCA tocar .aiox-core/"
+
+# ───────────────────────────────────────────────────────────────────────────
+# DEPENDENCY GRAPH
+# ───────────────────────────────────────────────────────────────────────────
+dependency_graph: |
+  ```mermaid
+  graph LR
+    E1[Epic 1 ✅] --> S31[3.1 Schema validation + RLS tests + seed]
+    E2[Epic 2 ✅ effective] --> S31
+    S31 --> S32[3.2 API routes CRUD]
+    S32 --> S33[3.3 Vista lista]
+    S32 --> S34[3.4 Vista Kanban + drag]
+    S32 --> S35[3.5 Vista calendário + drag]
+    S32 --> S36[3.6 Tags globais inline]
+    S31 --> S36
+    S32 --> S37[3.7 Inngest cron recurrences]
+    S31 --> S37
+    S32 --> S38[3.8 Tools cérebro]
+    E2 --> S38
+  ```
+
+critical_path: ["3.1", "3.2"]
+
+parallelization_opportunities:
+  - "3.3, 3.4, 3.5, 3.6, 3.7, 3.8 podem TODOS correr em paralelo após 3.2 (executores diferentes ou mesmo dev sequencial)"
+  - "3.6 pode arrancar paralelo com 3.3/3.4/3.5 (não há contention de scope UI)"
+  - "3.7 (backend job) totalmente desacoplado das vistas UI 3.3/3.4/3.5"
+  - "3.8 (tools cérebro) totalmente desacoplado da UI — pode correr em paralelo com 3.3-3.7"
+  - "Sugestão sprint plan: Sprint 1 = 3.1+3.2 (critical path); Sprint 2 = 3.3+3.6 (S+S leves); Sprint 3 = 3.4 (L); Sprint 4 = 3.5 (L); Sprint 5 = 3.7+3.8 (M+M)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# ESTIMATES SUMMARY
+# ───────────────────────────────────────────────────────────────────────────
+estimates_summary:
+  total_stories: 8
+  by_size:
+    S: 2   # 3.1 (revised down from M), 3.6
+    M: 4   # 3.2, 3.3, 3.7, 3.8
+    L: 2   # 3.4, 3.5
+  total_effort: "≈ 8 stories — 2S + 4M + 2L"
+  estimated_sprints: "5-6 sprints (1 dev) OU 3-4 sprints (2 devs paralelo após 3.2)"
+  rebaseline_note: >
+    Handoff Gage estimou "1S + 4M + 2L = 7-9 sprints". Pós cross-confirm
+    schema/RLS/Inngest/toolRegistry pre-existentes, Story 3.1 desce de M
+    para S (cargo de validation+tests, não de criar). Total 2S+4M+2L =
+    5-6 sprints (1 dev). Saving ~1-2 sprints vs estimate original.
+
+# ───────────────────────────────────────────────────────────────────────────
+# SUCCESS CRITERIA (epic-level — alinhados com PRD §6.3 ACs)
+# ───────────────────────────────────────────────────────────────────────────
+success_criteria:
+  prd_acceptance_criteria:
+    - id: AC1
+      criterion: "Criar tarefa via UI ou via cérebro tem mesmo resultado persistido"
+      validates_in_story: "3.8 (tools cérebro) + 3.2 (API) + 3.3/3.4/3.5 (UI calls API)"
+
+    - id: AC2
+      criterion: "Recorrência semanal/mensal/dias-úteis funciona em horizonte de 90 dias"
+      validates_in_story: "3.7 (Inngest function + rrule.js + 90d horizon DP6: A)"
+
+    - id: AC3
+      criterion: "Drag-and-drop em Kanban e calendário persiste sem reload"
+      validates_in_story: "3.4 (Kanban) + 3.5 (calendário) — optimistic UI DP7: A"
+
+    - id: AC4
+      criterion: "Tarefa criada num household não é visível noutro household (RLS)"
+      validates_in_story: "3.1 (Testcontainers cross-household 20 cenários)"
+
+  operational_metrics:
+    - "Latência p95 API /tasks list (50 items + filters) ≤ 200ms (NFR1 sub-budget)"
+    - "Drag-and-drop PATCH ≤ 300ms p95 (UX feel responsive)"
+    - "Inngest generate-recurring-tasks duração ≤ 60s para 1k recurrences activas"
+    - "Cache hit rate Upstash em listar_tarefas tools cérebro ≥ 20% (re-avaliar 7d)"
+    - "Zero RLS leaks em testes integration cross-household tarefas (NFR5)"
+    - "Zero PII em tools cérebro spans OTel (NFR12)"
+
+  ux_review_required:
+    - "Story 3.3 (lista filters + bulk actions UX)"
+    - "Story 3.4 (Kanban drag affordance + mobile)"
+    - "Story 3.5 (calendário week navigation + DST handling visual)"
+    - "Story 3.6 (TagPicker autocomplete + cor selection UX)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# DECISION LOG (epic-level decisions taken at kickoff)
+# ───────────────────────────────────────────────────────────────────────────
+decision_log:
+  - id: ED1
+    date: 2026-05-15
+    by: pm (Morgan)
+    decision: "Manter 8 stories conforme PRD §6.3 (não decompor mais granular nem agregar)"
+    rationale: >
+      PRD §6.3 propõe 8 stories. Análise pós cross-confirm não revela necessidade
+      de re-decomposição — Stories 3.1 (S), 3.6 (S) já são granulares; Stories
+      3.4/3.5 (L) são UI complexo que beneficia de single story focused (vs split
+      em "Kanban backend + Kanban UI" que adicionaria overhead @po + handoffs).
+
+  - id: ED2
+    date: 2026-05-15
+    by: pm (Morgan)
+    decision: "Story 3.1 = validation + RLS Testcontainers + seed defaults (NÃO criar schema)"
+    rationale: >
+      Cross-confirm revelou packages/db/src/schema/tasks.ts:59-221 já contém
+      tasks + task_recurrences + tags + task_tags COMPLETE. tenancy.ts:152-173
+      tem kanban_columns. 0001_rls_policies.sql:150-399 tem 20 policies.
+      0000_initial_schema.sql:474-475 aplica FK circular. Story 3.1 redefinida
+      para validation pass + Testcontainers cross-household + seed default
+      kanban_columns per household. Estimate desce M→S.
+    evidence:
+      - "packages/db/src/schema/tasks.ts:59-221"
+      - "packages/db/src/schema/tenancy.ts:152-173"
+      - "packages/db/migrations/0001_rls_policies.sql:150-399"
+      - "packages/db/migrations/0000_initial_schema.sql:474-475"
+    invalidates_handoff_assumption: "mj-handoff-epic3-kickoff-20260515.yaml linha 158-170"
+
+  - id: ED3
+    date: 2026-05-15
+    by: pm (Morgan)
+    decision: "Reuse Inngest setup Story 2.8 para Story 3.7 (não criar provider novo)"
+    rationale: >
+      apps/web/src/lib/inngest/client.ts + apps/web/src/app/api/inngest/route.ts
+      JÁ EXISTEM (Story 2.8 Done v1.4). Story 3.7 só adiciona InngestFunction
+      generate-recurring-tasks em apps/web/src/lib/inngest/functions/.
+      Inngest workspace EU Frankfurt (EB4) provavelmente já provisionado durante
+      Story 2.8 push — verificar pre-flight Story 3.7.
+    evidence: "ls apps/web/src/lib/inngest/ + apps/web/src/app/api/inngest/route.ts"
+
+  - id: ED4
+    date: 2026-05-15
+    by: pm (Morgan)
+    decision: "Reuse toolRegistry Story 2.3 para Story 3.8 (registar 4 tools novos sem rework)"
+    rationale: >
+      packages/tools/src/registry.ts existe e é estável. Story 3.8 cria tools
+      em packages/tools/src/tasks/{criar,completar,listar,listar_atrasadas}.ts e
+      regista no index. Pattern reverse_op herdado de Story 2.8.
+    evidence: "packages/tools/src/registry.ts + planner-executor uses (8+ files)"
+
+  - id: ED5
+    date: 2026-05-15
+    by: pm (Morgan)
+    decision: "Drag-drop library = @dnd-kit/core + @dnd-kit/sortable (DP1: A)"
+    rationale: >
+      docs/front-end-spec.md:1510 já indicado pre-Epic 3. A11y por defeito
+      (vs react-dnd legacy). Mantém consistência se outras vistas drag forem
+      adicionadas Epic 5+.
+    aguarda_validacao_eurico: false  # já decidido em front-end-spec
+    confirmed_by: "front-end-spec.md:1510"
+
+  - id: ED6
+    date: 2026-05-15
+    by: pm (Morgan)
+    decision: "Calendário week-view = custom 7-col grid + @dnd-kit (DP2: A — DECISÃO NEW)"
+    rationale: >
+      docs/front-end-spec.md:1511 indica react-day-picker MAS essa lib é date
+      picker (mês/ano), NÃO suporta week-view-with-drag-between-days. Epic 3
+      Story 3.5 precisa de UX week-view + drag, não date selection.
+      Recomendação A: custom 7-col CSS grid + @dnd-kit (reuse Story 3.4 lib +
+      zero new dep + UX consistency entre Kanban e calendário).
+      Alternativa B: react-big-calendar (dep extra ~80kb mas battle-tested).
+      Alternativa C: FullCalendar — REJECT (license commercial).
+    aguarda_validacao_eurico: true
+    invalidates_assumption: "front-end-spec.md:1511 não cobre week-view scope Story 3.5"
+
+  - id: ED7
+    date: 2026-05-15
+    by: pm (Morgan)
+    decision: "RRULE library = rrule.js (DP3: A)"
+    rationale: >
+      Schema tasks.ts:7-8 já documenta "Recorrência usa formato iCal RRULE
+      (`recurrence_rule`) — biblioteca `rrule` no client/server". iCal RFC 5545
+      é standard. Suporta presets PRD §6.3 + RRULE livre via custom_rrule field.
+    evidence: "packages/db/src/schema/tasks.ts:7-8"
+    aguarda_validacao_eurico: false  # arquitectura schema já implica
+
+  - id: ED8
+    date: 2026-05-15
+    by: pm (Morgan)
+    decision: "Default kanban_columns per household = 'A fazer / Em curso / Concluído' (DP4: A)"
+    rationale: >
+      UX onboarding zero-config. PT-PT explícito. is_done_column=true em última.
+      Implementação via SQL function seed_household_defaults() chamada em
+      accept_invite() existing trigger OR migration 0009_kanban_seed.sql com
+      INSERT per household existente + trigger AFTER INSERT em households.
+      Story 3.1 decide implementação concreta.
+    aguarda_validacao_eurico: true
+
+  - id: ED9
+    date: 2026-05-15
+    by: pm (Morgan)
+    decision: "Tools cérebro Story 3.8 scope = minimal (DP5: A)"
+    rationale: >
+      Precedente Story 2.3 DP6 (tools mínimas: create_task_minimal +
+      query_tasks_minimal). criar_tarefa minimal = title + dueDate + priority
+      opcional. Iterar full features (assignee, tags, kanban_column inline)
+      em Epic 5+ quando UI Tarefas estável e telemetria mostre demand.
+    aguarda_validacao_eurico: true
+
+  - id: ED10
+    date: 2026-05-15
+    by: pm (Morgan)
+    decision: "Recurrence horizon = 90 dias (DP6: A — defer pre-flight, mas spec PRD)"
+    rationale: "PRD §6.3 AC2 spec explícito 90 dias horizon. Sem alternativa viável."
+    aguarda_validacao_eurico: false  # PRD spec authoritative
+
+  - id: ED11
+    date: 2026-05-15
+    by: pm (Morgan)
+    decision: "Drag-and-drop persistence = optimistic UI + revert on error (DP7: A)"
+    rationale: >
+      UX padrão moderno (Linear, Notion, Trello). Latência percebida ≈ 0ms.
+      Revert visual + toast erro PT-PT em caso de falha PATCH. NIT-002-NB Epic 2
+      OTel counter rls_denials cobre observability se RLS leak detectado.
+    aguarda_validacao_eurico: false  # padrão indústria
+
+  - id: ED12
+    date: 2026-05-15
+    by: pm (Morgan)
+    decision: "Tags inline criar = autocomplete + 'Criar nova tag' option (DP8: A)"
+    rationale: >
+      UX padrão moderno (GitHub labels, Linear tags, Notion). Modal dedicado
+      adicionaria friction. Page /configuracoes/tags cobre CRUD avançado
+      (rename, delete, merge).
+    aguarda_validacao_eurico: false  # padrão indústria
+
+# ───────────────────────────────────────────────────────────────────────────
+# RISKS (R1-R8)
+# ───────────────────────────────────────────────────────────────────────────
+risks:
+  - id: R1
+    title: "Kanban drag-and-drop performance degradation com >100 tasks"
+    probability: "Média"
+    impact: "Alto"
+    mitigation: >
+      Story 3.4 implementa virtual scroll (@tanstack/react-virtual se necessário)
+      + batch PATCH (debounce 200ms para reorder intra-coluna). Benchmark com
+      seed 200 tasks pre-merge.
+    affects_stories: ["3.4"]
+
+  - id: R2
+    title: "Recurrence generation duplicação (Inngest at-least-once delivery)"
+    probability: "Média"
+    impact: "Alto"
+    mitigation: >
+      Idempotent key (template_task_id, target_date) no INSERT generate-recurring-tasks
+      + ON CONFLICT DO NOTHING. Cron diário com lock distribuído via Inngest
+      step.run() que é idempotent por step ID.
+    affects_stories: ["3.7"]
+
+  - id: R3
+    title: "RRULE timezone edge cases DST PT (2x/ano: Mar/Out)"
+    probability: "Baixa"
+    impact: "Médio"
+    mitigation: >
+      Story 3.7 tests Vitest cobrem casos DST explícitos (last Sunday Mar +
+      last Sunday Oct para 2026-2030). Use date-fns-tz com timezone
+      'Europe/Lisbon' (households.timezone default). Testar com `zonedTimeToUtc`
+      e `utcToZonedTime` correctamente.
+    affects_stories: ["3.7", "3.5 (calendário week display)"]
+
+  - id: R4
+    title: "RLS leak via API drag-and-drop PATCH (cross-household)"
+    probability: "Baixa"
+    impact: "Crítico"
+    mitigation: >
+      Story 3.2 PATCH /tasks/[id]/move usa getDb() (RLS authenticated role) +
+      Zod input validation strict (não aceita household_id em payload — derivado
+      de JWT). Tests cross-household em Story 3.1 cobrem cenário tentar mover
+      task de outro household.
+    affects_stories: ["3.2"]
+
+  - id: R5
+    title: "Calendário week start Monday vs Sunday (PT-PT vs US default)"
+    probability: "Baixa"
+    impact: "Baixo"
+    mitigation: >
+      date-fns locale `pt` (weekStartsOn: 1 = Monday). Test explicit em Story 3.5.
+    affects_stories: ["3.5"]
+
+  - id: R6
+    title: "Tool cérebro criar_tarefa reverse_op completeness"
+    probability: "Baixa"
+    impact: "Crítico"
+    mitigation: >
+      Pattern Story 2.8 herdado. reverse_op = { kind: 'task.delete', task_id }
+      é trivial (DELETE WHERE id = X — RLS impede cross-household). Test
+      integration E2E /api/agent/prompt → undo verifica row eliminada.
+    affects_stories: ["3.8"]
+
+  - id: R7
+    title: "EB4 Inngest workspace EU Frankfurt provisioning verification pending"
+    probability: "Média"
+    impact: "Alto"
+    mitigation: >
+      Story 3.7 pre-flight task 1: @devops verifica `docs/runbooks/inngest-setup.md`
+      + Inngest dashboard mostra workspace EU. Se não provisionado, BLOQUEIA
+      push apenas (dev local funciona com `npx inngest-cli dev`).
+    affects_stories: ["3.7 push only"]
+
+  - id: R8
+    title: "UX review @ux-design-expert disponibilidade Stories 3.3/3.4/3.5/3.6"
+    probability: "Média"
+    impact: "Médio"
+    mitigation: >
+      Engagement early no kickoff Eurico (handoff sucessor pm→sm → @ux-design-expert
+      pre-design Stories 3.4/3.5 antes de @sm draft). Permite paralelizar UX
+      design com @sm story drafting.
+    affects_stories: ["3.3", "3.4", "3.5", "3.6"]
+
+# ───────────────────────────────────────────────────────────────────────────
+# REQUIREMENTS COVERAGE (PRD FR/NFR/CON traceability)
+# ───────────────────────────────────────────────────────────────────────────
+requirements_coverage:
+  functional:
+    - { fr: FR2, story: "3.8 (tools integration multi-intent)", coverage: full }
+    - { fr: FR6, story: "3.8 (reverse_op tools)", coverage: full }
+    - { fr: FR7, story: "3.1+3.2+3.3 (criar tarefas com title+desc+due+priority+tags+project)", coverage: full }
+    - { fr: FR8, story: "3.1 (schema task_recurrences)+3.7 (cron generate)", coverage: full }
+    - { fr: FR9, story: "3.3 (lista)+3.4 (Kanban configurável)+3.5 (calendário semanal)", coverage: full }
+    - { fr: FR10, story: "3.4 (Kanban drag)+3.5 (calendário drag)", coverage: full }
+    - { fr: FR11, story: "3.3 (atrasadas section dedicada)+3.8 (listar_atrasadas tool)", coverage: full }
+    - { fr: FR12, story: "3.6 (tags globais inline)+3.1 (schema tags+task_tags)", coverage: full }
+  non_functional:
+    - { nfr: NFR1, story: "3.2 (API p95 budget)+3.7 (Inngest duration)", coverage: full }
+    - { nfr: NFR5, story: "3.1 (Testcontainers cross-household 20 cenários)", coverage: full }
+    - { nfr: NFR9, story: "3.7 (audit log recurrences_generated)", coverage: full }
+    - { nfr: NFR11, story: "all (Inngest EU + Vercel fra1 + Supabase eu-central-1)", coverage: full }
+    - { nfr: NFR12, story: "3.8 (PII whitelist tools spans + household_hash)", coverage: full }
+  constraints:
+    - { con: CON3, story: "all (PT-PT exclusivo — PT week start Mon, default kanban 'A fazer/Em curso/Concluído')", coverage: full }
+    - { con: CON5, story: "all (imports absolutos)", coverage: full }
+    - { con: CON8, story: "all (gate @po antes de @dev)", coverage: full }
+
+# ───────────────────────────────────────────────────────────────────────────
+# OUT OF SCOPE (deferido para Epics posteriores)
+# ───────────────────────────────────────────────────────────────────────────
+out_of_scope:
+  - "Multi-board Kanban (1 board per household no MVP) → Epic 5+"
+  - "Calendário monthly/yearly views → Epic 5+ (semana é spec PRD §6.3)"
+  - "Multi-assignee tasks (schema tasks.assigned_to_user_id é single FK — futura extensão many-to-many)"
+  - "Tags hierarchy/parent (KISS no MVP — flat)"
+  - "Attachments (files, imagens) → Epic 6+"
+  - "Subtasks/checklists nested → Epic 5+"
+  - "Comments em tarefas → Epic 5+ (collaboration features)"
+  - "Reminders push notifications → Epic 5+ (precisa de FCM/APN setup)"
+  - "Recurrence end conditions complexas (após N ocorrências, até X data) — MVP suporta endsOn date apenas"
+  - "Tools cérebro full-featured criar_tarefa (assignee, tags, kanban_column inline) → Epic 5+ (DP5: A minimal precedent)"
+  - "Migration 0004 backfill (gap cosmético) → Epic 4 housekeeping batch"
+
+# ───────────────────────────────────────────────────────────────────────────
+# NEXT STEPS
+# ───────────────────────────────────────────────────────────────────────────
+next_steps:
+  immediate:
+    - step: 1
+      action: "Eurico validar DPs (mínimo DP2, DP4, DP5) — DP1+DP3+DP6+DP7+DP8 já decididos"
+      blocking: "Detalhamento Story 3.5 (DP2 calendário) + 3.1 (DP4 seed) + 3.8 (DP5 scope minimal)"
+      estimated_wall_clock: "~10min Eurico"
+
+    - step: 2
+      action: "@devops verificar status EB4 Inngest workspace EU Frankfurt provisioning"
+      blocking: "Story 3.7 push only (dev local funciona)"
+      estimated_wall_clock: "~5min consulta dashboard Inngest + verify env vars Vercel"
+
+    - step: 3
+      action: "@sm *draft 3.1 (Schema validation + RLS Testcontainers + seed defaults)"
+      blocking: "Story 3.1 não tem dependências externas — pode arrancar imediatamente"
+      handoff: "mj-handoff-epic3-plan-ready-for-sm-20260515.yaml (a criar pós este YAML)"
+
+  cascade:
+    - "@po *validate-story-draft 3.1 → @dev *develop 3.1 → @architect quality gate → @devops *push"
+    - "Em paralelo: @ux-design-expert pre-design Stories 3.4 (Kanban) + 3.5 (calendário) — early engagement R8 mitigation"
+    - "Após 3.1 Done: @sm *draft 3.2 (depende 3.1)"
+    - "Após 3.2 Done: paralelizar 3.3+3.4+3.5+3.6+3.7+3.8 (executores diferentes ou single dev sequencial)"
+
+# ───────────────────────────────────────────────────────────────────────────
+# CHANGE LOG
+# ───────────────────────────────────────────────────────────────────────────
+change_log:
+  - version: v0.1
+    date: 2026-05-15
+    by: pm (Morgan)
+    changes: >
+      Kickoff inicial Epic 3. EPIC-3-EXECUTION criado consumindo handoff
+      `mj-handoff-epic3-kickoff-20260515.yaml` (devops/Gage). Cross-confirm
+      anti-hallucination contra codebase real revelou 6 pre-existentes que
+      invalidam parcialmente scope sugerido pelo handoff:
+        (1) schema tasks.ts:59-221 COMPLETE (4 tabelas + indexes + checks);
+        (2) kanban_columns tenancy.ts:152-173 COMPLETE;
+        (3) RLS 0001_rls_policies.sql:150-399 COMPLETE (20 policies × 5 tabelas);
+        (4) FK circular tasks.recurrence_id 0000:474-475 APPLIED;
+        (5) Inngest setup Story 2.8 client+route COMPLETE;
+        (6) toolRegistry Story 2.3 packages/tools/src/registry.ts COMPLETE.
+      Story 3.1 redefinida M→S (validation + Testcontainers + seed defaults
+      vs criar schema). 8 stories enumeradas (3.1-3.8) com dependencies,
+      ACs PRD §6.3 mapping, decision_log ED1-ED12, risks R1-R8,
+      DPs DP1-DP8 (DP1+DP3+DP6+DP7+DP8 já decididos via cross-confirm; DP2+DP4+DP5
+      aguardam Eurico). Estimate total 2S+4M+2L = 5-6 sprints (1 dev) — saving
+      ~1-2 sprints vs handoff estimate inicial. Próximo passo: Eurico valida
+      DP2+DP4+DP5 + @sm *draft 3.1.
