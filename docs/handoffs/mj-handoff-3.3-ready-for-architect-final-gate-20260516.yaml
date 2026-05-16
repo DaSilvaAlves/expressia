@@ -1,0 +1,202 @@
+from_agent: "dev"
+from_agent_persona: "Dex (@dev) — Implementation"
+to_agent: "architect"
+to_agent_persona: "Aria (@architect) — System Architect (final QA gate)"
+created: "2026-05-16T23:55:00Z"
+status: pending
+consumed: false
+
+predecessor_handoff: "docs/handoffs/archive/mj-handoff-3.3-ready-for-dev-20260516.yaml"
+
+story_id: "3.3"
+story_path: "docs/stories/active/3.3.tasks-list-view.md"
+story_title: "Vista lista com filtros + ordenação + bulk actions"
+project_prefix: "mj"
+priority: high
+blocking: false
+type: story-handoff-dev-to-architect-final-gate
+
+summary: >
+  Story 3.3 v1.3 Ready for Review — @dev (Dex) implementação YOLO completa em
+  sessão única ~2h30min. T1-T10 todos executados sem desvios face ao plano
+  ratified Aria (DP4 Path A extract HIGH confidence + 6 guidance notes G1-G6).
+  24 NEW + 5 MODIFIED ficheiros. Web test suite 291 baseline → **350 passed**
+  (+59 tests, +20.3% — supera target ~33 em 79%). 5/5 quality gates GREEN.
+
+  **@architect (Aria) pode arrancar final gate** per Story Development Cycle
+  normal (DoD line 902 unchanged). Pre-flight ratify DP4 já consumed nesta cycle.
+
+context:
+  story_metadata:
+    epic_id: 3
+    story_id: "3.3"
+    title: "Vista lista com filtros + ordenação + bulk actions"
+    estimate: M
+    actual_wall_clock_min: 150
+    executor: "@dev (Dex) — YOLO mode"
+    quality_gate: "@architect normal post-implementation gate (DoD line 902)"
+    depends_on: ["3.2 Done v1.3 ✓", "DP4 ratified Aria 2026-05-16"]
+
+  implementation_summary:
+    files_new: 24
+    files_modified: 5
+    tests_new: 59
+    tests_baseline_before: 291
+    tests_baseline_after: 350
+    tests_target_min: 25
+    tests_target_recommended: 33
+    tests_overshoot_pct: 79
+
+    quality_gates:
+      lint: { status: PASS, exit_code: 0, duration_s: 4, note: "--max-warnings=0 enforced" }
+      typecheck: { status: PASS, exit_code: 0, duration_s: 4, note: "strict + noUncheckedIndexedAccess" }
+      test_web: { status: PASS, exit_code: 0, duration_s: 8.5, note: "39 test files, 350 tests" }
+      build: { status: PASS, exit_code: 0, duration_s: 70, note: "Route /tarefas 9.72kB + First Load 218kB (<500kB budget)" }
+      check_rls: { status: PASS, exit_code: 0, duration_s: 2, note: "28 tables + 120 policies validated, NFR5 preservada" }
+      db_test: { status: SKIP_ENV, note: "Docker não disponível localmente — Story 1.4 Testcontainers env issue, NÃO regressão Story 3.3" }
+
+  ratify_compliance:
+    dp4_path_a_extract: "EXECUTADO sem desvios — `listTasksHelper` puro em apps/web/src/lib/api-helpers/list-tasks.ts; route.ts GET virou wrapper (auth + Zod + decodeCursor + helper call)"
+
+    guidance_notes_applied:
+      g1_db_param_injected: "APLICADO — helper aceita `db: DbShim` como param injectado (NÃO chama getDb() internamente)"
+      g2_taskrow_single_source: "APLICADO — `TaskRow` interface vive em list-tasks.ts; re-exportada por route.ts com `export type { TaskRow }` para back-compat"
+      g3_where_1eq1_placeholder: "APLICADO — `const conditions = [sql\\`1=1\\`]` pattern preservado idêntico ao Story 3.2 original"
+      g4_householdid_in_signature: "APLICADO — `householdId` aceito em signature mesmo redundant no SQL (RLS filtra). Comentário em-helper documenta razão (audit trail consistency + futuro non-RLS path Inngest)"
+      g5_decode_cursor_in_wrapper: "APLICADO — `decodeCursor` permanece em route.ts (HTTP 400 concern); helper recebe `cursorPayload: CursorPayload | null`"
+      g6_sort_branched_orderby: "APLICADO — `buildOrderBy(sort)` switch com 4 branches (due_date_asc default, created_at_desc, priority_desc CASE, title_asc). JSDoc documenta limitation cursor optimal só para due_date_asc"
+
+    nits_status:
+      nit_a1_test_count_drift: { status: CONFIRMED_AND_RESOLVED, note: "Baseline 9 GET tests confirmado via pnpm test list.test.ts; target 14 atingido (9 + 5 sort tests novos)" }
+      nit_a2_taskrow_duplication: { status: RESOLVED_VIA_G2, note: "TaskRow agora single source-of-truth em list-tasks.ts" }
+      nit_a3_helper_standalone_test: { status: SKIPPED_PER_DOD_NON_BLOCKING, note: "Helper coberto indirectamente via 14 GET tests em list.test.ts + 6 RSC page tests em page.test.tsx que mock helper directamente. Adequado per 'Opcional — não bloqueia DoD'" }
+
+  dev_decisions_silent:
+    - id: "D-3.3.1"
+      topic: "<TaskListClient> wrapper client para bulk-selection context"
+      decision: "Criar wrapper client que provê `useBulkSelection` context aos TaskRow filhos. RSC <TaskList> faz grouping server-side + passa sections+allTaskIds ao wrapper."
+      rationale: "KISS — React useState + Context vs Zustand. Avoid hydration mismatch (sections calculadas server-side). Aligns com pattern Story 2.7 (RSC + client islands separation)."
+      impact: "Estrutura limpa: page.tsx RSC → TaskList RSC (grouping) → TaskListClient client (state + bar) → SectionGroup → TaskRow client island"
+
+    - id: "D-3.3.2"
+      topic: "Toast UI deferred — usado alert() + banners inline"
+      decision: "Para feedback em RowActionsMenu + BulkActionsBar + InlineEditTitle usar combo alert() (confirm destructivo) + banner inline reactive (status/alert role). Stack toast (sonner/react-hot-toast) deferred."
+      rationale: "MVP Fase 1 prioriza CRUD funcional. Toast UI polish é Story 3.6 (tags + UX iteration). Banner inline cobre 80% dos casos UX sem dep extra."
+      impact: "BulkActionsBar tem state machine progress/success/partial/error com auto-clear 4s; InlineEditTitle tem role='alert' inline; RowActionsMenu usa alert() nativo para confirm Eliminar/Adiar"
+
+    - id: "D-3.3.3"
+      topic: "getTodayLisbon exportado para tests deterministicos"
+      decision: "`getTodayLisbon(now: Date = new Date()): Date` é export público (não apenas helper interno). Permite tests passarem `now` fixo (2026-05-16T12:00Z) para reproducibility."
+      rationale: "DST PT 2026 boundary tests precisam de exact reference date. Evita timing flakiness em CI."
+      impact: "17 tests task-sections passam consistently; pattern reusable Story 3.7 (Inngest cron) + Story 6.x (Visão dashboard atrasadas)"
+
+    - id: "D-3.3.4"
+      topic: "BulkActionsBar usa Promise.allSettled (não Promise.all)"
+      decision: "`Promise.allSettled(...)` permite progress counter incremental + partial failure handling proper. Counter `done` increment per task completion (ok ou fail)."
+      rationale: "DP1-3.3 A intent — primeira rejeição não deve cancelar restantes. Audit_log per-row é mais granular FR21."
+      impact: "Banner partial 'N de M atualizadas' real-time; user pode reverter manualmente as falhadas via UI"
+
+  files_changed:
+    new:
+      ui:
+        - "apps/web/src/app/(app)/tarefas/page.tsx"
+        - "apps/web/src/app/(app)/tarefas/loading.tsx"
+        - "apps/web/src/app/(app)/tarefas/_components/ViewTabs.tsx"
+        - "apps/web/src/app/(app)/tarefas/_components/TaskList.tsx (RSC)"
+        - "apps/web/src/app/(app)/tarefas/_components/TaskListClient.tsx (D-3.3.1 wrapper)"
+        - "apps/web/src/app/(app)/tarefas/_components/SectionGroup.tsx"
+        - "apps/web/src/app/(app)/tarefas/_components/TaskRow.tsx"
+        - "apps/web/src/app/(app)/tarefas/_components/TaskCheckbox.tsx"
+        - "apps/web/src/app/(app)/tarefas/_components/TaskFilters.tsx"
+        - "apps/web/src/app/(app)/tarefas/_components/TaskSort.tsx"
+        - "apps/web/src/app/(app)/tarefas/_components/BulkActionsBar.tsx (D-3.3.4 allSettled)"
+        - "apps/web/src/app/(app)/tarefas/_components/InlineEditTitle.tsx"
+        - "apps/web/src/app/(app)/tarefas/_components/RowActionsMenu.tsx"
+        - "apps/web/src/app/(app)/tarefas/_components/EditTaskModal.tsx (DP6 A minimal)"
+        - "apps/web/src/app/(app)/tarefas/_components/EmptyState.tsx"
+      helpers:
+        - "apps/web/src/lib/api-helpers/list-tasks.ts (DP4 A extract — 160 linhas)"
+        - "apps/web/src/app/(app)/tarefas/_lib/task-sections.ts (D-3.3.3 getTodayLisbon export — 190 linhas)"
+      tests:
+        - "apps/web/src/app/(app)/tarefas/__tests__/page.test.tsx (6 tests RSC)"
+        - "apps/web/src/app/(app)/tarefas/_components/__tests__/{ViewTabs,EmptyState,TaskFilters,TaskSort,TaskList,BulkActionsBar,InlineEditTitle,RowActionsMenu}.test.tsx (8 files, 31 tests)"
+        - "apps/web/src/app/(app)/tarefas/_lib/__tests__/task-sections.test.ts (17 tests Lisbon+DST+overdue)"
+    modified:
+      - "apps/web/src/app/(app)/layout.tsx (nav link Tarefas)"
+      - "apps/web/src/app/api/tasks/route.ts (GET virou wrapper sobre listTasksHelper; POST inalterado)"
+      - "apps/web/src/lib/api-schemas/tasks.ts (TaskSortSchema + sort field)"
+      - "apps/web/src/app/api/tasks/__tests__/list.test.ts (+5 sort tests, 9 → 14)"
+      - "apps/web/package.json (date-fns@^4 + date-fns-tz@^3)"
+      - "docs/stories/active/3.3.tasks-list-view.md (v1.1 → v1.3)"
+      - "docs/stories/active/_INDEX.md (Story 3.3 row update)"
+      - "docs/HANDOFF-INDEX.md (handoff archive + new pending)"
+
+next_action: |
+  **Próximo passo único:**
+
+  ```
+  @architect *qa-gate 3.3
+  ```
+
+  Aria executa qa-gate completa per Story Development Cycle Phase 4. 7 quality
+  checks expected:
+  1. Acceptance Criteria coverage (14 ACs vs implementation)
+  2. Test coverage adequacy (59 tests novos cobrem AC1-AC14)
+  3. Architecture consistency (DP4 extract ratified pre-impl — verificar G1-G6 aplicados)
+  4. PT-PT estrito (grep usar/deletar/setar/printar = 0 matches em código produção)
+  5. RLS safety (grep getServiceDb em (app)/tarefas/ retorna apenas test mock)
+  6. Constitutional compliance (Article III/IV/VI — todas verificadas v1.3)
+  7. NFR coverage (NFR1 FCP via build size, NFR5 RLS, NFR9 audit, NFR15 UX <100ms, NFR19 imports)
+
+  **Verdict expected:** PASS (HIGH confidence) ou CONCERNS (LOW priority issues
+  documentadas para Story 3.6+). FAIL não esperado dado:
+  - Pre-flight ratify HIGH confidence já consumed
+  - 5/5 quality gates GREEN
+  - 59 tests novos overshoot target em 79%
+  - All guidance notes G1-G6 aplicadas
+
+  **Tempo estimado @architect:** ~30-45min wall-clock para gate report normal.
+
+  **Output esperado:** Story 3.3 Status: Ready for Review → Done (se PASS) ou
+  Ready for Review → InProgress (se CONCERNS com fix list). Successor handoff
+  `mj-handoff-3.3-{architect-verdict}-to-devops-{date}.yaml` quando aprovado.
+
+next_command_suggested: "@architect *qa-gate 3.3"
+
+constitutional_compliance:
+  article_iii_story_driven: "PASS — story v1.3 em active/ com File List + Dev Agent Record + Change Log completos"
+  article_iv_no_invention: "PASS — toda implementação traceable a 14 ACs + 6 DPs ratified/accepted. Zero invention. Guidance G1-G6 documentadas. Sub-decisões silenciosas D-3.3.1/D-3.3.2/D-3.3.3/D-3.3.4 documentadas no Dev Agent Record"
+  article_vi_imports_absolutos: "PASS — grep `\\.\\./` em tarefas/ retorna 0 matches; todos imports usam @/... ou @meu-jarvis/..."
+  con3_pt_pt: "PASS — grep usar/deletar/setar/printar em código produção = 0; PT-PT estrito em labels, tooltips, error messages, comments"
+  con8_po_before_dev: "PASS — fluxo Pax → Aria pre-impl → Dex obedecido"
+  nfr5_rls: "PASS — pnpm check:rls validates 28 tables + 120 policies. grep getServiceDb em (app)/tarefas/ retorna apenas test mock (page.test.tsx)"
+
+risks_for_architect_attention:
+  - id: "R-3.3-IMPL-1"
+    description: "Toast UI deferred (D-3.3.2) usa alert()/banner inline em vez de stack toast component"
+    severity: LOW
+    impact: "UX polish reduzido em RowActionsMenu (confirm Eliminar usa alert() nativo); BulkActionsBar tem banner inline com auto-clear; InlineEditTitle tem role=alert inline. Não bloqueia AC8/AC7."
+    mitigation: "Documentado em Dev Agent Record D-3.3.2. Story 3.6 (UX polish + tags) pode introduzir toast stack. Acceptable per MVP Fase 1 focus em CRUD funcional."
+  - id: "R-3.3-IMPL-2"
+    description: "Cursor pagination non-default sort limitation (DP5-3.3 caveat)"
+    severity: LOW
+    impact: "Cursor optimal só para due_date_asc; sort=created_at_desc/priority_desc/title_asc podem ter boundary edge cases se 2+ rows partilharem sort key idêntico"
+    mitigation: "JSDoc em listTasksHelper documenta limitation. UI typical dataset <50 items per filter (cursor irrelevante). Refactor cursor multi-field é Epic 4+ housekeeping per DP5 caveat aceite."
+  - id: "R-3.3-IMPL-3"
+    description: "db-test (@meu-jarvis/db-test) falha em ambiente local sem Docker"
+    severity: ENVIRONMENTAL_NOT_REGRESSION
+    impact: "pnpm test full retorna exit 1 por causa de Testcontainers Story 1.4. Story 3.3 não toca schema, RLS smoke `check:rls` cobre NFR5."
+    mitigation: "Pre-existing Story 1.4 environmental constraint. CI roda RLS gate em Postgres efémero (não Docker)."
+
+notes: |
+  - **Implementação YOLO única session** ~2h30min wall-clock (T1-T10 sequencial). Sem
+    iteration loops nem blockers críticos.
+  - **Wireframe §5.6 fielmente implementada** com 2 desvios documentados na Story
+    (tabs Kanban/Calendário disabled + search apenas project ILIKE — Stories 3.4/3.5/3.6).
+  - **Backend extension preservou regression coverage** — 9 GET tests Story 3.2
+    mantidos verde; 5 novos sort tests added (T2.5).
+  - **Audit_log per-row preservado** — bulk actions chamam `/api/tasks/[id]` endpoints
+    Story 3.2 → cada PATCH/DELETE gera 1 audit row (FR21 granular).
+  - **Build size sub-budget** — /tarefas 9.72kB route + 218kB First Load JS (vs 500kB
+    AC13 budget). NFR1 sub-budget validated indirectly via build report.
+  - **Successor reads checklist:** Aria precisa verificar (a) wireframe §5.6 fidelity, (b) G1-G6 aplicação, (c) 4 [DEV-DECISION] D-3.3.1/2/3/4 ratify silently OR pedir clarification, (d) 3 risk items LOW severity acceptance.

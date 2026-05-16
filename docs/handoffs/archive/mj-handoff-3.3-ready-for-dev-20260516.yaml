@@ -1,0 +1,183 @@
+from_agent: "architect"
+from_agent_persona: "Aria (@architect) — System Architect"
+to_agent: "dev"
+to_agent_persona: "Dex (@dev) — Implementation"
+created: "2026-05-16T20:00:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-16T23:55:00Z"
+consumed_by: "dev"
+
+predecessor_handoff: "docs/handoffs/archive/mj-handoff-3.3-ready-for-architect-20260516.yaml"
+
+story_id: "3.3"
+story_path: "docs/stories/active/3.3.tasks-list-view.md"
+story_title: "Vista lista com filtros + ordenação + bulk actions"
+project_prefix: "mj"
+priority: high
+blocking: false
+type: story-handoff-architect-to-dev-dp-ratified
+
+summary: >
+  Story 3.3 v1.2 Ready — @architect (Aria) **APPROVED Path A extract `listTasksHelper`** para
+  DP4-3.3 (~25min ratify, HIGH confidence). Refactor pre-implementation autorizado sobre
+  `apps/web/src/app/api/tasks/route.ts` (base Story 3.2 9.3/10) para extrair helper puro
+  partilhado RSC ↔ route handler em `apps/web/src/lib/api-helpers/list-tasks.ts`. Decisão
+  traceable a precedent D-3.2.1 (`auth.ts` + `audit.ts` ratified PASS HIGH-VALUE no gate
+  Story 3.2 linhas 117-133). 6 guidance notes não-bloqueantes (G1-G6) anexadas.
+
+  **@dev pode arrancar T1-T10 YOLO directamente.** T1.4 já ratified — marca `[x]`. Gate final
+  qa pós-implementação continua @architect normal (DoD line 902 unchanged).
+
+context:
+  story_metadata:
+    epic_id: 3
+    story_id: "3.3"
+    title: "Vista lista com filtros + ordenação + bulk actions"
+    estimate: M
+    executor: "@dev (Dex) — YOLO mode"
+    quality_gate: "@architect normal post-implementation gate (DoD line 902)"
+    depends_on: ["3.2 Done v1.3 ✓ pushed e1954b4", "DP4 ratified Aria 2026-05-16"]
+    blocked_by_external: []
+
+  ratify_summary:
+    dp_id: "DP4-3.3"
+    topic: "Extract `listTasksHelper` shared RSC ↔ route handler"
+    decision: "APPROVE Path A extract"
+    confidence: HIGH
+    wall_clock_min: 25
+    gate_report: "docs/qa/gates/3.3-architect-dp4-ratify.md"
+
+    rationale_top_5:
+      - "Pattern continuity — D-3.2.1 (`auth.ts`+`audit.ts`) precedent ratified PASS HIGH-VALUE pelo próprio Aria em gate Story 3.2 linhas 117-133 com nota explícita 'Pattern reusable Stories 3.3-3.8'; listTasksHelper é exactamente esse reuse antecipado"
+      - "Extraction surface arquitecturalmente limpa: auth+Zod+cursor decode permanecem no wrapper (HTTP-bound), SELECT+WHERE+cursor encode são puros (route.ts:93-145) e movem para helper limpamente"
+      - "Precedent exact da forma em audit.ts:42 — `insertAuditLog(params: { db: DbShim, ... })` aceita `db` como param injectado; same pattern para `listTasksHelper(params: { db, filters, householdId, userId })`"
+      - "Regression coverage forte: 9 GET tests em list.test.ts (NOT 12 como handoff PO refere — drift cosmético; ver NIT-A1-3.3) — 5 destes tests cobrem SQL surface que migra (happy path / cursor / composite filters / DB error / PT-PT); T2.5 adiciona ~4 sort tests"
+      - "Anti-tech-debt multi-story: Stories 3.4 (Kanban) + 3.5 (calendário) + 3.6 (tags) consomem listings com diferentes filter projections; extracted helper evita 3× duplicação SELECT logic"
+
+    files_authorized:
+      new:
+        - "apps/web/src/lib/api-helpers/list-tasks.ts (pure helper sem auth/Zod)"
+      modified:
+        - "apps/web/src/app/api/tasks/route.ts (GET wrapper: auth + Zod + decodeCursor + call listTasksHelper; POST NÃO ALTERA)"
+        - "apps/web/src/app/api/tasks/__tests__/list.test.ts (preservar 9 GET tests existentes + adicionar ~4 sort tests novos T2.5)"
+        - "apps/web/src/lib/api-schemas/tasks.ts (T2.3 adicionar `sort` field — DP5 separate)"
+
+  guidance_notes_g1_g6:
+    g1_db_param:
+      title: "Helper aceita `db` como param (NÃO chama getDb() internamente)"
+      why: "Testability + futuro reuse com getServiceDb() em Inngest jobs (Story 3.7)"
+      example: |
+        export async function listTasksHelper(params: {
+          readonly filters: TaskFiltersInput;
+          readonly householdId: string;
+          readonly userId: string;
+          readonly db: DbShim;
+        }): Promise<{ tasks: TaskRow[]; next_cursor: string | null }>
+      consumers:
+        - "Route handler injecta getDb()"
+        - "RSC tarefas/page.tsx injecta getDb()"
+        - "Inngest jobs futuros podem injectar getServiceDb()"
+
+    g2_taskrow_move:
+      title: "Mover `TaskRow` interface para o helper file + re-export"
+      why: "Single source-of-truth — TaskRow é output type que ambos handler e helper precisam (NIT-A2-3.3)"
+
+    g3_where_pattern:
+      title: "Preservar `1=1` placeholder pattern em WHERE building"
+      why: "Defensive — passou gate Story 3.2; idiomatic Drizzle; não optimizar"
+
+    g4_household_id_redundant:
+      title: "`householdId` é redundant no SQL (RLS filtra) mas mantém em signature"
+      why: "Audit trail consistency + futuro non-RLS path se Inngest usar getServiceDb()"
+
+    g5_cursor_decode_wrapper:
+      title: "`decodeCursor` permanece no wrapper (HTTP-concern 400 error)"
+      why: "Helper recebe cursorPayload já decoded (ou null); RSC faz mesmo flow"
+      example: |
+        listTasksHelper(params: {
+          filters: TaskFiltersInput;
+          cursorPayload: { last_due_date: string | null; last_id: string } | null;
+          householdId: string;
+          userId: string;
+          db: DbShim;
+        })
+
+    g6_sort_branched_orderby:
+      title: "Sort param (T2.3-T2.4 DP5 separate) — branched ORDER BY no helper"
+      example: |
+        switch (filters.sort) {
+          case 'due_date_asc': orderBy = sql`due_date asc nulls last, id asc`; break;
+          case 'created_at_desc': orderBy = sql`created_at desc, id desc`; break;
+          case 'priority_desc': orderBy = sql`case priority when 'high' then 1 when 'medium' then 2 else 3 end, due_date asc nulls last, id asc`; break;
+          case 'title_asc': orderBy = sql`title asc, id asc`; break;
+        }
+      caveat: "Cursor pagination optimal só para due_date_asc (default). Documentar em comment."
+
+  nits_non_blocking:
+    - id: "NIT-A1-3.3"
+      severity: LOW
+      description: "Handoff PO refere '12 GET regression tests' — actual count em list.test.ts é 9 GET tests"
+      action_for_dev: "Usar `pnpm --filter @meu-jarvis/web test -- src/app/api/tasks/__tests__/list.test.ts` para baseline real (9 → target ~13 com sort tests)"
+    - id: "NIT-A2-3.3"
+      severity: LOW
+      description: "TaskRow interface vive duplicado se não aplicar G2"
+      action_for_dev: "Move TaskRow para list-tasks.ts + re-export em route.ts"
+    - id: "NIT-A3-3.3"
+      severity: LOW
+      description: "Considerar adicionar 1 test integration que invoque listTasksHelper directamente"
+      action_for_dev: "Opcional — não bloqueia DoD; valida helper standalone"
+
+  fallback_path_unused:
+    note: "Fallback A-fallback (helper RSC separado sem tocar Story 3.2) **NÃO necessário** — APPROVE PASS HIGH. Ignorar fallback path nas Tasks; seguir T2.1-T2.5 v1.1 directamente."
+
+next_action: |
+  **Próximo passo único:**
+
+  ```
+  @dev *develop 3.3
+  ```
+
+  Dex arranca YOLO mode T1-T10 sequencial:
+  - T1.4 já ratified APPROVE — marca `[x]` directamente sem reconfirmar
+  - T2.1-T2.5 seguem path A extract conforme story v1.1 (não aplicar fallback)
+  - Aplicar guidance G1-G6 não-bloqueantes (melhoram qualidade mas não são DoD)
+  - Cobrir NITs A2 (move TaskRow) é trivial e recomendado; A1 + A3 são opcionais
+
+  **Tempo estimado @dev:** M (estimate Story 3.3 não alterado por ratify).
+
+  **Output esperado:** Story 3.3 v1.3 InReview com File List preenchido + 5/5 quality gates GREEN + suíte de testes verde (291 baseline + ~4 sort tests + tests UI novos). Successor handoff: `mj-handoff-3.3-ready-for-architect-final-gate-{YYYYMMDD}.yaml` quando @dev terminar.
+
+next_command_suggested: "@dev *develop 3.3"
+
+constitutional_compliance:
+  article_iii_story_driven: "PASS — story em active/, ratify block + DP4 decision documentados"
+  article_iv_no_invention: "PASS — decisão traceable a precedent D-3.2.1 (3.2-architect-gate.md:117-133); helper shape mirrors audit.ts:42; zero invention"
+  article_vi_imports_absolutes: "PASS — helper usa @/... e @meu-jarvis/... only"
+  con3_pt_pt: "PASS — handoff + gate report em PT-PT estrito"
+  con8_po_before_dev: "PASS — @po validou 9.5/10 antes deste ratify; @dev é next agent"
+
+risks_for_dev_attention:
+  - id: "R-3.3.1"
+    description: "Refactor sobre Story 3.2 9.3/10 base introduz regressão"
+    mitigation: "5 SQL-surface tests + 4 sort tests novos; helper puro sem state; auth/Zod permanecem em wrapper unchanged"
+    severity_architect_assessment: "LOW"
+  - id: "R-3.3-NEW-A"
+    description: "Helper signature drift entre RSC e route handler ao longo de Epic 3"
+    mitigation: "Single function source em list-tasks.ts; ambos consumers importam de lá; TypeScript strict catch breaking changes at compile-time"
+    severity_architect_assessment: "LOW"
+  - id: "R-3.3-NEW-B"
+    description: "`db: DbShim` polymorphism (authenticated vs service_role) confunde dev futuro"
+    mitigation: "G1 + G4 explicam pattern; @dev pode adicionar JSDoc comment sobre quando usar cada role"
+    severity_architect_assessment: "LOW"
+
+notes: |
+  - **Single-purpose handoff:** ratify atómico pre-impl consumido (~25min). Full @architect
+    qa-gate pós-implementação continua per Story Development Cycle normal (DoD line 902).
+  - **Gate report opcional escrito:** `docs/qa/gates/3.3-architect-dp4-ratify.md` (~190 linhas)
+    documenta decisão para auditoria + 6 guidance notes detalhadas + NITs + risk assessment.
+  - **Eurico override:** se preferir accept silently DP4 sem este ratify, era OK também
+    (path mais rápido) — mas agora ratify já está feito e guidance G1-G6 + NITs A1-A3 adicionam
+    valor ao @dev. Tempo de ratify caiu dentro do budget esperado ~30min.
+  - **Cosmético:** _INDEX.md row 3.3 actualizado ReadyForArchitect v1.1 → Ready v1.2 + Epic 3
+    Progress line nota DP4 ratified APPROVE.

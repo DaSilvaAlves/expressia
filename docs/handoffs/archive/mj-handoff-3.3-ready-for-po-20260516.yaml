@@ -1,0 +1,207 @@
+from_agent: "sm"
+from_agent_persona: "River (@sm) — Scrum Master"
+to_agent: "po"
+to_agent_persona: "Pax (@po) — Product Owner"
+created: "2026-05-16T19:00:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-16T19:30:00Z"
+consumed_by: "po"
+successor_handoff: "mj-handoff-3.3-ready-for-architect-20260516.yaml"
+verdict: "GO 9.5/10 HIGH (10-point checklist) + 3 PO_FIX_INLINE defensive applied + DP4-3.3 escalated to @architect pre-impl"
+
+story_id: "3.3"
+story_path: "docs/stories/active/3.3.tasks-list-view.md"
+story_title: "Vista lista com filtros + ordenação + bulk actions"
+project_prefix: "mj"
+priority: high
+blocking: false
+type: story-handoff-sm-to-po
+
+summary: >
+  Story 3.3 v1.0 Draft criada — primeira UI Epic 3 (vista lista `/tarefas` RSC + client islands).
+  Próximo passo: `@po *validate-story-draft 3.3` (10-point checklist).
+
+  **Reuse pattern Stories 2.7 (RSC + client islands canónico) + 3.2 (helpers D-3.2.1 + endpoint
+  `GET /api/tasks` filters + cursor pagination).** Mapping PRD: FR9 (vista lista) + FR11
+  (atrasadas section dedicada). Wireframe ratificado: `docs/front-end-spec.md:647-694` §5.6.
+
+  **Estimate M, depende 3.2 ✓ (pushed `e1954b4`).** Zero bloqueadores externos.
+
+context:
+  story_metadata:
+    epic_id: 3
+    story_id: "3.3"
+    title: "Vista lista com filtros + ordenação + bulk actions"
+    estimate: M
+    executor: "@dev (com @ux-design-expert review opcional pre-impl per Epic plan R8 mitigation)"
+    quality_gate: "@architect"
+    depends_on: ["3.2 Done v1.3 ✓ pushed e1954b4"]
+    blocked_by_external: []
+
+  acs_summary:
+    total: 14
+    breakdown:
+      - "AC1: Página /tarefas RSC + nav link em (app)/layout.tsx + tabs Lista active / Kanban+Calendário disabled"
+      - "AC2: Server-rendered initial fetch via listTasksHelper (FCP ≤ 1.5s target)"
+      - "AC3: Filters component URL-state Next.js native (7 controls + clear button + PT-PT)"
+      - "AC4: Sort dropdown 4 opções + URL-state + backend endpoint extension ?sort="
+      - "AC5: Sections grouping helper (_lib/task-sections.ts) 7 buckets + Atrasadas always first"
+      - "AC6: Atrasadas section dedicada (FR11) — visual destacado + topo da lista"
+      - "AC7: Bulk actions bar (3 actions: complete/delete/priority) via parallel PATCH (DP1: A)"
+      - "AC8: Inline edit título + row actions menu 4 options (Editar/Eliminar/Adiar/Mudar prioridade)"
+      - "AC9: Empty states 3 variants (no-tasks, filtered-empty, error) PT-PT"
+      - "AC10: Mobile responsive Tailwind md: breakpoint"
+      - "AC11: Auth + RLS preservada (getDb authenticated, grep getServiceDb=0)"
+      - "AC12: ≥25 tests novos Vitest + RTL (target ~33)"
+      - "AC13: 5/5 quality gates GREEN"
+      - "AC14: PT-PT estrito + imports absolutos + cross-confirm anti-hallucination + DPs documentados"
+
+  tasks_breakdown:
+    total: 10
+    list:
+      - "T1 Pre-flight (DPs ratify + helpers cross-confirm + date-fns-tz check)"
+      - "T2 Backend extension (Story 3.2 helper refactor DP4 + sort param DP5)"
+      - "T3 Página /tarefas RSC + nav layout modify"
+      - "T4 TaskList + TaskRow + ViewTabs + SectionGroup + task-sections.ts helper"
+      - "T5 Filters + Sort + URL-state components (client islands)"
+      - "T6 Bulk actions + multi-select state"
+      - "T7 Inline edit + row actions menu + edit modal minimal (DP6: A)"
+      - "T8 Empty states + mobile responsive"
+      - "T9 Tests Vitest + RTL (~33 tests novos)"
+      - "T10 Quality gates 5/5 GREEN + Docs + handoff sucessor"
+
+  decision_points:
+    total: 6
+    accept_silently_recommended:
+      - "DP1-3.3: Bulk strategy parallel PATCH (vs new bulk endpoint atomic) — A parallel KISS"
+      - "DP2-3.3: URL-state Next.js useSearchParams (vs Zustand) — A native"
+      - "DP3-3.3: RSC fetch import direct (vs HTTP loopback) — A KISS"
+      - "DP5-3.3: Sort backend extension ?sort= param (vs client sort) — A backend + cursor limitation documentada"
+      - "DP6-3.3: Edit modal scope minimal (vs full) — A minimal (4 fields)"
+    requires_architect_pre_impl:
+      - dp_id: "DP4-3.3"
+        topic: "Extract listTasksHelper shared RSC ↔ route handler"
+        recommendation: "A extract (DRY, evita drift)"
+        risk: "Refactor minor sobre Story 3.2 route handler (9.3/10 APPROVED)"
+        mitigation: "T2.5 mantém 12 GET tests Story 3.2 verde + helper puro (sem auth/Zod)"
+        fallback: "Se @architect rejeita: criar `list-tasks-rsc.ts` separado SEM tocar Story 3.2 route handler (duplica SELECT logic — aceitar tech debt Epic 4+)"
+
+  files_summary:
+    new: "~20 ficheiros (1 page.tsx + 1 loading.tsx + 12 _components/ + 1 _lib/ + 1 helper extracted + 5 __tests__/)"
+    modified: "~5 ficheiros (layout.tsx nav link + api/tasks/route.ts wrapper + api-schemas/tasks.ts sort field + list.test.ts +4 tests + _INDEX.md status)"
+
+  reuse_pattern:
+    canonical_references:
+      - file: "apps/web/src/app/(app)/conta/preferencias/page.tsx (Story 2.7 — RSC canónico)"
+        usage: "Template pattern directo para tarefas/page.tsx"
+      - file: "apps/web/src/app/(app)/conta/preferencias/__tests__/page.test.tsx (Story 2.7 — Vitest+RTL pattern)"
+        usage: "Pattern testing RSC + mocks next/navigation"
+      - file: "apps/web/src/app/api/tasks/route.ts (Story 3.2 — endpoint canónico consumido)"
+        usage: "GET handler con filters/cursor; PATCH partial; DELETE soft — reuse direct"
+      - file: "apps/web/src/lib/api-helpers/auth.ts (Story 3.2 D-3.2.1 — requireAuth + resolveHouseholdId)"
+        usage: "Reuse direct em RSC + extracted helper"
+      - file: "apps/web/src/lib/api-schemas/tasks.ts (Story 3.2 — TaskFiltersSchema + enums)"
+        usage: "Extender com sort field (T2.3 DP5: A)"
+      - file: "apps/web/src/app/(app)/layout.tsx (Story 1.5 — App shell autenticado)"
+        usage: "Modificar para adicionar nav link Tarefas"
+
+  ux_alignment:
+    wireframe_source: "docs/front-end-spec.md:647-694 §5.6 vista lista"
+    ratified_by: "Eurico pre-Epic 3"
+    deviations_from_wireframe:
+      - "Tabs Kanban/Calendário disabled (Stories 3.4/3.5 ainda Backlog) — Story 3.3 cria slot UI ready"
+      - "Search filtra apenas project field (Story 3.2 endpoint actual). Title/description fuzzy é Epic 4+ (Postgres tsvector). Documentar tooltip 'Procura por projecto.'"
+
+next_action: |
+  **Próximo passo único:**
+
+  ```
+  @po *validate-story-draft 3.3
+  ```
+
+  Pax executa o checklist 10-point + validation pass:
+  - Cross-confirm anti-hallucination (helpers existem, schemas existem, endpoints Story 3.2 existem)
+  - DPs decision tree validation (5 accept silently OK; DP4 flagged para @architect ratify pre-impl)
+  - PT-PT estrito em ACs + tasks + dev notes
+  - Constitution 6/6 alignment
+  - Veredicto GO (≥7/10) ou NO-GO (<7/10) com required fixes
+
+  **Se @po GO:** Pax actualiza Status Draft → Ready + handoff sucessor `mj-handoff-3.3-ready-for-architect-{date}.yaml` (DP4 ratify) OU `mj-handoff-3.3-ready-for-dev-{date}.yaml` (se @architect aprovar DP4 OR @po decide fallback).
+
+  **Se @po NO-GO:** Pax aplica PO_FIX_INLINE no story file (defensive pattern Stories 2.5-3.2) + handoff de volta a @sm para revisão.
+
+next_command_suggested: "@po *validate-story-draft 3.3"
+
+constitutional_compliance:
+  article_iii_story_driven: "PASS — story file criada em docs/stories/active/3.3.tasks-list-view.md per Epic 3 plan"
+  article_iv_no_invention: "PASS — cross-confirm anti-hallucination contra: Story 3.2 endpoint route.ts:1-340 + api-schemas/tasks.ts:1-105 + api-helpers/auth.ts:1-94 + (app)/layout.tsx:1-53 + Story 2.7 conta/preferencias pattern + wireframe front-end-spec:647-694 + schema packages/db/src/schema/tasks.ts:59-221. Zero invented features. 6 DPs documentados com recomendação + alternativa + risco."
+  article_vi_imports_absolutes: "PASS — story file prescreve @/... + @meu-jarvis/... only em todos os imports (NFR19)"
+  con3_pt_pt: "PASS — todos os labels UI, error messages, tooltips, ACs, tasks, dev notes em PT-PT estrito (utilizar não usar, eliminar não deletar, tarefa não task, prazo não due date)"
+  con8_po_before_dev: "PASS — fluxo @sm draft → @po validate → @dev develop respeitado"
+
+dp_validation_requested_from_po:
+  silent_accept_expected:
+    - "DP1-3.3 bulk parallel (accept silently OR Eurico ratify)"
+    - "DP2-3.3 URL-state native"
+    - "DP3-3.3 RSC import direct"
+    - "DP5-3.3 sort backend"
+    - "DP6-3.3 edit modal minimal"
+  requires_architect_pre_impl:
+    - "DP4-3.3 listTasksHelper extract — refactor minor sobre Story 3.2 route handler 9.3/10 APPROVED. Pax pode escalar @architect pre-impl OR aceitar fallback (helper RSC separado sem refactor)"
+
+risks_flagged_for_po_attention:
+  - id: "R-3.3.1"
+    description: "Refactor Story 3.2 helper (DP4-3.3) introduz regressão"
+    mitigation: "T2.5 mantém 12 GET tests Story 3.2 verde + 4 novos sort tests"
+    severity: "LOW (helper puro sem auth/Zod; 291 web tests baseline forte)"
+  - id: "R-3.3.2"
+    description: "Cursor pagination degradação em non-default sorts (DP5: A limitation)"
+    mitigation: "Documentar limitation em Project Structure Notes; refactor cursor multi-field Epic 4+ housekeeping"
+    severity: "LOW (UX raramente atinge 50+ items per filter)"
+  - id: "R-3.3.3"
+    description: "Bulk actions parallel partial failure UX"
+    mitigation: "T6.2 implementa partial failure handling + toasts + tests cobrem 3 cenários (full/partial/all-failure)"
+    severity: "MEDIUM (UX risk; Eurico pode ratify DP1 B atomic se preferir)"
+  - id: "R-3.3.4"
+    description: "DST PT 2026 boundary em task-sections.ts (Europe/Lisbon)"
+    mitigation: "T4.2 usa date-fns-tz + tests T9.8 cobrem 2 DST transitions 2026 + week boundary Monday + null due_date"
+    severity: "LOW (helper puro testável)"
+
+session_metrics:
+  sm_draft_duration: "~25min wall-clock (load context + draft Story 3.3 v1.0 ~620 linhas + _INDEX update + handoff)"
+  files_touched_during_draft:
+    - "docs/stories/active/3.3.tasks-list-view.md (NEW v1.0 — 14 ACs + 10 tasks + 6 DPs)"
+    - "docs/stories/active/_INDEX.md (MODIFIED — Story 3.3 row Backlog→Draft + Story 3.2 push correction)"
+    - "docs/handoffs/mj-handoff-3.3-ready-for-po-20260516.yaml (NEW — este ficheiro)"
+
+contextual_files_to_load_in_po_validation:
+  primary:
+    - "docs/stories/active/3.3.tasks-list-view.md (story under validation)"
+    - "docs/epics/EPIC-3-EXECUTION.yaml v0.1 (epic plan source — verify alignment)"
+    - "docs/prd.md FR9 + FR11 (PRD requirements coverage)"
+  reference_recent_done_stories:
+    - "docs/stories/completed/3.2.tasks-api-routes.md v1.3 Done (helpers + endpoints consumed)"
+    - "docs/qa/gates/3.2-architect-gate.md (9.3/10 HIGH — quality bar Story 3.3 deve igualar/melhorar)"
+    - "docs/stories/completed/2.7.preview-then-confirm-flow-ui.md v1.4 Done (pattern RSC + client islands canónico)"
+  reference_helpers_pattern:
+    - "apps/web/src/lib/api-helpers/auth.ts (D-3.2.1 — reuse direct)"
+    - "apps/web/src/lib/api-schemas/tasks.ts (Story 3.2 — extender com sort)"
+    - "apps/web/src/app/api/tasks/route.ts (Story 3.2 endpoint canónico)"
+  reference_ux:
+    - "docs/front-end-spec.md:647-694 §5.6 vista lista wireframe"
+  rules:
+    - "~/.claude/rules/story-lifecycle.md (Draft→Ready→InProgress→InReview→Done)"
+    - "~/.claude/rules/agent-authority.md (po validate exclusive)"
+
+notes: |
+  - Story 3.3 é a **primeira UI story Epic 3** — beneficia de @ux-design-expert review opcional
+    pre-impl (Epic plan R8 mitigation). T1.9 é OPCIONAL — pode skip se @sm Draft cobre suficiente.
+  - **DP4-3.3 é o único DP que toca código já APPROVED** (Story 3.2 route handler 9.3/10).
+    @po pode escalar a @architect pre-impl OR aceitar fallback (helper RSC separado sem refactor).
+  - **Fallback DP4 sem refactor:** criar `apps/web/src/lib/api-helpers/list-tasks-rsc.ts` separado
+    que duplica SELECT logic — aceitar drift risk como tech debt Epic 4+ (mais seguro defensive
+    se @architect comfort baixo com refactor sobre 9.3/10 base).
+  - **Cosmético:** Story 3.2 row em _INDEX.md ainda dizia "Pending @devops *push 3.2" — corrigido
+    nesta sessão @sm para "Done v1.3 pushed e1954b4 (close e6983b0)". Cleanup minor.
+  - **Próximo passo claro:** `@po *validate-story-draft 3.3` em terminal disponível.

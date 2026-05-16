@@ -1,0 +1,173 @@
+from_agent: "po"
+from_agent_persona: "Pax (@po) — Product Owner"
+to_agent: "architect"
+to_agent_persona: "Aria (@architect) — System Architect"
+created: "2026-05-16T19:30:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-16T20:00:00Z"
+consumed_by: "architect"
+successor_handoff: "docs/handoffs/mj-handoff-3.3-ready-for-dev-20260516.yaml"
+gate_report: "docs/qa/gates/3.3-architect-dp4-ratify.md"
+final_decision: "APPROVE Path A extract listTasksHelper — HIGH confidence (~25min wall-clock)"
+
+story_id: "3.3"
+story_path: "docs/stories/active/3.3.tasks-list-view.md"
+story_title: "Vista lista com filtros + ordenação + bulk actions"
+project_prefix: "mj"
+priority: high
+blocking: false
+type: story-handoff-po-to-architect-dp-ratify-only
+
+summary: >
+  Story 3.3 v1.1 ReadyForArchitect — @po GO 9.5/10 HIGH (10-point checklist) + 3 PO_FIX_INLINE
+  defensive aplicados. **DP4-3.3 ESCALATED to Aria pre-impl** — refactor minor sobre Story 3.2
+  route handler (9.3/10 APPROVED) extraindo `listTasksHelper` shared RSC ↔ route handler.
+
+  **Escalation rationale:** Pattern D-3.2.1 helpers (`auth.ts` + `audit.ts`) já ratified PASS HIGH
+  por Aria no Story 3.2 gate — `listTasksHelper` é extensão directa do mesmo pattern. Risk LOW
+  (12 GET regression tests Story 3.2 + helper puro sem auth/Zod). Anti-tech-debt: Stories 3.4
+  (Kanban) + 3.5 (calendário) + 3.6 (tags) também consomem listings — evita 3× duplicação.
+
+  **Não é um qa-gate.** É um ratify decision atómico (~30min): Aria responde APPROVE ou REJECT
+  DP4 + opcional pequenas guidance notes. Se APPROVE → handoff arquitect→dev. Se REJECT →
+  handoff arquitect→dev com instruction "use fallback (helper RSC separado)".
+
+context:
+  story_metadata:
+    epic_id: 3
+    story_id: "3.3"
+    title: "Vista lista com filtros + ordenação + bulk actions"
+    estimate: M
+    executor: "@dev (post DP4 ratify)"
+    quality_gate: "@architect (post-implementation gate normal — separate from this pre-impl ratify)"
+    depends_on: ["3.2 Done v1.3 ✓ pushed e1954b4"]
+    blocked_by_external: []
+
+  po_validation_summary:
+    verdict: "GO 9.5/10 HIGH"
+    checklist_score: "95/100"
+    date: "2026-05-16T19:30:00Z"
+    breakdown:
+      template_completeness: 10
+      executor_assignment: 10
+      file_structure: 10
+      ui_completeness: 10
+      ac_satisfaction: 9
+      testing_instructions: 10
+      security: 10
+      task_sequence: 9
+      coderabbit: "N/A (skipped)"
+      no_duplicates: 10
+      anti_hallucination: 9
+      implementation_readiness: 10
+
+  po_fixes_applied:
+    - id: "PO-FIX-1"
+      severity: LOW
+      type: "cosmetic line-drift"
+      description: "route.ts cited as 340 lines (@sm draft v1.0) — actual is 250 lines"
+      fix: "Dev Notes Suggested Files line corrected to `route.ts:1-250` with note about ORDER BY line 126 verified"
+    - id: "PO-FIX-2"
+      severity: MEDIUM
+      type: "framing precision"
+      description: "Story 2.7 claimed as canonical for DP3 A (import direct) — but Story 2.7 uses fetch HTTP loopback (DP3 B variant) per `conta/preferencias/page.tsx:42-54`"
+      fix: "AC2 narrative clarified: Story 2.7 is canonical for RSC + client islands structure (NOT for fetch strategy); Story 3.3 is the first import-direct precedent; fallback to fetch loopback acceptable if DP4 rejected"
+    - id: "PO-FIX-3"
+      severity: HIGH-VALUE
+      type: "DP4 escalation rationale"
+      description: "DP4-3.3 escalation to @architect made explicit with 4-reason rationale + fallback path + auto-decision overrideable by Eurico"
+      fix: "Inline rationale in story file Decision Points section + explicit fallback Tasks T2.1-T2.2-T2.5 adjustment if rejected"
+
+  decision_to_ratify:
+    dp_id: "DP4-3.3"
+    topic: "Extract `listTasksHelper` shared RSC ↔ route handler"
+    recommendation_sm: "A extract"
+    recommendation_po: "A extract — escalate for Aria ratify pre-impl"
+    rationale_po:
+      - "Pattern D-3.2.1 precedent (auth.ts + audit.ts extraction) already APPROVED PASS HIGH by Aria in Story 3.2 gate 9.3/10 — listTasksHelper is direct extension of same pattern"
+      - "Risk LOW + mitigation strong: 12 GET regression tests Story 3.2 cover SQL surface; helper is pure function (no auth/Zod inside — those stay in route handler); T2.5 adds 4 sort tests as additional coverage"
+      - "Anti-tech-debt: Stories 3.4 (Kanban) + 3.5 (calendário) + 3.6 (tags) also consume task listings — extracted helper avoids 3× SELECT logic duplication across Epic 3"
+      - "Escalation cost ~30min: Aria did Story 3.1 gate 9.5/10 + Story 3.2 gate 9.3/10 in recent sessions — pattern continuity ratify is minor decision"
+
+    files_affected_by_dp4_decision:
+      if_approved_A_extract:
+        - "apps/web/src/lib/api-helpers/list-tasks.ts (NEW — pure helper sem auth/Zod)"
+        - "apps/web/src/app/api/tasks/route.ts (MODIFIED — GET becomes wrapper: auth + Zod + call listTasksHelper)"
+        - "apps/web/src/app/api/tasks/__tests__/list.test.ts (MODIFIED +~4 sort tests; 12 existing GET tests preserved as regression guard)"
+      if_rejected_A_fallback:
+        - "apps/web/src/lib/api-helpers/list-tasks-rsc.ts (NEW — duplicate SELECT logic, RSC-only, no auth/Zod)"
+        - "apps/web/src/app/api/tasks/route.ts (UNCHANGED — preserve 9.3/10 base)"
+        - "apps/web/src/app/api/tasks/__tests__/list.test.ts (MODIFIED +~4 sort tests in handler only)"
+        - "Tech debt note added to Project Structure Notes: refactor consolidation Epic 4+ housekeeping"
+
+  files_to_load_for_ratify:
+    primary:
+      - "docs/stories/active/3.3.tasks-list-view.md (story v1.1 ReadyForArchitect with PO Validation Block + 3 PO_FIX)"
+      - "docs/stories/completed/3.2.tasks-api-routes.md v1.3 Done (D-3.2.1 helpers extraction precedent — Aria ratified PASS HIGH)"
+      - "docs/qa/gates/3.2-architect-gate.md (Aria's own gate report — recall D-3.2.1 rationale)"
+    code_to_inspect:
+      - "apps/web/src/app/api/tasks/route.ts (current GET handler lines 59-157 — extract candidate)"
+      - "apps/web/src/lib/api-helpers/auth.ts (D-3.2.1 reference pattern)"
+      - "apps/web/src/lib/api-helpers/audit.ts (D-3.2.1 reference pattern)"
+      - "apps/web/src/app/api/tasks/__tests__/list.test.ts (12 GET tests baseline — regression guard if DP4 A)"
+
+  other_dps_status:
+    silent_accepted_by_po:
+      - "DP1-3.3 bulk parallel PATCH (KISS + audit per-row + FR21 granularity)"
+      - "DP2-3.3 URL-state Next.js useSearchParams native (Next 15 idiomatic)"
+      - "DP3-3.3 RSC import direct (KISS + no loopback latency; framing clarified PO-FIX-2)"
+      - "DP5-3.3 sort backend extension `?sort=` param (cursor limitation documented; Epic 4+ housekeeping)"
+      - "DP6-3.3 edit modal minimal (4 fields; tags Story 3.6 + multi-member Epic 5+)"
+
+next_action: |
+  **Próximo passo único:**
+
+  ```
+  @architect *ratify-dp 3.3 DP4
+  ```
+
+  Aria avalia DP4-3.3 extract `listTasksHelper`:
+  - Cross-reference precedent D-3.2.1 (sua própria APPROVED ratification em Story 3.2 9.3/10)
+  - Inspect helper extraction shape proposto (pure function, sem auth/Zod inside)
+  - Verify 12 GET regression tests Story 3.2 cobrem SQL surface adequadamente
+  - Decision: APPROVE (handoff arquitect→dev path A extract) OR REJECT (handoff arquitect→dev path A-fallback helper RSC separado)
+  - Opcional: guidance notes para @dev (e.g., "extract helper accepts `db` param em vez de chamar getDb() internamente para testability")
+
+  **Tempo estimado:** ~30min (decisão atómica + breve gate report opcional ~100 linhas se @architect quiser documentar).
+
+  **Output esperado:** handoff sucessor `mj-handoff-3.3-ready-for-dev-20260516.yaml` com clear instruction (A extract OR A-fallback) + opcional gate report breve em `docs/qa/gates/3.3-architect-dp4-ratify.md`.
+
+next_command_suggested: "@architect *ratify-dp 3.3 DP4"
+
+constitutional_compliance:
+  article_iii_story_driven: "PASS — story em active/, PO validation block added v1.1"
+  article_iv_no_invention: "PASS — 9 source refs cross-confirmed; 2 minor drifts clarified via PO_FIX"
+  article_vi_imports_absolutes: "PASS — story prescribes @/... + @meu-jarvis/... only"
+  con3_pt_pt: "PASS — all PO_FIX content em PT-PT estrito"
+  con8_po_before_dev: "PASS — @po validation completed before @dev; @architect DP4 ratify is interstitial decision (not gate)"
+
+risks_for_architect_attention:
+  - id: "R-3.3.1"
+    description: "Refactor Story 3.2 helper (DP4-3.3: A) introduces regression"
+    mitigation: "12 GET tests Story 3.2 preserved as regression guard + 4 new sort tests via T2.5; helper is pure (no auth/Zod inside)"
+    severity_po_assessment: "LOW — pattern D-3.2.1 precedent reduces unknowns to near-zero"
+  - id: "R-3.3.4-architect-comfort"
+    description: "Aria comfort level com refactor sobre 9.3/10 APPROVED base"
+    mitigation: "Fallback path (A-fallback helper RSC separado) documentado — Aria pode rejeitar sem bloquear Story 3.3 progress"
+    severity_po_assessment: "LOW — fallback adds tech debt but unblocks @dev immediately"
+
+notes: |
+  - **Single-purpose handoff:** This is NOT a full qa-gate; it's a focused DP4 ratify (~30min).
+    Full @architect qa-gate happens post-implementation per normal Story Development Cycle.
+  - **Auto-decision overrideable by Eurico:** Se Eurico decidir accept silently DP4 A sem
+    Aria ratify (path mais rápido), @dev arranca directo. Em ambos os caminhos o gate final
+    pós-implementação continua a ser @architect normal (DoD line 902 inalterada).
+  - **Anti-hallucination cross-confirm 9 sources verified by @po:** all helpers/schemas/route/
+    layout/wireframe/PRD references in story file v1.1 are accurate (2 minor drifts clarified
+    via PO-FIX-1 line drift + PO-FIX-2 framing imprecision).
+  - **3 NITs non-blocking captured:** NIT-1-3.3 AC2 Lighthouse manual smoke (Epic 6+) ·
+    NIT-2-3.3 T6/T7 parallelizable optimization (solo @dev OK) · NIT-3-3.3 date-fns-tz
+    install obrigatório T1.7 (já flagged @sm).
+  - **Cosmético:** _INDEX.md row 3.3 updated Draft v1.0 → ReadyForArchitect v1.1 + Epic 3
+    Progress line updated.
