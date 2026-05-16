@@ -1,0 +1,294 @@
+from_agent: "devops"
+from_agent_persona: "Gage (@devops) — GitHub Repository Manager"
+to_agent: "any"
+to_agent_options: ["sm", "pm", "aiox-master", "dev", "architect", "ux-design-expert"]
+created: "2026-05-16T18:15:00Z"
+status: pending
+consumed: false
+
+story_id: "session-pause-after-3.2-done"
+story_path: "docs/stories/completed/3.2.tasks-api-routes.md"
+story_title: "META-HANDOFF — Session pause cross-terminal pós Story 3.2 Done v1.3 (Epic 3 = 2/8 Done)"
+project_prefix: "mj"
+priority: medium
+blocking: false
+type: meta-handoff-cross-terminal
+
+summary: >
+  **CONTEXT LOW — terminal precisa de pausa, qualquer terminal próximo retoma aqui.**
+
+  Sessão multi-agente fechou **2 Stories Done em produção** numa única conversa Eurico:
+  - **Story 3.1** Done v1.3 — architect APPROVED 9.5/10 HIGH (recordista Epic 2-3 empata Story 2.9). Pushed `dc888b3..29de3c8`.
+  - **Story 3.2** Done v1.3 — architect APPROVED 9.3/10 HIGH (empata Story 2.11). Pushed `29de3c8..e1954b4`.
+
+  **Epic 3 Progress: 2/8 Done** (Critical Path 3.1→3.2 completo). Stories 3.3-3.8 TODOS desbloqueados.
+
+  **Working tree limpo** (origin/main em `e1954b4`). Apenas 10 marketing files untracked (Eurico decide separadamente — SEPARADOS de qualquer Story).
+
+  **Próximo passo único e claro:** `@sm *draft 3.3` (vista lista) OU paralelizar 3.3-3.8 conforme Epic plan `parallelization_opportunities`.
+
+context:
+  session_summary:
+    duration: "~6h wall-clock (Story 3.1 architect gate ~30min + push ~20min + Story 3.2 SDC completo ~5h)"
+    sdc_flow_completed:
+      - phase: "Story 3.1 architect gate"
+        agent: "@architect (Aria)"
+        outcome: "APPROVED 9.5/10 HIGH (gate report docs/qa/gates/3.1-architect-gate.md 597 linhas) — Story 3.1 v1.2 → v1.3 Done"
+      - phase: "Story 3.1 push"
+        agent: "@devops (Gage)"
+        outcome: "Pushed dc888b3..29de3c8 (16 files + 2 chore close = 2 commits)"
+      - phase: "Story 3.2 sm draft"
+        agent: "@sm (River)"
+        outcome: "v1.0 Draft criada (13 ACs + 8 tasks/subtasks + 4 DPs + ~620 linhas)"
+      - phase: "Story 3.2 po validation"
+        agent: "@po (Pax)"
+        outcome: "v1.1 Ready (10/10 GO + 3 PO_FIX_INLINE applied: F1 HIGH audit enum gap + F2 MEDIUM rrule cross-ref + F3 LOW test count precision)"
+      - phase: "Story 3.2 dev implementation"
+        agent: "@dev (Dex)"
+        outcome: "v1.2 Ready for Review YOLO ~90min wall-clock (vs ~6-10h estimate). 13/13 ACs PASS + 5/5 gates GREEN + 291/291 web tests + 2 [DEV-DECISION] (D-3.2.1 DRY helpers + D-3.2.2 7 vs 8 test files)"
+      - phase: "Story 3.2 architect gate"
+        agent: "@architect (Aria)"
+        outcome: "APPROVED 9.3/10 HIGH (gate report docs/qa/gates/3.2-architect-gate.md ~470 linhas) — Story 3.2 v1.2 → v1.3 Done"
+      - phase: "Story 3.2 push"
+        agent: "@devops (Gage)"
+        outcome: "Pushed 29de3c8..e1954b4 (33 files + 2 chore close = 2 commits)"
+
+  commits_history_epic_3:
+    - hash: "f49710b"
+      type: "feat"
+      story: "3.1"
+      message: "feat(db,tasks): Story 3.1 schema validation + RLS tests extension + kanban seed defaults"
+    - hash: "29de3c8"
+      type: "chore"
+      story: "3.1"
+      message: "chore(handoffs): close Story 3.1 cycle"
+    - hash: "3fa408c"
+      type: "feat"
+      story: "3.2"
+      message: "feat(api,tasks): Story 3.2 CRUD endpoints tarefas+tags+recurrences (auth+RLS)"
+    - hash: "e1954b4"
+      type: "chore"
+      story: "3.2"
+      message: "chore(handoffs): close Story 3.2 cycle"
+
+  current_repo_state:
+    branch: "main"
+    upstream: "origin/main"
+    head: "e1954b4"
+    working_tree: "clean (10 marketing files untracked SEPARADOS)"
+    vercel_deploy: "fra1 auto-deploy triggered pós 3fa408c — Story 3.2 = 15+ novos endpoints, deploy risk moderate"
+
+  epic_3_progress:
+    done: 2  # 3.1 + 3.2 (Critical Path completo)
+    backlog_unblocked: 6  # 3.3-3.8 todos desbloqueados
+    stories:
+      - id: "3.1"
+        title: "Schema validation + RLS Testcontainers + seed defaults"
+        status: "Done v1.3"
+        gate_score: "9.5/10 HIGH (recordista empata 2.9)"
+      - id: "3.2"
+        title: "API routes CRUD tarefas + tags + recurrences (auth + RLS)"
+        status: "Done v1.3"
+        gate_score: "9.3/10 HIGH (empata 2.11)"
+      - id: "3.3"
+        title: "Vista lista com filtros + ordenação + bulk actions"
+        status: "Backlog"
+        estimate: "M"
+        depende: "3.2 ✓"
+      - id: "3.4"
+        title: "Vista Kanban com colunas configuráveis + drag-and-drop"
+        status: "Backlog"
+        estimate: "L"
+        depende: "3.2 ✓"
+        nota: "DP1 já decidido: @dnd-kit/core + @dnd-kit/sortable (front-end-spec.md:1510)"
+      - id: "3.5"
+        title: "Vista calendário semanal com drag entre dias"
+        status: "Backlog"
+        estimate: "L"
+        depende: "3.2 ✓"
+        nota: "DP2 NEW aguarda Eurico ratify ou silent accept (Morgan rec A: custom 7-col grid + @dnd-kit)"
+      - id: "3.6"
+        title: "Sistema de tags globais (criar/listar/aplicar inline)"
+        status: "Backlog"
+        estimate: "S"
+        depende: "3.1 ✓ + 3.2 ✓"
+      - id: "3.7"
+        title: "Inngest function generate-recurring-tasks (cron diário)"
+        status: "Backlog"
+        estimate: "M"
+        depende: "3.1 ✓ + 3.2 ✓ + EB4 (Inngest workspace EU)"
+        nota: "Instalará rrule lib per Epic plan ED7 → upgrade backward-compatible Story 3.2 F2 422"
+      - id: "3.8"
+        title: "Tools cérebro: criar_tarefa, completar_tarefa, listar_tarefas, listar_atrasadas"
+        status: "Backlog"
+        estimate: "M"
+        depende: "3.2 ✓ + Epic 2 ✓"
+        nota: "DP5 já decidido: scope minimal (title + dueDate + priority)"
+
+next_action: |
+  **Decisão única para próximo terminal — escolher 1:**
+
+  **Opção A (recommended — sprint 2 leve):**
+  ```
+  @sm *draft 3.3
+  ```
+  Story 3.3 (vista lista, M scope). Pode arrancar imediatamente — 3.2 endpoints já existem.
+
+  **Opção B (paralelizar):**
+  ```
+  @sm *draft 3.6   # S, sistema tags inline
+  ```
+  Story 3.6 é S — mais leve que 3.3. Boa para começar paralelização.
+
+  **Opção C (Kanban grande):**
+  ```
+  @ux-design-expert *frontend-design 3.4   # pre-design Kanban L
+  ```
+  Story 3.4 é L (Kanban + drag) — beneficia de @ux-design-expert engagement early (R8 mitigation Epic plan).
+
+  **Opção D (backend desacoplado):**
+  ```
+  @sm *draft 3.8   # M, tools cérebro
+  ```
+  Story 3.8 totalmente desacoplada de UI — pode correr em paralelo com 3.3-3.5.
+
+  **Opção E (Inngest infra — bloqueio EB4):**
+  ```
+  @devops verify-eb4   # Inngest workspace EU Frankfurt
+  ```
+  Pre-flight check antes de Story 3.7 (cron recurrences). Per Epic plan EB4 PENDING_VERIFICATION.
+
+  **Recomendação Gage:** Opção A (`@sm *draft 3.3`) — vista lista é UI mais simples (filters + ordenação + bulk actions), bom warm-up para Stories UI Epic 3.
+
+  **Eurico decide:** se prefere paralelizar agressivamente (B/C/D), ou sequencial (A).
+
+next_command_suggested: "@sm *draft 3.3"
+
+architectural_context:
+  pattern_reusable_stories_3_3_to_3_8:
+    - "Route handlers NEW em apps/web/src/app/api/ DEVEM importar `requireAuth` + `resolveHouseholdId` + `resolveHouseholdRole` de `@/lib/api-helpers/auth` (D-3.2.1 helpers pattern)"
+    - "Mutations DEVEM usar `insertAuditLog` de `@/lib/api-helpers/audit` com `TasksAuditAction` type union (13 enum values F1 HIGH migration 0010)"
+    - "Zod schemas em `@/lib/api-schemas/` com `.strict()` mode (AC8 defense-in-depth R4 — rejeita household_id em payload)"
+    - "Pattern test mockable-friendly: vi.hoisted + vi.mock @meu-jarvis/auth/server + @/lib/agent/db-shim (Stories 2.6-2.11+3.1+3.2)"
+    - "@devops exclusive push + CodeRabbit [AUTO-DECISION] SKIPPED quando architect APPROVED ≥9.0/10 (precedente consistente)"
+
+  deferred_work_inventory:
+    - id: "NIT-001-3.2 audit_log best-effort NFR9"
+      description: "AC10 INSERT em try/catch best-effort. NFR9 imutabilidade preserved para rows existentes mas observability gap potencial se DB falha em audit_log INSERT."
+      mitigation_proposed: "Add metric counter agent.audit_log.insert_failures + alarme Grafana se rate >1% durante 5min. Eventually migrate para fail-fast transactional pattern."
+      epic_4_batch: true
+    - id: "NIT-002-3.2 move intra-column shift direction"
+      description: "Shift right siempre em tasks/[id]/move/route.ts. Para intra-column down-direction moves (position 1→3) pode gerar gaps cosméticos."
+      mitigation_proposed: "Conditional shift left/right baseada em direction."
+      epic_4_batch: true
+    - id: "NIT-001-3.1 task_tags updated_at column"
+      description: "Schema task_tags sem updated_at. Audit consistency com outras tabelas."
+      mitigation_proposed: "Future migration adicionar coluna se Story 3.6 demand."
+      epic_4_batch: true
+    - id: "NIT-006-NB Docker local"
+      description: "Docker daemon offline localmente. CI rls-gate cobre integration tests via Postgres 16 service ubuntu-latest."
+      mitigation_proposed: "@devops *setup-mcp-docker próxima sessão OU Eurico Docker Desktop start manual"
+      epic_4_batch: false
+    - id: "Migration gap 0004"
+      description: "Sequence 0000, 0001, 0002, 0003, [GAP 0004], 0005-0010. Cosmético — apply-migrations.ts ordem lexicográfica."
+      epic_4_batch: true
+    - id: "DOC-FIX-NB-3.2-1 narrative test count"
+      description: "@dev session logs '6 files' actual 7. Code correct."
+      epic_4_batch: true
+    - id: "DOC-FIX-NB-3.2-2 narrative enum count"
+      description: "Handoff Pax '23 values' actual 21. F1 conclusion stands."
+      epic_4_batch: true
+    - id: "Story 3.7 rrule upgrade Story 3.2 F2"
+      description: "Quando Story 3.7 instalar rrule lib (ED7), PATCH /api/recurrences/[id] pode upgrade backward-compatible para support custom_rrule re-compute (currently 422 UNPROCESSABLE_ENTITY)."
+      epic_4_batch: false
+      blocking_story: "Story 3.7"
+    - id: "DP4 Eurico explicit ratify (Story 3.1)"
+      description: "Morgan A (3-col kanban PT-PT 'A fazer/Em curso/Concluído') accepted silently per pattern Stories 2.X. Risk cosmetic se Eurico discordar."
+      blocking_story: "Story 3.4 (vista Kanban) — antes de UI wireframes"
+    - id: "DP2 NEW Eurico ratify (Story 3.5)"
+      description: "Morgan recommendation A: custom 7-col grid + @dnd-kit. Alternative B: react-big-calendar (~80kb dep extra)."
+      blocking_story: "Story 3.5 (vista calendário)"
+    - id: "DP5 Eurico ratify (Story 3.8)"
+      description: "Morgan recommendation A: minimal scope (title + dueDate + priority). Alternative B: full features (assignee, tags, kanban_column inline)."
+      blocking_story: "Story 3.8 (tools cérebro)"
+    - id: "EB4 Inngest workspace EU verification"
+      description: "Provisionar Inngest workspace EU Frankfurt em produção. Dev local funciona com `npx inngest-cli dev`."
+      blocking_story: "Story 3.7 PUSH only (dev local não bloqueado)"
+    - id: "Marketing files (10 untracked docs/marketing/*)"
+      description: "ad_strategy_v1.md + iris_copy.pdf + landing-page-iris.md + onboarding_email_v1.md + siris-apresent.mp4 + social_copy_v1.md + video_prompts_v1.md + video_scripts_v1.md + iris.pdf + landing-page-expressia-draft.md (deleted)"
+      action: "Eurico decide commit chore(marketing) separado OU discard/stash"
+      epic_4_batch: false
+
+  cross_terminal_resume_protocol:
+    - "Qualquer agente AIOX, ao activar-se em terminal novo, DEVE ler docs/HANDOFF-INDEX.md PRIMEIRO"
+    - "Este handoff aparece em Pending — `to_agent: any` significa qualquer agente pode consumir"
+    - "Consumo opcional — handoff é informational pause artifact, não actionable single-task"
+    - "Quando Eurico decidir Opção A-E, agente correspondente arranca + (opcional) marca este handoff consumed se quiser arquivar"
+
+critical_rules_to_remember:
+  - "Apenas @devops faz git push e gh pr create (rules ~/.claude/rules/agent-authority.md)"
+  - "PT-PT exclusivo — CON3 enforced em error messages + UI labels + comments"
+  - "EU data residency: Vercel fra1 + Supabase eu-central-1 — PRESERVADA"
+  - "NFR5 PRESERVADA — check:rls EXIT 0 todas tabelas multi-tenant"
+  - "Constitution Article IV No Invention — cross-confirm tri-validated (@sm + @po + @architect)"
+  - "Schema source-of-truth packages/db/src/schema/ apenas tasks.ts:audit.ts modificado em 3.2 (enum +13 values)"
+  - "Stories 3.3-3.8 que adicionarem routes DEVEM importar helpers `@/lib/api-helpers/{auth,audit}` (D-3.2.1 pattern reusable)"
+  - "Mockable-friendly Vitest continua mesmo após EB1 DPA UE resolved — pattern Stories 2.2-2.11+3.1+3.2"
+  - "@devops exclusive push + CodeRabbit [AUTO-DECISION] SKIP quando architect APPROVED ≥9.0/10 (precedente)"
+  - "Marketing files 10 untracked — Eurico decide SEPARADAMENTE de qualquer Story"
+
+contextual_files_to_load_in_new_session:
+  primary:
+    - "docs/HANDOFF-INDEX.md (este handoff aparece em Pending)"
+    - "docs/handoffs/mj-handoff-session-pause-after-3.2-done-20260516.yaml (este ficheiro)"
+    - "docs/epics/EPIC-3-EXECUTION.yaml v0.1 (plan completo + parallelization_opportunities)"
+    - "docs/stories/active/_INDEX.md (Epic 3 Progress 2/8 Done + Stories 3.3-3.8 Backlog)"
+  reference_recent_done_stories:
+    - "docs/stories/completed/3.1.tasks-schema-validation.md v1.3 Done"
+    - "docs/qa/gates/3.1-architect-gate.md (9.5/10 HIGH gate report)"
+    - "docs/stories/completed/3.2.tasks-api-routes.md v1.3 Done"
+    - "docs/qa/gates/3.2-architect-gate.md (9.3/10 HIGH gate report)"
+  reference_helpers_pattern_d_3_2_1:
+    - "apps/web/src/lib/api-helpers/auth.ts (requireAuth + resolveHouseholdId + resolveHouseholdRole)"
+    - "apps/web/src/lib/api-helpers/audit.ts (insertAuditLog + TasksAuditAction type union)"
+    - "apps/web/src/lib/api-schemas/ (5 Zod schemas centralizados — strict mode)"
+  reference_route_handlers_canonical:
+    - "apps/web/src/app/api/tasks/route.ts (GET list+filters+cursor + POST create)"
+    - "apps/web/src/app/api/tasks/[id]/move/route.ts (atomic drag-and-drop BEGIN/COMMIT + 409 race)"
+    - "apps/web/src/app/api/tags/[id]/route.ts (variant tags_delete_owner_admin → 403)"
+    - "apps/web/src/app/api/recurrences/[id]/route.ts (F2 422 UNPROCESSABLE_ENTITY para custom)"
+  rules:
+    - "~/.claude/rules/agent-authority.md (push exclusivity)"
+    - "~/.claude/rules/handoff-central.md (este protocolo)"
+    - "~/.claude/rules/story-lifecycle.md (Draft→Ready→InProgress→Ready for Review→Done)"
+
+session_metrics_summary:
+  total_session_duration: "~6h wall-clock"
+  agents_invoked: ["architect (Aria) ×2", "devops (Gage) ×2", "sm (River)", "po (Pax)", "dev (Dex)"]
+  stories_done: 2  # 3.1 + 3.2
+  commits_pushed: 4  # f49710b + 29de3c8 + 3fa408c + e1954b4
+  files_changed_total: "~55 (Story 3.1 = 16 files + Story 3.2 = 33 files + 2 chore close commits)"
+  tests_added: "8 RLS Story 3.1 + 61 mockable Story 3.2 = 69 tests novos"
+  tests_total_web: 291  # baseline 230 + 61 Story 3.2
+  architect_gates_passed: 2  # 9.5/10 + 9.3/10
+  decisions_ratified: 4  # D-3.1.1 + D-3.1.2 + D-3.2.1 + D-3.2.2
+  hallucinations_critical_detected: 0
+  hallucinations_minor_doc_accuracy: 2  # DOC-FIX-NB-3.2-1 + 3.2-2
+  env_blockers: 1  # Docker offline [AUTO-DECISION] consistent
+  nit_deferred_items: 8
+
+notes: |
+  - Este handoff é META — não actionable single-task. É **pause artifact** para
+    permitir resume cross-terminal sem perda de contexto.
+  - **Próximo terminal:** ler este handoff + decidir Opção A-E (recomendação Gage: A).
+  - **Eurico decisões pendentes (cosméticas):** DP4 (kanban defaults — Story 3.1
+    DP4 silent accepted) · DP2 NEW Story 3.5 · DP5 Story 3.8.
+  - **Marketing files** continuam separadas da arquitectura Stories — Eurico decide
+    quando/como integrar.
+  - **Epic 3 Progress 2/8 Done — Critical Path 3.1→3.2 completo.** Stories 3.3-3.8
+    todas desbloqueadas. Pode paralelizar agressivamente conforme
+    Epic plan §parallelization_opportunities.
+  - **Não há trabalho urgente blocking** — sessão fecha em estado limpo.
+  - **Vercel auto-deploy** Story 3.2 pós-push triggered — risco moderate (15+ novos
+    endpoints). Eurico pode validar via smoke test produção `https://expressia-black.vercel.app/api/tasks`
+    com auth real (precisa de JWT Supabase) — opcional, não bloqueia próximo passo.
