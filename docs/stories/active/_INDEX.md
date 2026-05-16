@@ -191,7 +191,7 @@ Ver `docs/epics/EPIC-2-EXECUTION.yaml` para dependency graph completo.
 | Story | Ficheiro | Título | Status | Owner | Estimate | Bloqueadores |
 |-------|---------|--------|--------|-------|----------|-------------|
 | 3.1 | [3.1.tasks-schema-validation.md](../completed/3.1.tasks-schema-validation.md) | Schema validation + RLS Testcontainers + seed defaults (Tarefas) | **Done v1.3** ✓ | @sm → @po → @dev → @architect → @devops | **S** (revised down from M per ED2) | **Done 2026-05-16 — architect gate APPROVED 9.5/10 HIGH** (empata Story 2.9 recordista Epic 2). Gate report: `docs/qa/gates/3.1-architect-gate.md` (597 linhas). 10/10 ACs PASS + 5/5 quality gates GREEN. DP4 Morgan A implementada (3-col PT-PT 'A fazer/Em curso/Concluído'). Migration 0009 aplicada + 8 RLS tests novos (extend pattern Story 1.4 harness). |
-| 3.2 | — | API routes CRUD tarefas + tags + recurrences (auth + RLS) | Backlog | @dev | M | Depende 3.1 |
+| 3.2 | [3.2.tasks-api-routes.md](../completed/3.2.tasks-api-routes.md) | API routes CRUD tarefas + tags + recurrences (auth + RLS) | **Done v1.3** ✓ | @sm → @po → @dev → @architect → @devops | M | **Done 2026-05-16 — architect gate APPROVED 9.3/10 HIGH** (empata Story 2.11; 3.1=9.5 recordista). Gate report: `docs/qa/gates/3.2-architect-gate.md` (~470 linhas). 13/13 ACs PASS + 5/5 quality gates GREEN + 291/291 web tests + Constitution 6/6. 2 [DEV-DECISION] RATIFIED PASS (D-3.2.1 HIGH-VALUE DRY helpers + D-3.2.2 IMPLEMENTATION-CHANGE). F1 HIGH migration 0010 aplicada. F2 MEDIUM 422 deferred Story 3.7. Pending @devops *push 3.2. |
 | 3.3 | — | Vista lista com filtros + ordenação + bulk actions | Backlog | @dev (+ @ux-design-expert) | M | Depende 3.2 |
 | 3.4 | — | Vista Kanban com colunas configuráveis + drag-and-drop | Backlog | @dev (+ @ux-design-expert) | L | Depende 3.2; DP1: A @dnd-kit/core (ratificado front-end-spec.md:1510) |
 | 3.5 | — | Vista calendário semanal com drag entre dias | Backlog | @dev (+ @ux-design-expert) | L | Depende 3.2; **DP2 NEW** aguarda Eurico (Morgan recomendação A: custom 7-col grid + @dnd-kit) |
@@ -209,8 +209,8 @@ Ver `docs/epics/EPIC-2-EXECUTION.yaml` para dependency graph completo.
 
 Total: 2S + 4M + 2L = 5-6 sprints (1 dev) OU 3-4 sprints (2 devs paralelo após 3.2). Saving ~1-2 sprints vs estimate inicial (Story 3.1 M→S). Ver `docs/epics/EPIC-3-EXECUTION.yaml` para dependency graph completo + decision_log ED1-ED12 + risks R1-R8.
 
-**Epic 3 Progress: 1/8 Done** (3.1 ✓ · 3.2-3.8 Backlog). Próximo: `@sm *draft 3.2` (API routes CRUD).
+**Epic 3 Progress: 2/8 Done** (3.1 ✓ · 3.2 ✓ · 3.3-3.8 Backlog). Próximo: `@devops *push 3.2` + paralelizar `@sm *draft 3.3/3.4/3.6/3.7/3.8` (todos desbloqueados pós 3.2).
 
 ---
 
-*Índice criado por River (@sm) em 2026-05-04. Actualizado 2026-05-16 com Story 3.1 Done v1.3 (architect gate APPROVED 9.5/10 HIGH). Toda a implementação deve seguir o Story Development Cycle: @dev implementa → @qa/@architect gate → @devops merge.*
+*Índice criado por River (@sm) em 2026-05-04. Actualizado 2026-05-16 com Story 3.1 Done v1.3 (architect gate APPROVED 9.5/10 HIGH) + Story 3.2 Ready v1.1 (sm draft 13 ACs + 8 tasks + 4 DPs + po validation 10/10 GO + 3 PO_FIX_INLINE defensive applied). Toda a implementação deve seguir o Story Development Cycle: @dev implementa → @qa/@architect gate → @devops merge.*

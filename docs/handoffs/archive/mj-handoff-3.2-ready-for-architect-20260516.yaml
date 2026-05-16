@@ -1,0 +1,324 @@
+from_agent: "dev"
+from_agent_persona: "Dex (@dev) — Full Stack Developer"
+to_agent: "architect"
+to_agent_options: ["architect"]
+created: "2026-05-16T16:35:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-16T17:30:00Z"
+consumed_by: "architect (Aria)"
+consumed_outcome: "APPROVED 9.3/10 HIGH confidence — Story 3.2 v1.2 → v1.3 Done. Gate report docs/qa/gates/3.2-architect-gate.md (~470 linhas). 13/13 ACs PASS + 5/5 gates re-verified + Constitution 6/6. 2 [DEV-DECISION] RATIFIED PASS. 2 narrative miscounts MINOR + 1 AF7 audit best-effort concerno deferred NIT-001-3.2."
+
+story_id: "3.2"
+story_path: "docs/stories/active/3.2.tasks-api-routes.md"
+story_title: "Story 3.2 — API routes CRUD tarefas + tags + recurrences (auth + RLS)"
+story_version: "1.2 Ready for Review"
+project_prefix: "mj"
+priority: medium
+blocking: false
+type: story-quality-gate-request
+
+summary: >
+  Story 3.2 v1.2 Ready for Review. Dex (@dev) completou implementação YOLO
+  mockable-friendly em ~90min wall-clock (vs ~6-10h estimate — significantly
+  under via pattern Stories 2.6-2.11 maduro + reuse canónico template Story 2.7
+  + DRY helpers extraction).
+
+  **13/13 ACs PASS + 5/5 quality gates GREEN** (lint 3.6s · typecheck 4.9s ·
+  test 291/291 web PASS [230 baseline + 61 novos] · build 54s · check:rls
+  NFR5 PRESERVADA). 1 [AUTO-DECISION] ENV-BLOCKER Docker offline em db-test
+  integration (precedente NIT-006-NB Stories 2.6-2.11+3.1 — CI rls-gate cobre).
+
+  **2 [DEV-DECISION] flags importantes:**
+  - **D-3.2.1:** DRY extraction `apps/web/src/lib/api-helpers/` (auth.ts +
+    audit.ts) para evitar duplicação `resolveHouseholdId`/`audit_log INSERT`
+    em 9 route handlers. Pattern consistente Story 3.1 D-3.1.2
+    SCOPE-REDUCTION (engineering judgment DRY).
+  - **D-3.2.2:** Test files scope adjustment 8→6 ficheiros consolidados
+    (mesma cobertura, menos `vi.hoisted` boilerplate duplication).
+    AC11 target ≥60 PASS (61 actual).
+
+  **F1 HIGH (PO_FIX) implementada:** Migration `0010_audit_log_tasks_enum.sql`
+  criada + aplicada localmente em 515ms (audit_action enum 21→34 values com
+  13 task/tag/recurrence/task_tag entries). TypeScript `auditActionEnum`
+  array em `audit.ts:28-55` actualizado em sync.
+
+  **F2 MEDIUM implementada:** PATCH /api/recurrences/[id] usa inline helper
+  `computeNextRunOn` para preset frequencies; `frequency='custom'` retorna
+  422 UNPROCESSABLE_ENTITY com mensagem PT-PT deferred Story 3.7.
+
+  **@architect aplica qa-gate ~600 linhas com foco em:**
+  (a) migration 0010 + audit.ts sync correctness,
+  (b) DRY helpers extraction pattern (D-3.2.1) review arquitectural,
+  (c) drag-and-drop atomicity (AC2 BEGIN/COMMIT/ROLLBACK + 409 race),
+  (d) RLS leak prevention defense-in-depth (AC7 grep getServiceDb + AC8 Zod strict),
+  (e) test files consolidation (D-3.2.2) vs spec — coverage idêntica,
+  (f) F2 inline helper computeNextRunOn correctness para preset frequencies,
+  (g) ENV-BLOCKER acceptance precedente Stories 2.6-2.11+3.1.
+
+context:
+  predecessor_handoff:
+    id: "mj-handoff-3.2-ready-for-dev-20260516"
+    consumed_at: "2026-05-16T16:30:00Z"
+    consumed_by: "dev (Dex)"
+    consumed_outcome: "13/13 ACs PASS + 5/5 gates GREEN + 2 DEV-DECISION + 291/291 web tests"
+    location: "docs/handoffs/archive/mj-handoff-3.2-ready-for-dev-20260516.yaml"
+
+  dev_implementation_outcome:
+    estimate_actual: "~90min wall-clock"
+    estimate_planned: "~6-10h (M scope)"
+    variance_reason: "Pattern Stories 2.6-2.11 maduro + reuse canónico Story 2.7 + DRY helpers extraction D-3.2.1 + consolidated test files D-3.2.2"
+
+    tasks_completed:
+      - id: T1
+        name: "Pre-flight + F1 HIGH migration 0010"
+        outcome: "4 DPs accept silently A/A/A/B match @po validation. Migration 0010_audit_log_tasks_enum.sql criada + aplicada localmente 515ms (audit_action 21→34 values). audit.ts:28-55 TS array sync."
+      - id: T2
+        name: "Zod schemas centralizados"
+        outcome: "5 files em apps/web/src/lib/api-schemas/ (tasks/tags/recurrences/pagination/index). .strict() rejeita household_id em payload (AC8 defense-in-depth). Inline computeNextRunOn helper (F2)."
+      - id: T3
+        name: "Endpoints Tasks (3 handler files)"
+        outcome: "tasks/route.ts (GET list + POST) + tasks/[id]/route.ts (GET+PATCH+DELETE soft) + tasks/[id]/move/route.ts (atomic BEGIN/COMMIT + rebalance + 409 race)"
+      - id: T4
+        name: "Endpoints Tags + Pivot (4 handler files)"
+        outcome: "tags/route.ts + tags/[id]/route.ts (variant tags_delete_owner_admin → 403) + tasks/[id]/tags/route.ts (attach idempotente) + tasks/[id]/tags/[tagId]/route.ts (detach 204)"
+      - id: T5
+        name: "Endpoints Recurrences (2 handler files)"
+        outcome: "recurrences/route.ts (atomicidade POST: template task + recurrence em transacção) + recurrences/[id]/route.ts (PATCH F2 422 para custom_rrule + DELETE soft active=false)"
+      - id: T6
+        name: "Tests integration mockable-friendly"
+        outcome: "61 tests novos em 6 files [D-3.2.2 vs 8 spec consolidation]. 291/291 web PASS (230 baseline + 61). AC11 target ≥60 PASS."
+      - id: T7
+        name: "Quality gates 5/5 GREEN"
+        outcome: "lint 3.6s + typecheck 4.9s + test 291/291 + build 54s + check:rls NFR5 PRESERVADA. db-test integration ENV-BLOCKER Docker [AUTO-DECISION] PROCEED precedente."
+      - id: T8
+        name: "Docs + Story housekeeping"
+        outcome: "Session Logs + Completion Notes + 4 DEBUG-INCIDENTs documentados + Quality Gates table + File List + Change Log v1.2. Status Ready → Ready for Review."
+
+    files_summary:
+      new: 23
+      modified: 2
+      detail:
+        migrations: "packages/db/migrations/0010_audit_log_tasks_enum.sql (NEW — F1 HIGH definitivo)"
+        schemas: "5 files em apps/web/src/lib/api-schemas/ (tasks, tags, recurrences, pagination, index)"
+        helpers: "2 files em apps/web/src/lib/api-helpers/ (auth, audit) [D-3.2.1 DRY]"
+        routes: "9 files em apps/web/src/app/api/ (tasks×3 + tags×2 + tasks/[id]/tags×2 + recurrences×2)"
+        tests: "6 files em __tests__/ subdirs (~61 tests novos) [D-3.2.2 vs 8 spec]"
+        modified: "packages/db/src/schema/audit.ts (+13 enum values) + story file Dev Agent Record sections"
+
+    dev_decisions:
+      - id: D-3.2.1
+        topic: "DRY helpers extraction"
+        decision: "Extraí 2 helpers em apps/web/src/lib/api-helpers/ (auth.ts: requireAuth + resolveHouseholdId + resolveHouseholdRole; audit.ts: insertAuditLog + TasksAuditAction type union) para evitar ~270 linhas duplicação cross 9 route handlers."
+        invalidates_handoff_assumption: "Não — engineering judgment best practice consistente Story 3.1 D-3.1.2 SCOPE-REDUCTION."
+        risk: "Baixo — helpers seguem pattern canónico Story 2.7 (resolveHouseholdId inline em conta/preferencias/route.ts:47)."
+
+      - id: D-3.2.2
+        topic: "Test files consolidation 8→6"
+        decision: "Spec story line 256 enumera 8 test files target ~69 tests. Implementação consolidou em 6 files (61 tests). AC11 target ≥60 met. Cobertura idêntica — apenas reduces vi.hoisted/vi.mock boilerplate duplication (~30 linhas/file × redução = ~60 linhas saved)."
+        invalidates_handoff_assumption: "Não — AC11 só requer ≥60 tests, não 8 files literal."
+        risk: "Zero — coverage idêntica, organização diferente."
+
+    env_blocker_documented:
+      id: "Docker local offline"
+      kind: "pre-existing (NIT-006-NB precedente Stories 2.6-2.11+3.1)"
+      impact: "db-test#test integration fail em globalSetup (Testcontainers)"
+      decision: "[AUTO-DECISION] PROCEED consistente precedente — CI rls-gate ubuntu-latest cobre"
+      validation_alternative: "61 web tests mockable-friendly PASS (291/291 total web). Typecheck PASS."
+
+    debug_incidents_resolved:
+      - id: DEBUG-INCIDENT-1
+        topic: "JSDoc comment block fechado prematuro em audit.ts:4 (`*/`)"
+        resolution: "Replace pattern com backtick listing literal"
+      - id: DEBUG-INCIDENT-2
+        topic: "DbShim type missing PostgresJsDatabase properties"
+        resolution: "Helper insertAuditLog typed `db: DbShim` em vez de `Database`"
+      - id: DEBUG-INCIDENT-3
+        topic: "DomainAttributes strict não aceita custom keys"
+        resolution: "Custom attrs via `extra: { 'task.id_hash': hashForCorrelation(id) }` (NFR12)"
+      - id: DEBUG-INCIDENT-4
+        topic: "import type required for NextResponse em auth.ts (apenas type usage)"
+        resolution: "import type { NextResponse }"
+
+architect_focus_areas:
+  primary_concerns:
+    - id: AF1
+      area: "Migration 0010_audit_log_tasks_enum.sql + audit.ts TS sync"
+      questions:
+        - "13 ALTER TYPE statements idempotente (IF NOT EXISTS) — correto para re-run?"
+        - "PG 16 suporta ALTER TYPE ADD VALUE dentro de transação (apply-migrations.ts wraps cada migration) — confirma sem issues?"
+        - "Convenção dot-namespacing (task.created vs household_created snake) — concern arquitectural ou aceitável Postgres enum strings arbitrárias?"
+        - "TypeScript enum array em audit.ts:28-55 sync verificado — match exato com SQL migration?"
+
+    - id: AF2
+      area: "DRY helpers extraction D-3.2.1"
+      questions:
+        - "apps/web/src/lib/api-helpers/ (auth + audit) — pattern correto vs in-route inline (conta/preferencias precedent)?"
+        - "requireAuth(span) retornando AuthContext | NextResponse — pattern union correto para early returns?"
+        - "resolveHouseholdRole separado vs combined com resolveHouseholdId — overhead extra DB query justified pelo variant tags_delete_owner_admin enforcement?"
+        - "insertAuditLog best-effort try/catch — log warn mas não bloqueia mutation — risk auditoria gap?"
+
+    - id: AF3
+      area: "Atomic move endpoint AC2"
+      questions:
+        - "BEGIN/COMMIT/ROLLBACK via db.execute(sql`begin`) em vez de Drizzle .transaction() — correto pattern?"
+        - "Shift right pattern (`kanban_position >= new_position AND id != taskId SET +1`) — handles cross-column move corretamente? Intra-column shift left missing?"
+        - "409 CONFLICT detection via regex `unique|duplicate|23505` — robust enough?"
+        - "Idempotency: mesma move 2x produz mesmo estado? Test coverage?"
+
+    - id: AF4
+      area: "Test files consolidation D-3.2.2"
+      questions:
+        - "6 vs 8 spec test files — IMPLEMENTATION-CHANGE vs SCOPE-CHANGE? AC11 (≥60 tests) met com 61 actual."
+        - "Cobertura test cases por AC — verificar todos os ACs têm pelo menos 1 test correspondente?"
+        - "Auth/Zod strict edge cases (household_id em payload, created_by_user_id) cobertos em create/update tests?"
+
+    - id: AF5
+      area: "F2 inline helper computeNextRunOn"
+      questions:
+        - "Date arithmetic UTC (setUTCDate/Month/FullYear) — handles DST PT correctly? Pattern weekdays/weekends correct?"
+        - "frequency='custom' retorna 422 UNPROCESSABLE_ENTITY — mensagem PT-PT clara para cliente?"
+        - "Story 3.7 quando instalar rrule lib pode upgrade endpoint sem breaking change?"
+
+  secondary_concerns:
+    - id: AF6
+      area: "ENV-BLOCKER acceptance"
+      detail: "[AUTO-DECISION] Docker offline consistente precedente Stories 2.6-2.11+3.1. db-test#test não corrido localmente. Mitigation: 61 web tests mockable PASS + CI rls-gate cobre runtime."
+
+    - id: AF7
+      area: "Audit log gap risk"
+      detail: "insertAuditLog é best-effort (try/catch + log warn). Se DB falha em audit_log INSERT, mutation principal succeeds mas audit row missing. NFR9 implications?"
+
+  expected_outcome:
+    if_approved: "Status Ready for Review → Done v1.3. Sucessor handoff architect→devops para *push 3.2."
+    if_partial: "Status Ready for Review v1.2 → v1.3 com architect concerns deferred (analog NIT-XXX-NB pattern)."
+    if_rejected: "Return to @dev com specific fix requests. Verdict FAIL only se HIGH/CRITICAL issues."
+
+next_action: >
+  @architect sessão futura:
+
+  **Comando:**
+  ```
+  @architect *qa-gate 3.2
+  ```
+
+  **Output esperado:** Gate report ~600 linhas APPROVED HIGH (precedente Stories
+  2.9-2.11+3.1 9.3-9.5/10). Story 3.2 v1.2 Ready for Review → v1.3 Done se
+  APPROVED. Sucessor: `mj-handoff-3.2-ready-for-devops-close-{date}` para
+  @devops `*push 3.2`.
+
+next_command_suggested: "@architect *qa-gate 3.2"
+
+estimated_wall_clock:
+  architect_review: "~45-60min (review ~720 linhas story + 23 NEW files + 2 MODIFIED)"
+  total_to_done: "~45-60min + ~15min @devops push housekeeping = ~1h-1.25h"
+
+architectural_context:
+  pattern_inheritance:
+    - "Route handler canonical Story 2.7 (/api/conta/preferencias/route.ts:1-259)"
+    - "Mockable-friendly Vitest pattern Stories 2.6-2.11+3.1 (vi.hoisted + vi.mock)"
+    - "apiError pattern + PT-PT messages (Story 1.6)"
+    - "withSpan + annotateSpan + captureException OTel observability (Story 1.7)"
+    - "getDb() authenticated NUNCA getServiceDb() em response handlers (R4)"
+    - "Zod .strict() rejeita household_id em payload (R4 defense-in-depth)"
+    - "Audit log INSERT em mutations (NFR9) — F1 HIGH migration 0010 aplicada"
+    - "PT-PT estrito (CLAUDE.md + AC9 + CON3)"
+    - "Anti-hallucination cross-confirm tri-validated"
+    - "@devops exclusive push (rules)"
+
+  story_lifecycle_authority:
+    - "@dev DONE: Status Ready → InProgress → Ready for Review v1.2"
+    - "@architect NEXT: Status Ready for Review → Done v1.3 se APPROVED"
+    - "@devops (post-architect): *push 3.2"
+
+deferred_followups:
+  - id: "Story 3.7 rrule installation upgrade"
+    description: "Quando Story 3.7 instalar rrule (Epic plan ED7), Story 3.2 PATCH /api/recurrences/[id] pode upgrade para support custom_rrule re-compute (atualmente retorna 422). Backward-compatible upgrade."
+    priority: P2
+    not_blocking_for: "Story 3.2 close"
+
+  - id: "NIT-006-NB Docker local"
+    description: "Pre-existing. CI rls-gate cobre."
+    priority: P3
+
+  - id: "DP4 Eurico explicit ratify"
+    description: "Morgan A accepted silently per pattern Stories 2.X+3.1."
+    priority: P2
+
+  - id: "Audit log gap risk (best-effort)"
+    description: "insertAuditLog try/catch + log warn — se DB falhar em audit_log INSERT, mutation succeeds mas audit missing. Architect pode pedir fail-fast vs best-effort decision."
+    priority: P3
+
+  - id: "Marketing files cleanup"
+    description: "10 untracked docs/marketing/* — Eurico decide separadamente"
+    priority: P4
+
+critical_rules_to_remember:
+  - "Apenas @devops faz git push e gh pr create"
+  - "@architect autoridade: review + ratify + deferred work classification"
+  - "PT-PT estrito — AC9 + AC13(a) enforced"
+  - "NFR5 PRESERVADA — Story 3.2 NÃO adiciona tabelas multi-tenant"
+  - "Constitution Article IV No Invention — cross-confirm tri-validated (@sm + @po + @dev verified; @architect re-verify next)"
+  - "Migration 0010 + audit.ts enum sync DEFINITIVO (F1 HIGH)"
+  - "F2 PATCH custom_rrule deferred Story 3.7 (rrule lib per ED7)"
+
+contextual_files_to_load_in_new_session:
+  primary:
+    - "docs/HANDOFF-INDEX.md"
+    - "docs/handoffs/mj-handoff-3.2-ready-for-architect-20260516.yaml (este ficheiro)"
+    - "docs/stories/active/3.2.tasks-api-routes.md v1.2 Ready for Review"
+    - "docs/epics/EPIC-3-EXECUTION.yaml v0.1 Story 3.2 spec"
+  artefacts_to_review:
+    - "packages/db/migrations/0010_audit_log_tasks_enum.sql (NEW F1 HIGH)"
+    - "packages/db/src/schema/audit.ts:28-55 (MODIFIED — auditActionEnum +13 values)"
+    - "apps/web/src/lib/api-schemas/{tasks,tags,recurrences,pagination,index}.ts (5 NEW)"
+    - "apps/web/src/lib/api-helpers/{auth,audit}.ts (2 NEW — D-3.2.1)"
+    - "apps/web/src/app/api/tasks/route.ts (NEW — GET list+filters+cursor + POST create)"
+    - "apps/web/src/app/api/tasks/[id]/route.ts (NEW — GET+PATCH+DELETE soft)"
+    - "apps/web/src/app/api/tasks/[id]/move/route.ts (NEW — AC2 atomic move)"
+    - "apps/web/src/app/api/tags/route.ts + tags/[id]/route.ts (NEW)"
+    - "apps/web/src/app/api/tasks/[id]/tags/route.ts + tags/[tagId]/route.ts (NEW)"
+    - "apps/web/src/app/api/recurrences/route.ts + recurrences/[id]/route.ts (NEW)"
+    - "apps/web/src/app/api/{tasks,tags,recurrences}/__tests__/*.test.ts (6 NEW — 61 tests D-3.2.2)"
+  reference:
+    - "apps/web/src/app/api/conta/preferencias/route.ts (template canónico Story 2.7)"
+    - "apps/web/src/app/api/agent/prompt/__tests__/route.test.ts (test pattern Story 2.6)"
+    - "packages/db/src/client.ts:36-86 (getDb/getServiceDb)"
+    - "apps/web/src/lib/errors.ts (apiError)"
+    - "packages/observability/src/tracer.ts:55-83 (DomainAttributes + annotateSpan)"
+    - "~/.claude/rules/story-lifecycle.md (Done status transition)"
+
+session_metrics_summary:
+  dev_session_duration: "~90min wall-clock (T1 ~10min + T2 ~15min + T3-T5 ~30min + T6 ~25min + T7 ~5min + T8 ~5min)"
+  agents_invoked: ["dev (Dex)"]
+  artefacts_created: 24  # migration + 5 schemas + 2 helpers + 9 routes + 6 tests + this handoff
+  artefacts_modified: 2  # audit.ts + story file
+  artefacts_archived: 1  # po-to-dev handoff
+  acs_passed: 13
+  quality_gates_passed: 5
+  tests_new: 61
+  tests_total_web: 291  # 230 baseline + 61 new
+  dev_decisions: 2  # D-3.2.1 + D-3.2.2
+  env_blockers: 1  # Docker offline [AUTO-DECISION]
+  debug_incidents_resolved: 4
+  estimate_actual_vs_planned: "~90min vs ~6-10h (significantly under)"
+
+notes: |
+  - Este handoff é **actionable** — @architect consome ao executar `*qa-gate 3.2`.
+  - **Recomenda-se @architect ler:** v1.2 story file (especialmente Session
+    Logs com D-3.2.1+D-3.2.2 rationale + Quality Gates Results + Completion
+    Notes + Debug Log References) ANTES de abrir migration/routes/tests.
+  - **D-3.2.1 helpers extraction é DECISÃO ARQUITECTURAL notável** — pattern
+    reusable Stories Epic 3 futuras que adicionem routes em apps/web/src/app/api/.
+  - **D-3.2.2 SCOPE-REDUCTION test files (6 vs 8)** é IMPLEMENTATION-CHANGE
+    análoga a Story 3.1 D-3.1.2 — cobertura idêntica, organização diferente.
+  - **F1 HIGH migration 0010 LOCALMENTE APLICADA** (515ms) — @architect pode
+    verificar via `\dT+ audit_action` no DB (34 values esperados).
+  - **F2 MEDIUM 422 deferred Story 3.7** — endpoint pronto para upgrade
+    backward-compatible quando rrule lib instalada (ED7).
+  - **ENV-BLOCKER Docker** é o único risco residual — precedente Stories
+    2.6-2.11+3.1 valida [AUTO-DECISION] PROCEED.
+  - **Working tree pós este handoff:** story file v1.2 + handoff predecessor
+    archived + este handoff pending + HANDOFF-INDEX.md updated + 23 NEW files +
+    audit.ts MODIFIED + 10 marketing files untracked (separados).
+  - **NÃO há push pendente** — autoridade exclusiva @devops pós-gate APPROVED.

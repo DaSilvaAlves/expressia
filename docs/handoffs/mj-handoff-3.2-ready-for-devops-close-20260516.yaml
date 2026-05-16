@@ -1,0 +1,186 @@
+from_agent: "architect"
+from_agent_persona: "Aria (@architect) — Holistic System Architect"
+to_agent: "devops"
+to_agent_options: ["devops"]
+created: "2026-05-16T17:35:00Z"
+status: pending
+consumed: false
+
+story_id: "3.2"
+story_path: "docs/stories/active/3.2.tasks-api-routes.md"
+story_title: "Story 3.2 — API routes CRUD tarefas + tags + recurrences (auth + RLS)"
+story_version: "1.3 Done (post-architect-gate APPROVED 9.3/10)"
+project_prefix: "mj"
+priority: high
+blocking: false
+type: story-close-and-push
+
+summary: >
+  Story 3.2 v1.3 Done. Architect gate APPROVED **9.3/10 HIGH confidence** —
+  empata Story 2.11 (3.1 = 9.5/10 recordista). Gate report ~470 linhas em
+  `docs/qa/gates/3.2-architect-gate.md`. 13/13 ACs PASS + 5/5 quality gates
+  re-verified independently + Constitution 6/6 compliant.
+
+  **@devops *push 3.2 consolida 23 NEW + 2 MODIFIED + 1 NEW gate report +
+  1 NEW handoff (este) + 1 ARCHIVED handoff:**
+  - NEW migration: `packages/db/migrations/0010_audit_log_tasks_enum.sql`
+  - NEW 5 Zod schemas em `apps/web/src/lib/api-schemas/`
+  - NEW 2 helpers em `apps/web/src/lib/api-helpers/` (D-3.2.1 HIGH-VALUE)
+  - NEW 9 route handlers em `apps/web/src/app/api/{tasks,tags,recurrences}/`
+  - NEW 7 test files em `__tests__/` subdirs (D-3.2.2 — 61 tests)
+  - NEW gate report: `docs/qa/gates/3.2-architect-gate.md`
+  - NEW handoff: este ficheiro
+  - MODIFIED: `packages/db/src/schema/audit.ts` (auditActionEnum +13 values)
+  - MODIFIED: story file v1.3 Done (move active → completed)
+  - MODIFIED: `docs/stories/active/_INDEX.md` (Story 3.2 Done + Epic 3 Progress)
+  - MODIFIED: `docs/HANDOFF-INDEX.md` (consume + add archived)
+  - ARCHIVED: `docs/handoffs/archive/mj-handoff-3.2-ready-for-architect-20260516.yaml`
+
+architect_gate_outcome:
+  verdict: "APPROVED"
+  score: "9.3/10 HIGH confidence"
+  date: "2026-05-16"
+  precedent_position: "Empata Story 2.11 (9.3/10). Story 3.1 (9.5/10) é recordista Epic 2-3."
+  gate_report: "docs/qa/gates/3.2-architect-gate.md"
+  gate_report_size: "~470 lines"
+
+  score_breakdown:
+    architecture_coherence: 0.95
+    nfrs_coverage: 0.95
+    constitution_6_articles: 1.0
+    tests: 0.90
+    decision_quality: 0.95
+    documentation: 0.95
+    bonus_engineering_judgment: 0.05
+    bonus_debug_self_resolution: 0.05
+    total: 9.3
+
+  re_verifications_5_5:
+    - gate: "typecheck"
+      result: "9/9 PASS · cached 8/9 + tsc fresh 23.7s"
+    - gate: "lint"
+      result: "9/9 PASS · 0 warnings · FULL TURBO 9/9 cached · 141ms"
+    - gate: "test web"
+      result: "29 test files PASS · duration 23.78s · 291/291 web"
+    - gate: "check:rls"
+      result: "EXIT 0 · NFR5 PRESERVADA — 5 tabelas Tarefas confirmadas"
+    - gate: "Cross-confirm migration + enum sync"
+      result: "5 task.* TS values + 13 SQL ALTER TYPE statements sync"
+
+  cross_confirm_anti_hallucination:
+    sources_verified: 10
+    hallucinations_critical: 0
+    hallucinations_minor: 2  # DOC-FIX-NB-3.2-1 (6 vs 7 test files) + DOC-FIX-NB-3.2-2 (23 vs 21 enum count)
+
+  acs_passed: 13
+  acs_failed: 0
+  decisions_ratified: 4  # D-3.2.1 + D-3.2.2 + ENV-BLOCKER + 4 DPs silent
+
+next_action: |
+  @devops *push 3.2
+
+  **Pre-push checklist:**
+  1. Validate working tree — verificar artefactos esperados:
+     - NEW: docs/qa/gates/3.2-architect-gate.md
+     - NEW: docs/handoffs/mj-handoff-3.2-ready-for-devops-close-20260516.yaml (este)
+     - NEW: packages/db/migrations/0010_audit_log_tasks_enum.sql
+     - NEW: 5 schemas + 2 helpers + 9 routes + 7 tests = 23 files em apps/web/
+     - MODIFIED: packages/db/src/schema/audit.ts (enum +13 values)
+     - MODIFIED: docs/stories/active/3.2.tasks-api-routes.md (v1.3 Done)
+     - MODIFIED: docs/HANDOFF-INDEX.md + _INDEX.md
+     - ARCHIVE MOVES: mj-handoff-3.2-ready-for-architect-20260516.yaml
+
+  2. Move story file: `docs/stories/active/3.2.tasks-api-routes.md` → `docs/stories/completed/`
+
+  3. Update `_INDEX.md`: Story 3.2 path active → completed + Epic 3 Progress 1/8 Done + 1/8 Ready for Review → 2/8 Done
+
+  4. Mark este handoff consumed após push successful
+
+  5. Marketing files (10 untracked) — Eurico decide commit/discard SEPARADAMENTE (NÃO bloqueia 3.2 push)
+
+  6. CodeRabbit pre-PR recomendado (gate já APPROVED 9.3/10 mas defesa em profundidade @devops standard — self-healing 2 iterations max)
+
+  7. Conventional commit suggestion:
+     ```
+     feat(api,tasks): Story 3.2 CRUD endpoints tarefas+tags+recurrences (auth+RLS) [Story 3.2]
+
+     - 15+ route handlers em apps/web/src/app/api/{tasks,tags,recurrences}/
+     - Zod schemas centralizados strict mode (defense-in-depth R4)
+     - DRY helpers extraction api-helpers/ (D-3.2.1 HIGH-VALUE)
+     - Migration 0010_audit_log_tasks_enum.sql (+13 enum values F1 HIGH)
+     - 61 tests mockable-friendly (AC11 ≥60 met)
+     - Architect gate APPROVED 9.3/10 HIGH (docs/qa/gates/3.2-architect-gate.md)
+     - 13/13 ACs PASS + 5/5 quality gates GREEN
+
+     Co-Authored-By: Aria @architect
+     Co-Authored-By: Dex @dev
+     Co-Authored-By: Pax @po
+     Co-Authored-By: River @sm
+     ```
+
+next_command_suggested: "@devops *push 3.2"
+
+estimated_wall_clock:
+  devops_push: "~20-25min (working tree validation + story move + INDEX updates + handoff archive + commit + push + housekeeping)"
+  total_to_full_close: "~25min"
+
+deferred_followups:
+  - id: "NIT-001-3.2 audit_log best-effort NFR9"
+    description: "AC10 INSERT em try/catch best-effort. Recommendation: add metric counter agent.audit_log.insert_failures + alarme Grafana. Eventually migrate para fail-fast transactional."
+    priority: P3
+  - id: "NIT-002-3.2 move intra-column shift direction"
+    description: "Shift right siempre — para intra-column down-direction pode gerar gaps cosméticos. Conditional shift left/right."
+    priority: P3
+  - id: "DOC-FIX-NB-3.2-1 narrative test count"
+    description: "@dev session logs '6 files' actual 7. Code correct, doc typo."
+    priority: P4
+  - id: "DOC-FIX-NB-3.2-2 narrative enum count"
+    description: "Handoff @po '23 valores' actual 21. F1 conclusion stands."
+    priority: P4
+  - id: "Story 3.7 rrule upgrade"
+    description: "F2 currently 422 UNPROCESSABLE_ENTITY para custom_rrule. Story 3.7 instalará rrule → backward-compatible upgrade."
+    priority: P2
+  - id: "NIT-006-NB Docker local"
+    description: "Pre-existing. CI rls-gate cobre."
+    priority: P3
+  - id: "Marketing files cleanup"
+    description: "10 untracked — Eurico decide separadamente"
+    priority: P4
+
+critical_rules_to_remember:
+  - "Apenas @devops faz git push e gh pr create"
+  - "PT-PT exclusivo — AC9 + AC13(a) enforced"
+  - "EU data residency: Vercel fra1 + Supabase eu-central-1"
+  - "NFR5 PRESERVADA — check:rls EXIT 0 todas tabelas multi-tenant"
+  - "Constitution Article IV No Invention — cross-confirm tri-validated (zero CRÍTICAS)"
+  - "Migration 0010 aplicada localmente 515ms (audit_action 21→34 values)"
+  - "Story file v1.3 Done — este handoff apenas close + push"
+
+contextual_files_to_load_in_new_session:
+  primary:
+    - "docs/HANDOFF-INDEX.md"
+    - "docs/handoffs/mj-handoff-3.2-ready-for-devops-close-20260516.yaml (este)"
+    - "docs/qa/gates/3.2-architect-gate.md (gate report ~470 linhas)"
+    - "docs/stories/active/3.2.tasks-api-routes.md v1.3 Done"
+
+session_metrics_summary:
+  architect_session_duration: "~30min (Read story + 5 reference files + grep counts + 5/5 gates re-run + ~470 lines gate report + story update + handoff)"
+  agents_invoked: ["architect (Aria)"]
+  artefacts_created: 2  # gate report + this handoff
+  artefacts_modified: 1  # story file v1.2 → v1.3
+  artefacts_archived: 1  # dev-to-architect handoff
+  acs_passed: 13
+  decisions_ratified: 4
+  hallucinations_detected_critical: 0
+  hallucinations_detected_minor: 2
+
+notes: |
+  - Este handoff é actionable — @devops consome ao executar `*push 3.2`.
+  - **@devops deve LER:** gate report `docs/qa/gates/3.2-architect-gate.md` ANTES
+    de `*push 3.2` para entender escopo + recommendations forward.
+  - **2 MINOR doc accuracy issues** non-blocking (DOC-FIX-NB-3.2-1 + 3.2-2) —
+    code estructura correcta.
+  - **AF7 audit_log best-effort** é único architect concerno noteworthy — NFR9
+    imutabilidade preserved mas observability gap potencial (NIT-001-3.2 Epic 4).
+  - **Sucessor após este handoff:** Story 3.3 (vista lista) — @sm próxima sessão
+    OU paralelizar 3.3-3.8 conforme Epic plan parallelization_opportunities.

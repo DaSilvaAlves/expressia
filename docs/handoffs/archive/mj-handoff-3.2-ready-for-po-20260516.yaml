@@ -1,0 +1,292 @@
+from_agent: "sm"
+from_agent_persona: "River (@sm) — Technical Scrum Master"
+to_agent: "po"
+to_agent_options: ["po"]
+created: "2026-05-16T02:00:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-16T02:45:00Z"
+consumed_by: "po (Pax)"
+consumed_outcome: "GO 10/10 + 3 PO_FIX_INLINE applied defensive (F1 HIGH audit_action enum gap CONFIRMED absoluto · F2 MEDIUM rrule cross-ref correction `DP3-3.2`→`ED7` + inline helper clarification · F3 LOW test count baseline precision). 4 DPs accepted silently A/A/A/B. Status Draft v1.0 → Ready v1.1."
+
+story_id: "3.2"
+story_path: "docs/stories/active/3.2.tasks-api-routes.md"
+story_title: "Story 3.2 — API routes CRUD tarefas + tags + recurrences (auth + RLS)"
+story_version: "1.0 Draft"
+project_prefix: "mj"
+priority: medium
+blocking: false
+type: story-draft-validation-request
+
+summary: >
+  Story 3.2 v1.0 Draft criada por River (@sm) seguindo workflow
+  `create-next-story.md` + Epic 3 plan v0.1 (Morgan @pm) Story 3.2 spec
+  (lines 215-242) + Story 3.1 v1.3 Done APPROVED 9.5/10 HIGH precedente
+  template. **13 ACs + 8 Tasks/Subtasks + 4 Decision Points + NFR Coverage
+  + Risks R2/R4 mitigation.**
+
+  **Scope:** API surface (15+ Next.js Route Handlers) sob
+  `apps/web/src/app/api/{tasks,tags,recurrences}/` com Zod schemas
+  centralizados em `apps/web/src/lib/api-schemas/` (DP1-3.2 recommendation
+  A inline), auth Supabase JWT + RLS automático via `getDb()`, paginação
+  cursor-based (DP3-3.2), drag-and-drop atómico, tags pivot CRUD, soft
+  delete via `status='archived'` (DP2-3.2), defer `kanban_columns` CRUD
+  para Story 3.4 (DP4-3.2). ~69 integration tests mockable-friendly
+  pattern Stories 2.6-2.11.
+
+  **Cross-confirm anti-hallucination contra codebase real (8 fontes
+  verified):** schema tasks.ts:59-221 + tenancy.ts:152-173 + RLS
+  0001:150-435 + client.ts:36-86 (getDb/getServiceDb) + errors.ts:43-60
+  (apiError) + conta/preferencias/route.ts (template canónico Story 2.7)
+  + agent/prompt/__tests__/route.test.ts:1-80 (mockable-friendly Vitest
+  pattern Story 2.6) + packages/auth/src/server.ts
+  (createServerSupabaseClient).
+
+  **@po executa:** `*validate-story-draft 3.2` com 10-point checklist +
+  cross-confirm anti-hallucination contra mesmas 8 fontes (defensive
+  re-verify) + PO_FIX_INLINE se detectar gaps. 4 DPs aguardam Eurico
+  ratify OR @po silent accept per pattern Stories 2.X+3.1.
+
+context:
+  predecessor_session:
+    description: >
+      Story 3.1 ciclo completo fechado nesta mesma sessão Eurico:
+      @architect *qa-gate 3.1 APPROVED 9.5/10 (commit f49710b) →
+      @devops *push 3.1 (16 files, 3703 insertions) + chore close cycle
+      (29de3c8). Story 3.1 v1.3 Done em produção. Vercel auto-deploy
+      fra1 triggered.
+
+    just_pushed_commits:
+      - "f49710b feat(db,tasks): Story 3.1 schema validation + RLS tests extension + kanban seed defaults"
+      - "29de3c8 chore(handoffs): close Story 3.1 cycle — architect→devops handoff consumed + archived"
+
+  sm_draft_outcome:
+    estimate_wall_clock: "~30min (read schemas + Epic plan + 4 reference files + write 600+ line story)"
+
+    files_referenced_for_cross_confirm:
+      - "packages/db/src/schema/tasks.ts:59-221 (FULL read — 4 tabelas Tarefas COMPLETE)"
+      - "packages/db/src/schema/tenancy.ts:152-173 (kanban_columns confirmed Story 3.1)"
+      - "packages/db/migrations/0001_rls_policies.sql:150-435 (RLS policies confirmed Story 3.1)"
+      - "packages/db/src/client.ts:36-86 (getDb/getServiceDb FULL pattern)"
+      - "apps/web/src/lib/errors.ts:43-60 (apiError signature FULL)"
+      - "apps/web/src/app/api/conta/preferencias/route.ts:1-259 (FULL canonical template Story 2.7)"
+      - "apps/web/src/app/api/agent/prompt/__tests__/route.test.ts:1-80 (mockable-friendly test pattern Story 2.6)"
+      - "packages/auth/src/server.ts (createServerSupabaseClient — package listing confirmed)"
+
+    files_glob_explored:
+      - "apps/web/src/app/api/**/route.ts (6 routes existentes: agent/prompt + confirm + undo, conta/preferencias, inngest, me)"
+      - "apps/web/src/lib/agent/* (8 ts files: audit-log, cache, cost-router, db-shim, idempotency, rate-limiter, redaction, tracing)"
+      - "packages/ (8 packages: agent, auth, classifier, db, db-test, observability, planner-executor, tools)"
+      - "Confirmed: NÃO existe packages/tasks/ — DP1-3.2 recommendation A inline justificada"
+      - "Confirmed: NÃO existem routes em apps/web/src/app/api/tasks|tags|recurrences/ — greenfield directory"
+
+    story_content_summary:
+      total_lines: "~620 linhas"
+      acs_count: 13
+      tasks_count: 8
+      subtasks_count: "~40"
+      decision_points: 4
+      risks_mitigated: ["R2 (drag race conditions)", "R4 (RLS leak via API)"]
+      nfrs_covered: ["NFR1 latency", "NFR5 RLS", "NFR9 audit", "NFR10 GDPR", "NFR11 EU", "NFR12 PII whitelist", "NFR19 imports", "CON3 PT-PT"]
+
+  decision_points:
+    - id: DP1-3.2
+      topic: "Localização Zod schemas — apps/web/src/lib/api-schemas/ inline vs packages/tasks/ cross-package"
+      recommendation_sm: "A inline em apps/web/src/lib/api-schemas/"
+      rationale: "Stories 3.3/3.4/3.5/3.6 são apps/web UI; Story 3.8 tools cérebro em packages/tools/ pode duplicar schemas Zod (~30 linhas — aceitável KISS para MVP); refactor cross-package em Epic 5+ se demand real demonstrar"
+      blocks: "T2 schemas creation path"
+
+    - id: DP2-3.2
+      topic: "Soft delete strategy"
+      options: ["A status='archived' (zero schema change)", "B hard DELETE", "C nova column deleted_at"]
+      recommendation_sm: "A status='archived'"
+      rationale: "Enum value 'archived' já existe tasks.ts:41; UI filtra WHERE status != 'archived' por default; hard DELETE reservado para NFR10 GDPR purge job; alternativa C requer migration nova desnecessária"
+      blocks: "T3.2 DELETE handler"
+
+    - id: DP3-3.2
+      topic: "Pagination strategy — cursor-based vs offset-based"
+      recommendation_sm: "A cursor-based"
+      rationale: "Epic plan line 232 já indica cursor-based per limit=50; mais performant em 10k+ tasks; estável em concurrent inserts"
+      blocks: "T2.1 TaskFiltersSchema + T3.1 GET /api/tasks"
+
+    - id: DP4-3.2
+      topic: "kanban_columns CRUD endpoints — em Story 3.2 OU defer 3.4"
+      recommendation_sm: "B defer 3.4"
+      rationale: "Reduz scope 3.2 (já é M com 15+ routes); Story 3.4 (vista Kanban L) consome + cria UI sidebar ColumnConfig.tsx per Epic plan line 287; seed defaults Story 3.1 já cobre onboarding zero-config; aceitar B economiza ~4 endpoints + ~10 tests = ~10% scope creep evitado"
+      blocks: "Decision se incluir /api/kanban-columns/ em 3.2 file list"
+
+  acs_summary:
+    - "AC1: 5 endpoints Tasks CRUD (list+filters+pagination, POST, GET single, PATCH, DELETE soft)"
+    - "AC2: PATCH /api/tasks/[id]/move atómico + rebalance + 409 race"
+    - "AC3: 4 endpoints Tags CRUD + variant tags_delete_owner_admin → 403"
+    - "AC4: 2 endpoints Tags pivot (attach/detach) + cross-household 404"
+    - "AC5: 5 endpoints Recurrences CRUD + atomicidade POST (template + recurrence)"
+    - "AC6: Pagination cursor-based base64 + filters compostos"
+    - "AC7: getDb() pattern em TODOS endpoints (grep getServiceDb = 0)"
+    - "AC8: Zod .strict() rejeita household_id em payload (defense-in-depth)"
+    - "AC9: Standardized error codes + PT-PT messages (apiError pattern)"
+    - "AC10: OTel spans + Pino logs + audit_log INSERT por mutation (cross-confirm enum T1.5)"
+    - "AC11: ~69 tests integration mockable-friendly passing"
+    - "AC12: 5/5 quality gates GREEN"
+    - "AC13: PT-PT + imports absolutos + Constitution 6/6"
+
+po_focus_areas:
+  primary_validation:
+    - id: PFA1
+      area: "10-point checklist completeness"
+      questions:
+        - "AC1-AC13 cobrem scope completo Epic plan line 222-237?"
+        - "Tasks T1-T8 com subtasks granulares suficientes para @dev YOLO?"
+        - "DPs DP1-DP4 documentados com rationale + alternativas claras?"
+        - "Bloqueadores externos correctamente classificados (todos NÃO afecta)?"
+        - "Dependencies internas Done verificadas (3.1+1.5+1.6+1.7+2.1+2.6-2.11+2.7)?"
+
+    - id: PFA2
+      area: "Anti-hallucination cross-confirm"
+      questions:
+        - "Re-verificar independentemente 3-4 source files citados (tasks.ts, errors.ts, conta/preferencias/route.ts, agent/prompt/route.test.ts) — line numbers precisos?"
+        - "Detectar PO_FIX_INLINE se schemas/policies/patterns drift inline (precedente Story 3.1 v1.0→v1.1 F1)?"
+
+    - id: PFA3
+      area: "DPs validation"
+      questions:
+        - "DP1-3.2 inline vs cross-package — Eurico ratify ou silent accept A?"
+        - "DP2-3.2 soft delete status='archived' — alinhado com NFR10 GDPR?"
+        - "DP3-3.2 cursor pagination — implementation detail aceitable @sm-level?"
+        - "DP4-3.2 defer kanban_columns CRUD 3.4 — confirm scope reduction aceita?"
+
+    - id: PFA4
+      area: "Enum audit_action cross-confirm pre-flight (T1.5)"
+      questions:
+        - "Verificar packages/db/src/schema/audit.ts se enum tem values task.*/tag.*/recurrence.*/task_tag.*"
+        - "Se ausentes, antecipar migration 0010_audit_log_tasks_enum.sql (mitigar Story 2.7 D36 precedent enum gap discovery)"
+
+  secondary_concerns:
+    - id: PFA5
+      area: "Atomicidade move + race conditions"
+      detail: "AC2 specifica BEGIN/COMMIT/ROLLBACK + rebalance siblings — verificar que tests cobrem 2 users simulta race (409 CONFLICT)"
+
+    - id: PFA6
+      area: "Test count baseline"
+      detail: "Story 2.6 baseline web = 153 tests (Story 2.9 confirmed); Story 2.11 web = 229; após 3.1 web = 230. Story 3.2 +~69 → ~299 web esperado. Validar T7.3 expected number alinhado"
+
+  expected_outcome:
+    if_go: "Status Draft v1.0 → Ready v1.1 com (eventual) PO_FIX_INLINE F-list. Sucessor handoff po→dev mj-handoff-3.2-ready-for-dev-20260516"
+    if_no_go: "Status Draft v1.0 → return @sm com required fixes list (precedente raro — Story 3.1 v1.0 → v1.1 só teve 1 F minor defensive)"
+
+next_action: >
+  @po sessão futura:
+
+  **Comando:**
+  ```
+  @po *validate-story-draft 3.2
+  ```
+
+  **Output esperado:**
+  - PO Validation Block adicionada ao story file (10-point checklist scores +
+    cross-confirm tables + concerns + verdict)
+  - Status Draft v1.0 → Ready v1.1 (se GO ≥7/10)
+  - PO_FIX_INLINE applied se F-list necessária (precedente Story 3.1 v1.0→v1.1
+    teve 1 F minor defensive — tags variant note)
+  - 4 DPs accept silently (per pattern Stories 2.X+3.1) OR escalate para Eurico
+    ratify se discordar
+  - Sucessor handoff `mj-handoff-3.2-ready-for-dev-{date}.yaml` pending
+
+next_command_suggested: "@po *validate-story-draft 3.2"
+
+estimated_wall_clock:
+  po_validation: "~30-40min (read story 620 linhas + re-verify 3-4 sources cross-confirm + apply PO_FIX_INLINE se necessário + write PO Validation Block)"
+  total_to_dev_ready: "~30-40min"
+
+architectural_context:
+  pattern_inheritance:
+    - "Story 3.1 v1.3 Done APPROVED 9.5/10 HIGH precedente template (~600 linhas)"
+    - "Route handler canonical Story 2.7 (/api/conta/preferencias/route.ts:1-259) + Story 2.6 (/api/agent/prompt/route.ts)"
+    - "Mockable-friendly Vitest pattern Stories 2.6-2.11 (vi.hoisted + vi.mock @meu-jarvis/auth/server + @/lib/agent/db-shim)"
+    - "apiError(code, message, status, details?) pattern + PT-PT messages"
+    - "withSpan + annotateSpan + captureException + childLogger + hashForCorrelation OTel observability"
+    - "getDb() authenticated NUNCA getServiceDb() em response handlers (R4 prevention)"
+    - "PO_FIX_INLINE defensive pattern Story 3.1 v1.0→v1.1 F1"
+    - "Anti-hallucination cross-confirm tri-validated (@sm + @po + @architect)"
+    - "@devops exclusive push (rules ~/.claude/rules/agent-authority.md)"
+
+  story_lifecycle_authority:
+    - "@sm DONE: Status Draft v1.0 + handoff sucessor pending (per story-lifecycle.md)"
+    - "@po NEXT: Status Draft v1.0 → Ready v1.1 com (eventual) PO_FIX_INLINE F-list"
+    - "@dev (post-po): Ready v1.1 → InProgress → Ready for Review v1.2"
+    - "@architect (post-dev): Ready for Review v1.2 → Done v1.3 se APPROVED"
+    - "@devops (post-architect): *push 3.2"
+
+deferred_followups:
+  - id: "Enum audit_action gap (T1.5 pre-flight discovery)"
+    description: >
+      Story 2.7 D36 precedent identificou enum audit_action gap para user_prefs.updated.
+      Story 3.2 T1.5 cross-confirm pre-flight verifica enum values task.*/tag.*/recurrence.*/
+      task_tag.*. Se ausentes (provável), criar migration 0010_audit_log_tasks_enum.sql
+      como sub-task @dev.
+    priority: P2
+    blocking_for: "AC10 audit_log INSERT por mutation"
+    not_blocking_for: "Other ACs"
+
+  - id: "Marketing files cleanup (carryover de sessões anteriores)"
+    description: >
+      10 ficheiros docs/marketing/* untracked + 1 deleted — Eurico decide commit/discard.
+      Não relacionados Story 3.2.
+    priority: P4
+    blocking_for: "Working tree limpa"
+    not_blocking_for: "Story 3.2"
+
+critical_rules_to_remember:
+  - "Apenas @devops faz git push e gh pr create (rules ~/.claude/rules/agent-authority.md)"
+  - "@sm autoridade: criar stories de PRD/Epic, NÃO implementar código nem fazer push"
+  - "PT-PT exclusivo — AC9 + AC13(a) enforced"
+  - "EU data residency: Vercel fra1 + Supabase eu-central-1 PRESERVADA (sem alteração infra)"
+  - "NFR5 PRESERVADA — check:rls EXIT 0 todas tabelas multi-tenant coverage completa (Story 3.1 cobre, Story 3.2 não adiciona tabelas)"
+  - "Constitution Article IV No Invention — cross-confirm tri-validated (@sm done, @po next, @architect post-dev)"
+  - "AC7 enforced: getServiceDb() NUNCA em response handlers (vulnerabilidade R4 RLS leak)"
+  - "AC8 enforced: Zod .strict() rejeita household_id em payload (defense-in-depth)"
+  - "Schema source-of-truth packages/db/src/schema/ NÃO modificado (Story 3.2 só consome)"
+
+contextual_files_to_load_in_new_session:
+  primary:
+    - "docs/HANDOFF-INDEX.md (este handoff aparece em pending)"
+    - "docs/handoffs/mj-handoff-3.2-ready-for-po-20260516.yaml (este ficheiro)"
+    - "docs/stories/active/3.2.tasks-api-routes.md v1.0 Draft (story file completo ~620 linhas)"
+    - "docs/epics/EPIC-3-EXECUTION.yaml v0.1 Story 3.2 spec lines 215-242"
+  reference_para_cross_confirm:
+    - "packages/db/src/schema/tasks.ts:59-221"
+    - "packages/db/src/schema/tenancy.ts:152-173"
+    - "packages/db/migrations/0001_rls_policies.sql:150-435"
+    - "packages/db/src/client.ts:36-86"
+    - "apps/web/src/lib/errors.ts:43-60"
+    - "apps/web/src/app/api/conta/preferencias/route.ts (canonical template Story 2.7)"
+    - "apps/web/src/app/api/agent/prompt/__tests__/route.test.ts:1-80 (mockable-friendly Vitest pattern)"
+    - "packages/auth/src/server.ts (createServerSupabaseClient)"
+    - "packages/db/src/schema/audit.ts (T1.5 enum cross-confirm)"
+  rules:
+    - "~/.claude/rules/agent-authority.md (po validation authority)"
+    - "~/.claude/rules/story-lifecycle.md (Draft→Ready transition rules)"
+
+session_metrics_summary:
+  sm_session_duration: "~30min (read 8 reference files + Epic plan + write 620-line story + INDEX update + handoff)"
+  agents_invoked: ["sm (River)"]
+  artefacts_created: 2  # story file + this handoff
+  artefacts_modified: 1  # _INDEX.md
+  acs_drafted: 13
+  tasks_drafted: 8
+  decision_points: 4
+  cross_confirm_sources: 8
+  hallucinations_detected: 0  # cross-confirm rigorous
+
+notes: |
+  - Este handoff é **actionable** — @po consome ao executar `*validate-story-draft 3.2`.
+  - **@po deve LER:** story file completo (~620 linhas) ANTES de aplicar checklist.
+  - **Cross-confirm anti-hallucination:** @po deve re-verificar 3-4 source files
+    independentemente (Constitution Article IV defense-in-depth pattern Story 3.1
+    PO_FIX F1 defensive precedent).
+  - **DPs DP1-DP4:** @po pode aceitar silently (pattern Stories 2.X+3.1) OR escalate
+    para Eurico ratify. Recomendação @sm explícita para todos os 4.
+  - **Sucessor após este handoff:** @dev *develop 3.2 (YOLO mockable-only —
+    pattern Stories 2.6-2.11).
+  - **Working tree pós este handoff:** _INDEX.md modified + story file new + este
+    handoff new. Marketing files 10 untracked continuam separados (Eurico decide).

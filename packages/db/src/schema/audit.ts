@@ -52,6 +52,23 @@ export const auditActionEnum = pgEnum('audit_action', [
   // Agent
   'agent_run_executed',
   'agent_run_reverted',
+  // Tasks (Story 3.2 — migration 0010 F1 HIGH)
+  'task.created',
+  'task.updated',
+  'task.deleted',
+  'task.moved',
+  'task.completed',
+  // Tags (Story 3.2 — migration 0010 F1 HIGH)
+  'tag.created',
+  'tag.updated',
+  'tag.deleted',
+  // Task tags pivot (Story 3.2 — migration 0010 F1 HIGH)
+  'task_tag.attached',
+  'task_tag.detached',
+  // Recurrences (Story 3.2 — migration 0010 F1 HIGH)
+  'recurrence.created',
+  'recurrence.updated',
+  'recurrence.deleted',
 ]);
 
 export const dataExportStatusEnum = pgEnum('data_export_status', [

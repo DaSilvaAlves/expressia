@@ -1,0 +1,287 @@
+from_agent: "po"
+from_agent_persona: "Pax (@po) — Technical Product Owner"
+to_agent: "dev"
+to_agent_options: ["dev"]
+created: "2026-05-16T02:50:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-16T16:30:00Z"
+consumed_by: "dev (Dex)"
+consumed_outcome: "Implementation complete YOLO ~90min wall-clock. 13/13 ACs PASS + 5/5 quality gates GREEN + 291/291 web tests PASS (230 baseline + 61 novos). Migration 0010 aplicada 515ms. 2 [DEV-DECISION]: D-3.2.1 helpers extraction + D-3.2.2 6 vs 8 test files. Status Ready v1.1 → Ready for Review v1.2."
+
+story_id: "3.2"
+story_path: "docs/stories/active/3.2.tasks-api-routes.md"
+story_title: "Story 3.2 — API routes CRUD tarefas + tags + recurrences (auth + RLS)"
+story_version: "1.1 Ready (post-po-validation)"
+project_prefix: "mj"
+priority: medium
+blocking: false
+type: story-development-request
+
+summary: >
+  Story 3.2 v1.1 Ready (post-PO Validation). Pax (@po) ratified Draft v1.0 →
+  Ready v1.1 com **10/10 GO checklist score** + 3 PO_FIX_INLINE applied
+  defensively. Anti-hallucination tri-validated: @sm 8 fontes + @po 5 fontes
+  adicionais defensive cross-confirms (audit.ts:28-55 enum + resolveHouseholdId
+  conta/preferencias/route.ts:47 + packages/recurrences/ NÃO existe + rrule
+  dep NÃO instalada + 22 web test files baseline + schema/index.ts:13 audit
+  export). 4 DPs accepted silently per pattern Stories 2.X+3.1.
+
+  **🚨 PO_FIX_INLINE F1 HIGH crítico para @dev:** audit_action enum em
+  `packages/db/src/schema/audit.ts:28-55` CONFIRMED missing ALL 13 task/tag/
+  recurrence values (apenas 23 valores existing: auth+billing+GDPR+household+
+  agent). Migration `0010_audit_log_tasks_enum.sql` é **DEFINITIVAMENTE
+  NECESSÁRIA** (não conditional). T1.5 promovida para "CRIAR migration
+  obrigatória" + TypeScript enum array em audit.ts:28-55 deve ser actualizado
+  alinhado com migration SQL. **@dev priority T1.5 antes de T3 (audit_log
+  INSERT em mutations dependem do enum existir).**
+
+  **@dev executa:** `*develop 3.2` em modo YOLO mockable-friendly (pattern
+  Stories 2.6-2.11+3.1 — 8 stories Done APPROVED 8.7-9.5/10). Estimativa M
+  (~6-10h wall-clock projectada — Story 3.1 entregou em ~2h mas scope era S
+  vs M aqui; Story 2.7 M entregou em ~3h pattern semelhante).
+
+context:
+  predecessor_handoff:
+    id: "mj-handoff-3.2-ready-for-po-20260516"
+    consumed_at: "2026-05-16T02:45:00Z"
+    consumed_by: "po (Pax)"
+    consumed_outcome: "GO 10/10 + 3 PO_FIX_INLINE applied (F1 HIGH + F2 MEDIUM + F3 LOW)"
+    location: "docs/handoffs/archive/mj-handoff-3.2-ready-for-po-20260516.yaml"
+
+  po_validation_outcome:
+    verdict: "GO"
+    checklist_score: "10/10"
+    threshold: "≥7/10"
+    date: "2026-05-16"
+    validator: "Pax (@po)"
+
+    po_fix_inline_applied:
+      - id: F1
+        severity: HIGH
+        topic: "audit_action enum gap CONFIRMED absoluto"
+        finding: >
+          Cross-confirm @po contra packages/db/src/schema/audit.ts:28-55
+          revelou auditActionEnum tem APENAS 23 valores (auth+billing+GDPR+
+          household+agent — zero task/tag/recurrence/task_tag). Story 3.2 v1.0
+          wording era "Se ausentes (provável)" — alterado para "CONFIRMED
+          missing 13 values — migration 0010 REQUIRED não conditional".
+        action_dev: >
+          T1.5 promovida para CRIAR migration `0010_audit_log_tasks_enum.sql`
+          com 13 ALTER TYPE statements: task.created, task.updated,
+          task.deleted, task.moved, task.completed, tag.created, tag.updated,
+          tag.deleted, task_tag.attached, task_tag.detached, recurrence.created,
+          recurrence.updated, recurrence.deleted. Adicionalmente: actualizar
+          TypeScript enum array em audit.ts:28-55 alinhado.
+        file_list_impact: "0010_*.sql NEW definitivo (não conditional) + audit.ts MODIFIED definitivo"
+
+      - id: F2
+        severity: MEDIUM
+        topic: "rrule cross-ref correction + inline helper clarification"
+        finding: >
+          v1.0 AC5 PATCH /api/recurrences/[id] tinha (a) cross-ref errada
+          "DP3-3.2 deferred Story 3.7" — DP3-3.2 é cursor pagination, NÃO
+          rrule (rrule é ED7 Epic-level decision); (b) wording ambíguo "se já
+          existir, senão inline helper" — mas packages/recurrences/ NÃO existe
+          AND rrule dep NÃO está instalada (verified @po grep).
+        action_dev: >
+          AC5 PATCH cell substitui "DP3-3.2" por "ED7"; Story 3.2 PATCH usa
+          inline helper para preset frequencies (date-fns ou Date arithmetic);
+          para frequency='custom' (custom_rrule) PATCH re-compute, retorna
+          422 UNPROCESSABLE_ENTITY com mensagem PT-PT específica deferred
+          Story 3.7. AC9 tabela adiciona nova row UNPROCESSABLE_ENTITY 422.
+
+      - id: F3
+        severity: LOW
+        topic: "test count baseline precision"
+        finding: >
+          v1.0 AC11 dizia "baseline preserved (230 web + outros)" sem números
+          concretos. Cross-confirm @po: 22 web test files / 230 tests +
+          packages 305 tests (agent 102 + classifier 79 + planner-executor 53
+          + tools 57 + db 6 + observability 8) = 535 total pós-Story 2.11.
+        action_dev: >
+          AC11 expandido com baseline preciso + target post-impl:
+          ≈30 web test files + ≈299 web tests + ≈604 total tests
+          (vs ~535 pós-2.11).
+
+    dps_accepted_silently:
+      - dp: DP1-3.2
+        recommendation: "A inline apps/web/src/lib/api-schemas/"
+        cross_confirm: "packages/tasks/ NÃO existe (8 packages confirmed)"
+      - dp: DP2-3.2
+        recommendation: "A status='archived'"
+        cross_confirm: "tasks.ts:41 enum 'archived' confirmed"
+      - dp: DP3-3.2
+        recommendation: "A cursor-based base64"
+        cross_confirm: "Epic plan line 232 ratifies"
+      - dp: DP4-3.2
+        recommendation: "B defer kanban_columns CRUD 3.4"
+        cross_confirm: "Epic plan line 287 ColumnConfig.tsx Story 3.4 inclui CRUD UI naturalmente"
+
+  story_summary:
+    total_lines: "~720 linhas (após v1.1 PO_FIX_INLINE expansion)"
+    acs_count: 13
+    tasks_count: 8
+    subtasks_count: "~40"
+    decision_points: 4
+    nfrs_covered: 7  # NFR1/5/9/10/11/12/19
+    risks_mitigated: 2  # R2/R4
+    cross_confirm_sources_total: 13  # 8 @sm + 5 @po defensive
+
+next_action: |
+  @dev sessão futura (recomendado YOLO mockable-friendly per Stories 2.6-2.11+3.1):
+
+  **Comando:**
+  ```
+  @dev *develop 3.2
+  ```
+
+  **Ordem de execução recomendada (T1-T8):**
+
+  1. **T1 Pre-flight (priority HIGH):** Confirmar 4 DPs (já accepted silently
+     by @po) + **CRIAR migration 0010_audit_log_tasks_enum.sql DEFINITIVO**
+     (F1 HIGH crítico — T3 audit_log INSERTs dependem deste enum existir).
+     Aplicar migration localmente via `pnpm --filter @meu-jarvis/db db:migrate`.
+     Verificar `\dT+ audit_action` no DB tem 36 values (23 existing + 13 new).
+
+  2. **T2 Zod schemas:** Criar 4 ficheiros em apps/web/src/lib/api-schemas/
+     (tasks/tags/recurrences/index + pagination helper). Pattern strict()
+     mode rejeita household_id em payload (AC8 defense-in-depth).
+
+  3. **T3-T5 Endpoints (15+):** Tasks (5 handlers) → Tags (4) → Recurrences
+     (5). Cada mutation INSERT em audit_log com enum value novo (require T1.5
+     done first). resolveHouseholdId pattern Story 2.7 (conta/preferencias/route.ts:47).
+     **AC5 PATCH /api/recurrences/[id] [F2]**: inline helper para presets
+     + 422 UNPROCESSABLE_ENTITY para frequency='custom'.
+
+  4. **T6 Tests (~69):** Mockable-friendly pattern Story 2.6 (vi.hoisted +
+     vi.mock @meu-jarvis/auth/server + @/lib/agent/db-shim). 8 test files.
+
+  5. **T7 Quality gates 5/5 GREEN:** lint + typecheck + test (~299 web target
+     [F3]) + build + check:rls. db-test ENV-BLOCKER Docker offline aceitavel
+     [AUTO-DECISION] precedente Stories 2.6-2.11+3.1.
+
+  6. **T8 Docs + housekeeping:** Status Draft → InProgress → Ready for
+     Review. File List preenchido. Sucessor handoff dev→architect criado.
+
+  **Estimativa wall-clock:** ~6-10h (M scope). Story 3.1 entregou S em ~2h.
+  Story 2.7 entregou M em ~3h (mas com pattern já familiar). Story 3.2 é M
+  greenfield com 15+ routes — esperar mais wall-clock que 2.7.
+
+next_command_suggested: "@dev *develop 3.2"
+
+estimated_wall_clock:
+  dev_implementation: "~6-10h wall-clock projectada (M scope: T1 ~30min + T2 ~1h + T3 ~2h + T4 ~1.5h + T5 ~1.5h + T6 ~2h + T7 ~30min + T8 ~30min)"
+  total_to_architect_gate: "~6-10h + architect gate ~30-45min = ~7-11h total"
+
+architectural_context:
+  pattern_inheritance:
+    - "Mockable-friendly Vitest pattern Stories 2.6-2.11 (vi.hoisted + vi.mock)"
+    - "Route handler canonical Story 2.7 (/api/conta/preferencias/route.ts)"
+    - "apiError pattern Story 1.6 (errors.ts:43-60)"
+    - "withSpan + annotateSpan + captureException OTel observability"
+    - "getDb() authenticated NUNCA getServiceDb() em response handlers (R4 prevention)"
+    - "Zod .strict() rejeita household_id em payload (R4 defense-in-depth)"
+    - "PT-PT estrito em error messages (CON3 + AC9)"
+    - "Audit log INSERT em mutations (NFR9 + migration 0010 F1 HIGH)"
+    - "Anti-hallucination cross-confirm tri-validated"
+    - "@devops exclusive push (rules ~/.claude/rules/agent-authority.md)"
+
+  story_lifecycle_authority:
+    - "@po DONE: Status Draft v1.0 → Ready v1.1 com 3 PO_FIX_INLINE applied"
+    - "@dev NEXT: Status Ready v1.1 → InProgress → Ready for Review v1.2"
+    - "@architect (post-dev): Ready for Review v1.2 → Done v1.3 se APPROVED"
+    - "@devops (post-architect): *push 3.2"
+
+deferred_followups:
+  - id: "Story 3.7 rrule installation"
+    description: >
+      Story 3.7 (Inngest cron generate-recurring-tasks) instalará rrule dep
+      (Epic plan ED7 / line 367 — `package.json deps: rrule + date-fns-tz`).
+      Story 3.2 PATCH /api/recurrences/[id] com frequency='custom' retorna
+      422 UNPROCESSABLE_ENTITY (F2 deferred). Quando Story 3.7 Done, Story 3.2
+      pode opcionalmente upgrade PATCH para support custom_rrule re-compute.
+    priority: P2
+    blocking_for: "PATCH custom_rrule re-compute"
+    not_blocking_for: "Story 3.2 close ou Story 3.7"
+
+  - id: "NIT-006-NB Docker local"
+    description: "Pre-existing Docker daemon offline. CI rls-gate cobre."
+    priority: P3
+    blocking_for: "db-test#test integration localmente"
+    not_blocking_for: "Story 3.2"
+
+  - id: "Marketing files cleanup"
+    description: "10 ficheiros docs/marketing/* untracked — Eurico decide separadamente"
+    priority: P4
+    blocking_for: "Working tree limpa"
+    not_blocking_for: "Story 3.2"
+
+critical_rules_to_remember:
+  - "Apenas @devops faz git push e gh pr create (rules ~/.claude/rules/agent-authority.md)"
+  - "PT-PT estrito — AC9 + AC13(a) enforced em error messages + comments"
+  - "EU data residency: Vercel fra1 + Supabase eu-central-1 PRESERVADA"
+  - "NFR5 PRESERVADA — Story 3.2 NÃO adiciona tabelas multi-tenant (RLS Story 3.1 cobre)"
+  - "Constitution Article IV No Invention — cross-confirm tri-validated (@sm + @po DONE; @architect post-dev)"
+  - "AC7 enforced: getServiceDb() NUNCA em response handlers (vulnerabilidade R4 RLS leak)"
+  - "AC8 enforced: Zod .strict() rejeita household_id em payload"
+  - "Schema source-of-truth packages/db/src/schema/ não modificado EXCEPTO audit.ts (F1 HIGH enum update + migration 0010)"
+  - "Mockable-friendly continua mesmo após EB1 DPA UE resolved — pattern Stories 2.2-2.11+3.1"
+
+contextual_files_to_load_in_new_session:
+  primary:
+    - "docs/HANDOFF-INDEX.md (este handoff aparece em pending)"
+    - "docs/handoffs/mj-handoff-3.2-ready-for-dev-20260516.yaml (este ficheiro)"
+    - "docs/stories/active/3.2.tasks-api-routes.md v1.1 Ready (~720 linhas — story completo)"
+    - "docs/epics/EPIC-3-EXECUTION.yaml v0.1 Story 3.2 spec lines 215-242"
+  artefacts_to_create_modify:
+    - "apps/web/src/lib/api-schemas/{tasks,tags,recurrences,index,pagination}.ts (5 NEW)"
+    - "apps/web/src/app/api/tasks/{route,[id]/route,[id]/move/route,[id]/tags/route,[id]/tags/[tagId]/route}.ts (5 NEW)"
+    - "apps/web/src/app/api/tags/{route,[id]/route}.ts (2 NEW)"
+    - "apps/web/src/app/api/recurrences/{route,[id]/route}.ts (2 NEW)"
+    - "apps/web/src/app/api/{tasks,tags,recurrences}/__tests__/*.test.ts (8 NEW)"
+    - "packages/db/migrations/0010_audit_log_tasks_enum.sql (NEW — F1 HIGH definitivo)"
+    - "packages/db/src/schema/audit.ts (MODIFIED — F1 HIGH definitivo: enum array +13 values)"
+  reference_para_implementation:
+    - "packages/db/src/schema/tasks.ts:59-221 (4 tabelas — consume, NÃO modificar)"
+    - "packages/db/src/schema/tenancy.ts:152-173 (kanban_columns — consume)"
+    - "packages/db/src/schema/audit.ts:28-55 (auditActionEnum — F1 HIGH MODIFY)"
+    - "packages/db/migrations/0001_rls_policies.sql:150-435 (RLS reference)"
+    - "packages/db/src/client.ts:36-86 (getDb/getServiceDb)"
+    - "apps/web/src/lib/errors.ts:43-60 (apiError canonical)"
+    - "apps/web/src/app/api/conta/preferencias/route.ts:1-259 (route handler canonical Story 2.7)"
+    - "apps/web/src/app/api/agent/prompt/__tests__/route.test.ts:1-80 (test pattern Story 2.6)"
+    - "packages/auth/src/server.ts (createServerSupabaseClient)"
+  rules:
+    - "~/.claude/rules/agent-authority.md (dev development authority)"
+    - "~/.claude/rules/story-lifecycle.md (Ready→InProgress→Ready for Review transition rules)"
+
+session_metrics_summary:
+  po_session_duration: "~30min (read story 620 linhas + read audit.ts + 4 grep cross-confirms + write 3 PO_FIX_INLINE + PO Validation Block + handoff sucessor + INDEX update)"
+  agents_invoked: ["po (Pax)"]
+  artefacts_created: 1  # this handoff
+  artefacts_modified: 2  # story file (v1.0→v1.1) + _INDEX.md
+  artefacts_archived: 1  # sm-to-po handoff
+  checklist_score: "10/10"
+  po_fix_inline_count: 3  # F1 HIGH + F2 MEDIUM + F3 LOW
+  cross_confirm_sources_added: 5  # audit.ts + resolveHouseholdId + packages/recurrences + rrule dep + 22 web test files
+  hallucinations_corrected: 2  # F2 wrong cross-ref + F1 conditional wording
+
+notes: |
+  - Este handoff é **actionable** — @dev consome ao executar `*develop 3.2`.
+  - **@dev deve LER:** story file completo (~720 linhas v1.1) ANTES de
+    arrancar T1. Especial atenção ao PO Validation Block (3 PO_FIX_INLINE
+    F-list) e Change Log v1.1 entry.
+  - **F1 HIGH priority em T1.5:** Migration 0010_audit_log_tasks_enum.sql é
+    DEFINITIVAMENTE necessária (não conditional). T3 audit_log INSERTs
+    dependem dela — T1.5 ANTES de T3.
+  - **F2 MEDIUM em AC5:** PATCH /api/recurrences/[id] usa inline helper
+    para presets; 422 UNPROCESSABLE_ENTITY para custom_rrule deferred 3.7.
+  - **F3 LOW em AC11:** Test count target ~299 web (~604 total).
+  - **DPs já decididos:** 4/4 silent accept @po (A/A/A/B). @dev pode arrancar
+    sem aguardar Eurico.
+  - **ENV-BLOCKER Docker offline:** db-test integration ENV-BLOCKER continua
+    (NIT-006-NB pre-existing). CI rls-gate cobre. [AUTO-DECISION] PROCEED
+    consistente Stories 2.6-2.11+3.1.
+  - **Sucessor após este handoff:** @architect *qa-gate 3.2 (target ~600
+    linhas APPROVED HIGH per precedente Stories 2.9-2.11+3.1).
