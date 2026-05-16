@@ -3,8 +3,11 @@ from_agent_persona: "Aria (@architect) — Holistic System Architect"
 to_agent: "devops"
 to_agent_options: ["devops"]
 created: "2026-05-16T17:35:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-05-16T18:00:00Z"
+consumed_by: "devops (Gage)"
+consumed_outcome: "PUSHED — commit 3fa408c (33 files, ~3200+ insertions) 29de3c8..3fa408c main -> main. Story 3.2 v1.3 Done in production. Vercel auto-deploy fra1 triggered. [AUTO-DECISION] CodeRabbit SKIPPED consistente precedente Stories 2.2-2.11+3.1. Marketing files (10 untracked) left para Eurico decidir separadamente."
 
 story_id: "3.2"
 story_path: "docs/stories/active/3.2.tasks-api-routes.md"
