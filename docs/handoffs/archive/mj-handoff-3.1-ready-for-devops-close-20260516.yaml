@@ -3,8 +3,11 @@ from_agent_persona: "Aria (@architect) — Holistic System Architect"
 to_agent: "devops"
 to_agent_options: ["devops"]
 created: "2026-05-16T00:30:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-05-16T01:00:00Z"
+consumed_by: "devops (Gage)"
+consumed_outcome: "PUSHED — commit f49710b (16 files, 3703 insertions, 4 deletions) dc888b3..f49710b main -> main. Story 3.1 v1.3 Done in production. Vercel auto-deploy fra1 triggered. Marketing files (10 untracked) left para Eurico decidir separadamente."
 
 story_id: "3.1"
 story_path: "docs/stories/active/3.1.tasks-schema-validation.md"
