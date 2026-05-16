@@ -83,8 +83,22 @@ export const TaskMoveSchema = z
 
 export type TaskMoveInput = z.infer<typeof TaskMoveSchema>;
 
+/** Sort options aceites por GET /api/tasks (Story 3.3 DP5-3.3 A). */
+export const taskSortValues = [
+  'due_date_asc',
+  'created_at_desc',
+  'priority_desc',
+  'title_asc',
+] as const;
+export const TaskSortSchema = z.enum(taskSortValues);
+export type TaskSortInput = z.infer<typeof TaskSortSchema>;
+
 /**
- * GET /api/tasks query params — filters + pagination cursor (AC1 + AC6).
+ * GET /api/tasks query params — filters + pagination cursor (AC1 + AC6) + sort (Story 3.3).
+ *
+ * Nota DP5-3.3: cursor pagination optimal apenas para `sort=due_date_asc` (default).
+ * Para outros sorts a cursor encoding (`{ last_due_date, last_id }`) ainda funciona
+ * mas pode degradar no boundary entre rows com mesmo sort key — aceite KISS para MVP.
  */
 export const TaskFiltersSchema = z
   .object({
@@ -98,6 +112,7 @@ export const TaskFiltersSchema = z
     priority: TaskPrioritySchema.optional(),
     cursor: z.string().optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50),
+    sort: TaskSortSchema.default('due_date_asc'),
   })
   .strict();
 

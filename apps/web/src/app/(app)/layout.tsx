@@ -32,6 +32,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Link href="/jarvis" className="hover:underline">
                 Jarvis
               </Link>
+              <Link href="/tarefas" className="hover:underline">
+                Tarefas
+              </Link>
               <Link href="/conta/preferencias" className="hover:underline">
                 Conta
               </Link>

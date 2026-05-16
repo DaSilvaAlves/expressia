@@ -1,11 +1,15 @@
 /**
- * GET / POST /api/tasks — Story 3.2 AC1 + AC6 + AC7 + AC8 + AC10.
+ * GET / POST /api/tasks — Story 3.2 AC1 + AC6 + AC7 + AC8 + AC10 + Story 3.3 (sort).
  *
  * GET:
  *   - List paginado cursor-based (default limit=50, max 100).
  *   - Filters: status, tag_id, due_date_from/to, kanban_column_id,
  *     assigned_to_user_id, project (ILIKE), priority.
- *   - Order: due_date asc nulls last, id asc (stable cursor).
+ *   - Sort (Story 3.3 DP5-3.3 A): `due_date_asc` (default) | `created_at_desc` |
+ *     `priority_desc` | `title_asc`. Cursor optimal só para default.
+ *   - Story 3.3 DP4-3.3 (A extract): SELECT logic delegada a `listTasksHelper`
+ *     em `@/lib/api-helpers/list-tasks`. Wrapper apenas faz auth + Zod + cursor
+ *     decode + chamada ao helper (G5: decode no wrapper HTTP-bound).
  *
  * POST:
  *   - Cria tarefa. household_id injectado via JWT (NÃO aceito em payload — AC8).
@@ -28,33 +32,19 @@ import {
 
 import { apiError } from '@/lib/errors';
 import { getDb } from '@/lib/agent/db-shim';
+import { listTasksHelper, type TaskRow } from '@/lib/api-helpers/list-tasks';
 import { TaskCreateSchema, TaskFiltersSchema } from '@/lib/api-schemas/tasks';
-import { encodeCursor, decodeCursor } from '@/lib/api-schemas/pagination';
+import { decodeCursor } from '@/lib/api-schemas/pagination';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
 
 const ROUTE = '/api/tasks';
 
-interface TaskRow {
-  id: string;
-  household_id: string;
-  created_by_user_id: string;
-  assigned_to_user_id: string | null;
-  title: string;
-  description: string | null;
-  due_date: string | null;
-  due_time: string | null;
-  priority: string;
-  status: string;
-  kanban_column_id: string | null;
-  kanban_position: number;
-  project: string | null;
-  recurrence_id: string | null;
-  is_recurrence_template: boolean;
-  completed_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
+/**
+ * Re-export para back-compat com consumidores que importavam `TaskRow` de
+ * `@/app/api/tasks/route` antes do extract (Story 3.3 DP4 G2 — single source-of-truth).
+ */
+export type { TaskRow };
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   return withSpan(
@@ -65,7 +55,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const auth = await requireAuth(span);
       if (auth instanceof NextResponse) return auth;
 
-      // Parse query params
+      // Parse query params via Zod
       const searchParams = Object.fromEntries(req.nextUrl.searchParams.entries());
       let filters;
       try {
@@ -80,7 +70,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         return apiError('VALIDATION_ERROR', 'Parâmetros inválidos.', 400);
       }
 
-      // Decode cursor
+      // Decode cursor (G5 — HTTP-bound concern; helper recebe payload já decoded)
       let cursorPayload = null;
       if (filters.cursor) {
         cursorPayload = decodeCursor(filters.cursor);
@@ -91,58 +81,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       }
 
       try {
-        const db = getDb();
-        const limitPlusOne = filters.limit + 1;
-
-        // Build dynamic WHERE conditions (RLS via JWT já filtra household_id)
-        const conditions = [sql`1=1`];
-        if (filters.status) conditions.push(sql`status = ${filters.status}`);
-        if (filters.priority) conditions.push(sql`priority = ${filters.priority}`);
-        if (filters.kanban_column_id) conditions.push(sql`kanban_column_id = ${filters.kanban_column_id}::uuid`);
-        if (filters.assigned_to_user_id) conditions.push(sql`assigned_to_user_id = ${filters.assigned_to_user_id}::uuid`);
-        if (filters.project) conditions.push(sql`project ilike ${'%' + filters.project + '%'}`);
-        if (filters.due_date_from) conditions.push(sql`due_date >= ${filters.due_date_from}::date`);
-        if (filters.due_date_to) conditions.push(sql`due_date <= ${filters.due_date_to}::date`);
-        if (filters.tag_id) {
-          conditions.push(sql`id in (select task_id from public.task_tags where tag_id = ${filters.tag_id}::uuid)`);
-        }
-        if (cursorPayload) {
-          // Cursor pagination: (due_date, id) > (last_due_date, last_id), nulls last
-          if (cursorPayload.last_due_date) {
-            conditions.push(sql`(due_date, id) > (${cursorPayload.last_due_date}::date, ${cursorPayload.last_id}::uuid)`);
-          } else {
-            conditions.push(sql`(due_date is null and id > ${cursorPayload.last_id}::uuid)`);
-          }
-        }
-
-        const whereSql = conditions.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc} and ${c}`));
-
-        const rows = await db.execute<TaskRow>(sql`
-          select id, household_id, created_by_user_id, assigned_to_user_id, title, description,
-                 due_date, due_time, priority, status, kanban_column_id, kanban_position,
-                 project, recurrence_id, is_recurrence_template, completed_at, created_at, updated_at
-          from public.tasks
-          where ${whereSql}
-          order by due_date asc nulls last, id asc
-          limit ${limitPlusOne}
-        `);
-
-        let nextCursor: string | null = null;
-        let tasks = rows;
-        if (rows.length === limitPlusOne) {
-          tasks = rows.slice(0, filters.limit);
-          const last = tasks[tasks.length - 1];
-          if (last) {
-            nextCursor = encodeCursor({ last_due_date: last.due_date, last_id: last.id });
-          }
-        }
+        const { tasks, next_cursor } = await listTasksHelper({
+          filters,
+          cursorPayload,
+          householdId: auth.householdId,
+          userId: auth.userId,
+          db: getDb(),
+        });
 
         annotateSpan(span, { statusCode: 200 });
         log.info(
           { user_hash: hashForCorrelation(auth.userId), count: tasks.length },
           'GET /api/tasks OK',
         );
-        return NextResponse.json({ tasks, next_cursor: nextCursor });
+        return NextResponse.json({ tasks, next_cursor });
       } catch (err) {
         annotateSpan(span, { statusCode: 500 });
         log.error({ err }, 'GET /api/tasks falhou');

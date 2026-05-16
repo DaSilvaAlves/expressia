@@ -158,4 +158,73 @@ describe('GET /api/tasks', () => {
     const body = await res.json();
     expect(body.error.message).toMatch(/Sessão|inicie sessão/i);
   });
+
+  // Story 3.3 — sort param (DP5-3.3 A backend extension)
+
+  it('200 sort=due_date_asc (default) usa ORDER BY due_date asc nulls last', async () => {
+    mocks.getUserMock.mockResolvedValue({
+      data: { user: { id: '00000000-0000-0000-0000-000000000001' } },
+      error: null,
+    });
+    mocks.fromMock.mockReturnValue(householdMemberChain('00000000-0000-0000-0000-000000000002'));
+    mocks.dbExecuteMock.mockResolvedValue([]);
+    const res = await GET(makeReq('http://localhost/api/tasks?sort=due_date_asc'));
+    expect(res.status).toBe(200);
+    expect(mocks.dbExecuteMock).toHaveBeenCalled();
+    const sqlArg = mocks.dbExecuteMock.mock.calls[0]![0];
+    const sqlText = JSON.stringify(sqlArg);
+    expect(sqlText).toMatch(/due_date asc nulls last/i);
+  });
+
+  it('200 sort=created_at_desc gera ORDER BY created_at desc', async () => {
+    mocks.getUserMock.mockResolvedValue({
+      data: { user: { id: '00000000-0000-0000-0000-000000000001' } },
+      error: null,
+    });
+    mocks.fromMock.mockReturnValue(householdMemberChain('00000000-0000-0000-0000-000000000002'));
+    mocks.dbExecuteMock.mockResolvedValue([]);
+    const res = await GET(makeReq('http://localhost/api/tasks?sort=created_at_desc'));
+    expect(res.status).toBe(200);
+    const sqlText = JSON.stringify(mocks.dbExecuteMock.mock.calls[0]![0]);
+    expect(sqlText).toMatch(/created_at desc/i);
+  });
+
+  it('200 sort=priority_desc gera CASE expression', async () => {
+    mocks.getUserMock.mockResolvedValue({
+      data: { user: { id: '00000000-0000-0000-0000-000000000001' } },
+      error: null,
+    });
+    mocks.fromMock.mockReturnValue(householdMemberChain('00000000-0000-0000-0000-000000000002'));
+    mocks.dbExecuteMock.mockResolvedValue([]);
+    const res = await GET(makeReq('http://localhost/api/tasks?sort=priority_desc'));
+    expect(res.status).toBe(200);
+    const sqlText = JSON.stringify(mocks.dbExecuteMock.mock.calls[0]![0]);
+    expect(sqlText).toMatch(/case priority/i);
+    expect(sqlText).toMatch(/high/i);
+  });
+
+  it('200 sort=title_asc gera ORDER BY title asc', async () => {
+    mocks.getUserMock.mockResolvedValue({
+      data: { user: { id: '00000000-0000-0000-0000-000000000001' } },
+      error: null,
+    });
+    mocks.fromMock.mockReturnValue(householdMemberChain('00000000-0000-0000-0000-000000000002'));
+    mocks.dbExecuteMock.mockResolvedValue([]);
+    const res = await GET(makeReq('http://localhost/api/tasks?sort=title_asc'));
+    expect(res.status).toBe(200);
+    const sqlText = JSON.stringify(mocks.dbExecuteMock.mock.calls[0]![0]);
+    expect(sqlText).toMatch(/title asc/i);
+  });
+
+  it('400 VALIDATION_ERROR se sort inválido', async () => {
+    mocks.getUserMock.mockResolvedValue({
+      data: { user: { id: '00000000-0000-0000-0000-000000000001' } },
+      error: null,
+    });
+    mocks.fromMock.mockReturnValue(householdMemberChain('00000000-0000-0000-0000-000000000002'));
+    const res = await GET(makeReq('http://localhost/api/tasks?sort=bogus'));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+  });
 });
