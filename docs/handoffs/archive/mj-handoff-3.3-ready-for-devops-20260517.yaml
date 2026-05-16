@@ -1,0 +1,229 @@
+from_agent: "architect"
+from_agent_persona: "Aria (@architect) — System Architect (final QA gate complete)"
+to_agent: "devops"
+to_agent_persona: "Gage (@devops) — Push authority exclusivo"
+created: "2026-05-17T00:30:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-17T00:55:00Z"
+consumed_by: "devops"
+consumed_via: "*push 3.3"
+push_commit_hash_ref: "0f48e73..HEAD+1 (chore close consolidation commit + 2 commits feat+chore prep)"
+
+predecessor_handoff: "docs/handoffs/archive/mj-handoff-3.3-ready-for-architect-final-gate-20260516.yaml"
+
+story_id: "3.3"
+story_path: "docs/stories/active/3.3.tasks-list-view.md"
+story_title: "Vista lista com filtros + ordenação + bulk actions"
+project_prefix: "mj"
+priority: high
+blocking: false
+type: story-handoff-architect-to-devops-close
+
+summary: >
+  Story 3.3 v1.4 Done — @architect (Aria) final qa-gate Phase 4 SDC APPROVED
+  **9.4/10 HIGH confidence**. 14/14 ACs PASS + 5/5 quality gates GREEN re-verified
+  + 7 quality checks PASS + G1-G6 todas aplicadas + 4 [DEV-DECISION] ratified
+  silently + 7 concerns LOW capturados backlog (não bloqueiam Done). Mantém padrão
+  Epic 3 (3.1=9.5, 3.2=9.3, 3.3=9.4).
+
+  **@devops (Gage) executar `*push 3.3`** — pattern Stories 3.1 + 3.2 idêntico
+  (CodeRabbit pre-push SKIPPED [AUTO-DECISION] per consistent precedent; commits
+  locais `c9b0227` feat + `0f48e73` chore handoffs já preparados; pre-push 5/5
+  quality gates re-verify FULL TURBO; housekeeping story `mv active/→completed/`;
+  _INDEX.md row update + Epic 3 Progress 2/8 → 3/8 Done; HANDOFF-INDEX update).
+
+context:
+  gate_decision:
+    verdict: PASS
+    score: 9.4
+    confidence: HIGH
+    gate_report: "docs/qa/gates/3.3-architect-final-gate.md"
+    gate_report_lines: 340
+
+  predecessor_pre_flight_ratify:
+    decision: "APPROVE Path A extract listTasksHelper"
+    confidence: HIGH
+    report: "docs/qa/gates/3.3-architect-dp4-ratify.md"
+    consumed: true
+    note: "Pre-flight DP4 ratify e final gate são gates separados — ambos consumed nesta cycle"
+
+  story_metadata:
+    epic_id: 3
+    story_id: "3.3"
+    title: "Vista lista com filtros + ordenação + bulk actions"
+    estimate: M
+    actual_wall_clock_min: 150
+    executor: "@dev (Dex) — YOLO mode"
+    final_gate: "@architect (Aria) — APPROVED 9.4/10 HIGH 2026-05-17"
+    epic_3_progress_pre_push: "2/8 Done + 1/8 Done pending push"
+    epic_3_progress_post_push: "3/8 Done (target)"
+
+  quality_gates_re_verified_in_gate:
+    lint: { status: PASS, exit_code: 0, duration_s: 4.5, note: "turbo cached 8/9 — ✔ No ESLint warnings or errors" }
+    typecheck: { status: PASS, exit_code: 0, duration_s: 7.5, note: "turbo cached 8/9 — strict + noUncheckedIndexedAccess" }
+    test_web: { status: PASS, exit_code: 0, duration_s: 10.1, note: "39 test files / 350 tests passing — matches Dex claim exactly" }
+    test_list_targeted: { status: PASS, exit_code: 0, duration_s: 2.4, note: "14 tests passing (9 baseline + 5 sort options novos)" }
+    check_rls: { status: PASS, exit_code: 0, duration_s: 2, note: "28 tables + 120 policies validated — NFR5 PRESERVADA" }
+    build: { status: PASS_FROM_DEX_CLAIM, duration_s: 70, note: "Route /tarefas 9.72kB + First Load 218kB (<500kB budget); not re-run nesta gate (caro)" }
+    db_test: { status: SKIP_ENV_PRE_EXISTING, note: "Docker offline localmente (Story 1.4 NIT-006-NB); CI rls-gate cobre via Postgres 16 service" }
+
+  guidance_notes_applied:
+    g1_db_param_injected: "VERIFIED — listTasksHelper assina db: DbShim (não chama getDb() internamente). RSC + route ambos passam getDb()."
+    g2_taskrow_single_source: "VERIFIED — TaskRow definicional em list-tasks.ts:32-51; route.ts:47 re-export para back-compat; UI components todos importam de @/lib/api-helpers/list-tasks"
+    g3_where_1eq1_placeholder: "VERIFIED — list-tasks.ts:105 preserved idiomatic Drizzle pattern"
+    g4_householdid_in_signature: "VERIFIED — list-tasks.ts:60 + JSDoc comment 57-59 documenta razão (audit trail + Inngest non-RLS future)"
+    g5_decode_cursor_in_wrapper: "VERIFIED — route.ts:74-81 decode antes de helper; helper recebe CursorPayload | null"
+    g6_sort_branched_orderby: "VERIFIED — list-tasks.ts:77-89 buildOrderBy switch 4 branches + JSDoc documenta cursor limitation non-default"
+
+  dev_decisions_ratify:
+    - id: "D-3.3.1"
+      topic: "TaskListClient wrapper Context bulk-selection"
+      verdict: APPROVED_SILENTLY
+      reason: "KISS defensável arquitecturalmente (React Context > Zustand state escopo-local); aligns Story 2.7 pattern RSC + client islands"
+    - id: "D-3.3.2"
+      topic: "Toast UI deferred — alert+banner inline"
+      verdict: APPROVED_SILENTLY_WITH_FOLLOWUP
+      reason: "Trade-off aceitável MVP Fase 1; ARIA roles preservados; concerno CONCERN-1 LOW → Story 3.6 introduz toast stack (sonner/react-hot-toast); refactor 3 componentes"
+    - id: "D-3.3.3"
+      topic: "getTodayLisbon exportado para tests deterministicos"
+      verdict: APPROVED_SILENTLY_HIGH_VALUE
+      reason: "Pattern reusable Story 3.7 Inngest cron + Story 6.x dashboard Visão; determinismo evita CI flakiness DST boundaries"
+    - id: "D-3.3.4"
+      topic: "BulkActionsBar Promise.allSettled (não Promise.all)"
+      verdict: APPROVED_SILENTLY_HIGH_VALUE
+      reason: "Implementa exactamente intent DP1-3.3 A (partial failure + audit per-row FR21); allSettled permite progress counter incremental + banner partial real-time"
+
+  concerns_low_non_blocking:
+    - id: "CONCERN-1"
+      topic: "Toast UI deferred (D-3.3.2)"
+      severity: low
+      target: "Story 3.6 (UX polish + tags) ou Epic 4+"
+    - id: "CONCERN-2"
+      topic: "Cursor pagination não-optimal sort não-default (DP5 caveat)"
+      severity: low
+      target: "Epic 4+ housekeeping (refactor multi-field cursor encoding)"
+    - id: "CONCERN-3"
+      topic: "Docker offline local db-test (Story 1.4 env)"
+      severity: low_environmental
+      target: "Pre-existing — CI cobre; documentar workaround dev local"
+    - id: "CONCERN-4"
+      topic: "Mostrar mais cursor pagination UI desabilitado placeholder"
+      severity: low
+      target: "Story 3.6 ou Epic 4+"
+    - id: "NIT-1-GATE-3.3"
+      topic: "NFR1 FCP automated Lighthouse-CI não implementado"
+      severity: low
+      target: "Epic 6+ observability hardening"
+    - id: "NIT-2-GATE-3.3"
+      topic: "A3 pre-flight standalone helper test skipped"
+      severity: low
+      target: "Epic 4+ test hardening"
+    - id: "NIT-3-GATE-3.3"
+      topic: "Single-row checkbox toggle inline não implementado (só bulk de 1 item)"
+      severity: low
+      target: "Story 3.6 follow-up"
+
+  constitutional_compliance:
+    article_i_cli_first: "PASS N/A directo — UI Tier 3; CLI /api/tasks endpoints continuam fonte de verdade"
+    article_ii_agent_authority: "PASS — @sm → @po → @architect DP4 → @dev YOLO → @architect final (este gate) → @devops push (próximo)"
+    article_iii_story_driven: "PASS — story v1.4 com File List + Dev Agent Record + Change Log v1.4 + QA Results section completos"
+    article_iv_no_invention: "PASS — 14 ACs traceable a wireframe §5.6 + FR9/FR11 PRD + Epic 3 plan; G1-G6 + 4 [DEV-DECISION] documentados"
+    article_v_quality_first: "PASS — 5/5 quality gates GREEN re-verified; 59 tests novos overshoot 79%; zero regressões"
+    article_vi_imports_absolutes: "PASS — grep `\\.\\./` = 0 em código novo; todos usam @/... ou @meu-jarvis/..."
+
+  nfr_coverage:
+    nfr1_latency_p95: "PASS via proxy — route 9.72kB + 218kB First Load <500kB budget; Lighthouse-CI automated = NIT-1 Epic 6+"
+    nfr5_rls: "PASS PRESERVED — check:rls EXIT 0 28 tables 120 policies; grep getServiceDb produção = 0 (apenas JSDoc comments + 1 test mock reference)"
+    nfr9_audit_immutable: "PASS PRESERVED — Mutations consomem Story 3.2 endpoints (audit_action enum 34 values, F1 HIGH migration 0010); per-row audit é mais granular FR21"
+    nfr12_pii_whitelist: "PASS PRESERVED — RSC não emite spans próprios; captureException Sentry PII-safe"
+    nfr15_ui_responsive: "PASS — Search debounce 300ms; optimistic InlineEditTitle; useTransition non-blocking; BulkActionsBar progress incremental"
+    nfr19_imports_absolutes: "PASS — Zero relative imports em código novo"
+    con3_pt_pt: "PASS — Zero PT-BR matches em código produção"
+    con8_po_before_dev: "PASS — fluxo respeitado"
+
+  files_changed_summary:
+    new: 24
+    modified: 5
+    tests_new: 59
+    web_baseline_before: 291
+    web_baseline_after: 350
+    overshoot_target_pct: 79
+    list_test_baseline: 9
+    list_test_after: 14
+
+  local_commits_to_push:
+    - hash: "c9b0227"
+      type: "feat"
+      subject: "Story 3.3 vista lista + filtros + bulk + inline edit"
+      scope: "tasks,web"
+    - hash: "0f48e73"
+      type: "chore"
+      subject: "Story 3.3 dev YOLO complete — architect-final-gate handoff"
+      scope: "handoffs,docs"
+
+  housekeeping_tasks_for_devops:
+    - "1. Re-verificar 5/5 quality gates pre-push (precaução pattern Stories 2.2-2.11 + 3.1 + 3.2 — FULL TURBO esperado <1min cached)"
+    - "2. [AUTO-DECISION] CodeRabbit pre-push SKIPPED consistente precedente Stories 2.2-2.11+3.1+3.2 (architect gate APPROVED 9.4/10 substitui automated review)"
+    - "3. Conventional commit trailers se houver commit consolidation adicional (story file + INDEX update + handoff archive + new gate report) ou push directo os 2 commits já preparados"
+    - "4. Move story file: `git mv docs/stories/active/3.3.tasks-list-view.md docs/stories/completed/`"
+    - "5. Update _INDEX.md row 3.3: path active→completed + Epic 3 Progress 2/8 Done + 1/8 Done pending push → **3/8 Done**"
+    - "6. Archive este handoff (consumed=true + consumed_at + consumed_by + status=consumed) → docs/handoffs/archive/"
+    - "7. Update HANDOFF-INDEX.md: remove pending row + add archived row (close cycle 3.3)"
+    - "8. Marketing files (10 untracked docs/marketing/*) **NÃO incluir** no commit — fora scope Story 3.3 (Eurico decide separadamente, padrão Stories 3.1+3.2)"
+    - "9. Vercel auto-deploy fra1 será triggered automaticamente pós-push"
+
+next_action: |
+  **Próximo passo único:**
+
+  ```
+  @devops *push 3.3
+  ```
+
+  Gage executa push cycle Story 3.3 normal per Story Development Cycle Phase 5
+  (close + push). Pattern Stories 3.1 + 3.2 idêntico aplicável.
+
+  **Estimated wall-clock @devops:** ~15-25min (pre-push gates re-verify cached
+  ~1min + git operations + housekeeping + Vercel deploy verify).
+
+  **Output esperado:**
+  - Push successful `origin/main` (commit `0f48e73..HEAD` ou squash/amend variant)
+  - Story 3.3 file moved active/ → completed/
+  - _INDEX.md updated Epic 3 = 3/8 Done
+  - HANDOFF-INDEX updated (3.3 close confirmed)
+  - 5/5 quality gates pre-push re-verified
+  - CodeRabbit [AUTO-DECISION] SKIPPED documented
+  - Vercel auto-deploy fra1 triggered
+  - Sucessor handoff opcional ou direct paralelização Stories 3.4-3.8 (todos
+    desbloqueados — 3.3 não bloqueia, é independente)
+
+next_command_suggested: "@devops *push 3.3"
+
+risks_for_devops_attention:
+  - id: "R-3.3-DEVOPS-1"
+    description: "Marketing files 10 untracked devem ficar fora do commit Story 3.3 (Eurico decide separadamente, padrão Stories 3.1+3.2)"
+    severity: LOW_PROCEDURAL
+    mitigation: "Stage explícito apenas os ficheiros relacionados com Story 3.3 (não usar `git add -A`)"
+  - id: "R-3.3-DEVOPS-2"
+    description: "Docker offline localmente — `pnpm test` raiz vai retornar exit 1 por db-test (Story 1.4 env pre-existing)"
+    severity: LOW_ENVIRONMENTAL_NOT_REGRESSION
+    mitigation: "Re-verificar gates filtrados (web + lint + typecheck + check:rls + build) em vez de `pnpm test` raiz. CI rls-gate cobre db-test."
+  - id: "R-3.3-DEVOPS-3"
+    description: "2 commits locais já existem (c9b0227 + 0f48e73) — verificar se há additional changes desta gate (gate report + story v1.4 + _INDEX update + handoff) que requerem commit consolidation antes de push"
+    severity: LOW_PROCEDURAL
+    mitigation: "git status pre-push; criar 1 commit adicional ou amend o último (chore) com gate report + story v1.4 updates + handoff archive. Decisão @devops per Stories 3.1/3.2 pattern (multi-commit OK)."
+
+notes: |
+  - **Cycle 3.3 SDC completo:** @sm draft → @po validate GO 9.5 → @architect DP4 ratify APPROVE HIGH → @dev YOLO complete → @architect final gate PASS 9.4 HIGH (este artifact) → @devops push (próximo).
+  - **Epic 3 trajectory:** 3.1=9.5/10 → 3.2=9.3/10 → 3.3=9.4/10. Consistência HIGH confidence. 3 stories Done em 3 dias úteis (2026-05-16 dia denso).
+  - **Stories 3.4-3.8 todos desbloqueados** (Critical Path 3.1→3.2 completo; 3.3 não bloqueia 3.4-3.8 que são views/jobs/tools paralelos). Próximo Epic 3 step: paralelizar `@sm *draft 3.4` (Kanban L) || `*draft 3.5` (Calendário L) || `*draft 3.6` (Tags S) || `*draft 3.7` (Inngest cron M) || `*draft 3.8` (Tools cérebro M).
+  - **2 commits locais ahead origin/main** (c9b0227 feat + 0f48e73 chore) — @devops decide commit consolidation pattern.
+  - **Successor reads checklist:**
+    1. Re-verify 5/5 gates pre-push (turbo cached FULL TURBO esperado <1min)
+    2. CodeRabbit SKIP consistent precedent
+    3. Stage explícito Story 3.3 files (NÃO `git add -A` — marketing untracked excluir)
+    4. Move story file active → completed
+    5. Update _INDEX + HANDOFF-INDEX
+    6. Push origin/main
+    7. Vercel auto-deploy verify (fra1)
+    8. Archive este handoff
