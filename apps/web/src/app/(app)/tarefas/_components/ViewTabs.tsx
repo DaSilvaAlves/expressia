@@ -29,15 +29,17 @@ export function ViewTabs({ current }: ViewTabsProps): React.ReactElement {
       >
         Lista
       </Link>
-      <button
-        type="button"
-        aria-disabled="true"
-        disabled
-        title={TOOLTIP_BREVE}
-        className="cursor-not-allowed px-4 py-2 text-sm text-neutral-400 dark:text-neutral-600"
+      <Link
+        href="/tarefas/kanban"
+        aria-current={current === 'kanban' ? 'page' : undefined}
+        className={
+          current === 'kanban'
+            ? 'border-b-2 border-blue-600 px-4 py-2 text-sm font-medium text-blue-600'
+            : 'px-4 py-2 text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'
+        }
       >
         Kanban
-      </button>
+      </Link>
       <button
         type="button"
         aria-disabled="true"

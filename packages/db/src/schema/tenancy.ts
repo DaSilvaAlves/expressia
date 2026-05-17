@@ -18,6 +18,7 @@ import {
   index,
   primaryKey,
   check,
+  boolean,
 } from 'drizzle-orm/pg-core';
 
 import { authUsers } from './auth';
@@ -161,8 +162,13 @@ export const kanbanColumns = pgTable(
     sortOrder: integer('sort_order').notNull().default(0),
     /** Cor do badge (hex `#RRGGBB`). */
     color: text('color').notNull().default('#6B7280'),
-    /** Se esta coluna representa o estado "concluído" (move tasks para `done`). */
-    isDoneColumn: text('is_done_column').notNull().default('false'),
+    /**
+     * Se esta coluna representa o estado "concluído" (move tasks para `done`).
+     *
+     * Story 3.4 migration 0011: converted from text ('true'/'false') to boolean.
+     * Partial unique index `kanban_columns_done_unique` garante máx 1 por household.
+     */
+    isDoneColumn: boolean('is_done_column').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

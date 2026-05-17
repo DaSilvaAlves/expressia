@@ -11,6 +11,16 @@
     --foreground: 222 47% 11%;
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
+
+    /* Story 3.4 Kanban tokens (G1.2 Aria — token explícito + auto-documenta kill-switch). */
+    --kanban-column-width: 288px;
+    --kanban-column-min-height: 120px;
+    --kanban-column-gap: 16px;
+    --kanban-card-padding: 12px;
+    --kanban-card-gap: 8px;
+    --kanban-drag-shadow: 0 16px 32px rgba(26, 26, 26, 0.2);
+    /* configurável — subir se famílias reais excederem 50 tarefas por coluna */
+    --kanban-column-min-tasks-virtualize: 50;
   }
 
   @media (prefers-color-scheme: dark) {

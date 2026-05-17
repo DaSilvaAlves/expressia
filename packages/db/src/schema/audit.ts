@@ -69,6 +69,11 @@ export const auditActionEnum = pgEnum('audit_action', [
   'recurrence.created',
   'recurrence.updated',
   'recurrence.deleted',
+  // Kanban columns (Story 3.4 — migration 0011 G3.1-G3.3)
+  'kanban_column.created',
+  'kanban_column.updated',
+  'kanban_column.deleted',
+  'kanban_column.batch_updated',
 ]);
 
 export const dataExportStatusEnum = pgEnum('data_export_status', [
