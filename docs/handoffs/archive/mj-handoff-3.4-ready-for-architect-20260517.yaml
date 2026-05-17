@@ -1,0 +1,259 @@
+# =============================================================================
+# Handoff: @po (Pax) → @architect (Aria)
+# Story 3.4 v1.1 — ReadyForArchitect: 8 DPs OPEN ratify pre-impl + scope migration 0011
+# =============================================================================
+
+id: mj-handoff-3.4-ready-for-architect-20260517
+from_agent: "po (Pax)"
+to_agent: "architect (Aria)"
+created: "2026-05-17T18:00:00+01:00"
+status: consumed
+consumed: true
+consumed_at: "2026-05-17T18:30:00+01:00"
+consumed_by: "architect (Aria)"
+consumed_outcome: "PASS 8/8 DPs HIGH confidence. Gate report docs/qa/gates/3.4-architect-dps-ratify.md (~280 linhas). 2 RATIFY EXPLICIT (DP-3.4.4 + DP-3.4.6) + 6 APPROVE silent. 8 guidance notes G1.x/G2.x para @dev. 3 G3.x technical notes para @data-engineer migration 0011 paralelizável. Story v1.1 → v1.2 ReadyForDev. Sucessor: mj-handoff-3.4-ready-for-dev-20260517.yaml (pending)."
+priority: high
+project_prefix: mj
+project: "meu-jarvis (Expressia — expressia.pt)"
+story_id: "3.4"
+story_title: "Vista Kanban com colunas configuráveis + drag-and-drop"
+epic_id: 3
+epic_progress: "3/8 Done + 1/8 ReadyForArchitect — Story 3.4 será 4ª Done"
+
+# -----------------------------------------------------------------------------
+# SUMMARY
+# -----------------------------------------------------------------------------
+summary: |
+  Story 3.4 v1.1 validada pelo @po (Pax) com GO 9.0/10 HIGH (10-point 95/100).
+  3 PO_FIX_INLINE aplicados pre-Ready: PO-FIX-1 HIGH (audit naming `entity_type`→`entity_table`
+  em 4 ACs · cross-confirm contra `audit.ts:103` + `api-helpers/audit.ts:32`), PO-FIX-2 HIGH
+  (`audit_action` enum precisa ADD 4 VALUEs via migration 0011 + TypeScript type union update
+  em `audit.ts:12-25+32`), PO-FIX-3 MEDIUM (migration numbering 0010→0011 porque
+  `0010_audit_log_tasks_enum.sql` já existe da Story 3.2).
+
+  @architect (Aria) deve ratificar 8 DPs OPEN pré-impl (DP-3.4.1 a DP-3.4.6 + DP-3.4.8 + DP-3.4.9)
+  ANTES de @dev iniciar. Em paralelo, @data-engineer (Dara) pode draftar migration 0011 com scope
+  finalizado (4 alterações: CHECK count ≤ 6 + partial unique is_done_column + text→boolean +
+  ADD 4 VALUEs enum audit_action).
+
+# -----------------------------------------------------------------------------
+# ARTEFACTS CONSUMED (PO validation cycle)
+# -----------------------------------------------------------------------------
+artefacts_consumed:
+  - "docs/handoffs/archive/mj-handoff-3.4-ready-for-po-20260517.yaml (sm→po)"
+  - "docs/handoffs/archive/mj-handoff-session-pause-3.4-ready-for-po-20260517.yaml (meta cross-terminal)"
+
+artefacts_produced:
+  - path: "docs/stories/active/3.4.tasks-kanban-view.md"
+    type: "Story v1.1 ReadyForArchitect"
+    changes: "PO Validation Block + Change Log v1.1 + 3 PO_FIX_INLINE aplicados (AC8/9/10/11 audit naming + T2.2 enum + T10.1 migration 0011 + T10.3 NEW para type union audit.ts + File List +1 MODIFIED + Risks row reformulada + Status Draft→ReadyForArchitect + Author header)"
+  - path: "docs/stories/active/_INDEX.md"
+    type: "Row 3.4 actualizada"
+    changes: "Backlog → ReadyForArchitect v1.1 + Owner expanded + Epic 3 Progress reformulado (3/8 Done + 1/8 ReadyForArchitect)"
+
+# -----------------------------------------------------------------------------
+# CONTEXT FOR @architect
+# -----------------------------------------------------------------------------
+context: |
+  Story 3.4 é a 4ª story do Epic 3 (Módulo Tarefas). Aria já interveio 2x nesta story:
+    1. DP-3.4.7 Resolution (2026-05-17) — Opção A: 5 endpoints /api/kanban-columns/* são
+       sub-tasks de 3.4 (escalou L→XL). RESOLVED.
+    2. Pre-flight UX §11.1 (Uma referenciou Aria nas recomendações T-X.1/T-X.2 migration DB).
+
+  Esta intervenção (ratify 8 DPs) é o terceiro engagement na story. Após ratify, @dev
+  desbloqueia desde que @data-engineer também tenha confirmado migration 0011.
+
+  Confirmações anti-hallucination realizadas pelo @po (Pax) v1.1:
+    - Schema kanban_columns: `packages/db/src/schema/tenancy.ts:152-173` ✓ exact match
+    - is_done_column text (linha 165) ✓ confirmed (gap MEDIUM)
+    - audit_log table: `audit.ts:94-123` ✓ field é `entity_table` (não `entity_type`)
+    - audit_action enum: `audit.ts:28-72` ✓ 13 actions, ZERO kanban_column.* (precisa ADD VALUE)
+    - migration 0010 existe: `0010_audit_log_tasks_enum.sql` ✓ Story 3.2 → migration 0011 next
+    - Directory kanban-columns AUSENTE ✓ confirmed (DP-3.4.7 A correcto)
+    - Helpers DRY auth + audit existem ✓
+    - 5 componentes Story 3.3 re-uso existem ✓
+    - Pre-flight §11.1 ACs 7-11 = cópia fiel ✓
+
+# -----------------------------------------------------------------------------
+# 8 DPs OPEN para @architect ratify
+# -----------------------------------------------------------------------------
+dps_to_ratify:
+  - id: "DP-3.4.1"
+    topic: "Drag handle no card (todo o card vs ícone ⋮⋮)"
+    uma_recommendation: "A — Todo o card draggable (Trello/Notion/Linear padrão; activationConstraint distance: 8 distingue click de drag)"
+    priority: MEDIUM
+    suggested_action: "APPROVE silent (UX choice consolidada na indústria)"
+
+  - id: "DP-3.4.2"
+    topic: "Click no body do card (EditTaskModal vs inline edit)"
+    uma_recommendation: "A — EditTaskModal (drag conflitaria com inline edit; modal dá mais espaço)"
+    priority: MEDIUM
+    suggested_action: "APPROVE silent (aligned com pattern Story 3.3 RowActionsMenu)"
+
+  - id: "DP-3.4.3"
+    topic: "Filter bar na Kanban (sem filtros vs subset Lista vs completo)"
+    uma_recommendation: "B — Subset (search + tag) (úteis em Kanban; filtros data/projecto são mais Lista)"
+    priority: MEDIUM
+    suggested_action: "APPROVE silent (KISS — Story 3.6 substituirá tag dropdown)"
+
+  - id: "DP-3.4.4"
+    topic: "Threshold virtualização (50 vs 100 tasks/coluna vs sempre)"
+    uma_recommendation: "A — 50 tasks/coluna (famílias MVP raramente > 50; threshold dá margem; token configurável)"
+    priority: HIGH
+    suggested_action: "RATIFY explicit — afecta AC14 budget + token `--kanban-column-min-tasks-virtualize`. Aria pode confirmar que naive-first (sem virtualização) + footer 'Ver mais N →' é suficiente para MVP Fase 1."
+
+  - id: "DP-3.4.5"
+    topic: "Haptic feedback mobile (navigator.vibrate(10) vs não)"
+    uma_recommendation: "A — Sim (custo 1 linha, impacto UX mobile; feature-detect obrigatório)"
+    priority: LOW
+    suggested_action: "APPROVE silent (1 linha + feature-detect = baixo risco)"
+
+  - id: "DP-3.4.6"
+    topic: "Batch save column config (single PATCH batch transacção vs múltiplos PATCHs)"
+    uma_recommendation: "A — Single PATCH /api/kanban-columns/batch (atomicidade; alinha pattern Story 3.2)"
+    priority: HIGH
+    suggested_action: "RATIFY EXPLICIT — Story 3.4 AC11 implementa A com db.transaction(). Aria deve validar design batch endpoint shape (input schema: columns[] + creates?[] + deletes?[] + invariants pós-batch 3≤count≤6 + exactly 1 is_done_column=true + names únicos). Decisão chave porque @dev impl T3.3."
+
+  - id: "DP-3.4.8"
+    topic: "Mobile coluna (full-width snap forte vs 1.5 colunas vs 2 colunas tap-zoom)"
+    uma_recommendation: "A — 1 coluna full-width snap forte (padrão Trello/Asana mobile)"
+    priority: LOW
+    suggested_action: "APPROVE silent (alinhado AC13 + R7 mitigation)"
+
+  - id: "DP-3.4.9"
+    topic: "Coluna Concluído → animação especial (normal vs check icon + fade strike-through 800ms)"
+    uma_recommendation: "B — Check icon + fade strike-through 800ms (delight; alinhado micro-interaction Lista)"
+    priority: LOW
+    suggested_action: "APPROVE silent (delight + consistente com Lista)"
+
+# -----------------------------------------------------------------------------
+# COORDENAÇÃO @data-engineer (paralelizável com Aria DPs ratify)
+# -----------------------------------------------------------------------------
+parallel_coordination_dara:
+  description: |
+    @data-engineer (Dara) pode draftar migration 0011 EM PARALELO com Aria ratify (não bloqueia).
+    Scope finalizado pelo @po (Pax) v1.1 via PO-FIX-3:
+
+    Migration: `packages/db/migrations/0011_kanban_columns_schema_and_audit_enum.sql`
+    Consolidando 4 alterações:
+      (a) ADD CHECK count(kanban_columns WHERE household_id) ≤ 6 (trigger ou CHECK function)
+      (b) ADD partial unique index: kanban_columns_done_unique ON (household_id) WHERE is_done_column=true
+      (c) ALTER COLUMN is_done_column text→boolean (USING ::boolean + default false)
+      (d) ADD 4 VALUEs ao enum audit_action:
+          ALTER TYPE audit_action ADD VALUE IF NOT EXISTS 'kanban_column.created';
+          ALTER TYPE audit_action ADD VALUE IF NOT EXISTS 'kanban_column.updated';
+          ALTER TYPE audit_action ADD VALUE IF NOT EXISTS 'kanban_column.deleted';
+          ALTER TYPE audit_action ADD VALUE IF NOT EXISTS 'kanban_column.batch_updated';
+      (e) Validar RLS policies (0001_rls_policies.sql:150-168) compatíveis com tipo boolean
+          (legacy comparam 'true'/'false' strings — pode quebrar).
+
+    Recomendação Aria pre-flight §11.1: usar migração DB (defesa em profundidade NFR5) vs só app-layer.
+
+  pre_condition_for_dev: |
+    @dev NÃO pode iniciar *develop 3.4 antes de:
+      1. @architect ratificar 8 DPs OPEN (esta intervenção)
+      2. @data-engineer confirmar migration 0011 abordagem (paralelizável)
+
+# -----------------------------------------------------------------------------
+# QUALITY CRITERIA — @architect ratify decision
+# -----------------------------------------------------------------------------
+quality_criteria_for_ratify:
+  - name: "1. DPs categorizados por prioridade"
+    check: "HIGH (DP-3.4.4 virtualização threshold + DP-3.4.6 batch endpoint design) ratify explicit; restantes 6 APPROVE silent aceitável"
+
+  - name: "2. Migration 0011 scope validation"
+    check: "Confirmar 4 alterações (CHECK + partial unique + text→boolean + ADD enum VALUEs) são executáveis numa única migration ou se devem ser split (ex: enum changes em migration separada porque ALTER TYPE ADD VALUE não pode correr em transaction)"
+
+  - name: "3. Batch endpoint shape final (DP-3.4.6 A)"
+    check: "Aria valida db.transaction() shape para AC11 (input/output Zod schemas + invariants pós-batch + rollback semantics)"
+
+  - name: "4. Gate report opcional"
+    check: "Aria pode gerar gate report em docs/qa/gates/3.4-architect-dps-ratify.md (pattern Story 3.3 DP4 ratify ~190 linhas) — opcional, depende de complexidade decisões"
+
+  - name: "5. Sucessor handoff"
+    check: "Após ratify, Aria cria handoff @architect → @dev (ou @architect → @data-engineer se Dara não fez migration ainda) com instruções pre-impl finais"
+
+# -----------------------------------------------------------------------------
+# INPUTS PARA @architect (ler antes de ratify)
+# -----------------------------------------------------------------------------
+inputs_for_architect:
+  primary:
+    - path: "docs/stories/active/3.4.tasks-kanban-view.md"
+      reason: "Story file v1.1 ReadyForArchitect — secção Decision Points + PO Validation Block"
+
+    - path: "docs/ux/3.4-kanban-pre-flight.md §11"
+      reason: "9 DPs originais com racionais Uma (DP-3.4.1 a DP-3.4.9)"
+
+    - path: "docs/ux/3.4-kanban-pre-flight.md §11.1"
+      reason: "DP-3.4.7 Resolution já feita pela Aria — referência para abordagem DPs restantes"
+
+  secondary:
+    - path: "docs/stories/completed/3.3.tasks-list-view.md"
+      reason: "Pattern DP4 ratify pre-impl @architect (Story 3.3 fez igual com helper extraction listTasksHelper)"
+
+    - path: "docs/qa/gates/3.3-architect-dp4-ratify.md"
+      reason: "Gate report exemplo (~190 linhas) para DP ratify formato"
+
+    - path: "packages/db/schema/audit.ts:28-72"
+      reason: "Enum audit_action actual — verificar se ALTER TYPE ADD VALUE é a abordagem correcta (Postgres-specific: não pode correr dentro de transaction)"
+
+  reference:
+    - path: "apps/web/src/lib/api-helpers/audit.ts"
+      reason: "Helper insertAuditLog — TypeScript type union a actualizar T10.3 (PO-FIX-2)"
+
+    - path: "packages/db/migrations/0010_audit_log_tasks_enum.sql"
+      reason: "Pattern Story 3.2 para ALTER TYPE ADD VALUE — replicar para kanban_column.* em migration 0011"
+
+# -----------------------------------------------------------------------------
+# NEXT ACTION
+# -----------------------------------------------------------------------------
+next_action: |
+  @architect (Aria) executa workflow ratify pre-impl:
+
+    @architect *ratify-dps 3.4
+
+  Decisão por DP:
+    - APPROVE silent (DP-3.4.1, 3.4.2, 3.4.3, 3.4.5, 3.4.8, 3.4.9 — 6 LOW/MEDIUM)
+    - RATIFY EXPLICIT com gate report (DP-3.4.4 virtualização + DP-3.4.6 batch endpoint — 2 HIGH)
+    - REJECT/COUNTER (se Aria discordar de recomendações Uma — improvável dado precedentes)
+
+  Após ratify:
+    - Sucesso → criar handoff @architect → @data-engineer (se Dara não fez 0011 ainda) OU
+      @architect → @dev (se Dara confirmou 0011 em paralelo)
+    - Bloqueio → escalate Eurico com gap analysis específico
+
+  Paralelizável: @data-engineer (Dara) pode arrancar migration 0011 em paralelo
+  (scope finalizado pelo PO-FIX-3 v1.1 — ver secção parallel_coordination_dara acima).
+
+# -----------------------------------------------------------------------------
+# NOTES
+# -----------------------------------------------------------------------------
+notes: |
+  PO Validation Block completo no story file (~120 linhas em secção dedicada antes do Change Log)
+  inclui:
+    - 10-point checklist detalhado com PASS/PASS-com-PO-FIX por critério
+    - Anti-hallucination cross-confirm tabela 12 fontes
+    - 3 PO_FIX_INLINE descritos com problema/fix/impacto
+    - Secção dedicada "Para @architect (próximo na cadeia SDC)" com 8 DPs categorizados por prioridade
+    - Sub-recomendações inline NIT (DOC-FIX-1 a DOC-FIX-3) não-bloqueantes
+
+  Constitution check 6/6 PASS: Story-Driven Development PASS, No Invention PASS (12 fontes
+  cross-confirmed), Quality First PASS (5 quality gates explicitos T13), Absolute Imports
+  PASS (DRY helpers via @/lib/api-helpers/*).
+
+  Sub-decisões silenciosas (não-PO-FIX):
+    - ACs 7-11 cópia fiel pre-flight §11.1 — não re-validar tecnicamente (já aprovado pela Aria)
+    - 8 DPs OPEN com recomendações Uma documentadas e priorizadas
+    - T1.4 (@testing-library/user-event) — @dev resolve
+    - Re-uso 5 componentes Story 3.3 — Glob confirmou existência real
+
+  Pattern Story 3.3 idêntico aplicável:
+    - DP4-3.3 ratify pela Aria: gate report em docs/qa/gates/3.3-architect-dp4-ratify.md ~190 linhas
+    - 5 razões + 6 guidance notes + 3 NITs non-blocking
+    - PASS HIGH confidence — Story 3.4 pode esperar verdict similar nos 2 DPs HIGH (3.4.4 + 3.4.6)
+
+  Eurico decisão pós-ratify (escolher composição):
+    A) Sequencial: @architect ratify → @data-engineer migration 0011 → @dev develop 3.4
+    B) Paralelizado: @architect ratify + @data-engineer migration 0011 (simultâneo) → @dev develop 3.4
+    C) Plus paralelizar @sm *draft de outras stories Backlog (3.5/3.6/3.7/3.8) noutros terminais
+       enquanto 3.4 está em pre-impl coordination.

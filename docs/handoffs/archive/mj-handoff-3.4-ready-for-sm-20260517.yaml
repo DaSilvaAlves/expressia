@@ -1,0 +1,260 @@
+# =============================================================================
+# Handoff: @ux-design-expert (Uma) → @sm (River)
+# Story 3.4 — Vista Kanban com drag-and-drop
+# Pre-flight design entregue, pronto para draft da story
+# =============================================================================
+
+id: mj-handoff-3.4-ready-for-sm-20260517
+from_agent: "ux-design-expert (Uma)"
+to_agent: "sm (River)"
+created: "2026-05-17T01:30:00+01:00"
+status: consumed
+consumed: true
+consumed_at: "2026-05-17T05:00:00+01:00"
+consumed_by: "sm (River)"
+priority: high
+project_prefix: mj
+project: "meu-jarvis (Expressia — expressia.pt)"
+story_id: "3.4"
+story_title: "Vista Kanban com colunas configuráveis + drag-and-drop"
+epic_id: 3
+epic_progress: "3/8 Done — Story 3.4 será 4ª"
+
+# -----------------------------------------------------------------------------
+# SUMMARY
+# -----------------------------------------------------------------------------
+summary: |
+  Pre-flight UX design para Story 3.4 entregue em `docs/ux/3.4-kanban-pre-flight.md`
+  (15 secções, ~750 linhas). Especifica anatomia completa de componentes
+  (KanbanBoard, KanbanColumn, KanbanCard, ColumnConfigSheet), design tokens novos
+  (9 tokens Kanban-specific), drag-and-drop spec @dnd-kit com sensors config,
+  R7 mobile strategy (tap-and-hold 250ms + scroll horizontal snap), R8 perf
+  strategy (naive-first com virtualização threshold 50 tasks/coluna),
+  acessibilidade WCAG AA com screen reader announcements PT-PT, 9 Decision
+  Points para `@architect`/`@po` ratify (1 BLOCKER: DP-3.4.7 endpoint
+  /api/kanban-columns CRUD existe ou sub-task?), 5 NITs follow-up, e Quality
+  Checklist 14 itens pre-draft.
+
+  `@sm` consume este doc + Epic plan §stories[3.4] + wireframe
+  `front-end-spec.md §5.7` para produzir `docs/stories/active/3.4.tasks-kanban-view.md`
+  com ~14 ACs, ~10-12 tasks, Decision Points secção, File List, estimate L
+  (possível XL se DP-3.4.7 forçar CRUD endpoint).
+
+# -----------------------------------------------------------------------------
+# ARTEFACTS PRODUCED
+# -----------------------------------------------------------------------------
+artefacts_produced:
+  - path: "docs/ux/3.4-kanban-pre-flight.md"
+    type: "UX pre-flight spec"
+    lines: ~750
+    sections: 15
+    status: "v1.0 ready for consumption"
+
+  # Inputs referenced (não-modificados nesta sessão)
+  - path: "docs/front-end-spec.md §5.7"
+    role: "wireframe base (conceptual)"
+    status: "unchanged"
+  - path: "docs/front-end-spec.md §3 (tokens) + §4.2 (components)"
+    role: "design tokens + component library base"
+    status: "unchanged"
+  - path: "docs/epics/EPIC-3-EXECUTION.yaml stories[3.4]"
+    role: "scope canónico story"
+    status: "unchanged"
+  - path: "apps/web/src/app/(app)/tarefas/_components/*"
+    role: "re-use base (ViewTabs, EmptyState, TaskCheckbox, EditTaskModal, RowActionsMenu)"
+    status: "unchanged (re-use only)"
+  - path: "packages/db/src/schema/tasks.ts:83-104"
+    role: "schema reference (kanban_column_id + kanban_position + tasks_kanban_idx)"
+    status: "unchanged"
+
+# -----------------------------------------------------------------------------
+# CONTEXT FOR @sm
+# -----------------------------------------------------------------------------
+context: |
+  Story 3.4 herda padrões consolidados das Stories 3.1-3.3:
+    - DRY helpers: requireAuth + resolveHouseholdId + resolveHouseholdRole (`@/lib/api-helpers/auth`)
+    - Audit: insertAuditLog (`@/lib/api-helpers/audit`)
+    - Zod schemas com `.strict()` mode
+    - Optimistic UI pattern (DP7: A já confirmed na 3.2)
+    - Padrão Component Server + Client island (Story 3.3 estabeleceu para Lista)
+
+  Library DP1 já confirmed: @dnd-kit/core + @dnd-kit/sortable
+  (front-end-spec.md:1510). Pre-flight detalha sensors config, collision
+  detection (closestCorners), drag lifecycle (start/over/end/cancel),
+  KeyboardSensor para a11y full keyboard navigation.
+
+  Re-uso significativo de componentes Lista (Story 3.3):
+    - ViewTabs (passar activeTab="kanban")
+    - EmptyState (quando 0 tasks total)
+    - TaskCheckbox (toggle completo inline no card)
+    - EditTaskModal (click no body abre modal — NÃO inline edit, drag conflitaria)
+    - RowActionsMenu (menu `…` dentro do card)
+
+  Componentes NEW estimados (~9):
+    KanbanBoardClient · KanbanBoard · KanbanColumn · KanbanCard ·
+    KanbanCardOverlay · KanbanAddInline · KanbanColumnHeader ·
+    ColumnConfigSheet · KanbanFilterBar
+
+# -----------------------------------------------------------------------------
+# DECISION POINTS PARA @architect / @po RATIFY
+# -----------------------------------------------------------------------------
+decision_points:
+  - id: "DP-3.4.7"
+    title: "Endpoint /api/kanban-columns CRUD"
+    severity: "RESOLVED"
+    resolved_by: "@architect (Aria)"
+    resolved_at: "2026-05-17T01:50:00+01:00"
+    verdict: "A — sub-task em 3.4. Story 3.2 ratificou defer via DP4-3.2 (B ACCEPT, linhas 410+753)."
+    impact: "Story estimate L → XL (~25-30% scope adicional). Manter 3.4 XL único, não spin-off"
+    evidence:
+      - "apps/web/src/app/api/ sem directório kanban-columns (variantes confirmadas ausentes)"
+      - "apps/web/src/app/api/tasks/[id]/move/route.ts existe (Story 3.2)"
+      - "Schema kanban_columns existe (packages/db/src/schema/tenancy.ts:152-173) com 4 RLS policies (delete = owner/admin only)"
+    gaps_schema:
+      - "HIGH — sem CHECK count ≤ 6 per household"
+      - "HIGH — sem partial unique is_done_column=true per household"
+      - "MEDIUM — is_done_column é text não boolean"
+    blocking_for_sm: false
+    next_action_for_sm: "Adicionar AC-7 a AC-11 (ver pre-flight §11.1) + sub-tasks T-X.1 (migration 0010) + T-X.2 (text→bool housekeeping). Coordenar com @data-engineer ANTES de @dev começar."
+
+  - id: "DP-3.4.1"
+    title: "Drag handle no card"
+    severity: "LOW UX"
+    options:
+      A: "Todo card draggable (sem handle visível) — RECOMMENDED"
+      B: "Handle ⋮⋮ explícito"
+    who_decides: "@architect"
+
+  - id: "DP-3.4.2"
+    title: "Click no body do card"
+    severity: "LOW UX"
+    options:
+      A: "EditTaskModal — RECOMMENDED"
+      B: "Inline edit título (como Lista)"
+    who_decides: "@architect"
+
+  - id: "DP-3.4.3"
+    title: "Filter bar mínima na Kanban"
+    severity: "MEDIUM UX"
+    options:
+      A: "Sem filtros"
+      B: "Subset (search + tag) — RECOMMENDED"
+      C: "Filtros completos Lista"
+    who_decides: "@architect + @po"
+
+  - id: "DP-3.4.4"
+    title: "Threshold virtualização"
+    severity: "MEDIUM tech"
+    options:
+      A: "50 tasks/coluna — RECOMMENDED"
+      B: "100 tasks/coluna"
+      C: "Sempre virtualizar"
+    who_decides: "@architect"
+
+  - id: "DP-3.4.5"
+    title: "Haptic feedback mobile"
+    severity: "LOW UX"
+    recommendation: "A — navigator.vibrate(10) no onDragStart"
+    who_decides: "@architect"
+
+  - id: "DP-3.4.6"
+    title: "Batch save column config"
+    severity: "HIGH tech"
+    options:
+      A: "Single PATCH /api/kanban-columns/batch (atomicidade) — RECOMMENDED"
+      B: "Múltiplos PATCHs paralelos"
+    who_decides: "@architect"
+
+  - id: "DP-3.4.8"
+    title: "Mobile coluna full-width vs 1.5 colunas"
+    severity: "MEDIUM UX"
+    options:
+      A: "1 coluna full-width com snap forte — RECOMMENDED"
+      B: "1.5 colunas (peek)"
+      C: "2 colunas tap-zoom"
+    who_decides: "@architect"
+
+  - id: "DP-3.4.9"
+    title: "Animação especial coluna 'Concluído'"
+    severity: "LOW UX"
+    recommendation: "B — check icon + fade strike-through 800ms (delight)"
+    who_decides: "@architect"
+
+# -----------------------------------------------------------------------------
+# QUALITY CRITERIA (pre-draft validation by @sm)
+# -----------------------------------------------------------------------------
+quality_criteria_pre_draft:
+  - "Wireframe front-end-spec.md §5.7 referenciado na Story file"
+  - "Component anatomy (pre-flight §2) traduzida em File List da story"
+  - "9 Design tokens novos (§3.2) capturados em ACs ou Notes"
+  - "Drag-and-drop spec (§5) base implementação (sensors + lifecycle)"
+  - "Mobile UX (§6, R7) traduzido em AC explícito (tap-and-hold + scroll snap)"
+  - "Performance (§7, R8) traduzido em AC com performance budget §7.4"
+  - "Acessibilidade (§8) traduzida em ACs (keyboard nav + ARIA + announcements PT-PT)"
+  - "Column config (§9.2) no scope (vs deferir sub-story)"
+  - "Empty/error states (§10) em ACs"
+  - "9 DPs listados em Decision Points secção da Story"
+  - "5 NITs capturados em Follow-up secção"
+  - "DP-3.4.7 (endpoint CRUD) RESOLVIDO via @architect antes de finalizar estimate"
+  - "Testes target ~30 (Epic plan) cobertura drag + keyboard + a11y + error revert"
+  - "Re-uso 5 componentes Lista (pre-flight §2.3) confirmado via grep"
+
+# -----------------------------------------------------------------------------
+# NEXT ACTION
+# -----------------------------------------------------------------------------
+next_action: |
+  @sm executa workflow Story Development Cycle Phase 1:
+
+    @sm *draft 3.4
+
+  Inputs:
+    - docs/ux/3.4-kanban-pre-flight.md (este pre-flight — primary input)
+    - docs/epics/EPIC-3-EXECUTION.yaml §stories[3.4] (scope canónico)
+    - docs/front-end-spec.md §5.7 (wireframe base)
+    - docs/stories/completed/3.3.tasks-list-view.md (pattern reference para PT-PT style + estrutura ACs/Tasks/DPs)
+
+  Output esperado:
+    - docs/stories/active/3.4.tasks-kanban-view.md
+    - Status: Draft v1.0 → ReadyForPO (após PO Validation Phase 2)
+    - Sucessor handoff: mj-handoff-3.4-ready-for-po-20260517.yaml
+
+  ANTES de finalizar story file, @sm deve:
+    1. ~~Resolver DP-3.4.7 com @architect~~ **RESOLVIDO 2026-05-17 por Aria** — Opção A,
+       Story estimate **XL**, adicionar AC-7 a AC-11 do pre-flight §11.1 + sub-tasks
+       T-X.1/T-X.2 para coordenação @data-engineer (migration 0010 constraints +
+       text→bool housekeeping)
+    2. Coordenar com @data-engineer (Dara) sobre migration 0010 ANTES de @dev começar
+       (decisão DB constraints vs app-layer enforcement; Aria recomenda DB para NFR5
+       defesa em profundidade)
+    3. Aplicar Quality Checklist 14 itens (§13 do pre-flight)
+
+# -----------------------------------------------------------------------------
+# REFERENCES
+# -----------------------------------------------------------------------------
+references:
+  pre_flight_doc: "docs/ux/3.4-kanban-pre-flight.md"
+  epic_plan: "docs/epics/EPIC-3-EXECUTION.yaml"
+  wireframe: "docs/front-end-spec.md §5.7"
+  design_tokens: "docs/front-end-spec.md §3"
+  component_library_base: "docs/front-end-spec.md §4.2 (TaskCard #24 + KanbanColumn #32)"
+  patterns_dry_helpers:
+    - "apps/web/src/lib/api-helpers/auth.ts"
+    - "apps/web/src/lib/api-helpers/audit.ts"
+    - "apps/web/src/lib/api-schemas/"
+  predecessor_story: "docs/stories/completed/3.3.tasks-list-view.md (pattern reference)"
+  schema_kanban: "packages/db/src/schema/tasks.ts:83-104 + tenancy.ts (kanban_columns table)"
+  library_decision_dp1: "docs/front-end-spec.md:1510 (@dnd-kit/core + @dnd-kit/sortable confirmed)"
+
+notes: |
+  Sessão Uma (@ux-design-expert) ~30min wall-clock. Recon do estado pré-existente
+  (front-end-spec + scaffolding Lista + schema + Epic plan) revelou que grande
+  parte do trabalho conceptual já estava feito — esta sessão focou-se em
+  preencher engineering detail que falta (estados visuais drag, a11y specs PT-PT,
+  R7/R8 strategies, DPs para ratify, performance budgets).
+
+  Re-uso de componentes Lista é significativo (5 componentes directos via re-uso,
+  zero duplicação esperada). Padrão Story 3.3 estabeleceu base sólida.
+
+  BLOCKER único: DP-3.4.7 (/api/kanban-columns CRUD) precisa de validação antes
+  de @sm fechar scope. Recomendo @architect fazer grep rápido + decisão em ~5min
+  antes de @sm avançar com draft.

@@ -1,0 +1,365 @@
+# =============================================================================
+# Handoff: @dev (Dex) → @data-engineer (Dara) — Session Pause
+# Story 3.4 v1.3 Paused-Awaiting-T10 — Migration 0011 BLOCKED
+# =============================================================================
+
+id: mj-handoff-3.4-pause-t10-pending-dara-20260517
+from_agent: "dev (Dex)"
+to_agent: "data-engineer (Dara)"
+created: "2026-05-17T19:50:00+01:00"
+status: consumed
+consumed: true
+consumed_at: "2026-05-17T19:15:00+01:00"
+consumed_by: "data-engineer (Dara)"
+priority: high
+project_prefix: mj
+project: "meu-jarvis (Expressia — expressia.pt)"
+story_id: "3.4"
+story_title: "Vista Kanban com colunas configuráveis + drag-and-drop"
+epic_id: 3
+epic_progress: "3/8 Done — Story 3.4 entregue T1-T9 + T11-T13 mas BLOCKED em T10 (migration 0011)"
+
+# -----------------------------------------------------------------------------
+# SUMMARY
+# -----------------------------------------------------------------------------
+summary: |
+  @dev (Dex) entregou T1-T9 + T11-T13 da Story 3.4 em modo YOLO (decisão Eurico
+  para paralelizar com Dara): 16 ficheiros NEW + 4 MODIFIED, +43 testes web
+  (350→393, +43% overshoot vs ~30 target), 5/5 quality gates GREEN. T10
+  (migration 0011 + schema sync + audit enum extension) fica BLOCKED — depende
+  exclusivamente de Dara craftar e aplicar migration `0011_kanban_columns_schema_and_audit_enum.sql`.
+
+  Os endpoints `/api/kanban-columns/*` foram entregues com feature flag
+  `KANBAN_AUDIT_ENABLED` (default `false`) que skipa silentemente `audit_log`
+  INSERTs para action values `kanban_column.*` enquanto o PG enum não estiver
+  estendido. Quando Dara aplicar migration, o flag flippa para `true` em prod
+  e os audit_logs começam a fluir.
+
+  Solicita-se a Dara: craftar `0011_*.sql` seguindo guidance G3.1/G3.2/G3.3
+  do gate report Architect (Aria) + aplicar via `pnpm --filter @meu-jarvis/db
+  db:migrate` + cross-confirm com `pnpm check:rls` ≥ 4 policies kanban_columns.
+
+# -----------------------------------------------------------------------------
+# CONTEXT — O que foi feito nesta sessão
+# -----------------------------------------------------------------------------
+context: |
+  ### Scope desta sessão (T1-T9 + T11-T13)
+
+  **Quality gates 5/5 GREEN:**
+    - `pnpm lint` EXIT 0 (zero warnings, --max-warnings=0 next lint)
+    - `pnpm typecheck` EXIT 0 (TypeScript strict)
+    - `pnpm --filter @meu-jarvis/web test` EXIT 0 (46 files, **393 tests passed**,
+      baseline 350 + **43 novos kanban**)
+    - `pnpm build` EXIT 0 (rota /tarefas/kanban 24.6 kB + 5 endpoints
+      /api/kanban-columns/* todos no bundle)
+    - `pnpm check:rls` EXIT 0 (kanban_columns mantém 4 policies — NFR5 PRESERVADA)
+
+  **Ficheiros NEW (16):**
+    - apps/web/src/app/(app)/tarefas/kanban/page.tsx (RSC fetch tasks+columns)
+    - apps/web/src/app/(app)/tarefas/kanban/loading.tsx (skeleton)
+    - 9 componentes em _components/: KanbanBoardClient, KanbanBoard,
+      KanbanColumn, KanbanColumnHeader, KanbanCard, KanbanCardOverlay,
+      KanbanAddInline, ColumnConfigSheet, KanbanFilterBar
+    - 3 route handlers: route.ts (GET+POST), [id]/route.ts (PATCH+DELETE),
+      batch/route.ts (PATCH com G2.1-G2.4 aplicadas)
+    - 1 schema Zod: lib/api-schemas/kanban-columns.ts (.strict() em todos)
+    - 7 tests novos: 5 component + 1 endpoint + 1 page
+
+  **Ficheiros MODIFIED (4):**
+    - apps/web/src/app/(app)/tarefas/_components/ViewTabs.tsx (Kanban tab activa)
+    - apps/web/src/lib/api-helpers/audit.ts (TasksAuditAction +4 + entityTable
+      +'kanban_columns' + feature flag KANBAN_AUDIT_ENABLED)
+    - apps/web/package.json (+3 deps @dnd-kit/core ^6.3.1 + sortable ^10.0.0
+      + utilities ^3.2.2 + devDep @testing-library/user-event)
+    - pnpm-lock.yaml (locked deps)
+
+  **Decisões aplicadas (silent — Aria ratify):**
+    - 6 DPs APPROVE silent (DP-3.4.1, 3.4.2, 3.4.3, 3.4.5, 3.4.8, 3.4.9)
+    - 8 guidance notes G1.1, G1.2 (token vive em KanbanColumn — globals.css edit
+      adiado), G1.3, G2.1, G2.2, G2.3, G2.4
+    - 5 [DEV-DECISION] silent — ver Change Log v1.3 da story
+
+  ### Scope BLOCKED (T10 — para Dara)
+
+  **T10.1 — Migration 0011_kanban_columns_schema_and_audit_enum.sql**
+
+  Aria recomendação (G3.1/G3.2/G3.3 do gate report):
+    - **Single consolidated migration** OK (PG 12+ permite ALTER TYPE ADD VALUE
+      dentro de transaction desde que novos values NÃO sejam USED na mesma
+      transaction — esta migration apenas adiciona+altera schema, zero INSERT).
+    - **Ordem dentro do ficheiro:**
+      1. ALTER TYPE audit_action ADD VALUE IF NOT EXISTS × 4 (idempotent)
+      2. ALTER COLUMN is_done_column text → boolean USING is_done_column::boolean
+      3. ADD partial unique index ON (household_id) WHERE is_done_column = true
+      4. ADD CHECK constraint count(*) ≤ 6 per household (via trigger BEFORE
+         INSERT OR UPDATE — PG não suporta subquery em CHECK directo)
+    - **RLS policies actuais** (`0001_rls_policies.sql:150-168`) já confirmadas
+      compatíveis text→boolean (zero referência is_done_column nas 4 policies).
+
+  4 enum values a adicionar:
+    - kanban_column.created
+    - kanban_column.updated
+    - kanban_column.deleted
+    - kanban_column.batch_updated
+
+  Precedent: migration 0010 (Story 3.2) fez 13 ALTER TYPE ADD VALUE numa única
+  transaction → PASS. Mesmo pattern aplicável aqui.
+
+  **T10.2 — Sync schema TypeScript Drizzle**
+    - packages/db/src/schema/tenancy.ts linha 165:
+      `isDoneColumn: text('is_done_column').notNull().default('false')`
+      → `isDoneColumn: boolean('is_done_column').notNull().default(false)`
+    - Endpoints já normalizam text/boolean via `isDoneBool()` helper — após
+      conversão, o helper continua a funcionar (boolean → boolean é identidade).
+
+  **T10.3 — audit.ts type union**
+    - Já feito por @dev nesta sessão (`audit.ts:34-37` + `audit.ts:43`). Dara
+      não precisa tocar — apenas confirmar.
+
+  **T10.4 — check:rls EXIT 0**
+    - Já confirmed por @dev nesta sessão. Dara repete pós-migration para
+      garantir invariant.
+
+  ### Pós Dara (sucessor @dev)
+
+  Quando Dara aplicar migration:
+    1. @dev sucessor consume este handoff via leitura
+    2. Actualiza `tenancy.ts` linha 165 (T10.2 sync)
+    3. Re-run quality gates 5/5 (deve continuar GREEN)
+    4. Set env var `KANBAN_AUDIT_ENABLED=true` em `apps/web/.env.local`
+    5. Cria handoff dev→architect final gate:
+       `mj-handoff-3.4-ready-for-architect-final-gate-20260517.yaml`
+    6. @architect (Aria) faz `*qa-gate 3.4` Phase 4 SDC
+
+# -----------------------------------------------------------------------------
+# ARTEFACTS CONSUMED
+# -----------------------------------------------------------------------------
+artefacts_consumed:
+  - "docs/handoffs/archive/mj-handoff-3.4-ready-for-dev-20260517.yaml (architect→dev, consumed nesta sessão)"
+
+# -----------------------------------------------------------------------------
+# ARTEFACTS PRODUCED nesta sessão
+# -----------------------------------------------------------------------------
+artefacts_produced:
+  - path: "apps/web/src/app/(app)/tarefas/kanban/page.tsx"
+    type: "NEW RSC page"
+  - path: "apps/web/src/app/(app)/tarefas/kanban/loading.tsx"
+    type: "NEW skeleton"
+  - path: "apps/web/src/app/(app)/tarefas/kanban/_components/*.tsx"
+    type: "9 NEW client components"
+  - path: "apps/web/src/app/api/kanban-columns/route.ts"
+    type: "NEW GET + POST"
+  - path: "apps/web/src/app/api/kanban-columns/[id]/route.ts"
+    type: "NEW PATCH + DELETE"
+  - path: "apps/web/src/app/api/kanban-columns/batch/route.ts"
+    type: "NEW PATCH batch (G2.1-G2.4 applied)"
+  - path: "apps/web/src/lib/api-schemas/kanban-columns.ts"
+    type: "NEW Zod schemas .strict()"
+  - path: "apps/web/src/app/(app)/tarefas/kanban/_components/__tests__/*.test.tsx"
+    type: "5 NEW component tests"
+  - path: "apps/web/src/app/api/kanban-columns/__tests__/route.test.ts"
+    type: "NEW endpoint tests (16 tests)"
+  - path: "apps/web/src/app/(app)/tarefas/kanban/__tests__/page.test.tsx"
+    type: "NEW RSC tests (3 tests)"
+  - path: "apps/web/src/app/(app)/tarefas/_components/ViewTabs.tsx"
+    type: "MODIFIED — Kanban activated as Link"
+  - path: "apps/web/src/lib/api-helpers/audit.ts"
+    type: "MODIFIED — TasksAuditAction +4 + KANBAN_AUDIT_ENABLED gate"
+  - path: "apps/web/package.json + pnpm-lock.yaml"
+    type: "MODIFIED — +3 deps @dnd-kit + 1 devDep user-event"
+  - path: "docs/stories/active/3.4.tasks-kanban-view.md"
+    type: "MODIFIED — Status v1.3 Paused-Awaiting-T10 + Change Log v1.3 + File List actualizada + 10 checkboxes [x]"
+
+# -----------------------------------------------------------------------------
+# QUALITY GATES RESULTS (5/5 GREEN)
+# -----------------------------------------------------------------------------
+quality_gates:
+  lint:
+    command: "pnpm --filter @meu-jarvis/web lint"
+    result: "EXIT 0"
+    notes: "next lint --max-warnings=0 — zero ESLint warnings"
+
+  typecheck:
+    command: "pnpm --filter @meu-jarvis/web typecheck"
+    result: "EXIT 0"
+    notes: "TypeScript strict — @dnd-kit types completos OK"
+
+  test:
+    command: "pnpm --filter @meu-jarvis/web test"
+    result: "EXIT 0 — 393/393 tests passed"
+    notes: |
+      46 test files, 393 tests passed. Baseline 350 → 393 = +43 novos kanban tests.
+      Target story ~30 — overshoot +43%.
+      Breakdown:
+        - KanbanBoardClient: 4 tests
+        - KanbanColumn: 5 tests
+        - KanbanCard: 5 tests
+        - ColumnConfigSheet: 5 tests
+        - KanbanAddInline: 5 tests
+        - kanban-columns endpoints: 16 tests
+        - page RSC: 3 tests
+        = 43 novos
+      db-test package falha (Story 1.4 Testcontainers — Docker não disponível local;
+      CI cobre via Postgres 16 service). NÃO bloqueia Story 3.4 (pre-existing).
+
+  build:
+    command: "pnpm --filter @meu-jarvis/web build"
+    result: "EXIT 0"
+    notes: |
+      Rota /tarefas/kanban = 24.6 kB chunk + 233 kB First Load.
+      5 endpoints /api/kanban-columns/{route,[id],batch} todos no bundle.
+
+  check_rls:
+    command: "pnpm check:rls"
+    result: "EXIT 0"
+    notes: "10 tabelas multi-tenant detectadas (incluindo kanban_columns), 4 policies cada. NFR5 PRESERVADA."
+
+# -----------------------------------------------------------------------------
+# WHAT @data-engineer (Dara) NEEDS TO DO
+# -----------------------------------------------------------------------------
+next_action: |
+  @data-engineer (Dara) workflow:
+
+  1. **Ler gate report Aria** `docs/qa/gates/3.4-architect-dps-ratify.md` secção
+     5 "Coordenação migration 0011" — 3 G3.x technical notes (HIGH confidence)
+     com SQL pseudocode exacto.
+
+  2. **Craftar migration**:
+     packages/db/migrations/0011_kanban_columns_schema_and_audit_enum.sql
+
+     Ordem (G3.2):
+       (a) `alter type public.audit_action add value if not exists 'kanban_column.created';`
+           (× 4 — created/updated/deleted/batch_updated, idempotent)
+       (b) `alter table public.kanban_columns
+              alter column is_done_column type boolean
+              using is_done_column::boolean,
+              alter column is_done_column set default false;`
+       (c) `create unique index if not exists kanban_columns_done_unique
+              on public.kanban_columns (household_id)
+              where is_done_column = true;`
+       (d) Trigger + function para CHECK count ≤ 6 (PG não suporta subquery em
+           CHECK constraint directo — função BEFORE INSERT verifica count).
+
+  3. **Aplicar localmente**:
+     `pnpm --filter @meu-jarvis/db db:migrate`
+     Verificar __schema_migrations tem entry para 0011.
+
+  4. **Cross-confirm**:
+     - `pnpm check:rls` EXIT 0 (kanban_columns 4 policies intactas)
+     - SELECT count(*) FROM pg_type WHERE typname = 'audit_action' → verificar
+       que tem 38 values (34 actuais + 4 novos)
+     - SELECT * FROM pg_indexes WHERE indexname = 'kanban_columns_done_unique'
+       → verificar partial unique existe
+
+  5. **Criar handoff Dara → @dev sucessor**:
+     `mj-handoff-3.4-migration-0011-applied-ready-for-dev-20260517.yaml`
+     com next_action explícito:
+       - actualizar packages/db/src/schema/tenancy.ts (T10.2 text→boolean)
+       - re-run pnpm typecheck (deve continuar PASS — boolean ↔ boolean)
+       - re-run pnpm --filter @meu-jarvis/web test (393 tests devem continuar)
+       - set env KANBAN_AUDIT_ENABLED=true em apps/web/.env.local
+       - criar handoff dev → architect final gate
+
+  6. Marcar este handoff como consumed + mover para archive/.
+
+# -----------------------------------------------------------------------------
+# INPUTS PARA Dara
+# -----------------------------------------------------------------------------
+inputs_for_dara:
+  primary:
+    - path: "docs/qa/gates/3.4-architect-dps-ratify.md"
+      reason: "Secção 5 'Coordenação migration 0011' tem G3.1/G3.2/G3.3 com SQL pseudocode + ordem operações + RLS compatibility confirmation. Fonte canónica."
+
+    - path: "docs/stories/active/3.4.tasks-kanban-view.md"
+      reason: "T10 detalhe completo no Tasks/Subtasks. Bloqueadores Externos PRE-IMPL row tem scope completo da migration."
+
+  secondary:
+    - path: "packages/db/migrations/0010_audit_log_tasks_enum.sql"
+      reason: "Precedent Story 3.2 — 13 ALTER TYPE numa transaction passed. Mesmo pattern."
+
+    - path: "packages/db/src/scripts/apply-migrations.ts"
+      reason: "Runner usa `set local check_function_bodies = off` para suportar forward references."
+
+    - path: "apps/web/src/lib/api-helpers/audit.ts"
+      reason: "Type union já estendido por @dev (linhas 34-37 + 43). Dara apenas confirma — não toca."
+
+    - path: "apps/web/src/lib/api-schemas/kanban-columns.ts"
+      reason: "is_done_column é z.boolean() de raiz — confirma alinhamento com migration."
+
+    - path: "packages/db/migrations/0001_rls_policies.sql"
+      reason: "Linhas 150-168 — 4 policies kanban_columns sem referência a is_done_column (zero need to update)."
+
+# -----------------------------------------------------------------------------
+# KNOWN BLOCKERS / NOTES
+# -----------------------------------------------------------------------------
+notes: |
+  ### Feature flag KANBAN_AUDIT_ENABLED
+
+  Implementação em `apps/web/src/lib/api-helpers/audit.ts:54-62`:
+  ```ts
+  function isKanbanAuditEnabled(): boolean {
+    return process.env.KANBAN_AUDIT_ENABLED === 'true';
+  }
+  function isKanbanAction(action: TasksAuditAction): boolean {
+    return action.startsWith('kanban_column.');
+  }
+  ```
+
+  Em `insertAuditLog()`:
+  ```ts
+  if (isKanbanAction(action) && !isKanbanAuditEnabled()) {
+    return;
+  }
+  ```
+
+  Após Dara aplicar migration:
+    - Adicionar `KANBAN_AUDIT_ENABLED=true` em `apps/web/.env.local`
+    - Adicionar mesma var em Vercel production env vars
+    - Endpoints começam a inserir audit_log entries para kanban_column.*
+
+  ### Pre-existing limitations (NÃO bloqueiam)
+
+    - `db-test` package falha local (Story 1.4 Testcontainers requer Docker
+      Desktop running). CI rls-gate cobre via Postgres 16 service.
+    - Sentry instrumentation warnings (pre-existing — Story 1.7 follow-up).
+
+  ### Pause-handoff sequence (cross-terminal)
+
+  Este handoff é o ÚNICO Pending para Story 3.4. Sessões sucessoras:
+    1. Dara aplica migration → cria handoff Dara→dev
+    2. @dev sucessor consume → completa T10.2/T10.3/T10.4 + env flag → cria
+       handoff dev→architect final gate
+    3. @architect (Aria) faz qa-gate Phase 4 SDC → cria handoff architect→devops
+    4. @devops (Gage) faz `*push 3.4` → Epic 3 = 4/8 Done
+
+  Total wall-clock até Done: ~1.5h (Dara 30min + @dev sucessor 15min + Aria
+  30min + Gage 15min).
+
+# -----------------------------------------------------------------------------
+# DEV DECISIONS (transparência para Dara + Aria final gate)
+# -----------------------------------------------------------------------------
+dev_decisions_silent:
+  - id: "D-3.4.1"
+    description: "Manter `TasksAuditAction` nome em vez de renomear para `DomainAuditAction`."
+    rationale: "Rename é refactor cross-cutting (audit.ts + 5 routes Story 3.2 + 5 routes Story 3.4). NIT-AR-3.4.1 non-blocking."
+    risk: "LOW"
+
+  - id: "D-3.4.2"
+    description: "`captureException` client island via `@sentry/nextjs` directo (não `@meu-jarvis/observability`)."
+    rationale: "@meu-jarvis/observability importa node:crypto via logger.ts. Webpack client bundle parte com UnhandledSchemeError. @sentry/nextjs é client-safe."
+    risk: "ZERO — mesmo runtime"
+
+  - id: "D-3.4.3"
+    description: "ColumnConfigSheet usa overlay simples + window.prompt() em vez de Radix Sheet + drag interno."
+    rationale: "KISS — Radix adiciona ~30 KB bundle. Drag intra-Sheet exige outro DndContext nested. up/down buttons aceitável para operação rara."
+    risk: "MEDIUM — UX menos polished. Upgrade follow-up Story 3.6+ se Eurico pedir."
+
+  - id: "D-3.4.4"
+    description: "TaskCheckbox NÃO reutilizado em KanbanCard (depende de useBulkSelection context exclusivo de TaskListClient)."
+    rationale: "Toggle status em Kanban é via EditTaskModal — bulk select não faz sentido em board visual."
+    risk: "LOW"
+
+  - id: "D-3.4.5"
+    description: "Long-press fallback menu mobile (T9.3) adiado para follow-up."
+    rationale: "TouchSensor 250ms cobre R7 primário. Fallback menu adiciona ~120 LoC + nova superfície interacção."
+    risk: "LOW — capturado em NIT-DEV-3.4.1 para iteração com base em feedback real."

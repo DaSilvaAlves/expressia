@@ -1,0 +1,209 @@
+# =============================================================================
+# Handoff: @data-engineer (Dara) → @dev (Dex)
+# Story 3.4 — Migration 0011 + Drizzle schema sync prontos para T10
+# Paralelo (não bloqueia start) — aplicável em T10 (entre T9 e T11)
+# =============================================================================
+
+id: mj-handoff-3.4-migration-0011-ready-for-dev-20260517
+from_agent: "data-engineer (Dara)"
+to_agent: "dev (Dex)"
+created: "2026-05-17T19:15:00+01:00"
+status: consumed
+consumed: true
+consumed_at: "2026-05-17T19:45:00+01:00"
+consumed_by: "dev (Dex)"
+priority: high
+project_prefix: mj
+project: "meu-jarvis (Expressia — expressia.pt)"
+story_id: "3.4"
+story_title: "Vista Kanban com colunas configuráveis + drag-and-drop"
+epic_id: 3
+
+# -----------------------------------------------------------------------------
+# SUMMARY
+# -----------------------------------------------------------------------------
+summary: |
+  Migration 0011 + Drizzle schema sync prontos. @dev pode aplicar em T10 da
+  Story 3.4 com `pnpm --filter @meu-jarvis/db db:migrate` após implementar
+  route handlers T2-T9. RLS NFR5 preservada (4 policies kanban_columns intactas).
+
+# -----------------------------------------------------------------------------
+# ARTEFACTS PRODUCED
+# -----------------------------------------------------------------------------
+artefacts_produced:
+  - path: "packages/db/migrations/0011_kanban_columns_schema_and_audit_enum.sql"
+    type: "Migration SQL — Kanban schema constraints + audit enum"
+    summary: |
+      Consolida 5 alterações em transação única (runner apply-migrations.ts
+      envolve em sql.begin() — rollback automático em erro):
+        (a-d) ALTER TYPE audit_action ADD VALUE × 4 (kanban_column.{created,
+              updated, deleted, batch_updated}) — idempotente IF NOT EXISTS
+        (e)   Conversão is_done_column TEXT → BOOLEAN (drop default + alter
+              type + set default false) — ressalva G3.2-1 Dara
+        (f)   Defensive DO block antes do partial unique — aborta cedo se
+              data existente tem >1 done column por household — ressalva
+              G3.2-2 Dara
+        (g)   Partial unique index kanban_columns_done_unique (máx 1 done por
+              household) — DP-3.4.6 invariant server-side enforcement
+        (h)   Trigger BEFORE INSERT/UPDATE check_kanban_columns_max_per_household
+              (≤ 6 colunas por household) — FR9 limite UI/UX
+
+  - path: "packages/db/src/schema/tenancy.ts"
+    type: "Drizzle schema sync — kanban_columns.is_done_column"
+    summary: |
+      Adicionado import de `boolean` from 'drizzle-orm/pg-core'.
+      `is_done_column: text(...).default('false')` → `boolean(...).default(false)`.
+      Comment JSDoc actualizado com referência à migration 0011 + partial unique.
+
+  - path: "packages/db/src/schema/audit.ts"
+    type: "Drizzle schema sync — auditActionEnum"
+    summary: |
+      Adicionados 4 valores ao array `auditActionValues` (apêndice no fim,
+      consistente com padrão precedent 0010):
+        - 'kanban_column.created'
+        - 'kanban_column.updated'
+        - 'kanban_column.deleted'
+        - 'kanban_column.batch_updated'
+      Comment inline "Kanban columns (Story 3.4 — migration 0011 G3.1-G3.3)".
+
+# -----------------------------------------------------------------------------
+# VALIDATION EVIDENCE
+# -----------------------------------------------------------------------------
+validation_evidence: |
+  G3.1-G3.3 confirmadas pela Aria (HIGH confidence) + 2 ressalvas Dara aplicadas
+  + 1 gap (Drizzle sync) coberto:
+
+  G3.1 — Single consolidated migration viable:
+    Confirmado contra `apply-migrations.ts:93` (sql.begin() per file).
+    PG 12+ permite ALTER TYPE ADD VALUE em transação desde que os novos
+    values NÃO sejam USED na mesma transação. Migration 0011 apenas adiciona
+    values (zero INSERT que referencie kanban_column.*) — safe.
+    Precedent: 0010 fez 13 ALTER TYPE em 1 transação → PASS.
+
+  G3.2 — Ordem dentro do ficheiro (validada + 2 ressalvas Dara):
+    (1) ALTER TYPE × 4 primeiro idempotent
+    (2) text→boolean: RESSALVA-1 Dara — drop default ANTES de alter type
+        (cast text 'false' → boolean default pode falhar dependendo da
+        versão PG / configuração local). Aplicado em (e).
+    (3) RESSALVA-2 Dara — defensive DO block em (f) ANTES do partial unique.
+        Aborta cedo com mensagem clara se data existente tem >1 done column
+        por household. Evita create index fail mid-tx (que provocaria
+        rollback completo + ruído).
+    (4) Partial unique kanban_columns_done_unique
+    (5) Trigger CHECK count ≤ 6
+
+  G3.3 — RLS policies SAFE (NFR5 preservada):
+    `0001_rls_policies.sql:150-168` — 4 policies (select_member, insert_member,
+    update_member, delete_owner_admin) usam apenas is_household_member() +
+    is_household_owner_or_admin(). ZERO referências a is_done_column.
+    Conversão text→boolean preserva check:rls gate GREEN.
+
+  GAP-3.4-DARA-1 — Drizzle schema sync (não coberto por G3.x Aria):
+    O schema Drizzle em packages/db/src/schema/{tenancy.ts, audit.ts} tem que
+    ser sincronizado com a migration SQL para que (1) `pnpm typecheck` continue
+    GREEN em consumers do `kanbanColumns` table object + (2) `pnpm check:rls`
+    detecte o schema actualizado sem regressão. Coberto pelos 2 edits acima.
+
+  App-side audit helper já preparado:
+    apps/web/src/lib/api-helpers/audit.ts JÁ tem (a) `TasksAuditAction` type
+    union com os 4 kanban_column.* values (linhas 41-44) + (b) `'kanban_columns'`
+    no `entityTable` literal (linha 51) + (c) feature flag `KANBAN_AUDIT_ENABLED`
+    (default false) que protege INSERTs até migration 0011 estar aplicada.
+    @dev SÓ precisa de flippar a env var para `true` depois de correr db:migrate
+    (T10.3 housekeeping pode remover o flag em PR follow-up).
+
+# -----------------------------------------------------------------------------
+# NEXT ACTION
+# -----------------------------------------------------------------------------
+next_action: |
+  @dev executa em T10 (após implementar route handlers T2-T9):
+
+    pnpm --filter @meu-jarvis/db db:migrate
+
+  Output esperado:
+    [apply] 0011_kanban_columns_schema_and_audit_enum.sql …
+    [done]  0011_kanban_columns_schema_and_audit_enum.sql em XXXms
+
+  Pós-aplicação:
+    1. Setar `KANBAN_AUDIT_ENABLED=true` em .env.local (dev) — liga audit
+       INSERTs para kanban_column.* (api-helpers/audit.ts:65)
+    2. Validar com `pnpm check:rls` (NFR5 gate — kanban_columns mantém 4 policies)
+    3. Validar com `pnpm typecheck` (Drizzle schema sync)
+    4. T10.3 housekeeping (PR follow-up opcional): remover feature flag
+       KANBAN_AUDIT_ENABLED e forçar sempre on
+
+# -----------------------------------------------------------------------------
+# PRE-CONDITION
+# -----------------------------------------------------------------------------
+pre_condition: |
+  Nenhuma — migration é stand-alone aplicável a qualquer momento.
+
+  @dev pode arrancar `*develop 3.4` IMEDIATAMENTE (T1-T9 + T11-T13 não dependem
+  desta migration). T10 sincroniza naturalmente quando route handlers estão
+  prontos e audit_log INSERTs precisam dos enum values na DB.
+
+# -----------------------------------------------------------------------------
+# QUALITY GATES AFTER APPLY
+# -----------------------------------------------------------------------------
+quality_gates_after_apply:
+  rls_nfr5:
+    command: "pnpm check:rls"
+    expected: "GREEN — kanban_columns mantém 4 policies (select_member, insert_member, update_member, delete_owner_admin). RLS coverage gate detecta households_id sem regression."
+    why_safe: |
+      Migration 0011 NÃO toca em RLS — apenas:
+        - adiciona enum values (audit_action)
+        - converte coluna text→boolean (preserva NOT NULL + default)
+        - cria index + trigger
+      RLS policies em 0001_rls_policies.sql:150-168 são imutáveis nesta migration.
+
+  typecheck:
+    command: "pnpm typecheck"
+    expected: "GREEN — Drizzle schema sync alinhou tenancy.ts (boolean) + audit.ts (+4 enum values) com a migration."
+
+  lint:
+    command: "pnpm lint"
+    expected: "GREEN — nenhuma alteração ESLint-relevant (só SQL + schema TS)."
+
+  test:
+    command: "pnpm test"
+    expected: "Baseline preservado. @dev adiciona ~30 novos tests em T11 — esta migration não muda comportamento de tests existentes."
+
+  build:
+    command: "pnpm build"
+    expected: "GREEN — Drizzle schema TS compila sem erros após sync."
+
+# -----------------------------------------------------------------------------
+# NOTES
+# -----------------------------------------------------------------------------
+notes: |
+  Avisos para @dev em T10:
+
+  1. Feature flag `KANBAN_AUDIT_ENABLED` (env var) — JÁ existe em
+     apps/web/src/lib/api-helpers/audit.ts:65. Default false. Liga após
+     correr db:migrate. T10.3 pode remover o flag em PR follow-up
+     (housekeeping NIT-AR-3.4.1 mencionado pela Aria).
+
+  2. Migration ÚNICA + atomicidade: runner envolve em sql.begin() — se passo
+     (e), (f), (g) ou (h) falhar, rollback completo (incluindo passos a-d que
+     adicionaram enum values, exceto se PG já tiver flushed catalog — ver
+     PG docs ALTER TYPE atomicity caveats). Re-run é safe via IF NOT EXISTS.
+
+  3. Ressalva G3.2-2 (defensive check em f): se a migration abortar com
+     "data violation — household com múltiplas done columns", isto indica
+     data antigo (de antes do partial unique). Cleanup manual:
+       UPDATE public.kanban_columns
+         SET is_done_column = false
+         WHERE household_id = '<HOUSEHOLD_UUID>'
+           AND id != '<KEEP_THIS_DONE_COLUMN_ID>';
+     Depois re-correr db:migrate (idempotente).
+
+  4. Order check: migration 0011 corre DEPOIS de 0010 (lexicographic). Runner
+     ignora ficheiros já em __schema_migrations — re-run skip 0000-0010.
+
+  5. Production roll-out (futuro): mesma migration aplica-se em prod via
+     CI/CD ou manual `pnpm db:migrate` com DIRECT_URL prod. Defensive check
+     (f) torna prod-safe — não há risco de fail silently.
+
+  Sucessor: nenhum directo. Após @dev aplicar a migration em T10 e fechar
+  Story 3.4, o sucessor natural é o handoff @architect final-gate
+  mj-handoff-3.4-ready-for-architect-final-gate-20260517 que @dev criará em T13.7.

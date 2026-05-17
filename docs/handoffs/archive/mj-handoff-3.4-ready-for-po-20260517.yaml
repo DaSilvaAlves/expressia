@@ -1,0 +1,174 @@
+# =============================================================================
+# Handoff: @sm (River) → @po (Pax)
+# Story 3.4 — Vista Kanban com colunas configuráveis + drag-and-drop
+# Story file Draft v1.0 pronta para validação PO 10-point checklist
+# =============================================================================
+
+id: mj-handoff-3.4-ready-for-po-20260517
+from_agent: "sm (River)"
+to_agent: "po (Pax)"
+created: "2026-05-17T05:00:00+01:00"
+status: consumed
+consumed: true
+consumed_at: "2026-05-17T18:00:00+01:00"
+consumed_by: "po (Pax)"
+consumed_via: "@po *validate-story-draft 3.4"
+priority: high
+project_prefix: mj
+project: "meu-jarvis (Expressia — expressia.pt)"
+story_id: "3.4"
+story_title: "Vista Kanban com colunas configuráveis + drag-and-drop"
+epic_id: 3
+epic_progress: "3/8 Done — Story 3.4 será 4ª"
+
+# -----------------------------------------------------------------------------
+# SUMMARY
+# -----------------------------------------------------------------------------
+summary: |
+  Story 3.4 Draft v1.0 produzida em `docs/stories/active/3.4.tasks-kanban-view.md`.
+  Estimate XL (ratificado @architect Aria via DP-3.4.7 Resolution 2026-05-17).
+  14 ACs (AC1-AC6 UI/UX core + AC7-AC11 endpoints /api/kanban-columns/* per §11.1
+  pre-flight + AC12 ColumnConfigSheet + AC13 Mobile R7 + AC14 Performance R8).
+  13 tasks com checkboxes. 9 DPs listados (DP-3.4.7 RESOLVED, 8 OPEN para @architect).
+  File List 21 NEW + 3 MODIFIED. Pronta para @po *validate-story-draft 3.4.
+
+# -----------------------------------------------------------------------------
+# ARTEFACTS PRODUCED
+# -----------------------------------------------------------------------------
+artefacts_produced:
+  - path: "docs/stories/active/3.4.tasks-kanban-view.md"
+    type: "Story file Draft v1.0"
+    status: "pronto para PO validation"
+    acs: 14
+    tasks: 13
+    dps: 9
+    estimate: "XL"
+
+  - path: "docs/ux/3.4-kanban-pre-flight.md"
+    role: "fonte primária — pre-flight UX spec (Uma, 15 secções, ~795 linhas)"
+    status: "v1.0 entregue por @ux-design-expert"
+
+# -----------------------------------------------------------------------------
+# CONTEXT FOR @po
+# -----------------------------------------------------------------------------
+context: |
+  Story 3.4 é a quarta story do Epic 3 (Módulo Tarefas). Herda padrões consolidados
+  das Stories 3.1-3.3 (helpers DRY, Zod .strict(), optimistic UI, RSC + client islands).
+
+  KEY DECISIONS já tomadas (não reversíveis sem impacto major):
+    - DP-3.4.7 RESOLVED: 5 endpoints /api/kanban-columns/* são sub-tasks de 3.4
+      (não existem de Story 3.2). Estimate sobe L → XL. @architect Aria 2026-05-17.
+    - DP-3.4.6 (batch endpoint): Story 3.4 implementa Opção A (single PATCH /batch
+      com db.transaction() — atomicidade). @architect deve validar design.
+    - Library DP1 confirmada: @dnd-kit/core + @dnd-kit/sortable (front-end-spec.md:1510).
+    - Re-uso 5 componentes Lista (Story 3.3): ViewTabs, EmptyState, TaskCheckbox,
+      EditTaskModal, RowActionsMenu — grep confirmado, existem em _components/.
+
+  DPs 3.4.1-3.4.6 + 3.4.8 + 3.4.9 aguardam ratificação @architect (8 DPs OPEN).
+  @po não precisa decidir sobre estes DPs técnicos — validar que estão documentados.
+
+  ATENÇÃO ESPECIAL (PO 10-point checklist):
+    - AC7-AC11 (5 endpoints) têm ACs concretos e testáveis — verificar se são
+      completos e suficientemente claros para @dev implementar sem ambiguidade.
+    - AC11 (batch endpoint) especifica invariants pós-batch (3 ≤ count ≤ 6,
+      exactly 1 is_done_column=true, names únicos) — verificar se são testáveis.
+    - 3 schema gaps (CHECK count, partial unique, text→boolean) são risks HIGH/MEDIUM
+      documentados — verificar se mitigações são suficientes.
+    - Coordenação @data-engineer (migration 0010) é pré-requisito de @dev — verificar
+      se Task 10 (T10.1-T10.3) é suficientemente detalhada.
+
+# -----------------------------------------------------------------------------
+# QUALITY CRITERIA — PO 10-point checklist
+# -----------------------------------------------------------------------------
+quality_criteria:
+  - name: "1. Título claro e objectivo"
+    check: "Story 3.4 title === 'Vista Kanban com colunas configuráveis + drag-and-drop'"
+
+  - name: "2. Descrição completa (problema/necessidade explicados)"
+    check: "User Story statement em PT-PT com As a / I want / so that presente e completo"
+
+  - name: "3. Acceptance Criteria testáveis"
+    check: "14 ACs com PASS condition clara. AC1-AC14 têm critérios de verificação explícitos"
+
+  - name: "4. Scope bem definido (IN e OUT listados)"
+    check: "§1.2 pre-flight lista out-of-scope. Story cobre: board, drag, config sheet, mobile, a11y, endpoints"
+
+  - name: "5. Dependências mapeadas"
+    check: "Secção Dependências com DEP-3.2 (Done), DEP-3.3 (Done), PRE-IMPL @data-engineer"
+
+  - name: "6. Estimate complexity documentado"
+    check: "XL ratificado @architect Aria + breakdown 5 categorias + racional XL vs L"
+
+  - name: "7. Valor de negócio claro"
+    check: "User Story: vista Kanban visual familiar (FR9/FR10), reorganização drag, gestão colunas inline, mobile/a11y"
+
+  - name: "8. Risks documentados"
+    check: "8 risks em tabela com severidade + mitigação (3 schema gaps HIGH + race condition + RLS + audit)"
+
+  - name: "9. Critério de Done claro"
+    check: "Task 13 (T13.1-T13.7): 5 quality gates GREEN + File List + handoff sucessor"
+
+  - name: "10. Alinhamento com PRD/Epic"
+    check: "mapping_prd: [FR9 (vista Kanban), FR10 (drag-and-drop)]. Epic plan §stories[3.4] scope coberto"
+
+# -----------------------------------------------------------------------------
+# INPUTS PARA @po (ler antes de validar)
+# -----------------------------------------------------------------------------
+inputs_for_po:
+  primary:
+    - path: "docs/stories/active/3.4.tasks-kanban-view.md"
+      reason: "Story file a validar"
+
+  secondary:
+    - path: "docs/epics/EPIC-3-EXECUTION.yaml §stories[3.4] (linhas 267-290)"
+      reason: "Scope canónico do Epic — verificar alinhamento ACs vs scope_summary"
+
+    - path: "docs/ux/3.4-kanban-pre-flight.md §11.1"
+      reason: "Fonte dos ACs 7-11 — verificar fidelidade (ACs devem ser cópia fiel da §11.1)"
+
+    - path: "docs/stories/completed/3.3.tasks-list-view.md"
+      reason: "Pattern reference para estrutura PT-PT + nível de detalhe ACs esperado"
+
+  reference:
+    - path: "docs/handoffs/mj-handoff-3.4-ready-for-sm-20260517.yaml §quality_criteria_pre_draft"
+      reason: "14 critérios de qualidade que @sm verificou — @po pode usar como referência cruzada"
+
+# -----------------------------------------------------------------------------
+# NEXT ACTION
+# -----------------------------------------------------------------------------
+next_action: |
+  @po executa workflow Story Development Cycle Phase 2:
+
+    @po *validate-story-draft 3.4
+
+  Checklist 10 pontos. Decisão:
+    - GO (≥ 7/10): marcar Story 3.4 Status Draft → Ready. Criar handoff @po → @architect.
+    - NO-GO (< 7/10): listar fixes necessários; @sm corrige e resubmete.
+
+  ATENÇÃO @po: após GO, próximo passo é @architect ratificar 8 DPs OPEN
+  (DP-3.4.1 a DP-3.4.6 + DP-3.4.8 + DP-3.4.9) ANTES de @dev começar.
+  Criar handoff @po → @architect com lista DPs para ratify.
+
+  COORDENAÇÃO @data-engineer: @architect e @data-engineer devem alinhar
+  migration 0010 ANTES de @dev iniciar (pré-requisito hard — Task T1.2-T1.3).
+
+notes: |
+  @sm consumiu handoff `mj-handoff-3.4-ready-for-sm-20260517` (de @ux-design-expert Uma).
+  Pre-flight UX v1.0 (15 secções) + DP-3.4.7 Resolution @architect Aria foram os
+  inputs primários para draft da Story 3.4.
+
+  Quality Checklist 14 itens (pre-flight §13) verificados por @sm durante drafting:
+  - Wireframe §5.7 referenciado ✓
+  - Component anatomy §2 → File List ✓
+  - 9 design tokens §3.2 → AC2 ✓
+  - Drag-and-drop spec §5 → AC4 ✓ (sensors + lifecycle + error handling)
+  - Mobile UX §6 (R7) → AC13 ✓ (tap-and-hold + scroll snap + auto-scroll)
+  - Performance §7 (R8) → AC14 ✓ (budget §7.4 explícito)
+  - Acessibilidade §8 → AC6 ✓ (keyboard + ARIA + 6 anúncios PT-PT)
+  - Column config §9.2 → AC12 ✓
+  - Empty/error states §10 → AC5 + T8.2 ✓
+  - 9 DPs §11 → Decision Points secção ✓
+  - 5 NITs §12 → Follow-up secção ✓
+  - DP-3.4.7 RESOLVIDO antes de finalizar scope ✓
+  - Tests ~30 → Task 11 (T11.1-T11.6) ✓
+  - Re-uso 5 componentes Lista §2.3 → confirmado via grep ✓

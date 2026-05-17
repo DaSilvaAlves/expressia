@@ -1,0 +1,300 @@
+# =============================================================================
+# META-HANDOFF — Cross-Terminal Session Pause
+# Story 3.4 Kanban: Pre-flight + DP-3.4.7 resolved + SM Draft Done · Ready for PO
+# =============================================================================
+# Este handoff é AUTOSSUFICIENTE: qualquer agente em qualquer terminal pode
+# retomar a Story 3.4 a partir daqui sem re-explicação. Cobre 3 sub-fases
+# completas + 1 sub-fase pendente concreta (PO Validation Phase 2 SDC).
+# =============================================================================
+
+id: mj-handoff-session-pause-3.4-ready-for-po-20260517
+from_agent: "ux-design-expert (Uma) — sessão multi-agente orquestrada main thread"
+to_agent: "any (Eurico / próxima sessão — provável próximo: po Pax OU paralelizar com data-engineer Dara)"
+created: "2026-05-17T05:30:00+01:00"
+status: consumed
+consumed: true
+consumed_at: "2026-05-17T18:00:00+01:00"
+consumed_by: "po (Pax)"
+consumed_via: "@po *validate-story-draft 3.4 (cenário A sequencial recomendado por Uma — executado)"
+priority: high
+project_prefix: mj
+project: "meu-jarvis (Expressia — expressia.pt)"
+story_id: "3.4"
+story_title: "Vista Kanban com colunas configuráveis + drag-and-drop"
+epic_id: 3
+epic_progress: "3/8 Done · Story 3.4 Draft v1.0 (próxima a fechar = 4ª)"
+
+# -----------------------------------------------------------------------------
+# SUMMARY
+# -----------------------------------------------------------------------------
+summary: |
+  Sessão multi-agente completou as primeiras 3 sub-fases da Story 3.4 (Kanban)
+  no fluxo SDC, num único terminal, antes de pause cross-terminal:
+
+    Phase 1.A · @ux-design-expert (Uma) — pre-flight UX completo
+              docs/ux/3.4-kanban-pre-flight.md v1.1 (~900 linhas, 16 secções)
+              9 design tokens Kanban + drag-and-drop spec @dnd-kit + R7 mobile
+              + R8 perf + a11y WCAG AA + 9 DPs + 5 NITs + Quality Checklist 14 itens
+
+    Phase 1.B · @architect (Aria) — DP-3.4.7 RESOLVED 2026-05-17 01:50
+              Verdict Opção A: endpoint /api/kanban-columns CRUD NÃO existe
+              (Story 3.2 ratificou defer via DP4-3.2 = B ACCEPT, linhas 410+753).
+              Story 3.4 estimate L → XL. Pre-flight §11.1 actualizado com 5 ACs
+              adicionais (AC-7 a AC-11) + sub-tasks T-X.1 (migration 0010
+              constraints) + T-X.2 (text→bool housekeeping). 3 schema gaps
+              flagged: CHECK count ≤ 6 ausente (HIGH), partial unique
+              is_done_column ausente (HIGH), is_done_column text não bool (MEDIUM).
+
+    Phase 1.C · @sm (River) — Draft v1.0 entregue
+              docs/stories/active/3.4.tasks-kanban-view.md (696 linhas)
+              14 ACs (UI 6 + endpoints 5 + a11y/mobile/perf 3), 13 tasks
+              granulares (T1 inclui coordenação migration 0010 com Dara),
+              9 DPs (DP-3.4.7 RESOLVED + 8 OPEN para @architect ratify),
+              File List 21 NEW + 3 MODIFIED, estimate XL justificado,
+              8 risks com mitigação, 5 NITs Follow-up, Change Log v1.0.
+              Quality Checklist 14 itens da §13 pre-flight: 14/14 verified.
+
+  Adicionalmente, esta sessão limpou um vazamento cross-projecto:
+    - Handoff `ecos-handoff-nexus-markdown-rendering-bug-20260517.yaml`
+      estava por engano em meu-jarvis/docs/handoffs/. Movido para o repo
+      correcto C:/Users/XPS/Documents/ecosistema-ia-avancada-pt/docs/handoffs/
+      + INDEX desse repo actualizado + INDEX do meu-jarvis revertido nesse aspect.
+
+  Working tree limpo desse vazamento. Marketing files (landing-page-iris.md,
+  ad_strategy_v1.md, social_copy_v1.md, video_scripts_v1.md, iris_copy.pdf,
+  etc.) permanecem untracked por escolha (decisão Eurico, separados do código).
+
+# -----------------------------------------------------------------------------
+# CONTEXT
+# -----------------------------------------------------------------------------
+context:
+  story_id: "3.4"
+  story_path: "docs/stories/active/3.4.tasks-kanban-view.md"
+  story_status: "Draft v1.0 — Ready for PO Validation"
+  branch: "main"
+  current_task: "Aguarda Phase 2 SDC: @po *validate-story-draft 3.4"
+
+  decisions_made:
+    - "DP-3.4.7 RESOLVED Opção A (Aria) — kanban-columns CRUD entra em Story 3.4 como sub-task"
+    - "Story 3.4 estimate L → XL (~25-30% scope adicional)"
+    - "Migration 0010 confirmada necessária — CHECK count ≤ 6 + partial unique is_done_column + text→bool"
+    - "Manter 3.4 como XL único — NÃO fazer spin-off Story 3.4a (coesão narrativa + evita 2 ciclos QA gate)"
+    - "Re-uso 5 componentes Lista (Story 3.3): ViewTabs, EmptyState, TaskCheckbox, EditTaskModal, RowActionsMenu"
+    - "Library DP1 confirmed: @dnd-kit/core + @dnd-kit/sortable (front-end-spec.md:1510)"
+    - "Mobile UX R7: TouchSensor delay 250ms + tolerance 5px + scroll-snap-type x mandatory"
+    - "Performance R8: naive-first + virtualização threshold 50 tasks/coluna"
+
+  files_created_this_session:
+    - "docs/ux/3.4-kanban-pre-flight.md (~900 linhas, v1.1 com §11.1 DP-3.4.7 resolution)"
+    - "docs/handoffs/mj-handoff-3.4-ready-for-sm-20260517.yaml (consumed by River)"
+    - "docs/stories/active/3.4.tasks-kanban-view.md (696 linhas, Draft v1.0)"
+    - "docs/handoffs/mj-handoff-3.4-ready-for-po-20260517.yaml (pending, dirigido a Pax)"
+    - "docs/handoffs/archive/mj-handoff-3.4-ready-for-sm-20260517.yaml (consumed)"
+
+  files_modified_this_session:
+    - "docs/HANDOFF-INDEX.md (entrada ecos- revertida + entradas 3.4 chain adicionadas/movidas)"
+
+  files_moved_cross_repo:
+    - "docs/handoffs/ecos-handoff-nexus-markdown-rendering-bug-20260517.yaml MOVED to C:/Users/XPS/Documents/ecosistema-ia-avancada-pt/docs/handoffs/"
+
+  blockers:
+    - "Nenhum blocker técnico activo. DP-3.4.7 (único blocker) RESOLVED."
+    - "8 DPs OPEN (DP-3.4.1, .2, .3, .4, .5, .6, .8, .9) aguardam @architect ratify — não bloqueiam PO Validation, mas podem ser tocados durante validação ou deixados para @architect pre-flight antes de @dev develop"
+
+  hypotheses_tested:
+    - "Hypothesis: /api/kanban-columns CRUD existia da Story 3.2 → REFUTED por Aria via filesystem grep + leitura Story 3.2 file (DP4-3.2 ratificou defer)"
+    - "Hypothesis: Story 3.4 fica em estimate L → REFUTED — sobe a XL devido a 5 endpoints + migration 0010"
+    - "Hypothesis: kanban_columns tem todas as constraints DB necessárias → REFUTED — Aria flaggou 3 gaps (CHECK count, partial unique done_column, text vs bool)"
+
+# -----------------------------------------------------------------------------
+# NEXT ACTION
+# -----------------------------------------------------------------------------
+next_action: |
+  Primário (sequencial puro):
+
+    @po *validate-story-draft 3.4
+
+  Aplica 10-point checklist; produz veredicto GO ≥7 ou NO-GO com fixes obrigatórios.
+  Story 3.3 atingiu GO 9.5/10 — pattern similar esperado dada qualidade do pre-flight
+  + drafted. PO Validation tipicamente leva 15-30min wall-clock.
+
+  Recomendado (paralelizado — Dara não bloqueia Pax):
+
+    Terminal 1:  @po *validate-story-draft 3.4
+    Terminal 2:  @data-engineer (preparar migration 0010 — Task 1 da Story 3.4 file)
+
+  Dara pode rascunhar packages/db/migrations/0010_kanban_columns_constraints.sql
+  contendo:
+    - ALTER TABLE kanban_columns ADD CONSTRAINT kanban_columns_count_check
+      CHECK ((SELECT count(*) FROM kanban_columns WHERE household_id = NEW.household_id) <= 6)
+      [ou trigger-based se CHECK subquery não permitido em Postgres]
+    - CREATE UNIQUE INDEX kanban_columns_one_done_per_household
+      ON kanban_columns(household_id) WHERE is_done_column = 'true' [text]
+      OU = true [bool após housekeeping]
+    - ALTER TABLE kanban_columns ALTER COLUMN is_done_column TYPE boolean
+      USING (is_done_column = 'true');
+      ALTER TABLE kanban_columns ALTER COLUMN is_done_column SET DEFAULT false;
+
+  Migration NÃO é executada antes de PO Validation passar — só preparada.
+
+# -----------------------------------------------------------------------------
+# RECOMMENDATIONS (não-vinculativas, decisão Eurico)
+# -----------------------------------------------------------------------------
+recommendation: |
+  Prioridade sugerida ao retomar:
+
+  Cenário A (default — continuar sequencial SDC):
+    1. @po *validate-story-draft 3.4 (15-30min)
+    2. Resolve fixes PO se NO-GO; itera até GO
+    3. @data-engineer prepara migration 0010
+    4. @dev *develop 3.4 (estimate XL ~10-15h wall-clock dividido em sessões)
+    5. @architect *qa-gate 3.4
+    6. @devops *push 3.4
+
+  Cenário B (paralelização desde já):
+    Terminal A: @po *validate-story-draft 3.4
+    Terminal B: @data-engineer prepara migration 0010 em paralelo
+    Convergência: ambos concluem antes de @dev *develop começar
+
+  Cenário C (revisar 8 DPs OPEN antes de @po):
+    Se Eurico quiser fechar todos os DPs antes do PO (acelera o resto do ciclo):
+      @architect ratify DP-3.4.1 a .6 + .8 + .9 (~30-45min batch)
+    Vantagem: PO Validation + @dev develop sem decisions pendentes
+    Desvantagem: adiciona 1 step antes do PO
+
+  Recomendação Uma: **Cenário A** — Pax pode dar input nos DPs (especialmente
+  DP-3.4.3 que envolve PO) durante validação; restantes DPs são UX/tech onde
+  Aria decide naturalmente em qa-gate Phase 4 sem bloquear @dev.
+
+# -----------------------------------------------------------------------------
+# CRITICAL CONTEXT FOR ANY NEXT AGENT
+# -----------------------------------------------------------------------------
+critical_context:
+  epic_3_state:
+    done: ["3.1 (9.5/10)", "3.2 (9.3/10)", "3.3 (9.4/10)"]
+    in_draft: ["3.4 (Draft v1.0 — esta sessão)"]
+    pending: ["3.5 (Calendário L)", "3.6 (Tags S)", "3.7 (Recorrências, depends EB4)", "3.8 (Tools cérebro M)"]
+    notes: "Stories 3.5-3.8 todas desbloqueadas e paralelizáveis após 3.4 (todas depends_on apenas 3.2 que está Done)"
+
+  story_3_4_xl_breakdown:
+    ui_layer: "9 componentes novos + re-uso de 5 da Lista (Story 3.3 _components/)"
+    api_layer: "5 endpoints novos /api/kanban-columns/* + 1 existente /api/tasks/[id]/move"
+    db_layer: "1 migration nova 0010 (CHECK count + partial unique + text→bool)"
+    schema_layer: "tenancy.ts update is_done_column text→bool"
+    test_layer: "~30 tests RTL drag scenarios + endpoint integration tests + RLS cross-household"
+
+  patterns_reusable_from_3_1_3_2_3_3:
+    - "DRY helpers: requireAuth + resolveHouseholdId + resolveHouseholdRole (`@/lib/api-helpers/auth`)"
+    - "Audit: insertAuditLog (`@/lib/api-helpers/audit`) — confirmar audit_log.entity_type aceita 'kanban_column'"
+    - "Zod schemas com .strict() mode em `@/lib/api-schemas/`"
+    - "Optimistic UI pattern (DP7: A confirmed Story 3.2)"
+    - "Component Server + Client island (Story 3.3 estabeleceu para Lista)"
+    - "Empty state copy PT-PT (Story 3.3 EmptyState component)"
+
+  risk_summary_carried_forward:
+    - "NFR5 RLS: 4 policies kanban_columns existem; DELETE = owner/admin only (variant); UI trata 403 com toast PT-PT"
+    - "NFR9 audit: novos endpoints kanban-columns devem todos insertAuditLog (confirmar entity_type com Dara)"
+    - "Race conditions: sort_order unique constraint força batch endpoint em db.transaction() (shift pattern)"
+    - "Mobile R7: TouchSensor 250ms delay testado mentally; validar com browser real em @dev develop"
+    - "Perf R8: virtualização threshold 50 — pode subir/descer pós-validação MVP F1 (famílias 2-6 raramente >50 tasks/coluna)"
+
+  decision_points_remaining:
+    open_for_architect:
+      - "DP-3.4.1 (drag handle visível vs todo card draggable) — LOW UX — RECOMMENDED A"
+      - "DP-3.4.2 (click body abre EditTaskModal vs inline edit) — LOW UX — RECOMMENDED A"
+      - "DP-3.4.4 (virtualização threshold 50/100/sempre) — MEDIUM tech — RECOMMENDED A (50)"
+      - "DP-3.4.5 (haptic feedback navigator.vibrate(10)) — LOW UX — RECOMMENDED A (sim)"
+      - "DP-3.4.6 (batch save: PATCH /batch atómico vs múltiplos PATCH) — HIGH tech — RECOMMENDED A (atomic)"
+      - "DP-3.4.8 (mobile 1 coluna full vs 1.5/2) — MEDIUM UX — RECOMMENDED A (1 full snap)"
+      - "DP-3.4.9 (animação especial coluna 'Concluído') — LOW UX — RECOMMENDED B (check + fade strike-through 800ms)"
+    open_for_architect_plus_po:
+      - "DP-3.4.3 (filter bar Kanban: sem / subset / completo) — MEDIUM UX — RECOMMENDED B (subset: search + tag)"
+    resolved:
+      - "DP-3.4.7 (endpoint kanban-columns CRUD existe ou sub-task) — RESOLVED Opção A by Aria 2026-05-17 01:50 — sub-task em 3.4, estimate L → XL"
+
+  pre_flight_quality_checklist_state:
+    items_verified: 14
+    items_total: 14
+    status: "PASSED — todos os 14 itens da §13 pre-flight foram cobertos no Draft v1.0"
+
+# -----------------------------------------------------------------------------
+# WORKING TREE STATE (snapshot 2026-05-17 05:30)
+# -----------------------------------------------------------------------------
+working_tree:
+  branch: "main"
+  origin_main_synced: "9a5ae42 (último push @devops — Story 3.3 cycle closed)"
+  uncommitted_changes:
+    modified:
+      - "docs/HANDOFF-INDEX.md"
+    deleted:
+      - "docs/marketing/landing-page-expressia-draft.md"
+    untracked_code:
+      - "docs/handoffs/archive/mj-handoff-3.4-ready-for-sm-20260517.yaml"
+      - "docs/handoffs/mj-handoff-3.4-ready-for-po-20260517.yaml"
+      - "docs/handoffs/mj-handoff-session-pause-3.4-ready-for-po-20260517.yaml (este ficheiro)"
+      - "docs/stories/active/3.4.tasks-kanban-view.md"
+      - "docs/ux/3.4-kanban-pre-flight.md"
+    untracked_marketing_separated:
+      - "docs/marketing/ad_strategy_v1.md"
+      - "docs/marketing/iris_copy.pdf"
+      - "docs/marketing/landing-page-iris.md"
+      - "docs/marketing/onboarding_email_v1.md"
+      - "docs/marketing/siris-apresent.mp4"
+      - "docs/marketing/social_copy_v1.md"
+      - "docs/marketing/video_prompts_v1.md"
+      - "docs/marketing/video_scripts_v1.md"
+      - "docs/marketing/“iris”.pdf"
+
+  commit_strategy_when_resuming: |
+    Quando @po Validation passar GO + Story 3.4 fechar Phase 2:
+    @devops deve agregar commit com Conventional Commits multi-line:
+      - chore(docs,handoffs): Story 3.4 Phase 1 complete (pre-flight + DP-3.4.7 resolved + sm draft + po-ready) [Story 3.4]
+      - chore(handoffs): clean cross-project leak (ecos- handoff moved to correct repo)
+    Marketing files permanecem untracked (decisão Eurico separada).
+
+# -----------------------------------------------------------------------------
+# KEY ARTIFACTS REFERENCE MAP
+# -----------------------------------------------------------------------------
+key_artifacts:
+  pre_flight: "docs/ux/3.4-kanban-pre-flight.md (v1.1 — §11.1 inclui DP-3.4.7 resolution + AC-7 a AC-11)"
+  story_draft: "docs/stories/active/3.4.tasks-kanban-view.md (Draft v1.0, 696 linhas)"
+  sm_to_po_handoff: "docs/handoffs/mj-handoff-3.4-ready-for-po-20260517.yaml"
+  sm_handoff_consumed: "docs/handoffs/archive/mj-handoff-3.4-ready-for-sm-20260517.yaml"
+  epic_plan: "docs/epics/EPIC-3-EXECUTION.yaml §stories[3.4]"
+  wireframe: "docs/front-end-spec.md §5.7 (linhas 697-740, conceptual)"
+  design_tokens_base: "docs/front-end-spec.md §3 (cores, tipografia, spacing, radius, shadows, transitions)"
+  component_library_base: "docs/front-end-spec.md §4.2 (TaskCard #24 + KanbanColumn #32)"
+  schema_kanban: "packages/db/src/schema/tenancy.ts:152-173"
+  schema_tasks: "packages/db/src/schema/tasks.ts:83-104"
+  rls_policies_kanban: "packages/db/migrations/0001_rls_policies.sql:150-168 (4 policies)"
+  pattern_reference_story: "docs/stories/completed/3.3.tasks-list-view.md (estrutura PT-PT)"
+  story_3_2_dp4_ratify: "docs/stories/completed/3.2.tasks-api-routes.md linhas 410+753 (DP4-3.2 B ACCEPT)"
+
+# -----------------------------------------------------------------------------
+# NOTES
+# -----------------------------------------------------------------------------
+notes: |
+  Sessão multi-agente desta noite (2026-05-17 ~00:00 → ~05:30) entregou
+  3 sub-fases SDC da Story 3.4 numa única conversa orquestrada:
+
+    aiox-master (Orion) — limpeza cross-projecto + audit estado Epic 3
+       ↓
+    ux-design-expert (Uma) — pre-flight UX completo
+       ↓
+    architect (Aria — via Agent delegation) — DP-3.4.7 verdict
+       ↓
+    sm (River — via Agent delegation) — Draft v1.0
+
+  Padrão consolidado de paralelização: pre-flight UX + architect DP ratify
+  + sm draft podem viver numa única sessão se context tokens permitirem.
+  Próximo passo natural é Phase 2 SDC (PO Validation) — separável em
+  terminal diferente sem perda de contexto graças a este meta-handoff.
+
+  ESTE HANDOFF É CRITICAL READING para qualquer terminal que retome este
+  projecto. Status `pending`, dirigido a `any` — primeiro agente que activar
+  no projecto deve consumir + abrir os ficheiros referenciados em
+  `key_artifacts` antes de aceitar tarefas novas relacionadas com Story 3.4.
+
+  Não há urgência absoluta — Story 3.3 acabou de fechar (working tree limpo
+  de código), Epic 3 = 3/8 sem deadline forçado. Mas momentum da sessão
+  está alto e perpetuar até @dev *develop seria proveitoso.
