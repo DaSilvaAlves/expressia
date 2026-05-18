@@ -2,8 +2,10 @@ id: mj-handoff-3.5-ready-for-devops-20260518
 from_agent: "architect (Aria)"
 to_agent: "devops (Gage)"
 created: "2026-05-18T04:00:00+01:00"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-05-18T19:25:00+01:00"
+consumed_by: "devops (Gage)"
 priority: medium
 project_prefix: mj
 project: "meu-jarvis (Expressia — expressia.pt)"

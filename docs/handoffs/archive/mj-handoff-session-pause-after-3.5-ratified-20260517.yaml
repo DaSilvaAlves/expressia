@@ -7,8 +7,10 @@ id: mj-handoff-session-pause-after-3.5-ratified-20260517
 from_agent: "architect (Aria)"
 to_agent: "any (Eurico humano · próximo terminal · @aiox-master / @dev / @devops / @architect próxima sessão)"
 created: "2026-05-18T00:45:00+01:00"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-05-18T19:25:00+01:00"
+consumed_by: "devops (Gage) — superseded by Story 3.5 cycle complete (Done v1.4 pushed 2026-05-18)"
 priority: medium
 project_prefix: mj
 project: "meu-jarvis (Expressia — expressia.pt)"

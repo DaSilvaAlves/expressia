@@ -7,8 +7,10 @@ id: mj-handoff-3.5-decision-pending-dp351-20260517
 from_agent: "architect (Aria)"
 to_agent: "any (Eurico humano · @dev waits · R12 fallback @aiox-master)"
 created: "2026-05-18T00:30:00+01:00"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-05-18T19:25:00+01:00"
+consumed_by: "devops (Gage) — superseded by Eurico silent accept DP-3.5.1 A 2026-05-18 + Story 3.5 cycle complete (Done v1.4 pushed)"
 priority: medium
 project_prefix: mj
 project: "meu-jarvis (Expressia — expressia.pt)"
