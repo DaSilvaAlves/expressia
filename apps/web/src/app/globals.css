@@ -21,6 +21,15 @@
     --kanban-drag-shadow: 0 16px 32px rgba(26, 26, 26, 0.2);
     /* configurável — subir se famílias reais excederem 50 tarefas por coluna */
     --kanban-column-min-tasks-virtualize: 50;
+
+    /* Story 3.5 Calendário tokens (AC2b — alinhado com tokens Kanban) */
+    --calendar-day-min-width: 140px;
+    --calendar-day-gap: 8px;
+    --calendar-day-header-height: 56px;
+    --calendar-task-card-padding: 10px;
+    --calendar-task-card-gap: 6px;
+    --calendar-day-today-bg: rgba(59, 130, 246, 0.04);
+    --calendar-drop-target-bg: rgba(59, 130, 246, 0.08);
   }
 
   @media (prefers-color-scheme: dark) {
