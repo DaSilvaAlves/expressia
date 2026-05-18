@@ -1,0 +1,302 @@
+# =============================================================================
+# Handoff: @po (Pax) → @architect (Aria)
+# Story 3.5 v1.1 Ready — `@architect *ratify-dps 3.5` pending
+# =============================================================================
+
+id: mj-handoff-3.5-ready-for-architect-20260517
+from_agent: "po (Pax)"
+to_agent: "architect (Aria)"
+created: "2026-05-17T23:55:00+01:00"
+status: consumed
+consumed: true
+consumed_at: "2026-05-18T00:30:00+01:00"
+consumed_by: "architect (Aria)"
+consumed_outcome: |
+  Architect ratify-dps 3.5 executado com sucesso. Verdict: PASS 5/5 DPs efectivos
+  HIGH confidence. Status Ready v1.1 → Ratified v1.2. Gate report:
+  docs/qa/gates/3.5-architect-dps-ratify.md (~300 linhas). DP-3.5.1 RATIFY EXPLICIT
+  pending-Eurico (A custom 7-col CSS grid + @dnd-kit recomendado com 5-layer
+  justificação técnica + trade-off A vs B 8/9 critérios). DP-3.5.5 CONFIRM RESOLVED
+  (Pax cross-confirm schema impecável). DP-3.5.2/3/4/6 APPROVE silent. 5 G-notes
+  emitidas + 5 anti-hallucination cross-confirms Aria + 2 NITs LOW + Constitution
+  6/6 PASS. R12 fallback documentado (7 dias úteis = default A automatic).
+  Sucessor pending criado: mj-handoff-3.5-decision-pending-dp351-20260517.yaml
+  (architect → any: Eurico decide OR R12 fallback OR @dev waits).
+priority: medium
+project_prefix: mj
+project: "meu-jarvis (Expressia — expressia.pt)"
+story_id: "3.5"
+story_title: "Vista calendário semanal com drag entre dias"
+epic_id: 3
+epic_progress: "4/8 Done + 1/8 Ready (Story 3.5)"
+
+# -----------------------------------------------------------------------------
+# SUMMARY
+# -----------------------------------------------------------------------------
+summary: |
+  @po Pax validou Story 3.5 v1.1 com verdict GO 8.8/10 HIGH confidence (10-point
+  checklist 19/19 nominal − 1.2 penalty por 4 anti-hallucination findings, todos
+  corrigidos inline). Status `Draft v1.0 → Ready v1.1`.
+
+  **4 PO_FIX_INLINE aplicados durante validação:**
+
+  1. **AC4(a) + Dev Notes re-uso** — `TaskCheckbox` Story 3.3 NÃO é reusável
+     (cross-confirmed `_components/TaskCheckbox.tsx`: sem `size` prop, sem
+     variant, fixed `h-4 w-4`, acoplado a `useBulkSelection` context que não
+     existe na vista calendário). Story 3.5 criará `CalendarTaskCheckbox` inline
+     novo (~20 LoC) com `PATCH /api/tasks/[id]` body `{ status: 'done' | 'todo' }`
+     (taskStatusEnum confirmed `tasks.ts:37-42`). Refactor variant partilhada
+     → backlog Story 3.6+ follow-up.
+
+  2. **AC5(c) + AC8(f) + Dev Notes schema ref + DEP-3.2 description** —
+     `tasks.due_date` é PG `date` type calendar-only YYYY-MM-DD (NÃO `timestamp`,
+     cross-confirmed `packages/db/src/schema/tasks.ts:77`: `dueDate: date('due_date')`).
+     Hora opcional vive em campo separado `dueTime: text('due_time')` linha 79
+     (formato HH:MM). PATCH drag body: `{ due_date: 'YYYY-MM-DD' }`. AC8(f)
+     `utcToZonedTime` removido — não aplicável a `date` type (sem fuso). `date-fns-tz`
+     continua relevante apenas para `completed_at`/`created_at` que SÃO
+     `timestamp withTimezone`.
+
+  3. **DP-3.5.5 ✅ RESOLVED trivial** — Como consequência directa do PO_FIX 2,
+     DP-3.5.5 (UTC midnight vs Lisbon midnight) foi RESOLVED: A confirmed default
+     (string YYYY-MM-DD), B+C REJECT (não aplicáveis a `date` type). **Story 3.5
+     passa de 6 DPs nominais para 5 DPs efectivos activos** para `@architect
+     *ratify-dps`: DP-3.5.1 Eurico-pending explicit + DP-3.5.2/3/4/6 silent OK.
+
+  4. **AC10(f) + T9.2 + Dev Notes re-uso** — Sonner NÃO está instalado no
+     projecto (cross-confirmed `grep -i sonner apps/web/` zero matches +
+     `grep -i toaster apps/web/` zero matches). Layout `(app)/layout.tsx` NÃO
+     tem Toaster. Story 3.4 KanbanBoardClient usa **toast inline custom** —
+     `useState<ToastState>` + `<div role="status" aria-live="polite">` fixed
+     bottom-right (`KanbanBoardClient.tsx:84-87,97,143-146,353-365`). Re-uso
+     obrigatório do pattern inline para Story 3.5. Extracção para hook
+     `useInlineToast()` partilhável → backlog Story 3.6+ follow-up.
+
+  **Cross-confirms Pax (4/4 executados via Read+Grep):** TaskCheckbox.tsx · tasks.ts:50-117
+  · ViewTabs:43-51 (confirmação positiva — Story 3.5 documenta correctamente) ·
+  grep sonner+toaster (zero matches no apps/web/) + Read layout(app).
+
+  Solicita-se a @architect (Aria): `*ratify-dps 3.5` — ratificar 5 DPs efectivos.
+  **DP-3.5.1 calendar library é Eurico-pending explicit** (Morgan recomendação A
+  registado EPIC-3-EXECUTION.yaml DP2: custom 7-col CSS grid + @dnd-kit; alternativas
+  B react-big-calendar +~80kb · C FullCalendar REJECT license commercial). @dev NÃO
+  inicia sem `@architect *ratify-dps` completo + Eurico confirmation DP-3.5.1.
+
+# -----------------------------------------------------------------------------
+# CONTEXT — O que está pronto
+# -----------------------------------------------------------------------------
+context: |
+  ### Story file validado
+
+  `docs/stories/active/3.5.tasks-calendar-view.md` — Status `Ready v1.1` ✓
+  (~700+ linhas após adição do PO Validation Block ~120 linhas pattern Story 3.4).
+
+  Estrutura mantida do v1.0 + correcções v1.1:
+  - **12 ACs** (estrutura inalterada, mas AC4(a), AC5(c), AC8(f), AC10(f)
+    refinados com PO_FIX_INLINE notes marcadas explicitamente `**PO_FIX X v1.1:**`)
+  - **12 tasks** (T9.2 refinada PO_FIX 4 — pattern inline em vez de Sonner)
+  - **6 DPs nominais → 5 DPs efectivos** (DP-3.5.5 ✅ RESOLVED trivial; DP-3.5.1
+    Eurico-pending; DP-3.5.2/3/4/6 silent OK — total 5 DPs activos para architect)
+  - **5 risks** (estrutura inalterada — R3 DST + R5 week + R7 mobile + R8 perf +
+    R12 NEW DP-3.5.1 blocker)
+  - **PO Validation Block** adicionado antes de QA Results (~120 linhas pattern
+    Story 3.4 §PO Validation): 10-point detail + 4 anti-hallucination cross-confirms
+    + Constitution check 6/6 PASS + 4 PO_FIX_INLINE applied detail + Verdict GO 8.8/10
+  - **Change Log v1.1 entry** completa com narrativa dos 4 PO_FIX + sucessor
+
+  ### Decision Points para Architect ratify (5 efectivos)
+
+  | DP | Topic | Action | Owner |
+  |----|-------|--------|-------|
+  | **DP-3.5.1** | Calendar library | **EXPLICIT RATIFY required** — Morgan recommendation A (custom 7-col CSS grid + @dnd-kit) registado em EPIC-3-EXECUTION.yaml DP2. Eurico-pending. R12 fallback: default A em 7 dias úteis | @architect recommends + Eurico decides |
+  | **DP-3.5.2** | TaskCard re-uso vs novo | Silent OK — @sm recomenda novo `CalendarTaskCard` (KISS). PO_FIX 1 adiciona `CalendarTaskCheckbox` inline também novo | @architect silent ratify |
+  | **DP-3.5.3** | Mobile vista 1-dia | Silent OK — @sm recomenda A (CSS scroll-snap) | @architect silent ratify |
+  | **DP-3.5.4** | Mobile UnscheduledSidebar | Silent OK — @sm recomenda A (Tab Radix shadcn) | @architect silent ratify |
+  | **DP-3.5.5** | ~~Drag → due_date timestamp~~ | ✅ **RESOLVED by @po cross-confirm schema** — A trivial (string YYYY-MM-DD calendar-only); B+C REJECT. **Architect deve confirmar RESOLVED** (não ratify A novamente — Pax já decidiu) | @architect confirm RESOLVED |
+  | **DP-3.5.6** | Ordem intra-dia | Silent OK — @sm recomenda A (não persistir, KISS) | @architect silent ratify |
+
+  **Total para @architect:** 1 explicit (DP-3.5.1) + 1 confirm RESOLVED (DP-3.5.5)
+  + 4 silent ratify (DP-3.5.2/3/4/6). Sem revisões pesadas — pattern Story 3.4 (8 DPs)
+  reduzido proporcionalmente para Story 3.5 escopo L (5 DPs efectivos).
+
+  ### Cross-confirms Pax detail (4 fontes verificadas)
+
+  1. **TaskCheckbox.tsx:1-27** (Read completo) — interface `TaskCheckboxProps`
+     declara apenas `taskId: string` + `disabled?: boolean`. Render fixed
+     `h-4 w-4`. Depende de `useBulkSelection` context (TaskListClient). **Não
+     reusável fora do TaskListClient context.**
+  2. **tasks.ts:50-117** (Read offset 50, limit 80) — schema `tasks` pgTable
+     linha 59. Campos confirmados:
+     - linha 77: `dueDate: date('due_date')` ← PG `date` type, NÃO timestamp
+     - linha 79: `dueTime: text('due_time')` ← hora separada formato HH:MM
+     - linha 94: `completedAt: timestamp('completed_at', { withTimezone: true })`
+       ← este SIM é `timestamp withTimezone`
+  3. **ViewTabs.tsx:1-55** (Read completo) — linhas 43-51 `<button disabled>`
+     Calendário com tooltip "Em breve — disponível na próxima versão" (constante
+     `TOOLTIP_BREVE` linha 13). Lista + Kanban são `<Link>` activos. Story 3.5
+     AC1(d) documenta correctamente o estado actual + plano de actualização.
+  4. **layout (app)/layout.tsx:1-56** (Read completo) + 2 greps Grep tool:
+     - `grep -i toaster apps/web/` → zero matches
+     - `grep -i sonner apps/web/` → zero matches
+     - Layout NÃO importa Sonner. Apenas `Link` + `logoutAction`.
+     Story 3.4 KanbanBoardClient.tsx implementa toast inline custom (linhas
+     84-87 interface, 97 useState, 143-146 showToast helper, 353-365 render).
+
+# -----------------------------------------------------------------------------
+# WHAT @architect NEEDS TO DO
+# -----------------------------------------------------------------------------
+next_action: |
+  @architect (Aria) workflow:
+
+  1. **Activar:** `@architect *ratify-dps 3.5`
+
+  2. **Ler:**
+     - `docs/stories/active/3.5.tasks-calendar-view.md` (Story v1.1 Ready com
+       PO Validation Block detail dos 4 PO_FIX)
+     - Este handoff (contexto + cross-confirms Pax)
+     - `docs/epics/EPIC-3-EXECUTION.yaml` linhas 131-140 (DP2 NEW Morgan A)
+
+  3. **Ratify 5 DPs efectivos:**
+     - **DP-3.5.1 EXPLICIT** — recomendar A com justificação técnica detalhada
+       (custom 7-col CSS grid + @dnd-kit) vs alternativas B react-big-calendar
+       (+~80kb, UX diferente) · C FullCalendar (REJECT license commercial). Output:
+       gate report `docs/qa/gates/3.5-architect-dps-ratify.md` com recomendação +
+       justificação para Eurico ler e confirmar/override.
+     - **DP-3.5.5 CONFIRM RESOLVED** — confirmar que a decisão @po (string
+       YYYY-MM-DD calendar-only) está tecnicamente correcta dado o schema
+       `date` type. Sem re-ratificação.
+     - **DP-3.5.2/3/4/6 SILENT OK** — confirmar concordância com recomendações
+       @sm. Apenas listar no gate report sem expansão (pattern Story 3.4 ratify
+       8 DPs onde 6 foram silent).
+
+  4. **Gate report:** `docs/qa/gates/3.5-architect-dps-ratify.md` (~150-200
+     linhas, pattern Story 3.4 DP4 ratify escalado para 5 DPs). Incluir:
+     - Verdict per DP (RATIFY EXPLICIT · CONFIRM RESOLVED · SILENT OK)
+     - Cross-confirm Aria de Pax findings (4 fontes opcional re-verify)
+     - 2-5 G-notes guidance técnica para @dev (pattern Story 3.4: 8 G1.x/G2.x notes)
+     - Constitution check 6/6 PASS (pós-PO_FIX validation Pax)
+     - Sucessor handoff target: `@dev *develop 3.5` YOLO mockable-only
+
+  5. **Pre-condição final para @dev:** **Eurico confirmation DP-3.5.1** (silent
+     accept de A OU explicit choice B/C). R12 fallback: 7 dias úteis sem resposta
+     = default A. Se Eurico responde override → @sm draft delta v1.2 para escopo
+     alterado (provavelmente +1 dep + UX adaptation se B; REJECT total se C).
+
+  6. **Se Eurico confirma A:** Criar sucessor handoff arquitect → dev:
+     `mj-handoff-3.5-ready-for-dev-20260518.yaml` (ou data efectiva). Status
+     `Ready v1.1 → InProgress v1.2` updates por @dev no início.
+
+  7. **Se Eurico override B:** @sm draft delta + retorno ao ciclo @po validate
+     (mas escopo aumenta marginalmente — possivelmente upgrade L→XL).
+
+# -----------------------------------------------------------------------------
+# INPUTS PARA @architect
+# -----------------------------------------------------------------------------
+inputs_for_architect:
+  primary:
+    - path: "docs/stories/active/3.5.tasks-calendar-view.md"
+      reason: "Story v1.1 Ready completa com PO Validation Block detail + 4 PO_FIX_INLINE applied + 5 DPs efectivos para ratify"
+
+    - path: "docs/epics/EPIC-3-EXECUTION.yaml"
+      lines: "292-314 (Story 3.5 spec) + 131-140 (DP2 NEW Morgan recommendation A)"
+      reason: "Cross-confirm DP-3.5.1 com EPIC plan + recomendação @pm Morgan"
+
+  secondary:
+    - path: "docs/stories/completed/3.4.tasks-kanban-view.md"
+      reason: "Precedent pattern XL — comparar architect ratify-dps gate report estrutura. Story 3.4 teve 8 DPs (2 EXPLICIT + 6 SILENT); Story 3.5 tem 5 DPs efectivos (1 EXPLICIT + 1 CONFIRM RESOLVED + 4 SILENT)"
+
+    - path: "docs/qa/gates/3.4-architect-dps-ratify.md"
+      reason: "Template gate report ratify-dps. Estrutura ~280 linhas para Story 3.4 8 DPs — para Story 3.5 esperado ~150-200 linhas (5 DPs efectivos)"
+
+    - path: "packages/db/src/schema/tasks.ts"
+      lines: "37-117 (enums + tabela tasks)"
+      reason: "Cross-confirm schema reality (`dueDate: date` linha 77, `dueTime: text` linha 79, `taskStatusEnum` linhas 37-42 com `'todo' | 'doing' | 'done' | 'archived'`). Validar PO_FIX 2 + PO_FIX 1 estão tecnicamente correctos"
+
+    - path: "apps/web/src/app/(app)/tarefas/kanban/_components/KanbanBoardClient.tsx"
+      lines: "84-87, 97, 143-146, 353-365"
+      reason: "Pattern inline toast custom Story 3.4 — referência para PO_FIX 4 (re-uso obrigatório, Sonner não instalado)"
+
+    - path: "apps/web/src/app/(app)/tarefas/_components/TaskCheckbox.tsx"
+      lines: "1-27"
+      reason: "Cross-confirm PO_FIX 1: interface TaskCheckboxProps sem `size`/variant, acoplado a useBulkSelection context"
+
+# -----------------------------------------------------------------------------
+# PO VALIDATION SUMMARY
+# -----------------------------------------------------------------------------
+po_validation_summary:
+  verdict: "GO"
+  score: "8.8/10"
+  confidence: "HIGH"
+  status_transition: "Draft v1.0 → Ready v1.1"
+  ten_point_breakdown: "19/19 nominal - 1.2 penalty inaccuracies = 8.8/10"
+  anti_hallucination_cross_confirms: 4
+  anti_hallucination_findings: 3
+  positive_confirmations: 1
+  po_fix_inline_applied: 4
+  constitution_articles_pass: "6/6 (Article IV PARTIAL → PASS after PO_FIX)"
+  dps_effective_count: 5
+  dps_nominal_count: 6
+
+# -----------------------------------------------------------------------------
+# CONSTITUTION CHECK (post PO_FIX)
+# -----------------------------------------------------------------------------
+constitution_check:
+  article_I_cli_first: "N/A (frontend UI story)"
+  article_II_agent_authority: "PASS — @sm draftou → @po validou (GO 8.8/10) → @architect deve ratify → @dev YOLO → @architect final → @devops push. Delegation matrix respeitada."
+  article_III_story_driven: "PASS — story v1.1 Ready em active/, 12 ACs + 12 tasks + 5 DPs efectivos + 5 risks, File List target documentado, PRD traceability FR9/FR10/FR11"
+  article_IV_no_invention: "PASS (post PO_FIX) — 4 inventions detectadas v1.0 (TaskCheckbox size + Sonner location + due_date timestamp + Layout Toaster) todas corrigidas inline via Read+Grep cross-confirm. Zero inventions remanescentes v1.1."
+  article_V_quality_first: "PASS — T11 (~20 tests Vitest + RTL) + T12 (5/5 quality gates EXIT 0 expected). DST edge cases T11.5 cobre 29 Mar + 25 Out 2026."
+  article_VI_absolute_imports: "PASS — Dev Notes especificam `@/...` imports. Pattern Story 3.4 seguido."
+
+# -----------------------------------------------------------------------------
+# POST-RATIFY EXPECTATION
+# -----------------------------------------------------------------------------
+post_ratify:
+  if_approve_with_eurico_a:
+    next_handoff: "mj-handoff-3.5-ready-for-dev-{date}.yaml (architect → dev *develop 3.5 YOLO)"
+    status_target: "Ready v1.1 → InProgress v1.2 (when @dev starts)"
+    gate_report: "docs/qa/gates/3.5-architect-dps-ratify.md (RATIFY + CONFIRM RESOLVED + SILENT)"
+    epic_progress_update: "4/8 Done + 1/8 InProgress (em vez de 1/8 Ready)"
+
+  if_eurico_pending:
+    status: "Permanece Ready v1.1"
+    r12_fallback: "7 dias úteis sem resposta Eurico = default A (Morgan recomendação EPIC-3-EXECUTION.yaml DP2)"
+    action: "Aguardar Eurico ou aplicar R12 fallback"
+
+  if_eurico_override_b:
+    status: "Permanece Ready v1.1 + scope delta required"
+    action: "Retorno a @sm para draft delta v1.2 (+1 dep react-big-calendar +~80kb + UX adaptation). Possible upgrade L→XL."
+    re_validation_required: true
+
+  if_eurico_choice_c:
+    action: "REJECT — FullCalendar tem license commercial. @architect rejeita C com justificação técnica + legal."
+
+# -----------------------------------------------------------------------------
+# ANTI-HALLUCINATION CROSS-CONFIRM PAX (4 sources)
+# -----------------------------------------------------------------------------
+anti_hallucination_count: "4/4 cross-confirms executed by @po Pax via Read + Grep (TaskCheckbox.tsx:1-27 + tasks.ts:50-117 + ViewTabs.tsx:1-55 + layout(app)/layout.tsx:1-56 + grep sonner/toaster apps/web/)"
+
+cross_confirm_outcomes:
+  1_taskcheckbox:
+    source: "apps/web/src/app/(app)/tarefas/_components/TaskCheckbox.tsx:1-27"
+    finding: "Sem size prop, sem variant, fixed h-4 w-4, acoplado a useBulkSelection context"
+    verdict: "PO_FIX 1 MEDIUM applied — CalendarTaskCheckbox novo inline"
+  2_due_date_schema:
+    source: "packages/db/src/schema/tasks.ts:50-117 (linha 77 dueDate: date, linha 79 dueTime: text)"
+    finding: "PG date type calendar-only YYYY-MM-DD, NÃO timestamp; dueTime separado HH:MM text"
+    verdict: "PO_FIX 2 HIGH applied — AC5(c), AC8(f), DP-3.5.5, Dev Notes ref, DEP-3.2 corrigidos. DP-3.5.5 RESOLVED."
+  3_viewtabs:
+    source: "apps/web/src/app/(app)/tarefas/_components/ViewTabs.tsx:1-55 (linhas 43-51)"
+    finding: "<button disabled> Calendário com tooltip 'Em breve — disponível na próxima versão' confirmado"
+    verdict: "Confirmação positiva — Story 3.5 documenta correctamente. NÃO é PO_FIX."
+  4_sonner_toaster:
+    source: "apps/web/src/app/(app)/layout.tsx:1-56 + grep -i sonner apps/web/ + grep -i toaster apps/web/"
+    finding: "Sonner NÃO instalado, layout NÃO tem Toaster. Story 3.4 KanbanBoardClient usa toast inline custom"
+    verdict: "PO_FIX 4 MEDIUM applied — pattern inline KanbanBoardClient.tsx:84-87,97,143-146,353-365"
+
+# -----------------------------------------------------------------------------
+# CODERABBIT DECISION
+# -----------------------------------------------------------------------------
+coderabbit_decision:
+  verdict: "N/A (architect ratify-dps phase)"
+  note: "CodeRabbit relevante apenas em @dev impl phase + @devops push. Architect ratify-dps é review humano-style focado em decisões técnicas de arquitectura."

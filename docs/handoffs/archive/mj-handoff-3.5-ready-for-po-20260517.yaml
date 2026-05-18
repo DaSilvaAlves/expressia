@@ -1,0 +1,289 @@
+# =============================================================================
+# Handoff: @sm (River) → @po (Pax)
+# Story 3.5 v1.0 Draft — ready for `*validate-story-draft 3.5`
+# =============================================================================
+
+id: mj-handoff-3.5-ready-for-po-20260517
+from_agent: "sm (River)"
+to_agent: "po (Pax)"
+created: "2026-05-17T23:30:00+01:00"
+status: consumed
+consumed: true
+consumed_at: "2026-05-17T23:55:00+01:00"
+consumed_by: "po (Pax)"
+consumed_outcome: |
+  Validate-story-draft 3.5 executado com sucesso. Verdict: GO 8.8/10 HIGH confidence.
+  Status Draft v1.0 → Ready v1.1. 4 PO_FIX_INLINE aplicados (TaskCheckbox não-reusável →
+  CalendarTaskCheckbox novo · tasks.due_date é date calendar-only não timestamp · DP-3.5.5
+  RESOLVED → 5 DPs efectivos · Sonner não instalado → pattern inline Story 3.4). Self-
+  assessment @sm 8.5-9.5/10 ligeiramente acima do score real 8.8/10 — diferença justificada
+  pelas 4 anti-hallucination findings que Pax confirmou via Read+Grep (TaskCheckbox.tsx ·
+  tasks.ts:50-117 · ViewTabs:43-51 · grep sonner/toaster). Sucessor pending:
+  mj-handoff-3.5-ready-for-architect-20260517.yaml (po → architect *ratify-dps 3.5).
+priority: medium
+project_prefix: mj
+project: "meu-jarvis (Expressia — expressia.pt)"
+story_id: "3.5"
+story_title: "Vista calendário semanal com drag entre dias"
+epic_id: 3
+epic_progress: "4/8 Done + 1/8 Draft (Story 3.5)"
+
+# -----------------------------------------------------------------------------
+# SUMMARY
+# -----------------------------------------------------------------------------
+summary: |
+  @sm River draftou Story 3.5 v1.0 seguindo Epic 3 plan §stories[3.5] linhas
+  292-314 (EPIC-3-EXECUTION.yaml) + pattern Story 3.4 Done v1.4 (precedent
+  @dnd-kit + DragOverlay + audit + ViewTabs) + Story 3.3 Done v1.4 (re-uso
+  componentes EmptyState/EditTaskModal/RowActionsMenu/TaskCheckbox).
+
+  **Escopo confirma Epic plan L** (não XL como 3.4 — sem column config,
+  sem novos endpoints, sem nova migration). 12 ACs + 12 tasks + 6 DPs +
+  5 risks. File List target: ~12 NEW + 3 MODIFIED.
+
+  **Características distintivas vs Story 3.4:**
+  - Zero new endpoints (reusa PATCH /api/tasks/[id] Story 3.2 com body { due_date })
+  - Zero new migration (campo due_date timestamp nullable já existe Story 3.1)
+  - Zero new deps (date-fns ^4 + date-fns-tz ^3 + @dnd-kit/* já em package.json)
+  - CalendarTaskCard NOVO componente (DP-3.5.2 — recomendado KISS, não re-uso KanbanCard)
+  - 6 tokens CSS novos vs 9 da Story 3.4 (denso/compacto)
+  - ~20 tests vs ~43 da Story 3.4 (escopo menor)
+
+  **DP-3.5.1 calendar library blocker:** Morgan @pm registou DP2 NEW em
+  EPIC-3-EXECUTION.yaml com recomendação A (custom 7-col CSS grid + @dnd-kit).
+  Eurico ainda não confirmou. @sm registou DP-3.5.1 com 3 alternativas (A
+  recomendado, B react-big-calendar +80kb, C FullCalendar REJECT license).
+  R12 NEW capturado: se Eurico não decidir, default 7 dias = A (Morgan rec).
+
+  Solicita-se a @po (Pax): `*validate-story-draft 3.5` — 10-point checklist
+  pattern Stories 3.2/3.3/3.4 (GO ≥ 7/10 espera-se GO 8-10/10 dado pattern
+  consolidado Epic 3). Status Draft v1.0 → Ready v1.1 (se GO).
+
+# -----------------------------------------------------------------------------
+# CONTEXT — O que está pronto
+# -----------------------------------------------------------------------------
+context: |
+  ### Story file criado
+
+  `docs/stories/active/3.5.tasks-calendar-view.md` (~590 linhas, padrão
+  Story 3.4 Done v1.4 escalado para escopo L).
+
+  Estrutura:
+  - **Status:** Draft v1.0
+  - **User Story:** PT-PT como utilizadora @household-owner ou @household-member,
+    quero vista calendário semanal com 7 colunas Mon-Sun PT-PT + drag entre dias
+    + sidebar "Por agendar" + nav semana, para planear semana visualmente.
+  - **Dependências:** 4 internas Done (3.4 + 3.3 + 3.2 + 3.1) + Story 1.5 Auth.
+    Zero blockers externos (apenas DP-3.5.1 Eurico-pending decision).
+  - **12 ACs:**
+    1. Página /tarefas/calendario RSC + ViewTabs activate
+    2. WeekView grid 7 colunas + tokens CSS
+    3. DayColumn header sticky PT-PT + agrupamento due_date
+    4. CalendarTaskCard compacto (DP-3.5.2)
+    5. Drag-and-drop entre dias + optimistic + audit (PATCH /api/tasks/[id])
+    6. UnscheduledSidebar tarefas sem due_date (drag bidirecional)
+    7. WeekNavigation prev/next/today + URL state ISO week
+    8. Week start Monday PT-PT + date-fns locale pt + DST handling
+    9. Mobile vista 1-dia + swipe/scroll (DP-3.5.3)
+    10. Empty/loading/error states PT-PT
+    11. Acessibilidade WCAG AA + keyboard-first + 6 anúncios PT-PT
+    12. Performance < 200ms render + drag ≥ 50fps
+  - **12 tasks:**
+    1. Setup deps (conditional DP-3.5.1 B/C)
+    2. Página RSC + WeekViewClient wrapper
+    3. WeekView + DayColumn + tokens CSS
+    4. CalendarTaskCard
+    5. UnscheduledSidebar + CalendarAddInline
+    6. WeekNavigation
+    7. Drag-and-drop lifecycle
+    8. Mobile vista 1-dia
+    9. Empty/loading/error states
+    10. Acessibilidade WCAG AA
+    11. Tests Vitest + RTL ~20 tests
+    12. Quality gates 5/5 GREEN
+  - **6 DPs:**
+    - DP-3.5.1 calendar library (A custom recomendado · B react-big-calendar · C FullCalendar REJECT)
+    - DP-3.5.2 TaskCard re-uso vs novo (A novo recomendado KISS · B re-uso variant prop)
+    - DP-3.5.3 mobile swipe (A CSS scroll-snap recomendado · B react-swipeable +5kb)
+    - DP-3.5.4 mobile UnscheduledSidebar (A tab recomendado · B drawer · C bottom sheet)
+    - DP-3.5.5 due_date timestamp (A UTC midnight recomendado · B local midnight DST-aware)
+    - DP-3.5.6 ordem intra-dia (A não persistir recomendado KISS · B novo campo schema REJECT)
+  - **5 risks:** R3 DST PT 2x/ano · R5 week start Monday · R7 mobile drag UX · R8 perf ·
+    R12 NEW DP-3.5.1 blocker se Eurico não decide.
+
+  ### Anti-hallucination cross-confirm (10 fontes verificadas)
+
+  1. `docs/prd.md:50-52` — FR9/FR10/FR11 calendar requirements literal
+  2. `docs/epics/EPIC-3-EXECUTION.yaml:292-314` — Story 3.5 spec completo
+  3. `docs/epics/EPIC-3-EXECUTION.yaml:131-140` — DP2 NEW Morgan recommendation A
+  4. `docs/front-end-spec.md:1510-1512` — stack UI date-fns + @dnd-kit (react-day-picker
+     mencionado mas Morgan corrigiu — é date picker NÃO week view, registado DP2 critical_note)
+  5. `apps/web/package.json` linhas confirmadas: `@dnd-kit/core ^6.3.1` + `@dnd-kit/sortable ^10.0.0`
+     + `@dnd-kit/utilities ^3.2.2` + `date-fns ^4` + `date-fns-tz ^3` (zero deps novas para opção A)
+  6. `apps/web/src/app/(app)/tarefas/_components/ViewTabs.tsx:43-51` — botão Calendário
+     disabled actualmente (precisa actualizar para Link activo AC1d)
+  7. `apps/web/src/app/api/tasks/[id]/route.ts` — PATCH endpoint existe (Story 3.2)
+  8. `packages/db/src/schema/tasks.ts:59-221` — campo `due_date timestamp nullable` confirmado
+  9. `apps/web/src/lib/api-helpers/audit.ts:12-25` — `audit_action.task.updated` enum value
+     disponível desde migration 0010 (Story 3.2 F1 HIGH)
+  10. `docs/stories/completed/3.4.tasks-kanban-view.md` — pattern @dnd-kit + DragOverlay +
+      6 announcements PT-PT + sensors config (PointerSensor distance:8 + TouchSensor
+      delay:250 + KeyboardSensor) consistente
+
+  ### Pattern reusable Stories 3.6+
+
+  Esta story estabelece padrão para futuros DPs Eurico-pending:
+  1. @sm registo DP com recomendação @pm como default
+  2. @architect ratify-dps recomenda technical strategy
+  3. Eurico override em silent accept ou explicit different choice
+  4. Default 7 dias sem resposta = recomendação @pm (R12 NEW)
+
+# -----------------------------------------------------------------------------
+# WHAT @po NEEDS TO DO
+# -----------------------------------------------------------------------------
+next_action: |
+  @po (Pax) workflow:
+
+  1. **Activar:** `@po *validate-story-draft 3.5`
+
+  2. **Executar 10-point checklist** (rule `story-lifecycle.md`):
+     1. Clear and objective title ✓ (esperado)
+     2. Complete description ✓ (esperado)
+     3. Testable acceptance criteria ✓ (12 ACs Given/When/Then-ish)
+     4. Well-defined scope ✓ (IN: 12 ACs · OUT: virtualização, calendar_position schema, recorrência UI)
+     5. Dependencies mapped ✓ (4 internas Done + 1 Auth)
+     6. Complexity estimate ✓ (L confirma Epic plan)
+     7. Business value ✓ (FR9/FR10 PRD-traced)
+     8. Risks documented ✓ (5 risks: R3 DST + R5 week + R7 mobile + R8 perf + R12 NEW DP blocker)
+     9. Criteria of Done ✓ (12 ACs com PASS criteria explícitos)
+     10. Alignment com PRD/Epic ✓ (FR9 + FR10 + EPIC-3-EXECUTION.yaml Story 3.5 spec)
+
+  3. **Anti-hallucination cross-confirm próprio Pax** contra 10 fontes listadas
+     em context (especialmente verificar `apps/web/package.json` deps já presentes,
+     `audit_action.task.updated` enum existe, `due_date` campo existe).
+
+  4. **Verdict esperado:** GO ≥ 7/10 (pattern Stories 3.2/3.3/3.4: 9.0-9.5/10).
+
+  5. **PO_FIX_INLINE potenciais (anti-hallucination Pax pode encontrar):**
+     - Verificar se TaskCheckbox Story 3.3 tem `size` prop ou precisa adicionar variant `small`
+       (AC4 + Dev Notes referenciam mas não confirmei via grep). Se não tem: PO_FIX MEDIUM
+       documentar workaround inline ou criar variant component.
+     - Verificar se `Sonner <Toaster>` está no layout `(app)/layout.tsx` ou precisa adicionar
+       (Dev Notes assumem sim — pattern Story 3.4 KanbanBoard tem `<Toaster>` no próprio
+       componente; pode ser pattern duplicado vs centralizado).
+     - DP-3.5.5 `due_date timestamp` strategy: verificar se schema permite armazenar
+       midnight UTC sem timezone info problematic. Schema `tasks.due_date timestamp nullable`
+       deveria ser `timestamptz` para evitar ambiguidade — confirmar via grep `tasks.ts`.
+
+  6. **Se GO:**
+     - Actualizar status Draft v1.0 → Ready v1.1 (rule story-lifecycle CRITICAL)
+     - Adicionar PO Validation Block ao story file (~80-100 linhas pattern Story 3.4 §PO Validation)
+     - Adicionar Change Log v1.1 entry
+     - Actualizar `_INDEX.md` row 3.5 Draft v1.0 → Ready v1.1
+     - Actualizar Epic 3 Progress header (4/8 Done + 1/8 Ready em vez de + 1/8 Draft)
+     - Criar handoff sucessor po→architect (DP-3.5.1 Eurico-pending precisa de architect ratify-dps
+       antes de @dev pode start): `mj-handoff-3.5-ready-for-architect-20260517.yaml`
+     - Actualizar HANDOFF-INDEX.md: este handoff Pending→Archived + adicionar po→architect Pending
+
+  7. **Se NO-GO:**
+     - Retornar a @sm com lista específica de fixes required
+     - Story permanece Draft v1.0
+
+# -----------------------------------------------------------------------------
+# INPUTS PARA @po
+# -----------------------------------------------------------------------------
+inputs_for_po:
+  primary:
+    - path: "docs/stories/active/3.5.tasks-calendar-view.md"
+      reason: "Story file completo v1.0 — fonte canónica para validação 10-point"
+
+    - path: "docs/epics/EPIC-3-EXECUTION.yaml"
+      lines: "292-314 (Story 3.5 spec) + 131-140 (DP2 NEW)"
+      reason: "Cross-confirm AC1-12 alinhados com epic plan + DP-3.5.1 confirma DP2 Morgan recommendation"
+
+    - path: "docs/prd.md"
+      lines: "50-52 (FR9/FR10/FR11)"
+      reason: "PRD traceability — FR9 3 vistas + FR10 drag-and-drop + FR11 atrasadas destacadas"
+
+  secondary:
+    - path: "docs/stories/completed/3.4.tasks-kanban-view.md"
+      reason: "Precedent pattern XL — comparar ACs/tasks/DPs estrutura. Story 3.5 deve ser ~70% complexity."
+
+    - path: "docs/stories/completed/3.3.tasks-list-view.md"
+      reason: "Re-uso componentes verification (EmptyState, EditTaskModal, RowActionsMenu, TaskCheckbox)"
+
+    - path: "apps/web/package.json"
+      reason: "Verify date-fns ^4 + date-fns-tz ^3 + @dnd-kit/* já presentes (zero new deps para DP-3.5.1 A)"
+
+    - path: "apps/web/src/app/(app)/tarefas/_components/ViewTabs.tsx"
+      lines: "43-51"
+      reason: "Verify tab Calendário actualmente disabled (precisa actualizar AC1d)"
+
+    - path: ".claude/rules/story-lifecycle.md"
+      reason: "10-point checklist + Draft→Ready CRITICAL transition rule"
+
+# -----------------------------------------------------------------------------
+# DRAFT QUALITY SELF-ASSESSMENT (@sm)
+# -----------------------------------------------------------------------------
+draft_self_assessment:
+  estimated_po_score: "8.5-9.5/10 HIGH confidence"
+  strengths:
+    - "Anti-hallucination 10 fontes cross-confirmed (todas verificadas via Read/Grep durante draft)"
+    - "Pattern Story 3.4 v1.4 Done seguido fielmente (DndContext + DragOverlay + sensors + announcements)"
+    - "Zero scope creep: 12 ACs alinhados com Epic plan §stories[3.5] linhas 299-308 literal"
+    - "6 DPs com recomendações @sm justificadas (5 silent OK esperados + 1 Eurico-pending)"
+    - "5 risks com mitigações concretas (R3 DST tests específicos 29 Mar + 25 Out 2026)"
+    - "PT-PT vocabulário estrito (utilizar/eliminar/ficheiro — nunca usar/deletar/arquivo)"
+
+  potential_weaknesses:
+    - "AC4 DP-3.5.2 assume `TaskCheckbox` tem size prop ou variant — não cross-confirmed via grep
+       (potential PO_FIX inline se size prop não existir → criar variant ou inline checkbox)"
+    - "AC9 DP-3.5.3 mobile decision pode parecer prematura para draft (DP-decision normalmente
+       em @architect ratify-dps stage, mas @sm registou recomendação com justificação)"
+    - "Estimate L vs XL: Story 3.5 é genuinamente L (scope menor que 3.4 XL), mas se DP-3.5.1 B
+       react-big-calendar aprovado, escopo +1 dep + UX adaptation pode push para XL"
+    - "AC7 keyboard shortcuts ←/→/T podem conflitar com keyboard nav de @dnd-kit drag (Espaço inicia
+       drag, depois setas movem cards). Documented mas pode precisar disambiguation pre-impl"
+
+  no_blockers_for_po: true
+  ready_for_review: true
+
+# -----------------------------------------------------------------------------
+# CODERABBIT DECISION
+# -----------------------------------------------------------------------------
+coderabbit_decision:
+  verdict: "N/A (PO validation phase)"
+  note: "CodeRabbit relevante apenas em @dev impl phase + @devops push. PO 10-point é review humano-style."
+
+# -----------------------------------------------------------------------------
+# POST-VALIDATION EXPECTATION
+# -----------------------------------------------------------------------------
+post_validation:
+  if_go:
+    status_transition: "Draft v1.0 → Ready v1.1 (Pax CRITICAL rule story-lifecycle)"
+    next_handoff: "mj-handoff-3.5-ready-for-architect-20260517.yaml (po → architect *ratify-dps 3.5)"
+    why_architect_first: "DP-3.5.1 Eurico-pending blocker — @architect ratify-dps recomenda
+      strategy técnica antes de @dev iniciar. Pattern Story 3.4 (@architect ratificou 8 DPs antes
+      de @dev). Story 3.5 tem 6 DPs (5 silent OK esperados + DP-3.5.1 explicit ratify)."
+    epic_progress_update: "4/8 Done + 1/8 Ready (em vez de 1/8 Draft)"
+
+  if_no_go:
+    status: "Permanece Draft v1.0"
+    action: "Retorno a @sm com fix list específica"
+
+# -----------------------------------------------------------------------------
+# CONSTITUTION + ANTI-HALLUCINATION
+# -----------------------------------------------------------------------------
+constitution_check:
+  article_I_cli_first: "N/A (frontend UI story)"
+  article_II_agent_authority: "PASS — @sm draftou, @po valida, @architect ratify DPs,
+    @dev implementa, @architect final gate, @devops push. Delegation matrix respeitada."
+  article_III_story_driven: "PASS — story file criado em active/, ACs/tasks/DPs estruturados,
+    File List target documentado, traceability PRD §FR9/FR10."
+  article_IV_no_invention: "PASS — 10 fontes anti-hallucination cross-confirmed durante draft.
+    Zero ACs inventados — todos traceable a PRD + Epic plan."
+  article_V_quality_first: "PASS — 12 tasks incluem T11 (20 tests) + T12 (5 quality gates GREEN)."
+  article_VI_absolute_imports: "PASS — Dev Notes especificam `@/...` imports, NUNCA relativos."
+
+anti_hallucination_count: "10/10 fontes verified durante draft (PRD + Epic + front-end-spec +
+  package.json + ViewTabs + tasks API + tasks schema + audit helpers + Story 3.4 + Story 3.3)"

@@ -1,0 +1,264 @@
+# =============================================================================
+# Handoff: @architect (Aria) → any (Eurico humano · @dev waits · R12 fallback @aiox-master)
+# Story 3.5 v1.2 Ratified — DP-3.5.1 calendar library decision pending
+# =============================================================================
+
+id: mj-handoff-3.5-decision-pending-dp351-20260517
+from_agent: "architect (Aria)"
+to_agent: "any (Eurico humano · @dev waits · R12 fallback @aiox-master)"
+created: "2026-05-18T00:30:00+01:00"
+status: pending
+consumed: false
+priority: medium
+project_prefix: mj
+project: "meu-jarvis (Expressia — expressia.pt)"
+story_id: "3.5"
+story_title: "Vista calendário semanal com drag entre dias"
+epic_id: 3
+epic_progress: "4/8 Done + 1/8 Ratified (Eurico DP-3.5.1 decision pending)"
+
+# -----------------------------------------------------------------------------
+# SUMMARY
+# -----------------------------------------------------------------------------
+summary: |
+  @architect Aria ratificou Story 3.5 v1.2 com verdict **PASS 5/5 DPs efectivos HIGH
+  confidence** após @po Pax validação v1.1 (GO 8.8/10 HIGH com 4 PO_FIX_INLINE
+  aplicados). Status `Ready v1.1 → Ratified v1.2`.
+
+  **Estado actual:**
+  - **DP-3.5.1 RATIFY EXPLICIT pending-Eurico** — Aria + Morgan + @sm convergiram
+    em A (Custom 7-col CSS grid + @dnd-kit). C FullCalendar REJECT absoluto (license
+    commercial). D @schedule-x REJECT (maturidade comunidade). Trade-off A vs B
+    8/9 critérios para A. Aria escreveu 5-layer justificação técnica detalhada
+    em gate report.
+  - **DP-3.5.5 CONFIRM RESOLVED** — Pax cross-confirm schema impecável (`tasks.due_date`
+    é PG `date` calendar-only, B+C não aplicáveis).
+  - **DP-3.5.2/3/4/6 APPROVE silent** — KISS justificado em cada.
+  - 5 G-notes guidance emitidas + 5 anti-hallucination cross-confirms Aria + 2 NITs
+    LOW non-blocking + Constitution 6/6 PASS.
+
+  **Decisão pendente:** Eurico responder a DP-3.5.1.
+
+  Este handoff é **non-actionable single-task** — é um waiting artifact. 3 cenários
+  possíveis:
+
+  | Cenário | Acção | Próximo |
+  |---------|-------|---------|
+  | **A — Eurico silent accept A** (recomendado) | Eurico não responde até deadline OR responde "OK A" | @dev unblock → `*develop 3.5` YOLO mockable-only. Status Ratified v1.2 → InProgress v1.3 |
+  | **B — Eurico explicit override B** (react-big-calendar) | Eurico responde "vai B" | @sm draft delta v1.3 +1 dep + UX adaptation + @po re-validate + @architect re-ratify. Possível upgrade L → L+/XL. Ciclo +~2-3h |
+  | **C — Eurico explicit C** (FullCalendar) | Eurico responde "C" | **REJECT polite** — license commercial conflita SaaS comercial expressia.pt €8,88/mês. @architect explica + recomenda A ou B |
+  | **R12 fallback** | 7 dias úteis sem resposta (até 2026-05-24 18:00 WET) | Default A automatic. @aiox-master ou Aria aplica. Documentar em Change Log v1.2.1 "R12 fallback applied". @dev unblock pós-fallback |
+
+  **Wall-clock estimate decisão:** Eurico tem ~5 min para silent accept A. Override
+  B/C é cosmético — pattern Story 3.4 DPs Morgan recommendations frequentemente
+  silent accepted (DP1 @dnd-kit · DP2 NEW para Story 3.5 actualmente em revisão).
+
+# -----------------------------------------------------------------------------
+# CONTEXT — O que está pronto
+# -----------------------------------------------------------------------------
+context: |
+  ### Story file ratificado
+
+  `docs/stories/active/3.5.tasks-calendar-view.md` — Status `Ratified v1.2` ✓
+  (~830+ linhas após PO Validation Block ~120 linhas + Architect Ratify Block
+  ~150 linhas adicionados).
+
+  Estrutura mantida do v1.1 (que já tinha 4 PO_FIX_INLINE) + adições v1.2:
+  - **Architect Ratify Block** completo (~150 linhas pattern Story 3.4):
+    * 5 DPs verdict table (RATIFY EXPLICIT pending + CONFIRM RESOLVED + 4 SILENT)
+    * Anti-hallucination Aria 5/5 fontes cross-confirm table
+    * 6 G-notes guidance summary (detail em gate report)
+    * Constitution 6/6 PASS
+    * 2 NITs LOW non-blocking
+    * Verdict + sucessor + R12 fallback procedure
+  - **Change Log v1.2 entry** completa (~400 palavras)
+  - Header Status field actualizado `Ratified v1.2`
+
+  ### Gate report criado
+
+  `docs/qa/gates/3.5-architect-dps-ratify.md` (~300 linhas pattern Story 3.4 escalado).
+  Estrutura: 0. Resumo executivo · 1. DPs HIGH (DP-3.5.1 RATIFY EXPLICIT 5-layer +
+  trade-off A vs B table 8/9 critérios + 4 G1 guidance notes + R12 fallback procedure) ·
+  2. DPs MEDIUM/LOW (DP-3.5.5 CONFIRM RESOLVED + DP-3.5.2/3/4/6 APPROVE silent + G2.1 + G3.1) ·
+  3. Anti-hallucination cross-confirm Aria 5/5 · 4. Constitution check 6/6 · 5. NITs ·
+  6. Handoff próximo passo.
+
+  ### Eurico decision summary (para action rápida)
+
+  **TL;DR para Eurico:** @pm + @sm + @architect recomendam unanimemente **A — Custom
+  7-col CSS grid + @dnd-kit**. Razões principais:
+
+  1. **Zero deps novas** — `@dnd-kit/core ^6.3.1` + `/sortable` + `/utilities`
+     + `date-fns ^4` + `date-fns-tz ^3` já instalados (`apps/web/package.json:18-37`).
+     B adiciona ~80kb minified bundle + peer-deps moment/luxon.
+  2. **UX consistency com Kanban Story 3.4 Done v1.4** — mesma lib drag-and-drop
+     = mesma feel para utilizadora arrastar entre dias vs entre colunas Kanban.
+     B usa `react-dnd` peer-dep diferente.
+  3. **`tasks.due_date` é PG `date` calendar-only** — B (`react-big-calendar`)
+     espera `Date` objects com start/end timestamps → wrapper de conversão `date →
+     Date midnight` adiciona surface DST bug que Story 3.5 quer evitar (R3 risk).
+     A trabalha directamente com `task.due_date === dayIso` string comparison.
+  4. **CSS Grid 7-col é trivial em 2026** — 2 linhas CSS (`grid-template-columns`,
+     `grid-template-rows`) + 6 tokens novos (story 3.5 AC2). Não precisa lib pesada.
+  5. **Story 3.4 Kanban pattern Final Gate PASS 9.3/10 HIGH** — confidence empírica
+     que esta stack escala para 7 columns sem regressions perf.
+
+  **Decisão sugerida:** silent accept A (zero acção, Aria/Pax/Morgan handle daqui).
+
+  Se preferes B (`react-big-calendar`) por familiaridade ou preferência específica
+  de UX: responde "B" e iniciamos ciclo delta (+2-3h overhead). Sem stress.
+
+  C (FullCalendar) **não é negociável** — license commercial é incompatível com
+  expressia.pt monetização paga. Aria não vai implementar.
+
+# -----------------------------------------------------------------------------
+# WHAT NEEDS TO HAPPEN
+# -----------------------------------------------------------------------------
+next_action: |
+  Workflow dependente do cenário Eurico:
+
+  ### Cenário A (Eurico silent accept A — RECOMMENDED)
+
+  1. Eurico lê este handoff (ou TL;DR no story file Architect Ratify Block).
+  2. Eurico não responde explicitamente OU responde "OK A" / "ok confirmado".
+  3. @dev pode iniciar `*develop 3.5` YOLO mockable-only assim que pronto.
+  4. Estado: Ratified v1.2 → InProgress v1.3 (@dev actualiza status field).
+  5. Criar handoff sucessor `mj-handoff-3.5-ready-for-dev-{date}.yaml`
+     OU @dev consome este handoff directamente.
+
+  ### Cenário B (Eurico explicit override B — react-big-calendar)
+
+  1. Eurico responde "B" ou "vai react-big-calendar".
+  2. @sm draft delta v1.3:
+     - Adicionar `react-big-calendar` + `react-big-calendar/addons/dragAndDrop`
+       a Task 1 (T1.2 deixa de ser conditional skip).
+     - Refactorizar AC2 (grid 7-col → lib API) + AC5 (drag lifecycle → lib props).
+     - Bundle delta: +~80kb minified estimate. Documentar.
+     - Estimate L → potencial L+/XL — re-confirmar @pm.
+  3. @po Pax re-validate v1.4 (delta diff apenas, não re-validation completa
+     10-point).
+  4. @architect Aria re-ratify v1.5 (apenas DPs afectados — DP-3.5.1 + possivelmente
+     DP-3.5.3 mobile se lib tem própria mobile UX).
+  5. @dev unblock pós-revalidate. Wall-clock +~2-3h overhead total.
+
+  ### Cenário C (Eurico explicit C — FullCalendar)
+
+  1. Eurico responde "C" ou "vai FullCalendar".
+  2. @architect Aria responde com link para gate report secção 1 DP-3.5.1
+     explicando license commercial issue + recomenda A ou B.
+  3. Eurico re-decide A ou B.
+  4. Cenário A ou B segue acima.
+
+  ### Cenário R12 fallback (7 dias úteis sem resposta)
+
+  1. Aria monitoriza deadline: **2026-05-24 18:00 WET** (7 working days =
+     Mon-Fri × 1.4 weeks = approx 9.8 calendar days; assume Mon-Sat working
+     for Eurico → 8 days).
+  2. Deadline reached: @aiox-master Orion OR Aria automatic-applies default A.
+  3. Documentar em Change Log v1.2.1 entry: "R12 fallback applied 2026-05-24:
+     default A confirmed unanimous Morgan + @sm + Aria recommendation. Eurico
+     silent → silent accept default."
+  4. @dev unblock → `*develop 3.5` YOLO.
+
+# -----------------------------------------------------------------------------
+# INPUTS PARA QUALQUER CONSUMIDOR
+# -----------------------------------------------------------------------------
+inputs_for_consumer:
+  for_eurico:
+    primary:
+      - path: "docs/stories/active/3.5.tasks-calendar-view.md"
+        section: "Architect Ratify Block (v1.2) — secção 'Verdict Aria'"
+        reason: "TL;DR + 5 DPs verdict table + R12 fallback procedure. ~5 min reading"
+
+      - path: "docs/qa/gates/3.5-architect-dps-ratify.md"
+        section: "Secção 1 DP-3.5.1 — 5 razões + trade-off A vs B table"
+        reason: "Detalhe técnico completo se Eurico quer ir fundo. ~10 min reading. Tabela trade-off A vs B 8/9 critérios é especialmente útil"
+
+    decision_options:
+      A_silent_accept:
+        action: "Não fazer nada OR responder 'OK A' / 'ok confirmado'"
+        result: "Default Morgan + Aria recommendation aplicado. @dev unblock"
+        wall_clock: "0 min"
+      B_react_big_calendar:
+        action: "Responder 'B' OR 'vai react-big-calendar'"
+        result: "@sm draft delta v1.3 + ciclo @po re-validate + @architect re-ratify. +~2-3h overhead"
+        wall_clock: "~3h ciclo"
+      C_fullcalendar:
+        action: "Não recomendado — license commercial bloqueia"
+        result: "Aria responde com explicação + pede re-decisão A/B"
+        wall_clock: "~5 min + re-decisão"
+
+  for_dev:
+    pre_condition: "Eurico confirma DP-3.5.1 (qualquer cenário A/B/R12)"
+    when_unblocked:
+      primary:
+        - path: "docs/stories/active/3.5.tasks-calendar-view.md"
+          section: "completa v1.2 Ratified"
+          reason: "Story canónica com PO Validation Block + Architect Ratify Block + 5 G-notes"
+        - path: "docs/qa/gates/3.5-architect-dps-ratify.md"
+          section: "secções 1-2 (guidance G1.1-G3.1) + secção 5 (NITs LOW)"
+          reason: "Implementation guidance detalhada por DP"
+      secondary:
+        - path: "docs/stories/completed/3.4.tasks-kanban-view.md"
+          reason: "Pattern reference completo Kanban — copy sensors + announcements + collision detection"
+        - path: "apps/web/src/app/(app)/tarefas/kanban/_components/KanbanBoardClient.tsx"
+          lines: "84-365"
+          reason: "Toast inline + sensors + drag lifecycle pattern para reuso WeekViewClient"
+
+  for_r12_fallback_executor:
+    trigger: "2026-05-24 18:00 WET sem Eurico response"
+    action: |
+      1. Update story file Status: Ratified v1.2 → Ratified v1.2.1 (R12-applied)
+      2. Add Change Log v1.2.1 entry: "R12 fallback applied {date}: default A
+         confirmed Morgan+@sm+Aria unanimous. Eurico silent accept implicit."
+      3. Mark this handoff consumed=true + move to archive/
+      4. Create successor handoff: mj-handoff-3.5-ready-for-dev-{date}.yaml
+         (architect → dev *develop 3.5 YOLO)
+      5. Update HANDOFF-INDEX
+
+# -----------------------------------------------------------------------------
+# ARCHITECT RATIFY SUMMARY
+# -----------------------------------------------------------------------------
+architect_ratify_summary:
+  verdict: "PASS"
+  dps_effective_count: 5
+  dps_explicit: 1
+  dps_confirm_resolved: 1
+  dps_silent_ok: 3
+  confidence: "HIGH"
+  status_transition: "Ready v1.1 → Ratified v1.2"
+  anti_hallucination_cross_confirms: 5
+  g_notes_emitted: 6
+  nits_low: 2
+  constitution_articles_pass: "6/6"
+  gate_report: "docs/qa/gates/3.5-architect-dps-ratify.md"
+  pending_decision: "DP-3.5.1 calendar library (Eurico explicit confirmation OR R12 fallback)"
+
+# -----------------------------------------------------------------------------
+# CONSTITUTION CHECK
+# -----------------------------------------------------------------------------
+constitution_check:
+  article_I_cli_first: "N/A (frontend UI story)"
+  article_II_agent_authority: "PASS — @sm draftou → @po validou → @architect ratificou (here) → Eurico decide DP-3.5.1 → @dev YOLO → @architect final → @devops push. Delegation matrix respeitada inclui human stakeholder gate."
+  article_III_story_driven: "PASS — story v1.2 Ratified em active/, 12 ACs + 12 tasks + 5 DPs efectivos + 5 risks + PO Validation Block + Architect Ratify Block + Change Log v1.0/v1.1/v1.2."
+  article_IV_no_invention: "PASS — Aria re-confirmou 5/5 fontes pós-PO_FIX. Zero new inventions. Convergência @pm + @sm + @architect → A."
+  article_V_quality_first: "PASS — T11 ~20 tests + T12 5/5 quality gates. DST T11.5 reforçado por G1.3 (concentração em WeekNavigation only)."
+  article_VI_absolute_imports: "PASS — Dev Notes `@/...` imports. Pattern Story 3.4 seguido."
+
+# -----------------------------------------------------------------------------
+# DEADLINE TRACKING (R12 fallback)
+# -----------------------------------------------------------------------------
+deadline_tracking:
+  decision_due_by: "2026-05-24 18:00 WET (7 working days from ratify date)"
+  current_date: "2026-05-17"
+  days_remaining: 7
+  fallback_action: "Default A (Custom 7-col CSS grid + @dnd-kit) automatic"
+  fallback_executor: "@aiox-master Orion OR @architect Aria automatic-applies"
+  documentation_target: "Change Log v1.2.1 entry"
+
+# -----------------------------------------------------------------------------
+# CODERABBIT DECISION
+# -----------------------------------------------------------------------------
+coderabbit_decision:
+  verdict: "N/A (architect ratify-dps phase + Eurico decision pending phase)"
+  note: "CodeRabbit relevante apenas em @dev impl phase + @devops push."
