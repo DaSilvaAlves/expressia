@@ -77,3 +77,14 @@ packages/db/drizzle.local.config.ts
 .env*.local
 
 .env.secrets
+
+# =====================================================================
+# Marketing — binários (mover para CDN/Vercel Blob/S3, não git)
+# =====================================================================
+docs/marketing/*.pdf
+docs/marketing/*.mp4
+docs/marketing/*.mov
+docs/marketing/*.png
+docs/marketing/*.jpg
+docs/marketing/*.jpeg
+docs/marketing/*.webm
