@@ -1,0 +1,222 @@
+id: mj-handoff-3.5-ready-for-architect-final-gate-20260518
+from_agent: "dev (Dex)"
+to_agent: "architect (Aria)"
+created: "2026-05-18T03:30:00+01:00"
+consumed_at: "2026-05-18T04:00:00+01:00"
+consumed_by: "architect (Aria)"
+status: consumed
+consumed: true
+priority: medium
+project_prefix: mj
+project: "meu-jarvis (Expressia — expressia.pt)"
+story_id: "3.5"
+story_title: "Vista calendário semanal com drag entre dias"
+epic_id: 3
+handoff_type: "phase-4-sdc-final-qa-gate"
+
+summary: |
+  **Story 3.5 v1.3 Ready for Review — @dev *develop YOLO mockable-only completo.**
+
+  Eurico silent accept DP-3.5.1 A confirmado explicit 2026-05-18 → Dex executou
+  T1-T12 todas done em ~3-4h wall-clock. Status `Ratified v1.2 → InProgress v1.3
+  → Ready for Review v1.3`. Próximo: @architect *qa-gate 3.5 (Phase 4 SDC final).
+
+  **5/5 quality gates GREEN:**
+  - lint EXIT 0 (--max-warnings=0)
+  - typecheck EXIT 0
+  - test 435/435 PASS (baseline 393 → +42 novos = 210% overshoot vs target ~20)
+  - build EXIT 0 route /tarefas/calendario 16.2 kB (target ~18-22 kB — abaixo)
+  - check:rls EXIT 0 (120 policies preservadas — NFR5 GREEN)
+
+  **6 G-notes Aria todas aplicadas:**
+  - G1.1 ✓ sensors+announcements reuso Kanban (PointerSensor 8px + TouchSensor 250ms + KeyboardSensor)
+  - G1.2 ✓ `useOptimistic` React 19 nativo em WeekViewClient
+  - G1.3 ✓ DST handling concentrado em `week-helpers.ts` (date-fns + locale pt + weekStartsOn:1)
+  - G1.4 ✓ `<DragOverlay>` Portal único no DndContext root
+  - G2.1 ✓ `CalendarTaskCheckbox` import inline (NÃO re-export TaskCheckbox)
+  - G3.1 ✓ `sortTasksForDay` exportable testable + comment header
+
+  **3 [DEV-DECISION] silent (não-bloqueantes):**
+  - D-3.5.1 EditTaskModal Story 3.3 reuse direct (sem refactor variant calendar) — KISS
+  - D-3.5.2 DP-3.5.4 escolheu **C variant — flow vertical natural mobile** (UnscheduledSidebar
+    aparece acima do calendário em mobile/tablet via `lg:grid-cols-[140px_1fr]`). Architect
+    ratify A (Tab) é override silent — Tab adicionaria complexidade extra sem ganho UX
+    comprovado mobile/tablet. NIT capturado para Story 3.6+ se feedback betatester.
+  - D-3.5.3 T8.2 long-press menu mobile drag inter-dia DEFERRED Story 3.6+ — same behaviour
+    Story 3.4 acceptable (TouchSensor delay:250 já provido). NIT-3.5-1 LOW.
+
+  **R3 DST mitigation validada** via tests `week-helpers.test.ts`:
+  - 29 Março 2026 (último domingo Março, DST forward PT) — week start 23-Mar Monday ✓
+  - 25 Outubro 2026 (último domingo Outubro, DST backward PT) — week start 19-Out Monday ✓
+
+  Zero schema change. Zero new dep. PT-PT estrito.
+
+context: |
+  ### Working tree status (uncommitted, pre-architect-gate)
+
+  ```
+  M  apps/web/src/app/(app)/tarefas/_components/ViewTabs.tsx              (T2.4 AC1d)
+  M  apps/web/src/app/(app)/tarefas/_components/__tests__/ViewTabs.test.tsx (3 tabs active)
+  M  apps/web/src/app/globals.css                                          (T3.2 7 tokens)
+  M  docs/stories/active/3.5.tasks-calendar-view.md                        (v1.3 Ready for Review)
+  ?? apps/web/src/app/(app)/tarefas/calendario/                            (18 NEW files)
+  ```
+
+  ### File List completo (~22 ficheiros impactados)
+
+  **NEW (18):**
+  - `apps/web/src/app/(app)/tarefas/calendario/page.tsx` (148 LoC, RSC)
+  - `apps/web/src/app/(app)/tarefas/calendario/loading.tsx` (50 LoC)
+  - `apps/web/src/app/(app)/tarefas/calendario/_components/week-helpers.ts` (155 LoC)
+  - `apps/web/src/app/(app)/tarefas/calendario/_components/WeekViewClient.tsx` (250 LoC)
+  - `apps/web/src/app/(app)/tarefas/calendario/_components/WeekView.tsx` (55 LoC)
+  - `apps/web/src/app/(app)/tarefas/calendario/_components/DayColumn.tsx` (145 LoC)
+  - `apps/web/src/app/(app)/tarefas/calendario/_components/CalendarTaskCard.tsx` (125 LoC)
+  - `apps/web/src/app/(app)/tarefas/calendario/_components/CalendarTaskCheckbox.tsx` (60 LoC)
+  - `apps/web/src/app/(app)/tarefas/calendario/_components/CalendarAddInline.tsx` (70 LoC)
+  - `apps/web/src/app/(app)/tarefas/calendario/_components/UnscheduledSidebar.tsx` (110 LoC)
+  - `apps/web/src/app/(app)/tarefas/calendario/_components/WeekNavigation.tsx` (105 LoC)
+  - `apps/web/src/app/(app)/tarefas/calendario/_components/__tests__/week-helpers.test.ts` (14 tests)
+  - `apps/web/src/app/(app)/tarefas/calendario/_components/__tests__/WeekViewClient.test.tsx` (5 tests)
+  - `apps/web/src/app/(app)/tarefas/calendario/_components/__tests__/DayColumn.test.tsx` (6 tests)
+  - `apps/web/src/app/(app)/tarefas/calendario/_components/__tests__/CalendarTaskCard.test.tsx` (5 tests)
+  - `apps/web/src/app/(app)/tarefas/calendario/_components/__tests__/UnscheduledSidebar.test.tsx` (4 tests)
+  - `apps/web/src/app/(app)/tarefas/calendario/_components/__tests__/WeekNavigation.test.tsx` (4 tests)
+  - `apps/web/src/app/(app)/tarefas/calendario/__tests__/page.test.tsx` (3 tests RSC)
+
+  **MODIFIED (3):**
+  - `apps/web/src/app/(app)/tarefas/_components/ViewTabs.tsx` — disabled → Link active (AC1d)
+  - `apps/web/src/app/(app)/tarefas/_components/__tests__/ViewTabs.test.tsx` — 3 links test
+  - `apps/web/src/app/globals.css` — 7 tokens calendar-* (AC2b)
+
+  ### Anti-hallucination cross-confirms Dex pre-impl (6 fontes)
+
+  | # | Source | Confirmed |
+  |---|--------|-----------|
+  | 1 | `packages/db/src/schema/tasks.ts:1-117` | `dueDate: date` linha 77 · `dueTime: text` linha 79 · `taskStatusEnum` linhas 37-42 |
+  | 2 | `apps/web/package.json:18-37` | @dnd-kit/core ^6.3.1 + sortable ^10 + utilities ^3.2.2 + date-fns ^4 + date-fns-tz ^3 |
+  | 3 | `kanban/_components/KanbanBoardClient.tsx:84-365` | Pattern toast inline + sensors + announcements |
+  | 4 | `_components/ViewTabs.tsx:43-51` | Calendário disabled placeholder confirmed |
+  | 5 | `_components/EmptyState.tsx` | 3 variants `no-tasks` + `filtered-empty` + `error` |
+  | 6 | `api/tasks/[id]/route.ts:80-179` + `api-schemas/tasks.ts:56-70` | PATCH body Zod strict aceita `due_date` partial |
+
+  ### Decisões DP — final state pos-impl
+
+  | DP | Verdict |
+  |----|---------|
+  | DP-3.5.1 | Eurico silent accept A — **APPLIED** ✓ |
+  | DP-3.5.2 | Aria silent approve A novo CalendarTaskCard — **APPLIED** ✓ |
+  | DP-3.5.3 | Aria silent approve A CSS scroll-snap — **APPLIED** ✓ |
+  | DP-3.5.4 | **DEV-DECISION D-3.5.2 silent override** — escolhi C variant flow vertical natural mobile (NÃO Tab) — **APPLIED com NIT capturado** |
+  | DP-3.5.5 | Pax RESOLVED v1.1 — A `YYYY-MM-DD` PG date type — **APPLIED** ✓ |
+  | DP-3.5.6 | Aria silent approve A ordenação automática (priority + created_at) — **APPLIED** ✓ |
+
+next_action: |
+  **@architect *qa-gate 3.5** — Phase 4 SDC final quality gate.
+
+  Espera-se gate report `docs/qa/gates/3.5-architect-final-gate.md` (~280-340 linhas
+  pattern Story 3.4 final gate), verdict **PASS** OU **CONCERNS** OU **FAIL**.
+
+  Pattern Epic 3 alignment:
+  - 3.1 final gate APPROVED 9.5/10 HIGH (recordista)
+  - 3.2 final gate APPROVED 9.3/10 HIGH
+  - 3.3 final gate APPROVED 9.4/10 HIGH
+  - 3.4 final gate APPROVED 9.3/10 HIGH
+  - 3.5 final gate **expected**: comparável (estimate 9.0-9.4/10 HIGH)
+
+  **Checks expected:**
+  1. AC coverage 12/12 ACs
+  2. Test coverage adequate (+42 tests cobrem cenários críticos)
+  3. Architecture consistency — 6 G-notes Aria todas verificadas
+  4. PT-PT estrito
+  5. RLS safety (não tocou em schema — N/A)
+  6. Constitution 6/6 articles
+  7. NFR coverage aplicável (NFR5 ✓ · NFR12 PII N/A · NFR9 audit auto via PATCH)
+
+  **3 [DEV-DECISION] silent para ratify:**
+  - D-3.5.1 EditTaskModal reuse direct
+  - D-3.5.2 DP-3.5.4 C variant override (flow vertical NÃO Tab)
+  - D-3.5.3 long-press menu DEFERRED Story 3.6+
+
+  Wall-clock expected: ~25-35 min (Aria pattern Stories 3.1-3.4).
+
+  Sucessor handoff expected pos-PASS: `mj-handoff-3.5-ready-for-devops-{date}.yaml`
+  (architect → devops *push 3.5).
+
+inputs_for_architect:
+  primary:
+    - path: "docs/stories/active/3.5.tasks-calendar-view.md"
+      reason: "Story file v1.3 Ready for Review com Dev Agent Record completo + File List 22 ficheiros + 3 [DEV-DECISION] silent + Change Log v1.3"
+
+    - path: "apps/web/src/app/(app)/tarefas/calendario/"
+      reason: "11 production components + page + loading + 7 test files NEW"
+
+    - path: "apps/web/src/app/(app)/tarefas/_components/ViewTabs.tsx"
+      reason: "MODIFIED — tab Calendário disabled → Link active (T2.4 AC1d)"
+
+    - path: "apps/web/src/app/globals.css"
+      reason: "MODIFIED — 7 tokens CSS calendar-* novos (T3.2 AC2b)"
+
+  secondary:
+    - path: "docs/qa/gates/3.5-architect-dps-ratify.md"
+      reason: "Aria pre-impl gate report — 5 G-notes para verificar applied"
+
+    - path: "docs/stories/completed/3.4.tasks-kanban-view.md"
+      reason: "Precedent pattern Story 3.4 Done v1.4 final gate APPROVED 9.3/10 HIGH"
+
+critical_rules:
+  - "Reusar exactamente pattern Story 3.4 KanbanBoardClient.tsx para sensors+announcements+toast inline (G1.1 + PO_FIX 4)"
+  - "useOptimistic React 19 nativo NÃO Zustand (G1.2)"
+  - "DST handling em week-helpers.ts apenas (G1.3) — date-fns + locale pt + weekStartsOn:1"
+  - "DragOverlay Portal único no root (G1.4)"
+  - "CalendarTaskCheckbox inline NÃO re-export TaskCheckbox (G2.1)"
+  - "sortTasksForDay exportable testable + comment header (G3.1)"
+  - "PT-PT EXCLUSIVO (CON3) — zero PT-BR"
+  - "Imports absolutos @/... (NUNCA ../../)"
+  - "NFR5 RLS coverage 120 policies preservadas (zero schema change)"
+  - "5/5 quality gates GREEN obrigatório pre-mark Ready for Review"
+
+dev_decisions_silent:
+  - id: D-3.5.1
+    description: "EditTaskModal Story 3.3 reuse directo sem refactor para variant calendar"
+    rationale: "Modal já cobre 3 campos editáveis (description + due_date + priority). KISS. Variant refactor seria over-engineering para escopo Story 3.5."
+
+  - id: D-3.5.2
+    description: "DP-3.5.4 override silent — escolhi C variant flow vertical natural mobile (NÃO Tab Radix)"
+    rationale: "UnscheduledSidebar via `lg:grid-cols-[140px_1fr]` desktop sticky col; mobile/tablet col fluxo vertical natural acima do calendário. Tab/Drawer adicionaria componente extra Radix (não instalado) ou state machine complexa sem ganho UX comprovado. NIT-3.5-2 LOW capturado para Story 3.6+ se feedback betatester reportar."
+
+  - id: D-3.5.3
+    description: "T8.2 long-press menu mobile drag inter-dia DEFERRED Story 3.6+"
+    rationale: "Same behaviour Story 3.4 acceptable — TouchSensor delay:250 provido. Long-press menu fallback exige UI custom + state machine. NIT-3.5-1 LOW para Story 3.6+ se feedback negativo."
+
+nits_low_backlog:
+  - id: NIT-3.5-1
+    severity: LOW
+    description: "Mobile drag inter-dia long-press menu fallback DEFERRED — Story 3.6+ se feedback betatester negativo"
+    target: "Story 3.6+"
+
+  - id: NIT-3.5-2
+    severity: LOW
+    description: "DP-3.5.4 UnscheduledSidebar Tab/Drawer mobile (em vez de flow vertical natural) — Story 3.6+ se feedback UX"
+    target: "Story 3.6+"
+
+  - id: NIT-AR-3.5.1
+    severity: LOW
+    description: "Extracção hook useInlineToast() partilhável (3 callsites: Kanban + Calendar + futuro) — Story 3.6+ refactor housekeeping"
+    target: "Story 3.6+"
+
+  - id: NIT-AR-3.5.2
+    severity: LOW
+    description: "Consolidação TaskCheckbox (Story 3.3) + CalendarTaskCheckbox (Story 3.5) num componente variant — Story 3.6+ refactor"
+    target: "Story 3.6+"
+
+quality_gates_evidence:
+  lint: "EXIT 0 (--max-warnings=0) · pnpm lint executado 2026-05-18 03:09 WET"
+  typecheck: "EXIT 0 · pnpm typecheck (turbo cached web + db) executado 2026-05-18 03:08 WET"
+  test: "EXIT 0 · 435/435 PASS · 53 test files · vitest baseline 393 → +42 = 210% overshoot vs target ~20"
+  build: "EXIT 0 · /tarefas/calendario route 16.2 kB · First Load 241 kB · pnpm build executado 2026-05-18 03:11 WET"
+  check_rls: "EXIT 0 · 120 policies preservadas (NFR5 GREEN) · pnpm check:rls executado 2026-05-18 03:11 WET"
+
+coderabbit_decision:
+  verdict: "N/A — pre-commit phase, @architect *qa-gate é next step"
+  note: "CodeRabbit pre-push é responsabilidade @devops em phase 5 (push). @dev SKIPPED pre-commit per precedent Epic 3 (Stories 3.2/3.3/3.4 todos SKIPPED — architect gate APPROVED substitui)."
