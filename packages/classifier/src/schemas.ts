@@ -23,9 +23,10 @@ import { z } from 'zod';
 import type { LlmModel } from '@meu-jarvis/agent';
 
 /**
- * Os 8 intents canónicos do classifier — alinhados com enum Postgres
- * `agent_intent` (Story 2.1, migration 0005). NÃO modificar sem actualizar
- * simultaneamente o enum DB e correr `db:migrate`.
+ * Os 11 intents canónicos do classifier — alinhados com enum Postgres
+ * `agent_intent` (Story 2.1, migration 0005; Story 3.8 migration 0012).
+ * NÃO modificar sem actualizar simultaneamente o enum DB e correr
+ * `db:migrate`.
  *
  * Sanity-check em runtime (test): `__tests__/schemas.test.ts` LÊ o ficheiro
  * `packages/db/src/schema/agent.ts` via `fs.readFile` + regex sobre
@@ -43,6 +44,11 @@ export const INTENT_VALUES = [
   'consultar_dados',
   'cancelar_ultima',
   'unknown',
+  // Story 3.8 — tools cérebro do domínio Tarefas. Sync com migration 0012 +
+  // `packages/db/src/schema/agent.ts:55-60`.
+  'completar_tarefa',
+  'listar_tarefas',
+  'listar_atrasadas',
 ] as const;
 
 export const IntentSchema = z.enum(INTENT_VALUES);
