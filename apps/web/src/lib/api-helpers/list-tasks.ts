@@ -28,7 +28,20 @@ import type { CursorPayload } from '@/lib/api-schemas/pagination';
 import { encodeCursor } from '@/lib/api-schemas/pagination';
 import type { TaskFiltersInput } from '@/lib/api-schemas/tasks';
 
-/** Shape de uma linha de tarefa devolvida por `SELECT FROM public.tasks`. */
+/** Shape inline de uma tag associada a uma tarefa (Story 3.6 T6.0). */
+export interface TaskRowTag {
+  id: string;
+  name: string;
+  color: string;
+}
+
+/**
+ * Shape de uma linha de tarefa devolvida por `SELECT FROM public.tasks`.
+ *
+ * `tags` (Story 3.6 T6.0 / DP-3.6.6 A) — array de tags associadas via `task_tags`,
+ * ordenadas por `tags.name asc`. Vazio (`[]`) quando a tarefa não tem tags ou
+ * quando a query não inclui o JOIN. Usado nas vistas lista/Kanban/calendário.
+ */
 export interface TaskRow {
   id: string;
   household_id: string;
@@ -48,6 +61,7 @@ export interface TaskRow {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  tags: TaskRowTag[];
 }
 
 export interface ListTasksParams {
@@ -75,16 +89,18 @@ export interface ListTasksResult {
  * boundary sub-óptimo se 2+ rows partilham o mesmo sort key — aceite KISS para MVP.
  */
 function buildOrderBy(sort: TaskFiltersInput['sort']): SQL {
+  // Story 3.6 T6.0: prefixar com `tasks.` para desambiguar do `tags.id`/`tags.name`
+  // introduzidos pelo LEFT JOIN. Mesma semântica que Story 3.3, sem ambiguidade PG.
   switch (sort) {
     case 'created_at_desc':
-      return sql`created_at desc, id desc`;
+      return sql`tasks.created_at desc, tasks.id desc`;
     case 'priority_desc':
-      return sql`case priority when 'high' then 1 when 'medium' then 2 else 3 end, due_date asc nulls last, id asc`;
+      return sql`case tasks.priority when 'high' then 1 when 'medium' then 2 else 3 end, tasks.due_date asc nulls last, tasks.id asc`;
     case 'title_asc':
-      return sql`title asc, id asc`;
+      return sql`tasks.title asc, tasks.id asc`;
     case 'due_date_asc':
     default:
-      return sql`due_date asc nulls last, id asc`;
+      return sql`tasks.due_date asc nulls last, tasks.id asc`;
   }
 }
 
@@ -102,49 +118,71 @@ export async function listTasksHelper(
   const limitPlusOne = filters.limit + 1;
 
   // Build dynamic WHERE conditions (RLS via JWT já filtra household_id — G4).
+  // Story 3.6 T6.0: colunas prefixadas com `tasks.` para desambiguar do LEFT JOIN tags.
   const conditions = [sql`1=1`];
-  if (filters.status) conditions.push(sql`status = ${filters.status}`);
-  if (filters.priority) conditions.push(sql`priority = ${filters.priority}`);
+  if (filters.status) conditions.push(sql`tasks.status = ${filters.status}`);
+  if (filters.priority) conditions.push(sql`tasks.priority = ${filters.priority}`);
   if (filters.kanban_column_id) {
-    conditions.push(sql`kanban_column_id = ${filters.kanban_column_id}::uuid`);
+    conditions.push(sql`tasks.kanban_column_id = ${filters.kanban_column_id}::uuid`);
   }
   if (filters.assigned_to_user_id) {
-    conditions.push(sql`assigned_to_user_id = ${filters.assigned_to_user_id}::uuid`);
+    conditions.push(sql`tasks.assigned_to_user_id = ${filters.assigned_to_user_id}::uuid`);
   }
   if (filters.project) {
-    conditions.push(sql`project ilike ${'%' + filters.project + '%'}`);
+    conditions.push(sql`tasks.project ilike ${'%' + filters.project + '%'}`);
   }
   if (filters.due_date_from) {
-    conditions.push(sql`due_date >= ${filters.due_date_from}::date`);
+    conditions.push(sql`tasks.due_date >= ${filters.due_date_from}::date`);
   }
   if (filters.due_date_to) {
-    conditions.push(sql`due_date <= ${filters.due_date_to}::date`);
+    conditions.push(sql`tasks.due_date <= ${filters.due_date_to}::date`);
   }
   if (filters.tag_id) {
     conditions.push(
-      sql`id in (select task_id from public.task_tags where tag_id = ${filters.tag_id}::uuid)`,
+      sql`tasks.id in (select task_id from public.task_tags where tag_id = ${filters.tag_id}::uuid)`,
     );
   }
   if (cursorPayload) {
     // Cursor pagination optimal para due_date_asc (default).
     if (cursorPayload.last_due_date) {
       conditions.push(
-        sql`(due_date, id) > (${cursorPayload.last_due_date}::date, ${cursorPayload.last_id}::uuid)`,
+        sql`(tasks.due_date, tasks.id) > (${cursorPayload.last_due_date}::date, ${cursorPayload.last_id}::uuid)`,
       );
     } else {
-      conditions.push(sql`(due_date is null and id > ${cursorPayload.last_id}::uuid)`);
+      conditions.push(sql`(tasks.due_date is null and tasks.id > ${cursorPayload.last_id}::uuid)`);
     }
   }
 
   const whereSql = conditions.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc} and ${c}`));
   const orderBySql = buildOrderBy(filters.sort);
 
+  // Story 3.6 T6.0 / DP-3.6.6 A (Aria ratify HIGH):
+  // - LEFT JOIN task_tags + tags (preserva tarefas sem tags)
+  // - json_agg(... ORDER BY tags.name) FILTER (WHERE tags.id IS NOT NULL) — produz
+  //   `[]` em vez de `[null]` quando não há tags (G1.2 neutraliza LEFT JOIN edge)
+  // - GROUP BY tasks.id — PG 16 detecta functional dependency via PK e aceita `tasks.*`
+  // - RLS via JWT continua a filtrar transparentemente (G2.2 também — task_tags.household_id
+  //   é redundante com RLS mas mantido implicitamente via JOIN ON task_tags.task_id)
+  // - Indexes: task_tags_pkey (task_id, tag_id) + tags PK — execution path optimal
+  // - Cardinality O(n + m) onde n=tasks pós-filter, m=task_tags rows juntos
   const rows = await db.execute<TaskRow>(sql`
-    select id, household_id, created_by_user_id, assigned_to_user_id, title, description,
-           due_date, due_time, priority, status, kanban_column_id, kanban_position,
-           project, recurrence_id, is_recurrence_template, completed_at, created_at, updated_at
+    select tasks.id, tasks.household_id, tasks.created_by_user_id, tasks.assigned_to_user_id,
+           tasks.title, tasks.description, tasks.due_date, tasks.due_time, tasks.priority,
+           tasks.status, tasks.kanban_column_id, tasks.kanban_position, tasks.project,
+           tasks.recurrence_id, tasks.is_recurrence_template, tasks.completed_at,
+           tasks.created_at, tasks.updated_at,
+           coalesce(
+             json_agg(
+               json_build_object('id', tags.id, 'name', tags.name, 'color', tags.color)
+               order by tags.name asc
+             ) filter (where tags.id is not null),
+             '[]'::json
+           ) as tags
     from public.tasks
+    left join public.task_tags on task_tags.task_id = tasks.id
+    left join public.tags on tags.id = task_tags.tag_id
     where ${whereSql}
+    group by tasks.id
     order by ${orderBySql}
     limit ${limitPlusOne}
   `);

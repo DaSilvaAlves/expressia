@@ -67,6 +67,7 @@ function makeTask(id: string, position: number, overrides: Partial<TaskRow> = {}
     completed_at: null,
     created_at: '2026-05-17',
     updated_at: '2026-05-17',
+    tags: [],
     ...overrides,
   };
 }

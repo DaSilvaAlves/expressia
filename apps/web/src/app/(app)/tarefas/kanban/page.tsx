@@ -11,6 +11,7 @@ import { listTasksHelper } from '@/lib/api-helpers/list-tasks';
 import { TaskFiltersSchema } from '@/lib/api-schemas/tasks';
 
 import { EmptyState } from '@/app/(app)/tarefas/_components/EmptyState';
+import { TagFilterSelect } from '@/app/(app)/tarefas/_components/TagFilterSelect';
 import { ViewTabs } from '@/app/(app)/tarefas/_components/ViewTabs';
 import { KanbanBoardClient } from '@/app/(app)/tarefas/kanban/_components/KanbanBoardClient';
 import type { KanbanColumnRow } from '@/lib/api-schemas/kanban-columns';
@@ -152,6 +153,10 @@ export default async function TarefasKanbanPage({
       </header>
 
       <ViewTabs current="kanban" />
+
+      <div className="flex justify-end">
+        <TagFilterSelect />
+      </div>
 
       <KanbanBoardClient initialTasks={tasks} initialColumns={columns} />
     </div>

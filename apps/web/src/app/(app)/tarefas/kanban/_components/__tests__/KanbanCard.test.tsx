@@ -39,6 +39,7 @@ describe('<KanbanCard>', () => {
           priority="high"
           status="todo"
           isOverdue={false}
+          tags={[]}
           onOpen={() => {}}
         />
       </ul>,
@@ -58,6 +59,7 @@ describe('<KanbanCard>', () => {
           priority="medium"
           status="todo"
           isOverdue={false}
+          tags={[]}
           onOpen={onOpen}
         />
       </ul>,
@@ -77,6 +79,7 @@ describe('<KanbanCard>', () => {
           priority="low"
           status="todo"
           isOverdue={false}
+          tags={[]}
           onOpen={onOpen}
         />
       </ul>,
@@ -96,12 +99,38 @@ describe('<KanbanCard>', () => {
           priority="high"
           status="todo"
           isOverdue={true}
+          tags={[]}
           onOpen={() => {}}
         />
       </ul>,
     );
     const card = screen.getByRole('listitem');
     expect(card.getAttribute('aria-label')).toContain('atrasada');
+  });
+
+  it('renderiza tag badges quando tags presentes', () => {
+    render(
+      <ul>
+        <KanbanCard
+          taskId="t1"
+          title="Com tags"
+          dueDate={null}
+          priority="low"
+          status="todo"
+          isOverdue={false}
+          tags={[
+            { id: 'tag1', name: 'trabalho', color: '#3B82F6' },
+            { id: 'tag2', name: 'urgente', color: '#EF4444' },
+            { id: 'tag3', name: 'extra', color: '#22C55E' },
+          ]}
+          onOpen={() => {}}
+        />
+      </ul>,
+    );
+    expect(screen.getByText('trabalho')).toBeInTheDocument();
+    expect(screen.getByText('urgente')).toBeInTheDocument();
+    // 3 tags > limit 2 → chip +1
+    expect(screen.getByText('+1')).toBeInTheDocument();
   });
 
   it('completed task tem aria-label com ", concluída"', () => {
@@ -114,6 +143,7 @@ describe('<KanbanCard>', () => {
           priority="low"
           status="done"
           isOverdue={false}
+          tags={[]}
           onOpen={() => {}}
         />
       </ul>,

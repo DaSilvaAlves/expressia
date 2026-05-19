@@ -10,6 +10,7 @@ import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import type { TaskRow } from '@/lib/api-helpers/list-tasks';
 
 import { EmptyState } from '@/app/(app)/tarefas/_components/EmptyState';
+import { TagFilterSelect } from '@/app/(app)/tarefas/_components/TagFilterSelect';
 import { ViewTabs } from '@/app/(app)/tarefas/_components/ViewTabs';
 
 import { WeekViewClient } from '@/app/(app)/tarefas/calendario/_components/WeekViewClient';
@@ -78,25 +79,57 @@ export default async function TarefasCalendarioPage({
 
   try {
     const db = getDb();
+    // Story 3.6 T6.0 (DP-3.6.6 A): tags via json_agg LEFT JOIN — mesmo pattern do
+    // listTasksHelper para coerência cross-vista. Optional `tag_id` filter via search params.
+    const tagIdFilter = rawParams.tag_id ?? null;
+    const tagIdSql = tagIdFilter
+      ? sql`and tasks.id in (select task_id from public.task_tags where tag_id = ${tagIdFilter}::uuid)`
+      : sql``;
     const [scheduledRows, unscheduledRows, countRows] = await Promise.all([
       db.execute<TaskRow>(sql`
-        select id, household_id, created_by_user_id, assigned_to_user_id, title, description,
-               due_date, due_time, priority, status, kanban_column_id, kanban_position,
-               project, recurrence_id, is_recurrence_template, completed_at, created_at, updated_at
+        select tasks.id, tasks.household_id, tasks.created_by_user_id, tasks.assigned_to_user_id,
+               tasks.title, tasks.description, tasks.due_date, tasks.due_time, tasks.priority,
+               tasks.status, tasks.kanban_column_id, tasks.kanban_position, tasks.project,
+               tasks.recurrence_id, tasks.is_recurrence_template, tasks.completed_at,
+               tasks.created_at, tasks.updated_at,
+               coalesce(
+                 json_agg(
+                   json_build_object('id', tags.id, 'name', tags.name, 'color', tags.color)
+                   order by tags.name asc
+                 ) filter (where tags.id is not null),
+                 '[]'::json
+               ) as tags
         from public.tasks
-        where due_date >= ${weekStartIso}::date
-          and due_date <= ${weekEndIso}::date
-        order by due_date asc, priority asc, created_at asc
+        left join public.task_tags on task_tags.task_id = tasks.id
+        left join public.tags on tags.id = task_tags.tag_id
+        where tasks.due_date >= ${weekStartIso}::date
+          and tasks.due_date <= ${weekEndIso}::date
+          ${tagIdSql}
+        group by tasks.id
+        order by tasks.due_date asc, tasks.priority asc, tasks.created_at asc
         limit 500
       `),
       db.execute<TaskRow>(sql`
-        select id, household_id, created_by_user_id, assigned_to_user_id, title, description,
-               due_date, due_time, priority, status, kanban_column_id, kanban_position,
-               project, recurrence_id, is_recurrence_template, completed_at, created_at, updated_at
+        select tasks.id, tasks.household_id, tasks.created_by_user_id, tasks.assigned_to_user_id,
+               tasks.title, tasks.description, tasks.due_date, tasks.due_time, tasks.priority,
+               tasks.status, tasks.kanban_column_id, tasks.kanban_position, tasks.project,
+               tasks.recurrence_id, tasks.is_recurrence_template, tasks.completed_at,
+               tasks.created_at, tasks.updated_at,
+               coalesce(
+                 json_agg(
+                   json_build_object('id', tags.id, 'name', tags.name, 'color', tags.color)
+                   order by tags.name asc
+                 ) filter (where tags.id is not null),
+                 '[]'::json
+               ) as tags
         from public.tasks
-        where due_date is null
-          and status not in ('done', 'archived')
-        order by created_at desc
+        left join public.task_tags on task_tags.task_id = tasks.id
+        left join public.tags on tags.id = task_tags.tag_id
+        where tasks.due_date is null
+          and tasks.status not in ('done', 'archived')
+          ${tagIdFilter ? sql`and tasks.id in (select task_id from public.task_tags where tag_id = ${tagIdFilter}::uuid)` : sql``}
+        group by tasks.id
+        order by tasks.created_at desc
         limit ${UNSCHEDULED_LIMIT}
       `),
       db.execute<{ total: string | number }>(sql`
@@ -104,6 +137,7 @@ export default async function TarefasCalendarioPage({
         from public.tasks
         where due_date is null
           and status not in ('done', 'archived')
+          ${tagIdFilter ? sql`and id in (select task_id from public.task_tags where tag_id = ${tagIdFilter}::uuid)` : sql``}
       `),
     ]);
 
@@ -140,7 +174,10 @@ export default async function TarefasCalendarioPage({
 
       <ViewTabs current="calendario" />
 
-      <WeekNavigation weekStartIso={weekIso} />
+      <div className="flex items-end justify-between">
+        <WeekNavigation weekStartIso={weekIso} />
+        <TagFilterSelect />
+      </div>
 
       {hasNothing ? (
         <EmptyState variant="no-tasks" />

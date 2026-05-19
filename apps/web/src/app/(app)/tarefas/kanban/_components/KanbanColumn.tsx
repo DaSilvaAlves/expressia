@@ -82,6 +82,7 @@ export function KanbanColumn({ column, tasks, onOpenTask }: KanbanColumnProps): 
                   priority={task.priority}
                   status={task.status}
                   isOverdue={isOverdueTask(task)}
+                  tags={task.tags}
                   onOpen={() => onOpenTask(task.id)}
                 />
               ))

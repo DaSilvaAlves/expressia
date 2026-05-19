@@ -48,6 +48,9 @@ vi.mock('@/app/(app)/tarefas/kanban/_components/KanbanBoardClient', () => ({
   KanbanBoardClient: ({ initialColumns }: { initialColumns: { id: string }[] }) =>
     `<KanbanBoardClient:${initialColumns.map((c) => c.id).join(',')}>`,
 }));
+vi.mock('@/app/(app)/tarefas/_components/TagFilterSelect', () => ({
+  TagFilterSelect: () => '<TagFilterSelect>',
+}));
 
 const USER_UUID = '00000000-0000-0000-0000-000000000001';
 const HOUSEHOLD_UUID = '00000000-0000-0000-0000-000000000002';

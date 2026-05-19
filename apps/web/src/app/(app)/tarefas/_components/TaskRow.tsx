@@ -7,6 +7,7 @@ import type { TaskRow as TaskRowType } from '@/lib/api-helpers/list-tasks';
 import { EditTaskModal } from '@/app/(app)/tarefas/_components/EditTaskModal';
 import { InlineEditTitle } from '@/app/(app)/tarefas/_components/InlineEditTitle';
 import { RowActionsMenu } from '@/app/(app)/tarefas/_components/RowActionsMenu';
+import { TagBadge } from '@/app/(app)/tarefas/_components/TagBadge';
 import { TaskCheckbox } from '@/app/(app)/tarefas/_components/TaskCheckbox';
 import { getDaysOverdue } from '@/app/(app)/tarefas/_lib/task-sections';
 
@@ -48,11 +49,17 @@ function formatDuePT(due_date: string | null): string | null {
   return `${d}/${m}/${y}`;
 }
 
+const TAG_LIST_LIMIT = 3;
+
 export function TaskRow({ task, highlightOverdue }: TaskRowProps): React.ReactElement {
   const [editOpen, setEditOpen] = useState(false);
   const dueLabel = formatDuePT(task.due_date);
   const overdueLabel = highlightOverdue ? getDaysOverdue(task.due_date) : null;
   const isDone = task.status === 'done';
+  // Story 3.6 T6.1 — até 3 badges + chip muted `+N` se excede (SF-3.6.1).
+  const tags = task.tags ?? [];
+  const visibleTags = tags.slice(0, TAG_LIST_LIMIT);
+  const extraTagCount = Math.max(0, tags.length - TAG_LIST_LIMIT);
 
   return (
     <>
@@ -75,6 +82,18 @@ export function TaskRow({ task, highlightOverdue }: TaskRowProps): React.ReactEl
             <span className="mt-0.5 inline-block text-xs text-neutral-500 dark:text-neutral-500">
               {task.project}
             </span>
+          )}
+          {tags.length > 0 && (
+            <ul role="list" aria-label="Tags" className="mt-1 flex flex-wrap items-center gap-1">
+              {visibleTags.map((t) => (
+                <TagBadge key={t.id} tag={t} size="sm" />
+              ))}
+              {extraTagCount > 0 && (
+                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+                  +{extraTagCount}
+                </span>
+              )}
+            </ul>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
