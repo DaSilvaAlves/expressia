@@ -1,0 +1,152 @@
+id: mj-handoff-3.8-sm-v1.1-ready-for-po-revalidate-20260519
+from_agent: sm
+to_agent: po
+created: '2026-05-19T16:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-19T17:15:00Z'
+consumed_by: po
+consumed_outcome: 'GO v1.1 9.9/10 HIGH — story status Draft → Ready; sucessor handoff mj-handoff-3.8-ready-for-dev-20260519.yaml criado'
+project: meu-jarvis
+project_prefix: mj
+story_id: '3.8'
+last_command: '*update-story 3.8'
+priority: medium
+
+summary: |
+  Story 3.8 (Tools cérebro Tarefas) v1.1 pronta para re-validate @po após NO-GO v1.0 (6.5/10). @sm River
+  aplicou R1b + R2 + R3 conforme PO required fixes, com cross-confirm independente das 4 fontes citadas
+  (atomic.ts:217-261 + contracts.ts:158 + schema/agent.ts:47 + 0000_initial_schema.sql:125). R1b BLOCKER:
+  AC3/AC4 reescritos com sentinela inerte `{ table: '_noop', id: crypto.randomUUID() }` (UUID válido +
+  table não-existente filtrada por job cleanup Inngest — Risk R-3.8.5 documentado). R2 BLOCKER: AC6 +
+  anti-hallucination #9 corrigidos — `criar_tarefa` confirmado já existente no enum, migration mantém 4×
+  `IF NOT EXISTS` por defensive programming (1 no-op + 3 novos), Drizzle array adiciona apenas 3 valores.
+  R3 NICE-TO-HAVE: AC9 cenário 6 cross-household reescrito com mock JWT pattern explícito (2 ctx mocks,
+  verificar mock-Drizzle recebeu WHERE household_id), mantém consistência mockable-friendly (Testcontainers
+  Story 1.4 exercita RLS Postgres real, não duplicar). Estimate M mantém. Decisão DP5 = A (minimal)
+  confirmada. Próximo passo: @po `*validate-story-draft 3.8` esperando score ≥7/10 (target 8.5-9/10).
+
+context:
+  story_path: docs/stories/active/3.8.tools-cerebro-tarefas.story.md
+  story_status: 'Draft — v1.1 (aguarda re-validate @po)'
+  branch: main
+  working_tree: 'dirty — story 3.8 atualizada + handoff INDEX modificado + este handoff novo'
+  commits_pending: 0 (sem git ops — apenas working tree edits)
+
+  po_v1_0_verdict:
+    status: NO-GO
+    score: 6.5/10
+    threshold: 7
+    date: '2026-05-19'
+    blockers:
+      - 'R1: AC3/AC4/AC9 read-only model placeholder id=noop falha ReverseOpDeleteRowSchema (Zod UUID)'
+      - 'R2: AC6 + anti-hallucination #9 claim factualmente errada — criar_tarefa já existe em enum'
+    nice_to_have:
+      - 'R3: AC9 cenário 6 cross-household isolation vago'
+
+  sm_v1_1_fixes_aplicados:
+    R1b:
+      severity: BLOCKER
+      type: 'reescrita pontual AC3 + AC4'
+      summary: |
+        AC3 (listar_tarefas) + AC4 (listar_atrasadas) — reverse() retorna
+        { kind: 'delete_row', table: '_noop', id: crypto.randomUUID() }.
+        UUID válido satisfaz ReverseOpDeleteRowSchema. Table sentinela '_noop' torna row inerte.
+        Filtrada por job cleanup Inngest (Risk R-3.8.5 — não bloqueante, housekeeping Story 2.8).
+        JSDoc obrigatório documenta FR6 não-aplicável + 410 Gone para endpoint /undo com table='_noop'.
+      sections_touched:
+        - AC3 listar_tarefas — reverse() rewrite
+        - AC4 listar_atrasadas — reverse() rewrite
+        - AC8 testes — listar-tarefas.test.ts + listar-atrasadas.test.ts asserts table='_noop' + UUID válido
+        - AC9 cenários 4 + 5 — agent_reverse_ops row inerte com table='_noop'
+        - Tasks T4.4 + T5.4 — instrução explícita sentinela inerte
+        - Dev Notes pattern reverse() — exemplo actualizado com WHY (atomic.ts:217-261 sempre persiste)
+        - Risks — R-3.8.5 NOVO adicionado
+    R2:
+      severity: BLOCKER
+      type: 'reescrita pontual AC6 + anti-hallucination + Tasks T6.x'
+      summary: |
+        AC6 reescrito clarificando que criar_tarefa já existe em 0000_initial_schema.sql:125 +
+        schema/agent.ts:47 (cross-confirm @sm v1.1 directo via grep). Migration mantém 4× ALTER TYPE
+        IF NOT EXISTS (1 no-op + 3 genuinamente novos) por defensive programming. Drizzle schema
+        array em agent.ts adiciona apenas 3 valores. Anti-hallucination tabela linha #9 corrigida.
+      sections_touched:
+        - Anti-Hallucination tabela linha 9 (#9) — corrigida
+        - AC6 — migration enum reescrita (3 novos, 1 no-op)
+        - Tasks T6.1 + T6.2 — instrução explícita 3 valores novos
+    R3:
+      severity: NICE-TO-HAVE
+      type: 'clarificação AC9 cenário 6'
+      summary: |
+        AC9 cenário 6 cross-household reescrito com mock JWT pattern explícito: criar 2 mock
+        ToolExecutionContext (A + B), chamar criar_tarefa.execute(input, ctxA), verificar mock-Drizzle
+        recebeu WHERE household_id='a-uuid' (tool NUNCA usa input para household_id). RLS Postgres
+        real continua exercitada por Testcontainers em Story 1.4 (Done v1.0) — não duplicar aqui.
+      sections_touched:
+        - AC9 cenário 6 — cross-household mock JWT pattern explícito
+        - Testing cenários críticos tabela — linha cross-household actualizada
+
+  cross_confirm_sm_v1_1_independente:
+    sources:
+      - file: packages/tools/src/atomic.ts
+        lines: '217-261'
+        finding: 'executeAtomic SEMPRE chama definition.reverse() (linha 219) e SEMPRE persiste via SQL puro (linhas 244-250). Sem condicional de writes.'
+      - file: packages/tools/src/contracts.ts
+        lines: '158-162'
+        finding: 'ReverseOpDeleteRowSchema exige id: z.string().uuid(). placeholder literal noop falha Zod runtime.'
+      - file: packages/db/src/schema/agent.ts
+        lines: '47'
+        finding: 'criar_tarefa já presente no array agentIntentEnum.'
+      - file: packages/db/migrations/0000_initial_schema.sql
+        lines: '125'
+        finding: 'criar_tarefa já presente no enum agent_intent inicial. Confirma drift @sm v1.0.'
+
+decisions:
+  - 'DP5 = A (minimal) — confirmada @po + ED9 PM Morgan. Sem alteração estimate.'
+  - 'R1b adoptada vs R1a/R1c — R1b não toca contract ToolDefinition nem executeAtomic (Story 2.3 Done). R1a expande scope ao Planner/Executor. R1c requer @architect approval + amend Story 2.3.'
+  - 'Migration enum mantém 4× ALTER TYPE com IF NOT EXISTS — defensive programming, no-op idempotente, sem overhead em reruns.'
+  - 'Cross-household isolation via mock pattern em vez de Testcontainers — preserva declaração mockable-friendly da Story 3.8 (linha 273). RLS real exercitada em Story 1.4.'
+  - 'Risk R-3.8.5 (job cleanup _noop) NÃO bloqueia Story 3.8 — TTL 30s + job nocturno existente limpam dentro de janela aceitável; housekeeping defer Story 2.8 ou 3.8.1 micro.'
+  - 'TEST-001-NB bonus em criar-tarefa.test.ts mantido — zero overhead, fortalece testes executeAtomic InternalAtomicAbort path.'
+
+files_modified:
+  - docs/stories/active/3.8.tools-cerebro-tarefas.story.md
+  - docs/HANDOFF-INDEX.md (linha pending row 3.8 v1.1)
+  - docs/handoffs/mj-handoff-3.8-sm-v1.1-ready-for-po-revalidate-20260519.yaml (este ficheiro)
+
+blockers: []
+
+next_action: |
+  @po (Pax) deve executar `*validate-story-draft 3.8` em v1.1.
+
+  Esperado:
+  - Score ≥7/10 (target realista 8.5-9/10 dado que os 3 drifts factuais foram resolvidos com
+    cross-confirm directo).
+  - Verdict GO → handoff @po → @dev `*develop 3.8` (Phase 3 SDC).
+  - Se ainda houver gaps, @po documenta na PO Validation section e cria handoff @po → @sm v1.2.
+
+  Checklist sugerido para @po re-validate (10-point validation):
+  1. AC clarity & testability — re-verificar AC3/AC4/AC6/AC9 reescritos
+  2. Scope boundaries — mantém-se backend puro extension
+  3. Tasks accionáveis — T4.4/T5.4/T6.1/T6.2 actualizadas
+  4. File List realista — sem alteração (11 novos + 2 modificar)
+  5. Dev notes refs concretas — exemplo reverse() actualizado
+  6. Testing strategy — cenários críticos AC8/AC9 alinhados com modelo sentinela
+  7. PT-PT consistency — preservada
+  8. Imports absolutos — preservados
+  9. RLS coverage — preservada (AC10 inalterada)
+  10. Cumulative context Epic 3 — conflito EPIC vs contract resolvido via R1b
+
+related_artifacts:
+  po_memory: docs/handoffs/.claude/agent-memory/aiox-po/anti_hallucination_payoff_3_8.md
+  po_memory_index: docs/handoffs/.claude/agent-memory/aiox-po/MEMORY.md
+  po_validation_section: 'docs/stories/active/3.8.tools-cerebro-tarefas.story.md §PO Validation (linhas 641-769) + §@sm v1.1 Response (nova secção pós linha 769)'
+  change_log_entries:
+    - '2026-05-19 v1.0 — draft inicial @sm'
+    - '2026-05-19 v1.0 — NO-GO @po (BLOCKERS R1+R2, NICE-TO-HAVE R3)'
+    - '2026-05-19 v1.1 — fixes R1b+R2+R3 @sm'
+
+notes:
+  - 'Working tree pendente sem commit — story file untracked + INDEX dirty + handoff novo untracked. Sem git ops por @sm (delegação @devops para push).'
+  - 'Memory pattern: PO memory anti_hallucination_payoff_3_8.md captura este payoff e fica disponível para futuras validações. Pattern já existe para Stories 2.9, 2.10, 3.6, 3.8.'
+  - 'Decay window curto: até Story 3.8 reach Done (esperado <1 sprint).'

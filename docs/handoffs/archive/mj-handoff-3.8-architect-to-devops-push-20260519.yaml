@@ -1,0 +1,228 @@
+id: mj-handoff-3.8-architect-to-devops-push-20260519
+from_agent: architect
+to_agent: devops
+created: '2026-05-19T19:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-19T20:55:00Z'
+consumed_by: devops
+project: meu-jarvis
+project_prefix: mj
+story_id: '3.8'
+last_command: '*qa-gate 3.8'
+priority: high
+
+summary: |
+  Story 3.8 (Tools cérebro Tarefas) v1.3 Done — @architect Aria final gate PASS
+  HIGH 9.5/10 alinhado baseline Epic 3 (Stories 3.1=9.5, 3.2=9.3, 3.3=9.4,
+  3.4=9.3, 3.5=9.2, 3.6=9.1). 7-point quality gate ALL PASS. 3 [DEV-DECISION]
+  D-3.8.1/D-3.8.2/D-3.8.3 todas ratified APPROVE com rationale arquitectural.
+  Working tree pronto para commit + push + PR. Quality gates locais re-validados
+  pelo Aria GREEN: typecheck (9/9 cached FULL TURBO), check:rls (28 tabelas /
+  120 policies — NFR5 preservado), tools test (172/172), tasks-flow (13/13).
+  Story file movida `active/ → completed/`. INDEX actualizado Epic 3 = 7/8 Done
+  (87.5%). 3 concerns LOW carry-over backlog (ARC-3.8.1 endpoint /undo 410 Gone
+  para `_noop`, ARC-3.8.2 cleanup `_noop` filter, ARC-3.8.3 migration sequencing
+  `db:migrate` antes do deploy). Próximo passo: `@devops *push 3.8` (commit +
+  push + PR + apply migration 0012 produção via `db:migrate`).
+
+next_action: |
+  `@devops *push 3.8` — fazer commit dos ficheiros listados em files_to_commit,
+  push para main, abrir PR ou squash-merge. Executar `pnpm --filter @meu-jarvis/db
+  db:migrate` contra ambiente alvo (T6.4 delegated per D-3.8.1) durante o push
+  pipeline. Conferir 5/5 quality gates GREEN local antes do push (precedente
+  Stories 3.4-3.6). CodeRabbit pre-push: free tier file limit 150 vs repo 260+,
+  precedent Stories 3.4/3.5/3.6 skip OK (gate report ~340 linhas Architect
+  substitui review automatizado).
+
+context:
+  story_path: docs/stories/completed/3.8.tools-cerebro-tarefas.story.md
+  story_status: 'Done v1.3 (architect gate PASS HIGH 9.5/10)'
+  branch: main
+  related_handoffs:
+    - docs/handoffs/archive/mj-handoff-3.8-ready-for-dev-20260519.yaml
+    - docs/handoffs/archive/mj-handoff-3.8-dev-to-architect-20260519.yaml
+  related_index: docs/stories/active/_INDEX.md (Epic 3 row 3.8 updated to Done v1.3)
+
+architect_gate_summary:
+  verdict: PASS
+  score: 9.5/10 HIGH
+  baseline_epic_3: [3.1=9.5, 3.2=9.3, 3.3=9.4, 3.4=9.3, 3.5=9.2, 3.6=9.1, 3.8=9.5]
+  seven_point_check:
+    requirements_traceability: PASS 10/10 ACs
+    risk_mitigation: PASS (R-3.8.1/2/3/4 mitigated; R-3.8.5 deferred backlog)
+    test_architecture: PASS (128 testes overshoot 42% sobre target 90)
+    nfr_compliance: PASS (NFR5 RLS 28/120 + NFR3 PT-PT + NFR12 zero novos span attrs + NFR19 same-tree)
+    code_quality: PASS (zero any + zero string-concat SQL + JSDoc completo)
+    constitutional_compliance: PASS (Articles I+III+IV+VI; D-3.8.2 excepção documentada)
+    backward_compatibility: PASS (Story 2.3 contract + Story 2.8 undo preserved)
+
+ratify_dev_decisions:
+  D-3.8.1:
+    title: T6.4 apply migration prod delegado a @devops
+    verdict: APPROVE
+    rationale: |
+      Pattern consistente Stories 3.1/3.4/3.6 Done. SQL `0012` é idempotente
+      (`ALTER TYPE ... ADD VALUE IF NOT EXISTS` desde PG 9.6+). T6.3 typecheck
+      verde (9/9 cached) prova sincronismo Drizzle↔SQL. Ambiente local @dev sem
+      credenciais Supabase production é constraint operacional válida.
+  D-3.8.2:
+    title: Imports relativos dentro de packages/tools/src/tasks/
+    verdict: APPROVE
+    rationale: |
+      Constitution Article VI (NFR19) regula imports entre packages
+      `@meu-jarvis/*` no workspace, NÃO imports dentro do mesmo source tree.
+      Cross-confirm: `contracts.ts:79-91` JÁ documenta a limitação `paths`
+      aliases cross-package (`DrizzleDbClient` definido localmente). Pattern em
+      `tasks/*.ts` herda esse precedente.
+  D-3.8.3:
+    title: Zod default movido para execute body
+    verdict: APPROVE
+    rationale: |
+      `z.optional().default(X)` produz `_input` asymmetric — quebra
+      `inputSchema: z.ZodType<I>` em `ToolDefinition`. Solução
+      `input.priority ?? 'medium'` preserva equivalência funcional sem alterar
+      contract Story 2.3 Done. Description PT-PT mantém visibility do default.
+
+files_to_commit:
+  new_files:
+    - packages/db/migrations/0012_agent_intent_tasks_tools.sql
+    - packages/tools/src/tasks/criar-tarefa.ts
+    - packages/tools/src/tasks/completar-tarefa.ts
+    - packages/tools/src/tasks/listar-tarefas.ts
+    - packages/tools/src/tasks/listar-atrasadas.ts
+    - packages/tools/src/tasks/index.ts
+    - packages/tools/src/tasks/__tests__/criar-tarefa.test.ts
+    - packages/tools/src/tasks/__tests__/completar-tarefa.test.ts
+    - packages/tools/src/tasks/__tests__/listar-tarefas.test.ts
+    - packages/tools/src/tasks/__tests__/listar-atrasadas.test.ts
+    - apps/web/src/app/api/agent/__tests__/tasks-flow.test.ts
+  modified_files:
+    - packages/tools/src/index.ts
+    - packages/db/src/schema/agent.ts
+    - docs/stories/active/_INDEX.md
+  moved_files:
+    - 'docs/stories/active/3.8.tools-cerebro-tarefas.story.md → docs/stories/completed/3.8.tools-cerebro-tarefas.story.md'
+  archive_moves:
+    - 'docs/handoffs/mj-handoff-3.8-dev-to-architect-20260519.yaml → docs/handoffs/archive/'
+  housekeeping_files:
+    - docs/HANDOFF-INDEX.md
+    - docs/handoffs/mj-handoff-3.8-architect-to-devops-push-20260519.yaml
+
+quality_gates_re_validated_by_architect:
+  typecheck:
+    status: GREEN
+    detail: 9/9 tasks cached (FULL TURBO 58ms)
+  check_rls:
+    status: GREEN
+    detail: 28 tabelas multi-tenant todas com SELECT/INSERT/UPDATE/DELETE coverage; NFR5 preservado
+  tools_test:
+    status: GREEN
+    detail: 172/172 (57 baseline + 115 novos = +44% overshoot ≥80)
+  tasks_flow_test:
+    status: GREEN
+    detail: 13/13 integration mockable E2E (+30% overshoot ≥10)
+
+concerns_carry_over_backlog:
+  ARC-3.8.1:
+    severity: LOW
+    title: Endpoint /undo 410 Gone para reverse_op->table='_noop'
+    target_story: 2.8 housekeeping
+    blocking: false
+    rationale: TTL 30s + cleanup nocturno existente cobrem janela operacional
+  ARC-3.8.2:
+    severity: LOW
+    title: Job Inngest cleanup filter rows com table='_noop'
+    target_story: 2.8 housekeeping or 3.8.1 micro-task
+    blocking: false
+  ARC-3.8.3:
+    severity: LOW
+    title: Migration 0012 sequencing — db:migrate antes do deploy apps/web
+    target: '@devops push pipeline standard'
+    blocking: false
+    rationale: |
+      Sequência standard @devops: db:migrate → CI build → deploy. Se apps/web
+      for deployed antes do db:migrate, Classifier pode tentar insert
+      intent='completar_tarefa' (não-existente no enum production) → falha.
+      Mitigação: db:migrate é idempotente, safe corrê-lo no início do pipeline.
+
+migration_apply_instruction_per_d_3_8_1: |
+  @devops Gage deve executar durante o push pipeline (antes do deploy apps/web):
+
+    pnpm --filter @meu-jarvis/db db:migrate
+
+  Esperado: aplica 0012_agent_intent_tasks_tools.sql idempotentemente.
+  `IF NOT EXISTS` garante safe re-run. SQL adiciona 3 valores ao enum
+  `agent_intent`: completar_tarefa, listar_tarefas, listar_atrasadas
+  (criar_tarefa já existe desde 0000_initial_schema.sql).
+
+push_protocol_recommended:
+  pre_push_quality_gates:
+    - 'pnpm lint  # esperado GREEN zero warnings'
+    - 'pnpm typecheck  # esperado GREEN cached FULL TURBO'
+    - 'pnpm test  # esperado tools 172 + web 477 + outros packages (db-test fail por Docker ambiente local — NÃO regressão)'
+    - 'pnpm build  # esperado GREEN'
+    - 'pnpm check:rls  # esperado GREEN 28/120'
+  coderabbit_pre_push:
+    skip: true
+    rationale: |
+      Free tier file limit 150 vs repo 260+ files. Precedent Stories 3.4/3.5/3.6
+      todas skipped por mesma razão. Architect gate ~290+ linhas substitui
+      review automatizado. @devops pode tentar `coderabbit --prompt-only` se
+      preferir defensive double-check.
+  commit_message_template: |
+    feat: Story 3.8 tools cérebro tarefas (criar/completar/listar/atrasadas)
+
+    Implementa 4 tools do domínio Tarefas no toolRegistry (`@meu-jarvis/tools`):
+    - criar_tarefa: INSERT + reverse_op delete_row
+    - completar_tarefa: UPDATE com fuzzy ILIKE parametrizado + restore_row snapshot
+    - listar_tarefas: SELECT read-only + sentinel _noop reverse_op (R1b v1.1)
+    - listar_atrasadas: SELECT overdue index + sentinel _noop
+
+    Migration 0012 adiciona 3 valores ao enum agent_intent
+    (completar_tarefa/listar_tarefas/listar_atrasadas — criar_tarefa já existe
+    desde 0000_initial_schema.sql).
+
+    Quality gates: 5/5 GREEN. 128 testes novos (115 tool + 13 integration E2E).
+    @architect gate PASS HIGH 9.5/10.
+
+    Constraint: ToolDefinition<I,O> contract Story 2.3 Done preserved
+    Constraint: executeAtomic sempre persiste agent_reverse_ops (mandatory)
+    Rejected: bypass executeAtomic para read-only | scope creep Story 2.5+
+    Rejected: alterar contract reverse() opcional | breaking change Story 2.3
+    Directive: read-only tools usam sentinel _noop UUID — endpoint /undo deve
+              responder 410 Gone para table='_noop' (Story 2.8 housekeeping)
+    Confidence: high
+    Scope-risk: narrow
+    Not-tested: apply migration 0012 produção (idempotente IF NOT EXISTS — safe)
+
+    [Story 3.8]
+    [Architect-gate: PASS HIGH 9.5/10]
+
+    Co-Authored-By: Aria (@architect) <noreply@anthropic.com>
+
+dependencies_satisfied:
+  story_2_3_done: 'Tool registry foundation + ToolDefinition<I,O> + executeAtomic + ReverseOpPayload'
+  story_2_5_done: 'Planner + Executor consome toolRegistry.getAnthropicToolDefinitions()'
+  story_2_6_done: 'Endpoint /api/agent/prompt — não modificado'
+  story_2_8_done: 'Undo endpoint pattern reverse_op — herdado integralmente'
+  story_3_1_done: 'Schema tasks + tasks_overdue_idx + RLS — não tocados'
+  story_3_2_done: 'API tasks CRUD — não tocados, tools acedem tasks via SQL puro directamente'
+  story_1_3_done: 'Drizzle bootstrap + DIRECT_URL pattern para db:migrate'
+  story_1_4_done: 'Testcontainers RLS suite cobre RLS real (não duplicado aqui)'
+
+post_push_actions:
+  - 'Confirmar PR merged / branch deleted'
+  - 'Verificar Vercel deploy GREEN com env vars Supabase production'
+  - 'Verificar migration 0012 aplicada: `select unnest(enum_range(NULL::agent_intent))` retorna 11 valores'
+  - 'Smoke test (opcional): chamar POST /api/agent/prompt com prompt "cria tarefa X amanhã" via curl — verificar response 200 + tasks row criada'
+  - 'Marcar este handoff consumed após push successful'
+  - 'Actualizar HANDOFF-INDEX.md mover linha pending para archived'
+
+notes_for_devops:
+  - 'Working tree dirty: 11 ficheiros novos + 3 modificados + housekeeping files + handoff files. Confirmar git status antes do add.'
+  - 'Branch main directa OK seguindo Stories 3.1-3.5 pattern (NÃO criar feature branch — squash-merge desnecessário se single PR).'
+  - 'Story 3.6 foi a primeira a usar PR (#1 squash merge `3b6db4d`). Story 3.7 ainda backlog. Story 3.8 segue mesmo pattern (PR ou direct push, ambos OK per Stories 3.1-3.6).'
+  - 'Migration 0012 deve ser aplicada ANTES do deploy do código apps/web — sequência standard @devops db:migrate → CI build → deploy.'
+  - 'NIT-AR-3.8.3 documentado: db:migrate é idempotente (IF NOT EXISTS), safe corrê-lo no início do pipeline.'
+  - 'Caso Vercel deploy falhe por env vars Supabase production em falta, abrir handoff separado @devops *fix-env (NÃO bloqueia merge — story Done a nível arquitectural).'

@@ -1,0 +1,235 @@
+id: mj-handoff-3.8-dev-to-architect-20260519
+from_agent: dev
+to_agent: architect
+created: '2026-05-19T18:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-19T19:30:00Z'
+consumed_by: architect
+project: meu-jarvis
+project_prefix: mj
+story_id: '3.8'
+last_command: '*develop 3.8'
+priority: medium
+
+consumption_notes: |
+  Consumido por Aria (@architect) em sessão 2026-05-19T19:30:00Z para executar
+  Phase 4 SDC final gate. Verdict: PASS HIGH 9.5/10 alinhado baseline Epic 3.
+  3 [DEV-DECISION] D-3.8.1/D-3.8.2/D-3.8.3 todas ratified APPROVE com rationale
+  arquitectural. 7-point quality gate ALL PASS. Quality gates Aria local re-run:
+  typecheck 9/9 cached + check:rls 28/120 + tools 172/172 + tasks-flow 13/13.
+  Story status `Ready for Review v1.2 → Done v1.3`. Story file movida active/ →
+  completed/. Sucessor handoff criado: mj-handoff-3.8-architect-to-devops-push-20260519.yaml.
+
+summary: |
+  Story 3.8 (Tools cérebro Tarefas) v1.2 Ready for Review — @dev Dex impl complete
+  modo YOLO mockable-only. T1-T9 todas GREEN (1 sub-task T6.4 apply migration prod
+  delegada @devops via [DEV-DECISION D-3.8.1]). 128 novos testes (115 tool + 13
+  integration E2E) — overshoot 42% sobre target ≥90. 5/5 quality gates locais
+  GREEN (typecheck, lint, test, build, check:rls). 3 [DEV-DECISION] documentadas
+  aguardam ratify @architect. NIT-PO-3.8.1 (`randomUUID` from `node:crypto`) e
+  NIT-PO-3.8.3 (ILIKE parametrizado via Drizzle template tag) aplicados como
+  recomendado. R1b sentinela `_noop` implementada literalmente conforme AC3/AC4.
+  R2 migration enum mantém 4× `IF NOT EXISTS` (1 no-op + 3 novos). R3 cross-
+  household via 2 mock `ToolExecutionContext` distintos no integration test.
+  Pre-existente `db-test` Testcontainers fail por ambiente sem Docker — NÃO
+  regressão (confirmado via `git stash` test antes vs depois). Próximo passo:
+  `@architect *qa-gate 3.8` (Phase 4 SDC). Após APPROVE, @devops *push.
+
+context:
+  story_path: docs/stories/active/3.8.tools-cerebro-tarefas.story.md
+  story_status: 'Ready for Review v1.2 (Dev impl complete)'
+  branch: main
+  working_tree: |
+    dirty — story 3.8 v1.2 (M), 0012 migration + agent.ts + tools/index.ts (M),
+    11 ficheiros novos (4 tools + index + 4 unit tests + 1 integration test +
+    1 migration), 3 handoffs em docs/handoffs/ (1 archive, 1 pending consumed
+    pelo dev, 1 NOVO este handoff), tudo untracked/modified. NÃO commit/push —
+    território @devops.
+  commits_pending: 0 (zero git ops feitas por @dev)
+  estimate: M (cumprido)
+  estimate_actual_wall_clock: ~3h (vs ~9-12h budget — eficiência baseline 2.3 reused)
+  precedent_stories:
+    - '2.3 Done v1.3 toolRegistry baseline'
+    - '2.8 Done v1.4 reverse_op + undo pattern'
+    - '3.1 Done v1.3 schema validation'
+    - '3.6 Done v1.5 sistema tags (precedente Epic 3 flow @dev → @architect)'
+
+quality_gates_dev:
+  typecheck:
+    status: GREEN
+    detail: '9/9 tasks successful, 16.59s total'
+  lint:
+    status: GREEN
+    detail: 'zero warnings/errors após fix de unused beforeEach import em tasks-flow.test.ts'
+  test_tools:
+    status: GREEN
+    detail: '172/172 (57 baseline + 115 novos = 44% overshoot ≥80 target)'
+    breakdown:
+      criar_tarefa: 31 testes
+      completar_tarefa: 28 testes
+      listar_tarefas: 29 testes
+      listar_atrasadas: 27 testes
+      bonus_TEST-001-NB: 'incluído em criar-tarefa.test.ts'
+  test_web_tasks_flow:
+    status: GREEN
+    detail: '13/13 (mockable E2E integration — 30% overshoot ≥10 target)'
+    breakdown:
+      registry_sanity: 6
+      criar_tarefa_e2e: 1
+      completar_tarefa_e2e: 1
+      listar_tarefas_e2e: 2
+      listar_atrasadas_e2e: 1
+      cross_household_isolation: 2
+  test_web_total:
+    status: GREEN
+    detail: '477/477 total apps/web (incluindo 13 novos)'
+  build:
+    status: GREEN
+    detail: 'Next.js compila — 9/9 tasks, 1m2s'
+  check_rls:
+    status: GREEN
+    detail: '28 tabelas household_id / 120 policies — story 3.8 não introduz nova tabela (NFR5 preservado)'
+  test_db_test:
+    status: NA
+    detail: |
+      Testcontainers requer Docker (ambiente local sem Docker daemon).
+      Pre-existente — confirmado via `git stash` test antes vs depois das
+      changes 3.8 (fail idêntico). NÃO é regressão Story 3.8.
+
+new_tests_total: 128
+new_tests_target: 90  # 80 unit + 10 integration
+overshoot_pct: 42
+
+dev_decisions:
+  - id: D-3.8.1
+    severity: NORMAL
+    title: 'T6.4 apply migration produção delegado a @devops'
+    rationale: |
+      Ambiente local @dev não tem credenciais Supabase produção. SQL é
+      idempotente (`IF NOT EXISTS`) — safe para apply em produção sem riscos.
+      T6.3 typecheck verde confirma sincronismo schema Drizzle ↔ SQL — qualquer
+      divergência seria detectada antes do deploy. @devops corre
+      `pnpm --filter @meu-jarvis/db db:migrate` contra ambiente alvo durante
+      push pipeline.
+    cross_confirm: 'T6.3 typecheck verde → array Drizzle agentIntentEnum em
+                   `agent.ts` sincronizado com SQL (3 valores novos adicionados)'
+    impact: 'Zero — pattern consistente com Stories 3.1/3.4/3.6 onde migrations
+             SQL foram aplicadas no deploy pipeline @devops'
+
+  - id: D-3.8.2
+    severity: NORMAL
+    title: 'Imports relativos `../contracts` dentro de packages/tools/src/tasks/'
+    rationale: |
+      Alias `@/` colide quando o package é consumido cross-package (apps/web
+      tem `@/` → `apps/web/src/`). O alias `@/` no vitest config do package
+      tools só funciona dentro do tools próprio. Imports relativos garantem
+      que o package compila/testa correctamente em qualquer consumidor.
+      Pattern consistente com a limitação já documentada em `contracts.ts`
+      (linha 80, sobre `paths` alias do package db).
+    cross_confirm: 'Constitution Article VI (absolute imports) — esta excepção
+                   é dentro do source-only package sem build step; a regra
+                   aplica-se a imports entre packages (`@meu-jarvis/*`), não
+                   a imports relativos dentro do mesmo source tree.'
+    impact: 'Zero funcional — apenas estilo. Documentado no JSDoc de cada
+             ficheiro afectado para clarificar para futuros contributors.'
+
+  - id: D-3.8.3
+    severity: NORMAL
+    title: 'Zod `default()` movido de inputSchema para body de execute()'
+    rationale: |
+      `z.optional().default(X)` cria input/output type asymmetric — `z.infer`
+      resolve para o output type (default aplicado, required), mas
+      `ToolDefinition<I>` espera `z.ZodType<I>` onde I é o parsed output type.
+      O `_input` type asymmetric quebra a assignment a `inputSchema: z.ZodType<I>`.
+      Solução: schema `.optional()` apenas; default literal aplicado em
+      `execute()` via nullish coalescing (`input.priority ?? 'medium'`,
+      `input.limit ?? 10`).
+    cross_confirm: 'Funcionalidade equivalente — LLM continua a poder omitir
+                   campos. Validação Zod activa. Default visível no
+                   description PT-PT da tool (LLM auto-documentação).'
+    impact: 'Zero — affecta `criar_tarefa.priority`, `listar_tarefas.limit`,
+             `listar_atrasadas.limit`. Comportamento user-facing idêntico.'
+
+files_created:
+  - 'packages/db/migrations/0012_agent_intent_tasks_tools.sql'
+  - 'packages/tools/src/tasks/criar-tarefa.ts'
+  - 'packages/tools/src/tasks/completar-tarefa.ts'
+  - 'packages/tools/src/tasks/listar-tarefas.ts'
+  - 'packages/tools/src/tasks/listar-atrasadas.ts'
+  - 'packages/tools/src/tasks/index.ts'
+  - 'packages/tools/src/tasks/__tests__/criar-tarefa.test.ts'
+  - 'packages/tools/src/tasks/__tests__/completar-tarefa.test.ts'
+  - 'packages/tools/src/tasks/__tests__/listar-tarefas.test.ts'
+  - 'packages/tools/src/tasks/__tests__/listar-atrasadas.test.ts'
+  - 'apps/web/src/app/api/agent/__tests__/tasks-flow.test.ts'
+
+files_modified:
+  - 'packages/tools/src/index.ts'
+  - 'packages/db/src/schema/agent.ts'
+  - 'docs/stories/active/3.8.tools-cerebro-tarefas.story.md'
+
+acs_satisfied:
+  AC1_criar_tarefa: 'PASS — schema, execute, reverse, preview, metadados completos'
+  AC2_completar_tarefa: 'PASS — fuzzy ILIKE parametrizado, prevStatus capturado, userMessage PT-PT'
+  AC3_listar_tarefas: 'PASS — filtros dinâmicos, sentinela _noop UUID válido'
+  AC4_listar_atrasadas: 'PASS — overdue filter + index tasks_overdue_idx + sentinela _noop'
+  AC5_registo_no_package: 'PASS — barrel + side-effect register; 4/4 visíveis em toolRegistry.list()'
+  AC6_migration_enum: 'PASS — 4× ALTER TYPE IF NOT EXISTS aplicada via Drizzle schema sync; aplicação prod delegada @devops (D-3.8.1)'
+  AC7_otel_pii_whitelist: 'PASS — usado withToolSpan via executeAtomic (Story 2.3 pattern); nenhum span attribute novo introduzido'
+  AC8_unit_tests: 'PASS — 115 novos testes (≥80 target = 44% overshoot)'
+  AC9_integration_tests: 'PASS — 13 mockable E2E (≥10 target = 30% overshoot) + cross-household R3'
+  AC10_check_rls: 'PASS — 28 tabelas verificadas, 120 policies, gate verde'
+
+risks_status:
+  R-3.8.1_fuzzy_match: 'MITIGATED — comportamento "mais recente DESC" testado; warnings PT-PT em múltiplos matches'
+  R-3.8.2_pagination_max: 'MITIGATED — limits max 20/50 enforced por Zod schema'
+  R-3.8.3_enum_irreversible: 'MITIGATED — nomes definitivos validados; IF NOT EXISTS idempotente'
+  R-3.8.4_drizzle_array_sync: 'MITIGATED — typecheck verde confirma sync (3 valores novos no array agent.ts)'
+  R-3.8.5_noop_cleanup: 'DEFERRED — housekeeping Story 2.8 backlog (não bloqueia 3.8); endpoint /undo 410 Gone para _noop fica para NIT-PO-3.8.2 fix futuro'
+
+architect_review_focus:
+  - 'Ratificar 3 [DEV-DECISION] D-3.8.1/2/3 ou propor alternativas'
+  - 'Confirmar `executeAtomic` integration correcta (4/4 tools via `criarTarefa`/etc invocadas correctamente em integration test)'
+  - 'Validar OTel PII whitelist preserved (nenhum atributo novo de span injectado pelas tools 3.8 — usam withToolSpan internal helper)'
+  - 'Verificar reverse_op patterns: delete_row para criar_tarefa, restore_row com snapshot para completar_tarefa, _noop UUID para reads — todos passam ReverseOpPayloadSchema'
+  - 'Migration 0012 idempotente (re-run safe) + Drizzle schema sync confirmado por typecheck'
+  - 'Cross-household isolation via mock JWT pattern (R3) é equivalente em força à validação Testcontainers Story 1.4 para o scope mockable-friendly desta story'
+
+architect_decision_required:
+  - decision: 'Ratify D-3.8.1 — delegate T6.4 apply migration prod a @devops'
+    recommendation: 'APPROVE — pattern consistente Stories 3.1/3.4/3.6 + SQL idempotente'
+  - decision: 'Ratify D-3.8.2 — relative imports cross-package consumer fix'
+    recommendation: 'APPROVE — documented JSDoc explica boundary, zero impact funcional'
+  - decision: 'Ratify D-3.8.3 — Zod default moved to execute body'
+    recommendation: 'APPROVE — equivalência funcional, type-safety preservado'
+
+next_action:
+  who: '@architect (Aria)'
+  what: '*qa-gate 3.8 — Phase 4 SDC review'
+  details: |
+    1. Ler story 3.8 v1.2 (status Ready for Review)
+    2. Ratificar/rejeitar D-3.8.1, D-3.8.2, D-3.8.3
+    3. Verificar 5/5 quality gates locais (re-run se necessário)
+    4. Validar AC1-AC10 contra implementação real
+    5. Decision: PASS / CONCERNS / FAIL / WAIVED
+    6. Se PASS → criar handoff @architect → @devops (push)
+    7. Se CONCERNS → criar handoff @architect → @dev (fix specific items)
+
+eb1_anthropic: 'NÃO bloqueia — implementation mockable-friendly conforme Stories 2.2-2.11 precedent'
+test_001_carry: 'NÃO entra 3.8 — advisory Story 3.5 carry-over'
+perf_001_carry: 'NÃO entra 3.8 — advisory Story 3.6 carry-over'
+
+notes: |
+  - Total wall-clock implementation: ~3h (vs ~9-12h budget). Eficiência grande
+    porque a infra do toolRegistry/executeAtomic (Story 2.3) e o pattern
+    reverse_op (Story 2.8) estão maduros — 3.8 é literalmente uma extensão
+    "encaixar peças".
+  - Zero modifications a `packages/tools/src/atomic.ts`, `contracts.ts`,
+    `registry.ts`, `errors.ts`, `tracing.ts`, ou ao endpoint
+    `apps/web/src/app/api/agent/prompt/route.ts`. AC9 confirma que registo
+    side-effect via `import` torna as 4 tools disponíveis ao Planner sem
+    qualquer alteração ao endpoint.
+  - Pattern Epic 3 Story 3.6 sugere handoff @dev → @architect (não @qa)
+    como gate final. Caso o utilizador prefira @qa, o handoff é redirecionável
+    sem perda de contexto — a info está toda neste YAML.
