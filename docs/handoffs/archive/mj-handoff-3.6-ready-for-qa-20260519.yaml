@@ -3,11 +3,11 @@ from_agent_persona: "Dex (@dev) — Developer"
 to_agent: "qa"
 to_agent_persona: "Quinn (@qa) — Quality Assurance"
 created: "2026-05-19T01:10:00Z"
-status: pending
-consumed: false
-consumed_at: null
-consumed_by: null
-successor_handoff: null
+status: consumed
+consumed: true
+consumed_at: "2026-05-19T01:25:00Z"
+consumed_by: "qa"
+successor_handoff: "mj-handoff-3.6-ready-for-push-20260519.yaml"
 final_decision_target: "qa-gate 3.6 — Phase 4 SDC post-impl quality gate (@qa *qa-gate 3.6)"
 
 story_id: "3.6"

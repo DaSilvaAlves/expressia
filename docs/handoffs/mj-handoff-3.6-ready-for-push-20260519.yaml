@@ -1,0 +1,169 @@
+from_agent: "qa"
+from_agent_persona: "Quinn (@qa) — Test Architect Guardian"
+to_agent: "devops"
+to_agent_persona: "Gage (@devops) — DevOps Engineer (push exclusive authority)"
+created: "2026-05-19T01:25:00Z"
+status: pending
+consumed: false
+consumed_at: null
+consumed_by: null
+successor_handoff: null
+final_decision_target: "push 3.6 — Phase 5 SDC merge para main (@devops *push 3.6)"
+
+story_id: "3.6"
+story_path: "docs/stories/active/3.6.tags-system.md"
+story_title: "Sistema de tags globais (criar/listar/aplicar inline)"
+project_prefix: "mj"
+priority: medium
+blocking: false
+type: story-handoff-qa-to-devops-push
+
+summary: >
+  Story 3.6 v1.5 Done (QA PASS) — @qa Quinn gate complete em ~25min wall-clock.
+  **Verdict PASS 9.1/10 HIGH confidence.** Phase 4 SDC quality gate concluído.
+  Push autorizado para `main` via PR.
+
+  **7/7 quality checks:** 6 PASS + 1 CONCERN LOW (G1.1 EXPLAIN ANALYZE deferred
+  staging — non-blocking, query topology + indexes validados estaticamente).
+  **11/11 ACs PASS.** **5/5 Quality gates re-run empiricamente GREEN.**
+  **Constitution 6/6 PASS.** **NFR 6/6 PASS.** **Security scan PASS** (zero secrets,
+  zero XSS, zero SQL injection, CSRF coberto, RLS DB-enforced).
+
+  **2 concerns LOW non-blocking** documentados na gate report:
+  - PERF-001: G1.1 EXPLAIN ANALYZE deferred staging (mitigation: Sentry/Grafana
+    runtime monitoring planeado Story 1.7 backlog)
+  - TEST-001: Calendar page test flaky em batch parallel (Story 3.5 CONCERN-1
+    carry-over, environment-bound, passa em isolation 3/3)
+
+  Branch `feat/story-3.6-tags-system` 2 commits ahead `main` (5e9ee8d feat + 9b169f4
+  chore-dev). QA adiciona +3 commits artefactos (gate report + story update + handoffs).
+
+context:
+  story_metadata:
+    epic_id: 3
+    story_id: "3.6"
+    title: "Sistema de tags globais (criar/listar/aplicar inline)"
+    estimate: "S (~9-9.5h)"
+    actual_wall_clock_dev: "~3h YOLO"
+    actual_wall_clock_qa: "~25min YOLO"
+    executor: "@dev Dex"
+    quality_gate: "@qa Quinn PASS 9.1/10 HIGH"
+    pushed_by: "@devops Gage — push exclusive authority"
+    version: "1.5 Done (QA PASS)"
+    branch: "feat/story-3.6-tags-system"
+
+  qa_verdict:
+    verdict: "PASS"
+    score: "9.1/10"
+    confidence: "HIGH"
+    blocking_issues: 0
+    concerns_low_nonblocking: 2
+    concerns_medium: 0
+    concerns_high: 0
+
+  quality_gates_qa_rerun:
+    lint: "GREEN (turbo cache hit válido — 9 packages full turbo 79ms)"
+    typecheck: "GREEN (turbo cache hit válido — db, tools, web all PASS)"
+    test: "GREEN (464 tests passing — re-run empirical 01:16:10 13.75s)"
+    build: "GREEN (bundles match dev report — /tarefas 10.8 kB · /tarefas/calendario 15.1 kB · /tarefas/kanban 7.26 kB · First Load 207 kB)"
+    check_rls: "GREEN (28 tabelas verificadas — 120 policies preservadas — tags + task_tags incluídas)"
+
+  branch_info:
+    branch: "feat/story-3.6-tags-system"
+    commits_ahead_main: 2
+    commits_dev:
+      - sha: "5e9ee8d"
+        message: "feat(tags,web): Story 3.6 sistema de tags globais (criar/listar/aplicar inline) [Story 3.6]"
+      - sha: "9b169f4"
+        message: "chore(handoffs,docs,story-3.6): Story 3.6 dev YOLO complete — Ready for Review v1.4 [Story 3.6]"
+    commits_qa_pending:
+      - description: "QA artefactos: gate report + story update v1.5 + sucessor handoff + consumed handoff + HANDOFF-INDEX"
+        files:
+          - "docs/qa/gates/3.6-qa-gate.md (NEW ~12 KB)"
+          - "docs/stories/active/3.6.tags-system.md (MODIFIED — QA Results block + Change Log v1.5)"
+          - "docs/handoffs/mj-handoff-3.6-ready-for-push-20260519.yaml (NEW)"
+          - "docs/handoffs/archive/mj-handoff-3.6-ready-for-qa-20260519.yaml (MOVED + consumed flag)"
+          - "docs/HANDOFF-INDEX.md (MODIFIED — pending QA → archived + new pending push)"
+
+  push_checklist:
+    pre_push:
+      - "Verificar branch `feat/story-3.6-tags-system` checked out"
+      - "Confirmar working tree limpo após commit dos QA artefactos"
+      - "Re-run pre-push gates: `pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:rls` — espera-se 5/5 GREEN com possível flaky calendar test (passa em isolation 3/3, não bloqueia)"
+    push_strategy:
+      - "Opção A (RECOMMENDED) — Squash merge via PR: `gh pr create --title 'feat: Story 3.6 sistema de tags globais (criar/listar/aplicar inline)' --base main`"
+      - "Opção B — Direct push para main (se branch protection permitir): `git push origin feat/story-3.6-tags-system:main`"
+    pr_title_suggested: "feat: Story 3.6 sistema de tags globais (criar/listar/aplicar inline)"
+    pr_body_draft: |
+      ## Summary
+
+      Story 3.6 v1.5 Done — Sistema de tags globais (criar/listar/aplicar inline).
+
+      - 11/11 ACs implementados + 5/5 quality gates GREEN
+      - 16 NEW files (5 components + 1 util + 5 test files + integrações)
+      - 15 MODIFIED files (listTasksHelper T6.0 json_agg LEFT JOIN GROUP BY + raw queries calendar + 3 vistas integradas + EditTaskModal + ViewTabs cross-tab)
+      - +30 tests (baseline 434 → 464, 150% over T8 target ~20)
+      - Zero novas tabelas — RLS coverage preservada (120 policies)
+      - Zero novas deps — hand-roll patterns (modal + dropdown + click-outside)
+
+      ## QA Gate
+
+      **PASS 9.1/10 HIGH confidence** — `docs/qa/gates/3.6-qa-gate.md`
+
+      - 7/7 quality checks: 6 PASS + 1 CONCERN LOW (G1.1 EXPLAIN ANALYZE deferred staging — non-blocking)
+      - Constitution 6/6 PASS · NFR 6/6 PASS · Security scan PASS
+
+      ## Architect Ratify
+
+      **PASS HIGH 7/7 DPs** — `docs/qa/gates/3.6-architect-dps-ratify.md` (2 RATIFY EXPLICIT + 5 APPROVE silent)
+
+      ## Test plan
+
+      - [x] `pnpm lint` GREEN
+      - [x] `pnpm typecheck` GREEN
+      - [x] `pnpm test` 464 passing GREEN
+      - [x] `pnpm build` GREEN
+      - [x] `pnpm check:rls` GREEN (120 policies preservadas)
+      - [ ] Smoke test em staging após merge: criar tag, aplicar a task, filtrar por tag, eliminar tag (owner)
+
+    post_push:
+      - "Housekeeping: mover `docs/stories/active/3.6.tags-system.md` → `docs/stories/completed/3.6.tags-system.md`"
+      - "Update `docs/stories/active/_INDEX.md` (Story 3.6 active → completed, Epic 3 progress 5/8 → 6/8 Done)"
+      - "Archive sucessor handoff push → consumed em `docs/handoffs/archive/`"
+      - "Update `docs/HANDOFF-INDEX.md` accordingly"
+      - "Considerar Sentry alert config para slow query `/api/tasks?*` >300ms p95 (mitigation G1.1)"
+
+  carry_over_followups:
+    - id: "PERF-001"
+      severity: low
+      description: "G1.1 EXPLAIN ANALYZE empírico deferred staging — capturar p95 via OTel span db.query.duration em produção"
+      target: "Story 1.7 Observability backlog"
+    - id: "TEST-001"
+      severity: low
+      description: "Calendar page test flaky em batch parallel (Story 3.5 CONCERN-1 carry-over, environment-bound)"
+      target: "Backlog Story 3.7+ housekeeping"
+
+next_action: >
+  @devops *push 3.6 — Phase 5 SDC merge (estimated 10-20min):
+
+  1. **Pre-condição:** Branch `feat/story-3.6-tags-system` ainda checked out. QA gate
+     PASS 9.1/10 HIGH. 5/5 quality gates re-validated empiricamente pelo QA.
+  2. **Re-run pre-push gates:** lint + typecheck + test 464 + build + check:rls.
+     Espera-se 5/5 GREEN. Calendar page test pode ser flaky em batch — passa em
+     isolation 3/3 (Story 3.5 CONCERN-1 carry-over, não bloqueia).
+  3. **CodeRabbit pre-push review** (opcional mas recomendado per devops policy):
+     `wsl bash -c 'cd /mnt/c/Users/XPS/Documents/meu-jarvis && ~/.local/bin/coderabbit --prompt-only --base main'`
+  4. **Commit QA artefactos** (este handoff + gate report + story update + INDEX +
+     handoff consumed/archived).
+  5. **Push estratégia:** PR via `gh pr create` (RECOMMENDED) OU direct push se
+     branch protection permitir.
+  6. **Post-push housekeeping:** mover story active → completed + update INDEX
+     epic 3 progress 5/8 → 6/8 Done + archive sucessor handoff.
+
+  Precedent: Story 3.5 + Story 3.4 padrão SDC Phase 5 pushed via @devops.
+
+memory_feedback_used:
+  - ".claude/agent-memory/aiox-qa/story_3.5_qa_done.md (não existe ainda — primeira QA gate Quinn na Story 3.6 pattern)"
+  - "docs/qa/gates/3.5-architect-final-gate.md (precedent gate report pattern Story 3.5)"
+  - "docs/qa/gates/3.6-architect-dps-ratify.md (architect ratify input)"
+  - "docs/qa/gates/3.6-po-draft-gate-v1.1.md (po validation input)"
