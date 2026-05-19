@@ -54,6 +54,7 @@ function makeTask(overrides: Partial<TaskRow> = {}): TaskRow {
     completed_at: null,
     created_at: '2026-05-01T10:00:00Z',
     updated_at: '2026-05-01T10:00:00Z',
+    tags: [],
     ...overrides,
   };
 }

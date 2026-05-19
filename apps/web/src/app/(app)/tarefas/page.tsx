@@ -11,6 +11,8 @@ import { decodeCursor } from '@/lib/api-schemas/pagination';
 import { TaskFiltersSchema } from '@/lib/api-schemas/tasks';
 
 import { EmptyState } from '@/app/(app)/tarefas/_components/EmptyState';
+import { TagFilterSelect } from '@/app/(app)/tarefas/_components/TagFilterSelect';
+import { TagsManagerButton } from '@/app/(app)/tarefas/_components/TagsManagerButton';
 import { TaskFilters } from '@/app/(app)/tarefas/_components/TaskFilters';
 import { TaskList } from '@/app/(app)/tarefas/_components/TaskList';
 import { TaskSort } from '@/app/(app)/tarefas/_components/TaskSort';
@@ -112,21 +114,27 @@ export default async function TarefasPage({ searchParams }: PageProps): Promise<
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Tarefas</h1>
-        <button
-          type="button"
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          disabled
-          title="Disponível na próxima versão — usa o Jarvis para criar tarefas"
-        >
-          + Nova
-        </button>
+        <div className="flex items-center gap-2">
+          <TagsManagerButton />
+          <button
+            type="button"
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            disabled
+            title="Disponível na próxima versão — usa o Jarvis para criar tarefas"
+          >
+            + Nova
+          </button>
+        </div>
       </header>
 
       <ViewTabs current="lista" />
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <TaskFilters />
-        <TaskSort />
+        <div className="flex items-end gap-3">
+          <TagFilterSelect />
+          <TaskSort />
+        </div>
       </div>
 
       {isEmpty ? (

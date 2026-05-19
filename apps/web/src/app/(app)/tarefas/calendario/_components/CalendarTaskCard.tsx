@@ -6,6 +6,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import type { TaskRow } from '@/lib/api-helpers/list-tasks';
 import { CalendarTaskCheckbox } from '@/app/(app)/tarefas/calendario/_components/CalendarTaskCheckbox';
+import { TagBadge } from '@/app/(app)/tarefas/_components/TagBadge';
 
 /**
  * `<CalendarTaskCard>` — card compacto vista calendário (Story 3.5 AC4).
@@ -113,11 +114,33 @@ function CalendarTaskCardImpl({
       >
         {task.title}
       </span>
-      <span
-        aria-hidden="true"
-        title={`Prioridade ${task.priority}`}
-        className={`h-2 w-2 shrink-0 rounded-full ${priorityDotClass(task.priority)}`}
-      />
+      {/* Story 3.6 T6.3 / SF-3.6.2: 1 TagBadge xs da primeira tag + dot subtle se > 1.
+          Tags têm prioridade visual sobre o priority dot (only render priority quando 0 tags). */}
+      {task.tags.length > 0 ? (
+        <>
+          {task.tags[0] && (
+            <TagBadge
+              tag={task.tags[0]}
+              size="xs"
+            />
+          )}
+          {task.tags.length > 1 && (
+            <span
+              aria-hidden="true"
+              title={`${task.tags[0]?.name ?? ''} +${task.tags.length - 1} mais`}
+              className="text-xs text-neutral-500 dark:text-neutral-400"
+            >
+              •
+            </span>
+          )}
+        </>
+      ) : (
+        <span
+          aria-hidden="true"
+          title={`Prioridade ${task.priority}`}
+          className={`h-2 w-2 shrink-0 rounded-full ${priorityDotClass(task.priority)}`}
+        />
+      )}
     </div>
   );
 }

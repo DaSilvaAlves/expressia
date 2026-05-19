@@ -16,6 +16,39 @@ export const taskPriorityValues = ['low', 'medium', 'high'] as const;
 export const TaskStatusSchema = z.enum(taskStatusValues);
 export const TaskPrioritySchema = z.enum(taskPriorityValues);
 
+// Story 3.6 G1.3 (Aria) — re-export TagSchema para uso em TaskListItemSchema.tags.
+// Type-safety end-to-end: clientes recebem garantia de `tags: TaskRowTag[]` sempre array.
+import { TagSchema } from '@/lib/api-schemas/tags';
+
+/**
+ * Shape de uma linha de tarefa devolvida pelo `GET /api/tasks` + RSC fetch
+ * (Story 3.6 T6.0). `tags` default `[]` defende contra edge cases do LEFT JOIN
+ * (G1.2 do Aria) e contra queries antigas que ainda não incluem o JOIN.
+ */
+export const TaskListItemSchema = z.object({
+  id: z.string().uuid(),
+  household_id: z.string().uuid(),
+  created_by_user_id: z.string().uuid(),
+  assigned_to_user_id: z.string().uuid().nullable(),
+  title: z.string(),
+  description: z.string().nullable(),
+  due_date: z.string().nullable(),
+  due_time: z.string().nullable(),
+  priority: TaskPrioritySchema,
+  status: TaskStatusSchema,
+  kanban_column_id: z.string().uuid().nullable(),
+  kanban_position: z.number().int().nonnegative(),
+  project: z.string().nullable(),
+  recurrence_id: z.string().uuid().nullable(),
+  is_recurrence_template: z.boolean(),
+  completed_at: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  tags: z.array(TagSchema).optional().default([]),
+});
+
+export type TaskListItem = z.infer<typeof TaskListItemSchema>;
+
 /** Validations alinhadas com schema (check constraint tasks.ts:108-111). */
 const TitleSchema = z.string().min(1, 'Título obrigatório.').max(200, 'Título excede 200 caracteres.');
 const DescriptionSchema = z.string().max(5000, 'Descrição excede 5000 caracteres.').nullable();

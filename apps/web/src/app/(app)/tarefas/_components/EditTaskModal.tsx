@@ -4,12 +4,16 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import type { TaskRow } from '@/lib/api-helpers/list-tasks';
+import type { Tag } from '@/lib/api-schemas/tags';
+
+import { TagBadge } from '@/app/(app)/tarefas/_components/TagBadge';
+import { TagPicker } from '@/app/(app)/tarefas/_components/TagPicker';
 
 /**
- * `<EditTaskModal>` — modal subset minimal (DP6-3.3 A — Story 3.3 T7.3).
+ * `<EditTaskModal>` — modal subset minimal (DP6-3.3 A — Story 3.3 T7.3 / Story 3.6 T6.4).
  *
- * Campos editáveis: description + due_date + priority. Tags + assigned_to
- * placeholders ("Disponível na próxima versão") — Story 3.6 + 3.5 cobrem.
+ * Campos editáveis: description + due_date + priority + tags (Story 3.6 T6.4).
+ * `assigned_to` placeholder ainda — Story futura cobre.
  */
 export interface EditTaskModalProps {
   readonly task: TaskRow;
@@ -22,6 +26,7 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps): Reac
   const [description, setDescription] = useState(task.description ?? '');
   const [dueDate, setDueDate] = useState(task.due_date ?? '');
   const [priority, setPriority] = useState(task.priority);
+  const [tags, setTags] = useState<Tag[]>(task.tags ?? []);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,6 +35,7 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps): Reac
       setDescription(task.description ?? '');
       setDueDate(task.due_date ?? '');
       setPriority(task.priority);
+      setTags(task.tags ?? []);
       setError(null);
     }
   }, [open, task]);
@@ -88,7 +94,7 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps): Reac
           Editar tarefa
         </h2>
         <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
-          Edição completa (etiquetas, atribuir a) disponível na próxima versão.
+          Atribuir a — disponível na próxima versão.
         </p>
 
         <div className="mt-4 space-y-4">
@@ -125,6 +131,24 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps): Reac
               <option value="low">Baixa</option>
             </select>
           </label>
+
+          <div>
+            <span className="text-sm font-medium">Tags</span>
+            <div className="mt-1 flex flex-wrap items-center gap-1">
+              {tags.length > 0 && (
+                <ul role="list" aria-label="Tags actuais" className="flex flex-wrap items-center gap-1">
+                  {tags.map((t) => (
+                    <TagBadge key={t.id} tag={t} size="sm" />
+                  ))}
+                </ul>
+              )}
+              <TagPicker
+                taskId={task.id}
+                currentTags={tags}
+                onTagsChange={(next) => setTags(next)}
+              />
+            </div>
+          </div>
 
           {error && (
             <div role="alert" className="rounded-md bg-red-50 px-3 py-1.5 text-xs text-red-800 dark:bg-red-950/30 dark:text-red-200">

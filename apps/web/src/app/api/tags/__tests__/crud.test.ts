@@ -80,7 +80,7 @@ describe('GET /api/tags', () => {
 
   it('401 sem auth', async () => {
     mocks.getUserMock.mockResolvedValue({ data: { user: null }, error: null });
-    const res = await GET();
+    const res = await GET(new NextRequest(new Request('http://localhost/api/tags')));
     expect(res.status).toBe(401);
   });
 
@@ -90,7 +90,7 @@ describe('GET /api/tags', () => {
       { id: 't1', name: 'casa', color: '#FF0000' },
       { id: 't2', name: 'trabalho', color: '#00FF00' },
     ]);
-    const res = await GET();
+    const res = await GET(new NextRequest(new Request('http://localhost/api/tags')));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.tags).toHaveLength(2);

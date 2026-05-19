@@ -1,7 +1,9 @@
 /**
- * GET / POST /api/tags — Story 3.2 AC3 + AC7-AC10.
+ * GET / POST /api/tags — Story 3.2 AC3 + AC7-AC10 / Story 3.6 AC6 (extensão `?with_counts=true`).
  *
  * GET: List per household (RLS). Limit hard cap 200. Order: name asc.
+ *      Query param opt-in `?with_counts=true` (Story 3.6 [STORY-INVENT-DP-3.6.7]) adiciona
+ *      `task_count` ao response — usado pelo `TagsManager` UI. Backward compat 100% sem o param.
  * POST: Create — Zod strict. Unique constraint (household_id, name) → 409.
  */
 import { sql } from 'drizzle-orm';
@@ -32,7 +34,11 @@ interface TagRow {
   updated_at: string;
 }
 
-export async function GET(): Promise<NextResponse> {
+interface TagWithCountRow extends TagRow {
+  task_count: number;
+}
+
+export async function GET(req: NextRequest): Promise<NextResponse> {
   return withSpan(
     'GET /api/tags',
     { method: 'GET', route: ROUTE },
@@ -41,8 +47,33 @@ export async function GET(): Promise<NextResponse> {
       const auth = await requireAuth(span);
       if (auth instanceof NextResponse) return auth;
 
+      // G2.1 (Aria) — boolean parse estrito: aceita APENAS o literal 'true'.
+      // Rejeita `'1'`, `'yes'`, `'on'` e qualquer outro valor. Comportamento previsível.
+      const withCounts = req.nextUrl.searchParams.get('with_counts') === 'true';
+
       try {
         const db = getDb();
+        if (withCounts) {
+          // G2.2 (Aria) — `current_household_id()` explicit no subquery COUNT.
+          // RLS é a primeira linha de defesa; este filtro é a segunda (defesa em
+          // profundidade). Performance overhead zero (mesmo index scan via
+          // `task_tags_tag_idx` + `task_tags_household_idx`).
+          const tags = await db.execute<TagWithCountRow>(sql`
+            select id, household_id, name, color, created_at, updated_at,
+              (
+                select count(*)::int
+                from public.task_tags
+                where task_tags.tag_id = tags.id
+                  and task_tags.household_id = current_household_id()
+              ) as task_count
+            from public.tags
+            order by name asc
+            limit 200
+          `);
+          annotateSpan(span, { statusCode: 200 });
+          return NextResponse.json({ tags });
+        }
+
         const tags = await db.execute<TagRow>(sql`
           select id, household_id, name, color, created_at, updated_at
           from public.tags order by name asc limit 200

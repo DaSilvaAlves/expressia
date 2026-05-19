@@ -48,6 +48,9 @@ vi.mock('@/app/(app)/tarefas/calendario/_components/WeekNavigation', () => ({
   WeekNavigation: ({ weekStartIso }: { weekStartIso: string }) =>
     `<WeekNavigation:${weekStartIso}>`,
 }));
+vi.mock('@/app/(app)/tarefas/_components/TagFilterSelect', () => ({
+  TagFilterSelect: () => '<TagFilterSelect>',
+}));
 
 const USER_UUID = '00000000-0000-0000-0000-000000000001';
 const HOUSEHOLD_UUID = '00000000-0000-0000-0000-000000000002';

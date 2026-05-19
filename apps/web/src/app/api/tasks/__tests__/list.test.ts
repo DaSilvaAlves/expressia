@@ -199,7 +199,8 @@ describe('GET /api/tasks', () => {
     const res = await GET(makeReq('http://localhost/api/tasks?sort=priority_desc'));
     expect(res.status).toBe(200);
     const sqlText = JSON.stringify(mocks.dbExecuteMock.mock.calls[0]![0]);
-    expect(sqlText).toMatch(/case priority/i);
+    // Story 3.6 T6.0: colunas prefixadas com tasks. para desambiguar do JOIN tags.
+    expect(sqlText).toMatch(/case tasks\.priority/i);
     expect(sqlText).toMatch(/high/i);
   });
 

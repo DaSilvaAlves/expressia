@@ -4,6 +4,10 @@ import { memo } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+import type { TaskRowTag } from '@/lib/api-helpers/list-tasks';
+
+import { TagBadge } from '@/app/(app)/tarefas/_components/TagBadge';
+
 /**
  * `<KanbanCard>` — card draggable de tarefa (Story 3.4 T6.1 / AC3).
  *
@@ -30,6 +34,7 @@ export interface KanbanCardProps {
   readonly priority: string;
   readonly status: string;
   readonly isOverdue: boolean;
+  readonly tags: readonly TaskRowTag[];
   readonly onOpen: () => void;
 }
 
@@ -44,6 +49,8 @@ const PRIORITY_DOT: Record<string, string> = {
   low: 'bg-transparent',
 };
 
+const KANBAN_TAG_LIMIT = 2;
+
 function KanbanCardImpl({
   taskId,
   title,
@@ -51,8 +58,11 @@ function KanbanCardImpl({
   priority,
   status,
   isOverdue,
+  tags,
   onOpen,
 }: KanbanCardProps): React.ReactElement {
+  const visibleTags = tags.slice(0, KANBAN_TAG_LIMIT);
+  const extraTagCount = Math.max(0, tags.length - KANBAN_TAG_LIMIT);
   const {
     attributes,
     listeners,
@@ -125,6 +135,18 @@ function KanbanCardImpl({
             📅 {formatPT(dueDate)}
           </span>
         </div>
+      )}
+      {tags.length > 0 && (
+        <ul role="list" aria-label="Tags" className="mt-2 flex flex-wrap items-center gap-1">
+          {visibleTags.map((t) => (
+            <TagBadge key={t.id} tag={t} size="xs" />
+          ))}
+          {extraTagCount > 0 && (
+            <span className="rounded-full bg-neutral-100 px-1.5 py-px text-[10px] text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+              +{extraTagCount}
+            </span>
+          )}
+        </ul>
       )}
     </li>
   );

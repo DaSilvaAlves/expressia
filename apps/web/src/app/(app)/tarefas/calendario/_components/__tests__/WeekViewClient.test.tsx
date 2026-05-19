@@ -69,6 +69,7 @@ function makeTask(id: string, title: string, due_date: string | null): TaskRow {
     completed_at: null,
     created_at: '2026-05-01T10:00:00Z',
     updated_at: '2026-05-01T10:00:00Z',
+    tags: [],
   };
 }
 

@@ -108,17 +108,8 @@ export function TaskFilters(): React.ReactElement {
         </select>
       </label>
 
-      <label className="flex flex-col gap-1">
-        <span className="text-xs text-neutral-600 dark:text-neutral-400">Etiqueta</span>
-        <select
-          disabled
-          title="Disponível na próxima versão (Story 3.6)"
-          aria-label="Etiqueta"
-          className="rounded-md border border-black/15 bg-neutral-100 px-2 py-1 text-neutral-500 dark:border-white/15 dark:bg-neutral-800"
-        >
-          <option>Sem etiquetas ainda</option>
-        </select>
-      </label>
+      {/* Story 3.6: tag filter movido para `<TagFilterSelect>` ao lado do `<TaskSort>` no header
+          (substitui o placeholder Story 3.3 §AC3). */}
 
       <label className="flex flex-col gap-1">
         <span className="text-xs text-neutral-600 dark:text-neutral-400">Prazo de</span>
