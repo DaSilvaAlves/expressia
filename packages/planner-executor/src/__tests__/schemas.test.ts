@@ -123,7 +123,7 @@ describe('TOOL_TO_INTENT_MAP + resolveIntentFromToolName (D6)', () => {
     expect(resolveIntentFromToolName('foo_bar_unknown')).toBe('unknown');
   });
 
-  it('mapa cobre as 8 intents canónicas (D6 contract)', () => {
+  it('mapa cobre as 11 intents canónicas (D6 contract — 8 baseline + 3 Story 3.8)', () => {
     const intents = new Set(Object.values(TOOL_TO_INTENT_MAP));
     expect(intents).toContain('criar_tarefa');
     expect(intents).toContain('criar_financa_variavel');
@@ -133,5 +133,9 @@ describe('TOOL_TO_INTENT_MAP + resolveIntentFromToolName (D6)', () => {
     expect(intents).toContain('consultar_dados');
     expect(intents).toContain('cancelar_ultima');
     expect(intents).toContain('unknown');
+    // Story 3.8 — tools cérebro do domínio Tarefas
+    expect(intents).toContain('completar_tarefa');
+    expect(intents).toContain('listar_tarefas');
+    expect(intents).toContain('listar_atrasadas');
   });
 });

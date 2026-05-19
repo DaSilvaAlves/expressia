@@ -135,18 +135,24 @@ export type ExecutorInput = z.infer<typeof ExecutorInputSchema>;
  * (3) tools são single source of truth da Story 2.3 e não mudam entre runs;
  * (4) tool name fora do MAP → fallback `'unknown'` (graceful degradation).
  *
- * **Cobertura obrigatória:** as 8 intents do `IntentSchema` (Story 2.4 AC2)
- * têm pelo menos 1 tool name mapeado. Validável em `__tests__/contract.test.ts`.
+ * **Cobertura obrigatória:** as 11 intents do `IntentSchema` (Story 2.4 AC2
+ * baseline 8 + Story 3.8 tools cérebro Tarefas +3) têm pelo menos 1 tool name
+ * mapeado. Validável em `__tests__/contract.test.ts`.
  *
  * Nomenclatura tools snake_case lowercase (alinhada com Architecture §4.3
  * `create_task`, `query_finance_summary`, etc.).
  *
  * Tools concretas serão implementadas nas Stories 2.6 (Tarefas), 2.7 (Finanças),
  * 2.8 (Consultas/Sistema). Esta story usa apenas mocks em testes.
+ *
+ * Story 3.8 introduziu tools `criar_tarefa`/`completar_tarefa`/`listar_tarefas`/
+ * `listar_atrasadas` em `@meu-jarvis/tools/tasks/` — o tool name JÁ coincide
+ * com o intent name PT-PT (pattern intencional para LLM ergonomics PT-PT).
  */
 export const TOOL_TO_INTENT_MAP: Record<string, Intent> = {
-  // criar_tarefa
+  // criar_tarefa — Story 3.8 tool name PT-PT
   create_task: 'criar_tarefa',
+  criar_tarefa: 'criar_tarefa',
   // criar_financa_variavel
   create_finance_variable: 'criar_financa_variavel',
   // criar_financa_recorrente
@@ -165,6 +171,10 @@ export const TOOL_TO_INTENT_MAP: Record<string, Intent> = {
   cancel_last_run: 'cancelar_ultima',
   // unknown — fallback intencional
   noop: 'unknown',
+  // Story 3.8 — tools cérebro do domínio Tarefas (tool name === intent name PT-PT)
+  completar_tarefa: 'completar_tarefa',
+  listar_tarefas: 'listar_tarefas',
+  listar_atrasadas: 'listar_atrasadas',
 };
 
 /**

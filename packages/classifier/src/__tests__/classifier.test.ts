@@ -127,7 +127,7 @@ describe('Classifier — happy path', () => {
   });
 });
 
-describe('Classifier — intents específicos (cobertura dos 8 valores)', () => {
+describe('Classifier — intents específicos (cobertura dos 11 valores)', () => {
   it('classifica consultar_dados', async () => {
     const result = buildValidResult({
       intents: [{ intent: 'consultar_dados', confidence: 0.88, raw_span: 'quanto gastei' }],
