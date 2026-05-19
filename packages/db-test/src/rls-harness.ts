@@ -229,7 +229,20 @@ export async function seedTwoHouseholds(): Promise<TwoHouseholdsSeed> {
   // logo desactivamos o trigger durante o seed e re-ligamos no fim.
   // Sem isto, cada `seedTwoHouseholds()` cria 4 households (2 manuais + 2 do
   // trigger) e quebra todas as asserções de toHaveLength(1).
+  //
+  // Story 3.1 (migration 0009) introduziu trigger
+  // `trigger_seed_kanban_after_household_insert` em public.households que cria
+  // automaticamente 3 kanban_columns default PT-PT (sort_order 0/1/2) por
+  // cada household inserido. Os testes de RLS sobre `kanban_columns` assumem
+  // tabela vazia após o seed — sem desactivar este trigger, cada
+  // `seedTwoHouseholds()` injecta 6 kanban_columns extra (3 por household) e
+  // quebra asserções como `toHaveLength(0)` em SELECT cross-household, ou
+  // colide com unique constraint `kanban_columns_unique_order` quando o teste
+  // tenta inserir manualmente uma coluna com `sortOrder = 0`.
   await adminSql.unsafe(`alter table auth.users disable trigger on_auth_user_created`);
+  await adminSql.unsafe(
+    `alter table public.households disable trigger trigger_seed_kanban_after_household_insert`,
+  );
 
   try {
     // 1. Inserir users em auth.users (FKs do schema referenciam isto).
@@ -267,9 +280,14 @@ export async function seedTwoHouseholds(): Promise<TwoHouseholdsSeed> {
 
     return { householdA, householdB, userA, userB };
   } finally {
-    // Re-activar o trigger — testes de Story 1.5 (handle-new-user.trigger.test.ts)
-    // dependem dele estar ligado. `try/finally` garante que mesmo um erro no seed
-    // não deixa o trigger desligado para os testes seguintes.
+    // Re-activar ambos os triggers — testes específicos
+    // (handle-new-user.trigger.test.ts da Story 1.5 e
+    // kanban_seed.trigger.test.ts da Story 3.1) dependem deles estarem ligados.
+    // `try/finally` garante que mesmo um erro no seed não os deixa desligados
+    // para os testes seguintes na mesma suite.
+    await adminSql.unsafe(
+      `alter table public.households enable trigger trigger_seed_kanban_after_household_insert`,
+    );
     await adminSql.unsafe(`alter table auth.users enable trigger on_auth_user_created`);
   }
 }
