@@ -3,12 +3,12 @@ from_agent_persona: "Quinn (@qa) — Test Architect Guardian"
 to_agent: "devops"
 to_agent_persona: "Gage (@devops) — DevOps Engineer (push exclusive authority)"
 created: "2026-05-19T01:25:00Z"
-status: pending
-consumed: false
-consumed_at: null
-consumed_by: null
+status: consumed
+consumed: true
+consumed_at: "2026-05-19T00:48:34Z"
+consumed_by: "devops"
 successor_handoff: null
-final_decision_target: "push 3.6 — Phase 5 SDC merge para main (@devops *push 3.6)"
+final_decision_target: "push 3.6 — Phase 5 SDC merge para main (@devops *push 3.6) — COMPLETE via PR #1 squash merge 3b6db4d"
 
 story_id: "3.6"
 story_path: "docs/stories/active/3.6.tags-system.md"
