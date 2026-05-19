@@ -1,0 +1,263 @@
+from_agent: "architect"
+from_agent_persona: "Aria (@architect) — System Architect"
+to_agent: "dev"
+to_agent_persona: "Dex (@dev) — Developer"
+created: "2026-05-18T21:00:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-19T01:15:00Z"
+consumed_by: "dev"
+successor_handoff: "docs/handoffs/mj-handoff-3.6-ready-for-qa-20260519.yaml"
+gate_report: "docs/qa/gates/3.6-architect-dps-ratify.md"
+final_decision_target: "develop 3.6 — Phase 4 SDC (YOLO authorized — implementação imediata sem pré-condições)"
+
+story_id: "3.6"
+story_path: "docs/stories/active/3.6.tags-system.md"
+story_title: "Sistema de tags globais (criar/listar/aplicar inline)"
+project_prefix: "mj"
+priority: medium
+blocking: false
+type: story-handoff-architect-to-dev-develop-yolo
+
+summary: >
+  Story 3.6 v1.3 Ready for Dev YOLO — @architect Aria ratify PASS HIGH 7/7 DPs (2 RATIFY EXPLICIT + 5 APPROVE silent).
+  Phase 3 SDC complete. Story passou de v1.2 (PO GO 9.0/10) para v1.3 (Architect Ratified) sem regression nem
+  pré-condições. Eurico delegou YOLO autónomo — @dev pode iniciar `*develop 3.6` immediately.
+
+  **Verdicts DPs:**
+
+  1. **DP-3.6.6 APPROVED A** (query design `json_agg` LEFT JOIN + GROUP BY) — HIGH confidence técnica unânime.
+     Idiomatic Postgres, 1 query, indexed (task_tags_tag_idx + tags_household_idx + tasks_select_member RLS).
+     Cardinalidade controlada O(n+m). 8/9 critérios vence B (batch 2ª query). EXPLAIN ANALYZE obrigatório em T6.0
+     (G1.1) em fixture ~1000 tasks × 5000 task_tags. Pattern `FILTER (WHERE tags.id IS NOT NULL)` neutraliza
+     LEFT JOIN edge (array vazio em vez de `[null]`).
+
+  2. **DP-3.6.7 APPROVED A** (endpoint extension `?with_counts=true` opt-in) — HIGH confidence técnica unânime.
+     Backward compat 100% (Story 3.2 tests intactos). Pattern Epic 3 query-param opt-in. Article IV
+     [STORY-INVENT-DP-3.6.7] formalmente declarada. Boolean parse estrito `=== 'true'` (G2.1) +
+     `current_household_id()` explicit no subquery COUNT (G2.2 defesa em profundidade RLS).
+
+  3. **DP-3.6.1 a DP-3.6.5 APPROVE silent** — palette 8 cores defensável Article IV, soft limit 5 UI KISS,
+     autocomplete prefix + criação inline canónica, modal hand-roll EditTaskModal pattern :14-20+:28-45+:80
+     re-confirmado linha-por-linha, filtro `?tag_id=` pattern Epic 3 consistency.
+
+  **Anti-hallucination Aria (6 fontes):** Read+Grep zero divergências:
+  (a) EditTaskModal.tsx:1-50 hand-roll pattern · (b) package.json @dnd-kit + zero Radix ·
+  (c) tasks.ts:174-221 schema (range 168-223 da story correto) · (d) 0001_rls_policies.sql:403-435 8 policies ·
+  (e) 6 endpoints API tags filesystem confirmed · (f) list-tasks.ts:32-51 TaskRow 17 fields sem `tags` +
+  sub-query :123-126 + SELECT canónico :142-149.
+
+  **G-notes para @dev (3 famílias, 6 notes):**
+  G1.1 EXPLAIN ANALYZE obrigatório T6.0 · G1.2 GROUP BY semantics PG 16 · G1.3 Zod `tags: z.array(TagSchema).default([])` ·
+  G2.1 boolean parse estrito · G2.2 current_household_id() explicit · G3.1 click-outside hand-roll pattern T1.3+T4.1.
+
+  Estimate ~9-9.5h escopo S. Constitution 6/6 PASS. Risks 0H/0M/3L todos mitigated. NIT-AR-3.6.1 non-blocking.
+
+context:
+  story_metadata:
+    epic_id: 3
+    story_id: "3.6"
+    title: "Sistema de tags globais (criar/listar/aplicar inline)"
+    estimate: "S (~9-9.5h)"
+    executor: "@dev (Dex) — develop YOLO authorized"
+    quality_gate: "@architect (post-impl final gate — separate from this pre-impl ratify)"
+    pushed_by: "@devops (Gage) — push exclusive authority"
+    version: "1.3 Ready for Dev (Architect Ratified)"
+    depends_on:
+      - "3.1 Done v1.3 — schema tags + task_tags + 8 RLS policies"
+      - "3.2 Done v1.3 (pushed e1954b4) — 6 endpoints API tags"
+      - "3.3 Done v1.4 — EditTaskModal hand-rolled pattern (precedent confirmed)"
+      - "3.4 Done v1.4 (pushed c649912) — KanbanCard integration target T6.2"
+      - "3.5 Done v1.4 (pushed 38f4e65) — CalendarTaskCard integration target T6.3"
+    blocked_by_external: []
+
+  architect_ratify_summary:
+    verdict: "PASS HIGH 7/7 DPs"
+    date: "2026-05-18T21:00:00Z"
+    confidence: "HIGH"
+    wall_clock_min: 25
+    breakdown:
+      dps_ratified: 7
+      dps_ratify_explicit_high: 2
+      dps_approve_silent: 5
+      dps_rejected: 0
+      anti_hallucination_sources: 6
+      anti_hallucination_passes: 6
+      g_notes_emitted: 6
+      nits_non_blocking: 1
+      constitution_check: "6/6 PASS"
+      risk_landscape: "0H / 0M / 3L (todos mitigated)"
+
+  dps_verdicts:
+    - id: "DP-3.6.6"
+      topic: "Query design JOIN tasks↔tags"
+      verdict: "APPROVED A — HIGH"
+      decision: "json_agg LEFT JOIN + GROUP BY (1 query, idiomatic PG)"
+      rationale: "Cardinalidade O(n+m). FILTER neutraliza LEFT JOIN edge. Indexes existentes suficientes. RLS transparente. DbShim.execute<T> aceita SQL arbitrário."
+      g_notes: ["G1.1 EXPLAIN ANALYZE", "G1.2 GROUP BY semantics PG16", "G1.3 Zod tags default []"]
+    - id: "DP-3.6.7"
+      topic: "Endpoint extension ?with_counts=true"
+      verdict: "APPROVED A — HIGH"
+      decision: "Opt-in query param sem breaking change Story 3.2"
+      rationale: "Additive change. Pattern Epic 3 opt-in uniforme. Article IV [STORY-INVENT-DP-3.6.7] formalizada. Subquery COUNT indexed via task_tags_tag_idx."
+      g_notes: ["G2.1 boolean parse estrito", "G2.2 current_household_id() explicit"]
+    - id: "DP-3.6.1"
+      topic: "Palette 8 cores + custom hex"
+      verdict: "APPROVED silent"
+      decision: "8 cores predefinidas + <input type=color> custom"
+      rationale: "Invenção defensável Article IV documentada. 8 cores ~ Miller's Law limit. Custom hex browser-native zero dep."
+    - id: "DP-3.6.2"
+      topic: "Soft limit 5 tags UI"
+      verdict: "APPROVED silent"
+      decision: "5 enforced UI, sem hard limit API"
+      rationale: "Limite cognitivo confortável. Permite tools/cérebro Story 3.8 atribuir mais via API."
+    - id: "DP-3.6.3"
+      topic: "Autocomplete + criação inline"
+      verdict: "APPROVED silent"
+      decision: "Filter prefix + 'Criar #x' item + auto-select"
+      rationale: "Pattern canónico Linear/GitHub/Notion. Cor default #6B7280 editable depois."
+    - id: "DP-3.6.4"
+      topic: "Modal Dialog hand-rolled"
+      verdict: "APPROVED silent"
+      decision: "EditTaskModal.tsx pattern (zero deps Radix)"
+      rationale: "FIX-3.6.1 resolveu shadcn invenção. Pattern :14-20+:28-45+:80 re-confirmado linha-por-linha."
+      g_notes: ["G3.1 click-outside hand-roll pattern"]
+    - id: "DP-3.6.5"
+      topic: "Filtro ?tag_id= URL param"
+      verdict: "APPROVED silent"
+      decision: "Query param opt-in cross-tab"
+      rationale: "Pattern Epic 3 consistency. Backend já suporta desde Story 3.2."
+
+  anti_hallucination_aria_6_sources:
+    - id: 1
+      source: "apps/web/src/app/(app)/tarefas/_components/EditTaskModal.tsx:1-50"
+      verification: "Re-Read — props :14-18 + useState :22-26 + useEffect reset :28-35 + useEffect Esc :37-43 + render guard :45 + render backdrop fixed inset-0 z-50 :80. Zero @radix-ui imports."
+      verdict: PASS
+    - id: 2
+      source: "apps/web/package.json + workspace"
+      verification: "Re-Grep @dnd-kit + @radix-ui em **/package.json — @dnd-kit/core ^6.3.1 + sortable ^10.0.0 + utilities ^3.2.2 confirmed. Zero matches @radix-ui/* em qualquer package.json."
+      verdict: PASS
+    - id: 3
+      source: "packages/db/src/schema/tasks.ts:174-221"
+      verification: "Re-Read — tags table :174-192 (id, household_id FK households, name, color default #6B7280, timestamps, indexes) + task_tags pivot :201-221 (task_id+tag_id PK composta, household_id denormalizado, indexes). Types Tag/NewTag/TaskTag exported."
+      verdict: PASS
+    - id: 4
+      source: "packages/db/migrations/0001_rls_policies.sql:403-435"
+      verification: "Re-Read — 8 policies (4 tags select/insert/update/delete_owner_admin + 4 task_tags select/insert/update/delete_member). tags_delete_owner_admin :416-418 usa is_household_owner_or_admin."
+      verdict: PASS
+    - id: 5
+      source: "6 endpoints API tags em filesystem"
+      verification: "Re-Read route.ts:1-80 confirma GET retorna { tags: TagRow[] } + POST TagCreateSchema. Filesystem confirmado: api/tags/route.ts + [id]/route.ts + api/tasks/[id]/tags/route.ts + [tagId]/route.ts."
+      verdict: PASS
+    - id: 6
+      source: "apps/web/src/lib/api-helpers/list-tasks.ts:32-51,123-126,142-149"
+      verification: "Re-Read — TaskRow 17 fields :32-51 sem campo tags (confirma Task 6.0 obrigatório). Sub-query tag_id IN existe :123-126. SELECT canónico :142-149 enumera 18 columns. Task 6.0 estende additively."
+      verdict: PASS
+
+  g_notes_for_dev:
+    G1.1:
+      task: "T6.0"
+      topic: "EXPLAIN ANALYZE obrigatório"
+      content: "Comando: EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) <query>. Fixture mínima: ~1000 tasks + ~200 tags + ~5000 task_tags. Validar: (a) Total time < 100ms (vs budget 300ms AC10d), (b) zero Seq Scan, (c) plan usa task_tags_pkey OR task_tags_tag_idx + Bitmap Heap. Documentar output no commit message T6.0."
+    G1.2:
+      task: "T6.0"
+      topic: "GROUP BY semantics PG 16"
+      content: "PG 16 detecta functional dependency PK — `tasks.*` + `GROUP BY tasks.id` funciona. Alternativa explicit: listar 18 colunas. Escolha @dev. Evita 30min debug 'column must appear in GROUP BY' error."
+    G1.3:
+      task: "T6.0 + T8"
+      topic: "Zod TagSchema + tags array default []"
+      content: "Em apps/web/src/lib/api-schemas/tasks.ts adicionar: `tags: z.array(TagSchema).optional().default([])`. Re-export TagSchema de tags.ts. Test: 'task com 0 tags retorna tags: []' (defesa contra G1.1 edge `[null]`)."
+    G2.1:
+      task: "T3.1"
+      topic: "Boolean param parse estrito"
+      content: "`request.nextUrl.searchParams.get('with_counts') === 'true'` string-comparison literal. Rejeitar `'1'`/`'yes'`/`'on'`. Test T3.3.4: `?with_counts=false` retorna sem task_count."
+    G2.2:
+      task: "T3.1"
+      topic: "current_household_id() explicit no subquery"
+      content: "Manter `WHERE task_tags.household_id = current_household_id()` no subquery COUNT. RLS é primeira linha de defesa; explicit filter é segunda (cinto + suspensórios). Performance overhead zero (mesmo index scan)."
+    G3.1:
+      task: "T1.3 + T4.1"
+      topic: "Click-outside hand-roll pattern"
+      content: "useEffect: if(!open) return; function onDocClick(e) { if(ref.current && !ref.current.contains(e.target)) setOpen(false); } document.addEventListener('mousedown', onDocClick); return () => document.removeEventListener('mousedown', onDocClick); }, [open]. Usar mousedown (não click) para evitar race condition com inside-click."
+
+  risk_re_analysis:
+    - id: "R-3.6.1"
+      topic: "GET /api/tasks sem tags"
+      level: "REALIDADE CONFIRMADA → MITIGATED"
+      mitigation: "Task 6.0 + DP-3.6.6 A + G1.1/G1.2/G1.3"
+    - id: "R-3.6.3"
+      topic: "TagPicker z-index modal"
+      level: "LOW/LOW → MITIGATED"
+      mitigation: "TagPicker position: absolute inline (não portal). Clipping intencional. Fallback position: fixed se viewport <375px."
+    - id: "R-3.6.4"
+      topic: "Determinar role para botão eliminar"
+      level: "LOW-MEDIUM/LOW → MITIGATED"
+      mitigation: "UI optimistic (botão visível) + tratar 403 com toast PT-PT. RLS policy tags_delete_owner_admin é source of truth."
+
+  constitution_articles:
+    article_i_cli_first: "PASS — API tags via Story 3.2 completa; UI Story 3.6 é layer adicional"
+    article_ii_agent_authority: "PASS — Delegation matrix respected sm→po→architect→dev→architect→devops"
+    article_iii_story_driven: "PASS — Story 3.6 único artefacto autorizando implementação"
+    article_iv_no_invention: "PASS — 3 FIXES v1.0→v1.1 corrigidas + DP-3.6.1 defensável + STORY-INVENT-DP-3.6.7 trace + 6 cross-confirms Aria zero divergences"
+    article_v_quality_first: "PASS — T9 5/5 quality gates + T8 ~20 tests + G1.1 EXPLAIN ANALYZE evidence-driven"
+    article_vi_absolute_imports: "PASS — Dev Notes NFR19 especifica @/..."
+
+  expected_dev_flow:
+    - "T1 verificações (T1.1 ler list-tasks.ts, T1.2 confirmar EditTaskModal pattern, T1.3 G3.1 click-outside, T1.4 baseline 435 tests + anti-flaky SF-3.6.3, T1.5 schema types)"
+    - "T2 TagBadge + tag-utils (TagBadge React.memo + isColorDark + hexToRgb)"
+    - "T3 endpoint extension ?with_counts=true (T3.1 com G2.1 boolean parse + G2.2 explicit household_id, T3.2 TagWithCountSchema, T3.3 ~4 integration tests)"
+    - "T4 TagPicker (T4.1-T4.7 com G3.1 click-outside pattern + optimistic apply/remove + criação inline + soft limit 5 + ARIA)"
+    - "T5 TagsManager (T5.1-T5.7 modal hand-roll + form criar + edit inline + eliminar com role check + skeleton + botão header)"
+    - "**T6.0 OBRIGATÓRIO antes de T6.1-6.4** — listTasksHelper extension com G1.1+G1.2+G1.3 (json_agg LEFT JOIN + EXPLAIN ANALYZE + Zod tags default [])"
+    - "T6.1-T6.4 integração 3 vistas + EditTaskModal (TagBadge nas lista/Kanban/calendário + TagPicker no EditTaskModal)"
+    - "T7 TagFilterSelect 3 pages (URL ?tag_id= + ViewTabs propagation)"
+    - "T8 ~20 tests Vitest + RTL (TagBadge 4 + TagPicker 6 + TagsManager 4 + tag-utils 3 + route-with-counts 3)"
+    - "T9 5/5 quality gates GREEN (lint, typecheck, test, build, check:rls)"
+
+  files_expected:
+    new_count: 12
+    modified_count: 7
+    new:
+      - "apps/web/src/app/(app)/tarefas/_components/TagBadge.tsx"
+      - "apps/web/src/app/(app)/tarefas/_components/TagPicker.tsx"
+      - "apps/web/src/app/(app)/tarefas/_components/TagsManager.tsx"
+      - "apps/web/src/app/(app)/tarefas/_components/TagFilterSelect.tsx"
+      - "apps/web/src/lib/tag-utils.ts"
+      - "apps/web/src/app/(app)/tarefas/_components/__tests__/TagBadge.test.tsx"
+      - "apps/web/src/app/(app)/tarefas/_components/__tests__/TagPicker.test.tsx"
+      - "apps/web/src/app/(app)/tarefas/_components/__tests__/TagsManager.test.tsx"
+      - "apps/web/src/lib/__tests__/tag-utils.test.ts"
+      - "apps/web/src/app/api/tags/__tests__/route-with-counts.test.ts"
+    modified:
+      - "apps/web/src/lib/api-helpers/list-tasks.ts (T6.0 — TaskRow + SELECT estendidos)"
+      - "apps/web/src/app/api/tags/route.ts (T3.1 — extensão ?with_counts=true)"
+      - "apps/web/src/lib/api-schemas/tags.ts (T3.2 — TagWithCountSchema + TagSchema export)"
+      - "apps/web/src/lib/api-schemas/tasks.ts (T6.0 — tags z.array(TagSchema).default([]) em TaskListItemSchema)"
+      - "apps/web/src/app/(app)/tarefas/page.tsx (T5.7 + T7.2 — botão 'Gerir tags' + TagFilterSelect + searchParams.tag_id)"
+      - "apps/web/src/app/(app)/tarefas/_components/EditTaskModal.tsx (T6.4 — secção Tags + TagPicker)"
+      - "apps/web/src/app/(app)/tarefas/calendario/page.tsx (T7.4 — TagFilterSelect + tag_id no fetch)"
+
+next_action: >
+  @dev *develop 3.6 — Phase 4 SDC YOLO authorized (~9-9.5h estimated):
+
+  1. **Pre-condição:** Nenhuma. Implementação pode iniciar immediately.
+  2. **Ler primeiro:** docs/qa/gates/3.6-architect-dps-ratify.md (gate report Aria — 6 G-notes + risk re-analysis)
+     + docs/stories/active/3.6.tags-system.md v1.3 (story file com Architect Ratification Block).
+  3. **Sequência obrigatória:** T1 → T2 → T3 → T4 → T5 → **T6.0 PRIMEIRO** (com EXPLAIN ANALYZE G1.1) →
+     T6.1-T6.4 → T7 → T8 → T9.
+  4. **G-notes em uso por task:**
+     - T6.0 absorve G1.1 (EXPLAIN ANALYZE) + G1.2 (GROUP BY PG 16) + G1.3 (Zod tags default [])
+     - T3.1 absorve G2.1 (boolean parse) + G2.2 (current_household_id() explicit)
+     - T1.3 + T4.1 absorvem G3.1 (click-outside pattern)
+  5. **Quality gates 5/5 GREEN obrigatórios** antes de marcar Ready for Review:
+     `pnpm lint && pnpm typecheck && pnpm --filter @meu-jarvis/web test && pnpm build && pnpm check:rls`.
+  6. **Sucessor handoff:** `mj-handoff-3.6-ready-for-review-20260518.yaml` (dev → architect *qa-gate 3.6).
+  7. **NÃO fazer push** — @devops push exclusive authority. @dev só commita locally.
+
+  Precedent: Story 3.5 develop YOLO (Dex) consumiu ~9h wall-clock e produziu architect final gate APPROVED 9.5/10.
+  Story 3.6 escopo similar (4 componentes UI novos + 1 helper extension + 1 endpoint extension) — estimate matched.
+
+memory_feedback_used:
+  - ".claude/agent-memory/aiox-architect/story_3.4_final_gate_pattern.md (9.3/10 PASS pattern reusable)"
+  - ".claude/agent-memory/aiox-architect/pattern_helper_extraction_epic3.md (listTasksHelper pattern Story 3.3 ratifies)"
+  - ".claude/agent-memory/aiox-architect/pattern_service_role_writes.md (D55 — wrapper functions writing to service_role_only tables get serviceDb internally — NÃO aplicável a Story 3.6 uma vez que tags read-via-getDb apenas)"

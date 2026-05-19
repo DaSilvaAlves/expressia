@@ -1,0 +1,171 @@
+from_agent: "po"
+from_agent_persona: "Pax (@po) — Product Owner"
+to_agent: "architect"
+to_agent_persona: "Aria (@architect) — System Architect"
+created: "2026-05-18T20:30:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-05-18T21:00:00Z"
+consumed_by: "architect"
+successor_handoff: "docs/handoffs/mj-handoff-3.6-ready-for-dev-20260518.yaml"
+gate_report: "docs/qa/gates/3.6-po-draft-gate-v1.1.md"
+final_decision_target: "ratify-dps 3.6 — Phase 3 SDC (DP-3.6.6 + DP-3.6.7 novos pending Aria; DP-3.6.1 a DP-3.6.5 APPROVE silent)"
+
+story_id: "3.6"
+story_path: "docs/stories/active/3.6.tags-system.md"
+story_title: "Sistema de tags globais (criar/listar/aplicar inline)"
+project_prefix: "mj"
+priority: medium
+blocking: false
+type: story-handoff-po-to-architect-ratify-dps
+
+summary: >
+  Story 3.6 v1.1 Ready for Architect Ratify — @po re-validate GO 9.0/10 HIGH (delta +3.5 vs v1.0 NO-GO 5.5/10).
+  @sm aplicou os 3 CRITICAL FIXES + 4 SFs com fidelidade absoluta ao gate v1.0. 9 locais shadcn corrigidos
+  vs 7 listados — overshoot positivo +2 (AC9c foco trap + R-3.6.2 elimination). Anti-hallucination
+  re-verify (4 cross-confirms): zero divergências. Constitution Article IV PASS com trace explícito
+  [STORY-INVENT-DP-3.6.7] + DP-3.6.1 declarado invenção defensável.
+
+  **Phase 3 SDC — ratify-DPs ~20-30min wall-clock estimated:**
+
+  1. **DP-3.6.6** (novo via FIX-3.6.2 — query design JOIN tasks↔tags) — [AUTO-DECISION → A `json_agg` LEFT JOIN]
+     pending ratify. Confirma idiomatic Postgres + EXPLAIN ANALYZE em fixture 1000 tasks × 5000 task_tags
+     antes de @dev T6.0.
+
+  2. **DP-3.6.7** (novo via FIX-3.6.3 — endpoint extension `GET /api/tags?with_counts=true`) —
+     [AUTO-DECISION → A opt-in query param] pending ratify. Confirma sem breaking change Story 3.2.
+
+  3. **DP-3.6.1 a DP-3.6.5** — APPROVE silent (já validados @po v1.0 + v1.1).
+
+  4. **Anti-hallucination Aria** (precedent Story 3.4/3.5) — cross-confirm 6 fontes:
+     (a) pattern hand-roll vs `EditTaskModal.tsx:14-20` (b) @dnd-kit z-index não conflita com TagsManager
+     modal (c) `tags`+`task_tags` schema linhas 168-223 (d) 8 RLS policies linhas 403-435 (e) 6 endpoints
+     API tags Story 3.2 (f) `TaskRow` shape em `list-tasks.ts:32-50` justificando Task 6.0.
+
+context:
+  story_metadata:
+    epic_id: 3
+    story_id: "3.6"
+    title: "Sistema de tags globais (criar/listar/aplicar inline)"
+    estimate: "S (~9-9.5h)"
+    executor: "@dev (post-ratify-DPs)"
+    quality_gate: "@architect (post-implementation final gate — separate from this pre-impl ratify)"
+    depends_on:
+      - "3.1 Done v1.3 ✓ schema tags+task_tags+8 RLS policies"
+      - "3.2 Done v1.3 ✓ pushed e1954b4 — 6 endpoints API tags"
+      - "3.3 Done v1.4 ✓ pushed — EditTaskModal hand-rolled precedent"
+      - "3.4 Done v1.4 ✓ pushed c649912 — KanbanCard integration target"
+      - "3.5 Done v1.4 ✓ pushed 38f4e65 — CalendarTaskCard integration target"
+    blocked_by_external: []
+
+  po_validation_summary:
+    verdict: "GO 9.0/10 HIGH"
+    date: "2026-05-18T20:30:00Z"
+    delta_vs_v1_0: "+3.5 (5.5 → 9.0)"
+    breakdown:
+      goal_context: 1.0
+      ac_coverage: 0.9
+      tasks_alignment: 1.0
+      technical_guidance: 0.9
+      reference_effectiveness: 1.0
+      self_containment: 0.9
+      testing_guidance: 1.0
+      nfr_coverage: 1.0
+      constitution_article_iv: 1.0
+      anti_hallucination: 0.95
+      raw_total: 9.65
+      adjusted_total: 9.0
+
+  fixes_applied_v1_1:
+    - id: "FIX-3.6.1"
+      severity: CRITICAL
+      type: "shadcn/Radix invenção"
+      v1_0_status: "7 locais listados no gate"
+      v1_1_status: "9 locais corrigidos (overshoot +2)"
+      locais: "AC3(a), AC3(h), AC9(c) [overshoot], T1.2, T1.3, T4.1, T5.1, T5.4, Dev Notes, R-3.6.2 [overshoot]"
+      verdict: "RESOLVED"
+    - id: "FIX-3.6.2"
+      severity: CRITICAL
+      type: "R-3.6.1 subestimado + Task 6.0 + DP-3.6.6"
+      v1_1_status: "REALIDADE CONFIRMADA + Task 6.0 explícita + DP-3.6.6 novo + estimate +0.5h + T1.1 reformulado"
+      verdict: "RESOLVED"
+    - id: "FIX-3.6.3"
+      severity: CRITICAL
+      type: "AC6 STORY-INVENT formalização"
+      v1_1_status: "AC6 header [STORY-INVENT-DP-3.6.7] + DP-3.6.7 novo + Constitution Article IV trace actualizado"
+      verdict: "RESOLVED"
+    - id: "SF-3.6.1"
+      severity: SHOULD-FIX
+      type: "chip +N styling"
+      v1_1_status: "bg-muted text-muted-foreground em AC4(a) + T6.1"
+      verdict: "APPLIED"
+    - id: "SF-3.6.2"
+      severity: SHOULD-FIX
+      type: "calendário múltiplos tags"
+      v1_1_status: "1 dot extra + tooltip explícito em AC4(c) + T6.3 (não múltiplos dots — visual cluttered)"
+      verdict: "APPLIED"
+    - id: "SF-3.6.3"
+      severity: SHOULD-FIX
+      type: "anti-flaky test"
+      v1_1_status: "Nota explícita em T1.4 + T8 (precedent Story 3.5 CONCERN-1)"
+      verdict: "APPLIED"
+    - id: "SF-3.6.4"
+      severity: SHOULD-FIX
+      type: "budget 200ms → 300ms"
+      v1_1_status: "AC10(d) 300ms + nota EXPLAIN ANALYZE + NFR table actualizada"
+      verdict: "APPLIED"
+
+  anti_hallucination_reverify_v1_1:
+    - "Grep @radix-ui em **/package.json → zero matches (constraint zero new deps mantido)"
+    - "Grep shadcn|@radix|components/ui|Radix em story v1.1 → todas as menções são (a) descrições de fixes (b) negações explícitas (c) bloco histórico v1.0 PRESERVADO — zero invenções activas"
+    - "Glob apps/web/src/**/components/ui/* → directório não existe"
+    - "Read story linhas 257, 418, 460, 461 → Task 6.0 + DP-3.6.6 + DP-3.6.7 + [STORY-INVENT-DP-3.6.7] todos presentes"
+
+  dps_status:
+    silent_approve:
+      - "DP-3.6.1 — Palette 8 cores + custom hex (declarado invenção defensável Constitution Article IV)"
+      - "DP-3.6.2 — Soft limit 5 tags UI"
+      - "DP-3.6.3 — Autocomplete + criação inline"
+      - "DP-3.6.4 — Modal Dialog hand-rolled (FIX-3.6.1 resolveu shadcn invenção)"
+      - "DP-3.6.5 — Filtro URL param `?tag_id=`"
+    pending_aria_ratify:
+      - id: "DP-3.6.6"
+        topic: "Query design JOIN tasks↔tags"
+        auto_decision: "A `json_agg` LEFT JOIN + GROUP BY (1 query, idiomatic Postgres)"
+        alternative: "B batch 2ª query (mais simples mas latency adicional)"
+        rationale: "Confirmado TaskRow sem campo tags via Read list-tasks.ts:32-50. Task 6.0 implementa A com EXPLAIN ANALYZE em fixture 1000×5000 task_tags."
+      - id: "DP-3.6.7"
+        topic: "Endpoint extension GET /api/tags?with_counts=true"
+        auto_decision: "A opt-in query param sem breaking change Story 3.2"
+        alternative: "B novo endpoint separado | C sempre incluir task_count REJECT (breaking)"
+        rationale: "Backward compat total. Pattern segue Story 3.2 `?status=`/`?priority=` opt-in. Justificação: count é UI requirement TagsManager AC3b — derivado, não FR PRD directo."
+
+  constitution_articles_v1_1:
+    article_i_cli_first: "PASS — Tags via API Story 3.2 completa; UI é layer adicional"
+    article_ii_agent_authority: "PASS — Owner @dev, gate @architect explícitos"
+    article_iii_story_driven: "PASS — Story 3.6 único artefacto autorizando implementação"
+    article_iv_no_invention: "PASS v1.1 — AC1-AC5+AC7-AC11 trace FR12/Epic 3 §3.6. AC6 [STORY-INVENT-DP-3.6.7] declarado. DP-3.6.1 palette invenção defensável documentada."
+    article_v_quality_first: "PASS — Task 9 especifica 5/5 quality gates"
+    article_vi_absolute_imports: "PASS — Dev Notes NFR19 especifica @/...."
+
+next_action: >
+  @architect *ratify-dps 3.6 — Phase 3 SDC ratify-DPs (~20-30min wall-clock estimated):
+  (1) Ratify DP-3.6.6 query design A `json_agg` LEFT JOIN (com EXPLAIN ANALYZE guidance para @dev T6.0)
+  (2) Ratify DP-3.6.7 endpoint extension A opt-in `?with_counts=true` (confirma sem breaking change Story 3.2)
+  (3) APPROVE silent DP-3.6.1 a DP-3.6.5 (já validados @po v1.0 + v1.1)
+  (4) Cross-confirm 6 fontes anti-hallucination (pattern hand-roll EditTaskModal:14-20, @dnd-kit z-index,
+      schema/tasks.ts:168-223, 0001_rls_policies.sql:403-435, api/tags endpoints, list-tasks.ts:32-50)
+  (5) Optional guidance notes G1-G3 para @dev (precedent Story 3.4/3.5 — query optimization,
+      hand-roll click-outside pattern, foco trap querySelectorAll)
+  (6) Gate report opcional `docs/qa/gates/3.6-architect-dps-ratify.md` (~250-300 linhas escalado Story 3.4/3.5 pattern)
+  (7) Adicionar Architect Ratification Block + Change Log v1.3 ao story file
+  (8) Sucessor handoff `mj-handoff-3.6-ready-for-dev-20260518.yaml` (architect → @dev *develop 3.6 YOLO authorized)
+
+  Precedent: Story 3.5 ratify-DPs (Aria) consumiu ~30min e produziu gate ~300 linhas com 5 DPs efectivos +
+  5 G-notes + 5 anti-hallucination fontes. Story 3.6 tem escopo similar (7 DPs total, 2 novos pending) —
+  estimate matched.
+
+memory_feedback_used:
+  - ".claude/agent-memory/aiox-po/anti_hallucination_payoff_3_6.md (criado v1.0, actualizado v1.1 com rework outcome)"
+  - ".claude/agent-memory/aiox-po/anti_hallucination_payoff_2_9.md"
+  - ".claude/agent-memory/aiox-po/anti_hallucination_payoff_2_10.md"
