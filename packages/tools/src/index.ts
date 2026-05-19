@@ -76,3 +76,7 @@ export type { RedactedToolLog } from './errors';
 // Tracing — APENAS as constantes públicas (whitelist keys).
 // Os wrappers `withToolSpan`/`withAtomicSpan` são privados ao package.
 export { TOOL_SPAN_ATTRIBUTE_KEYS } from './tracing';
+
+// Tools concretas — domínio Tarefas (Story 3.8).
+// Re-export + side-effect register no toolRegistry singleton.
+export * from './tasks';

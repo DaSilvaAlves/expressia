@@ -52,6 +52,12 @@ export const agentIntentEnum = pgEnum('agent_intent', [
   'consultar_dados',
   'cancelar_ultima',
   'unknown',
+  // Story 3.8 — tools cérebro do domínio Tarefas (migration 0012).
+  // `criar_tarefa` já existia desde 0000_initial_schema.sql:125 — os 3 abaixo
+  // são genuinamente novos e correspondem a tools completar/listar/listar_atrasadas.
+  'completar_tarefa',
+  'listar_tarefas',
+  'listar_atrasadas',
 ]);
 
 export const llmModelEnum = pgEnum('llm_model', [
