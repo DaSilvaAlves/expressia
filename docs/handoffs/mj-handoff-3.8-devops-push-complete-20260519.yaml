@@ -1,0 +1,178 @@
+id: mj-handoff-3.8-devops-push-complete-20260519
+from_agent: devops
+to_agent: any
+created: '2026-05-19T21:30:00Z'
+status: pending
+consumed: false
+project: meu-jarvis
+project_prefix: mj
+story_id: '3.8'
+last_command: '*push 3.8'
+priority: low
+
+summary: |
+  Story 3.8 (Tools cérebro Tarefas) push COMPLETE em main. Epic 3 = 7/8 Done
+  (87.5%). 4 commits pushed sequencialmente em main: feat (907d508) +
+  chore housekeeping (1bb4e03) + 2 hotfixes CI sync (4e111f1 classifier +
+  3e40d67 planner-executor). CI 3/3 GREEN final no HEAD `3e40d67`
+  (Quality + RLS Coverage Gate + Build Next.js). Vercel deploy production
+  `Ready` fra1. Migration 0012 aplicada Supabase production via db:migrate
+  (464ms idempotent). Hotfixes cobrem gap detectado em CI cloud:
+  `INTENT_VALUES` (classifier) e `TOOL_TO_INTENT_MAP` (planner-executor)
+  não tinham sido sincronizados com o enum DB `agent_intent` quando o
+  Story 3.8 adicionou 3 novos intents (completar_tarefa, listar_tarefas,
+  listar_atrasadas). Aria gate local correu apenas tools+web — gap só
+  apareceu no CI cloud. Captured como feedback memory devops para futuros
+  pushes que toquem agent.ts enum. 1 follow-up LOW non-blocking:
+  PLANNER_SYSTEM_PROMPT + CLASSIFIER_SYSTEM_PROMPT v1 ainda mencionam
+  "8 intents" — bump v2 + actualizar prompts em Story 3.7 ou Story 3.8.1
+  micro-task (LLM Anthropic pode sub-utilizar tools 3.8 sem mention
+  explícita no prompt; testes correntes não bloqueiam mas é improvement
+  funcional).
+
+next_action: |
+  Nenhuma acção imediata. Epic 3 segue para Story 3.7 (Inngest cron
+  generate-recurring-tasks) que continua bloqueada por pre-flight EB4
+  (Inngest workspace EU Frankfurt pendente Eurico). Outras opções para
+  próxima sessão:
+
+  A. `@devops verify-eb4` — provisionar workspace Inngest EU + variáveis
+     env Vercel + runbook reference (desbloqueia Story 3.7).
+  B. `@pm *create-epic Epic 4` — Finanças (schema já existe Story 1.3).
+  C. `@dev` ou `@sm *draft 3.8.1` — micro-task actualizar
+     PLANNER_SYSTEM_PROMPT + CLASSIFIER_SYSTEM_PROMPT com mention
+     explícita dos 3 novos intents (NIT-DEVOPS-3.8.1) + bump version v2.
+     Estimate ~30min wall-clock.
+  D. Pause sessão — sem urgência, sem blocker.
+
+context:
+  story_path: docs/stories/completed/3.8.tools-cerebro-tarefas.story.md
+  story_status: 'Done v1.3 (architect gate PASS HIGH 9.5/10) — pushed + deployed'
+  branch: main
+  head_sha: 3e40d67
+  related_handoffs:
+    - docs/handoffs/archive/mj-handoff-3.8-architect-to-devops-push-20260519.yaml
+    - docs/handoffs/archive/mj-handoff-3.8-dev-to-architect-20260519.yaml
+    - docs/handoffs/archive/mj-handoff-3.8-ready-for-dev-20260519.yaml
+    - docs/handoffs/archive/mj-handoff-3.8-sm-v1.1-ready-for-po-revalidate-20260519.yaml
+  related_index: docs/stories/active/_INDEX.md (Epic 3 row 3.8 = Done v1.3)
+
+push_summary:
+  commits_pushed:
+    - sha: 907d508
+      type: feat
+      title: 'Story 3.8 tools cérebro tarefas (criar/completar/listar/atrasadas)'
+      files: 13
+      insertions: 3228
+      content: '11 NEW production+tests + migration 0012 + 2 modifications (agent.ts enum + tools/index.ts)'
+    - sha: 1bb4e03
+      type: chore
+      title: 'post-push Story 3.8 — active→completed + Epic 3 7/8 Done + archive handoffs [Story 3.8]'
+      files: 7
+      insertions: 1786
+      content: 'story file mv to completed/ + _INDEX.md + HANDOFF-INDEX.md + 4 handoffs archived'
+    - sha: 4e111f1
+      type: fix
+      title: 'classifier sincronizar INTENT_VALUES com enum DB (3 novos Story 3.8)'
+      files: 2
+      insertions: 13
+      content: 'INTENT_VALUES 8 → 11 + hardcoded test toBe(8) → toBe(11). CI hotfix 1/2.'
+    - sha: 3e40d67
+      type: fix
+      title: 'planner-executor mapear 3 novos intents Story 3.8 em TOOL_TO_INTENT_MAP'
+      files: 4
+      insertions: 21
+      content: 'TOOL_TO_INTENT_MAP + 3 test files. CI hotfix 2/2.'
+  ci_cloud_final:
+    quality: success
+    rls_coverage_gate: success
+    build_next_js: success
+  vercel_deploy:
+    region: fra1
+    status: Ready
+    triggered: auto via GitHub integration
+  migration_0012:
+    applied_at: 'local devops 18:00 WET — 464ms'
+    idempotent: true
+    enum_agent_intent: '11 valores total (8 baseline + 3 Story 3.8)'
+
+ci_recovery_narrative: |
+  Sequência de eventos CI cloud:
+
+  Run 1 (26112269351, commit 1bb4e03 chore): FAILURE
+    - Cause: `INTENT_VALUES` (8) ≠ enum DB `agent_intent` (11)
+    - Test: classifier schemas.test.ts:59 SANITY-CHECK Article IV
+    - Triage: Aria gate local não correu classifier (apenas tools+web)
+    - Fix: 4e111f1 — INTENT_VALUES expandido para 11
+
+  Run 2 (26112521641, commit 4e111f1 fix 1/2): FAILURE
+    - Cause: `TOOL_TO_INTENT_MAP` ainda só 8 intents mapeados, novo
+      INTENT_VALUES (11) força D6 contract test a falhar
+    - Test: planner-executor contract.test.ts:14 D6 coverage
+    - Triage: hotfix 1 só cobriu metade do gap
+    - Fix: 3e40d67 — TOOL_TO_INTENT_MAP +3 mappings + tests
+
+  Run 3 (commit 3e40d67 fix 2/2): SUCCESS 3/3
+    - Quality + RLS + Build todos GREEN
+    - Vercel deploy Ready
+
+  Memory captured: `feedback_meu_jarvis_classifier_intent_values_sync.md`
+  Future stories que tocam `agent_intent` enum devem sincronizar 5 fontes
+  (INTENT_VALUES + 4 test files) + idealmente bump prompts v2.
+
+epic_3_status:
+  done: 7
+  pending: 1
+  percentage: 87.5
+  remaining:
+    - story_id: '3.7'
+      title: Inngest function generate-recurring-tasks (cron diário)
+      blocker: pre-flight EB4 Inngest workspace EU Frankfurt pendente Eurico
+      estimate: M
+
+followups_low_non_blocking:
+  NIT-DEVOPS-3.8.1:
+    title: 'Actualizar PLANNER_SYSTEM_PROMPT + CLASSIFIER_SYSTEM_PROMPT com 3 novos intents Story 3.8'
+    severity: LOW
+    target: Story 3.8.1 micro-task OR incorporado em Story 3.7
+    rationale: |
+      Prompts v1 mencionam apenas "8 intents canónicas" no JSDoc + body.
+      Tests usam toContain() para os 8 originais (não rejeita novos) e
+      snapshot hash regenera dinamicamente — CI passa. MAS o LLM Anthropic
+      Claude Sonnet planner não vê os 3 novos intents na lista do prompt
+      → sub-utiliza tools `completar_tarefa`/`listar_tarefas`/`listar_atrasadas`.
+      Mitigation parcial: classifier OpenAI usa Zod schema (`IntentSchema`)
+      que JÁ tem os 11 valores — então classifier identifica correctamente,
+      mas o planner depois pode ignorar.
+    fix_effort: ~30min
+    files_to_modify:
+      - packages/classifier/src/prompts/classifier-system.ts (lista intents PT-PT + bump VERSION v2 + actualizar exemplos few-shot)
+      - packages/planner-executor/src/prompts/planner-system.ts (lista intents + 1-2 exemplos novos + bump v2)
+      - packages/planner-executor/README.md (linhas 156/161/162 com "8 intents" hardcoded)
+      - packages/classifier/README.md (linha 73 "Os 8 intents canónicos")
+
+  carry_over_from_aria:
+    - ARC-3.8.1: endpoint /undo 410 Gone para `_noop` (Story 2.8 housekeeping)
+    - ARC-3.8.2: job cleanup filter `_noop` rows (Story 2.8)
+    - ARC-3.8.3: migration sequencing satisfeito (db:migrate corrido antes do push)
+  carry_over_from_epic_3:
+    - PERF-001: G1.1 EXPLAIN ANALYZE deferred staging Story 1.7
+    - TEST-001: calendar page.test.tsx flaky Story 3.5 carry-over
+
+dod_completed:
+  - 'Push completo origin/main (474f248..3e40d67)'
+  - 'CI 3/3 GREEN final no HEAD 3e40d67'
+  - 'Vercel deploy production Ready fra1'
+  - 'Migration 0012 aplicada Supabase production'
+  - 'Story file mv active→completed (Aria)'
+  - '_INDEX.md row 3.8 Done v1.3 (Aria)'
+  - 'HANDOFF-INDEX.md atualizado: pending rows 3.8 removed + 2 archived rows added'
+  - '4 handoffs Story 3.8 cycle archived'
+  - 'Memory devops captured: feedback_meu_jarvis_classifier_intent_values_sync.md'
+  - 'Handoff sucessor criado (este YAML)'
+
+notes_for_next_agent:
+  - 'Working tree limpo após push completo. Apenas docs/marketing/edit/ (binários separados) + mj-handoff-session-pause-post-3.6-test-002-closed unrelated continuam untracked — fora escopo Story 3.8.'
+  - 'Epic 3 está a 87.5%. Story 3.7 é a única pendente — bloqueada por EB4 (Inngest workspace EU).'
+  - 'NIT-DEVOPS-3.8.1 (prompts v2) pode ser tratado independentemente ou junto com Story 3.7.'
+  - 'Pattern aprendido (memory): qualquer story que altere agent_intent enum precisa de sincronização em 5+ fontes — gate local Aria deve correr classifier + planner-executor além de tools + web.'
