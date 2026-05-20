@@ -1,0 +1,153 @@
+from_agent: "any-orchestrator"
+from_agent_persona: "Multi-agent session (Quinn @qa → Gage @devops → Dex @dev → River @sm) orquestrada por Claude"
+to_agent: "any"
+created: "2026-05-19T03:00:00Z"
+status: pending
+consumed: false
+consumed_at: null
+consumed_by: null
+type: session-pause-cross-terminal
+priority: low
+blocking: false
+
+project: "meu-jarvis (Expressia)"
+project_prefix: "mj"
+
+summary: >
+  META-HANDOFF — Session pause cross-terminal após Story 3.6 Done + TEST-002 closed loop completo.
+  Sem trabalho incompleto, sem blocker. Working tree limpo, branch `main` em `474f248`.
+
+  **Sessão fechou 3 entregas:**
+  1. Story 3.6 (sistema de tags globais) pushed via PR #1 squash merge `3b6db4d` (Epic 3: 5/8 → 6/8 Done 75%)
+  2. TEST-002 hotfix (kanban_columns RLS fixture vs trigger 0009 seed_kanban) pushed via PR #2 squash merge `8a2439f` — **CI cloud 3/3 GREEN sem admin override (primeira vez desde Story 3.1!)**
+  3. Story 1.4 (completed 2026-05-05) recebeu bloco retroactive "Post-Completion Hardening" documentando TEST-002 fix — commit `474f248`
+
+  **Impacto operacional crítico:** TEST-002 era pre-existing CI failure desde Story 3.1 que forçou
+  `gh pr merge --admin --squash` em Stories 3.4, 3.5, 3.6 (5+ runs vermelhas históricas em main).
+  **Post-fix, próximos PRs seguem path normal — admin override NÃO necessário** por este motivo.
+
+  Próximo terminal escolhe livremente próxima task. Sem fila bloqueada, sem decisão pendente.
+
+context:
+  branch: "main"
+  head_commit: "474f248"
+  working_tree: "limpo (apenas docs/marketing/edit/ untracked out-of-scope pré-existente, separado)"
+
+  session_deliveries:
+    - id: "Story 3.6 push"
+      pr: "https://github.com/DaSilvaAlves/expressia/pull/1"
+      squash_sha: "3b6db4d"
+      story_file: "docs/stories/completed/3.6.tags-system.md"
+      qa_verdict: "PASS 9.1/10 HIGH confidence (Quinn @qa)"
+      merge_strategy: "gh pr merge --admin --squash --delete-branch (precedent Stories 3.4/3.5 por TEST-002 pre-existing)"
+      ci_outcome: "Quality + RLS Gate FAILED por TEST-002 (não regressão Story 3.6)"
+    - id: "TEST-002 hotfix"
+      pr: "https://github.com/DaSilvaAlves/expressia/pull/2"
+      squash_sha: "8a2439f"
+      file_changed: "packages/db-test/src/rls-harness.ts (+21/-3)"
+      root_cause: "seedTwoHouseholds() não desactivava trigger_seed_kanban_after_household_insert (migration 0009 Story 3.1) — collision unique constraint kanban_columns_unique_order quando teste insere sortOrder=0"
+      fix: "Estender padrão try/finally existente para desactivar ambos os triggers (on_auth_user_created + trigger_seed_kanban_after_household_insert) no início e reactivar ambos no finally em ordem inversa"
+      merge_strategy: "gh pr merge --squash --delete-branch (NORMAL — sem --admin, primeira vez desde Story 3.1!)"
+      ci_outcome: "3/3 GREEN — Quality SUCCESS + RLS Coverage Gate SUCCESS (kanban_columns.rls.test.ts unblocked) + Build SUCCESS"
+    - id: "Story 1.4 retroactive note"
+      commit: "474f248"
+      type: "chore docs (single file, push directo main sem PR)"
+      file_changed: "docs/stories/completed/1.4.rls-helpers-test-suite.md (+29 linhas)"
+      content: "Bloco 'Post-Completion Hardening' (~34 linhas) + Change Log v1.3 → v1.4 (entrada 2026-05-19 referencia PR #2 SHA 8a2439f)"
+      rationale: "Em vez de draftar Story 1.4.1 hardening separada (overhead enorme para fix 21 linhas), nota retroactive na Story 1.4 já Done mantém rastreabilidade histórica com mínimo overhead"
+
+  roadmap_state:
+    epic_1: "7/7 Done (Foundation & Multi-Tenant Core — completo desde 2026-05-08)"
+    epic_2: "11/11 Done (Agent Cérebro + Cost Router — Story 2.11 completo desde 2026-05-08, /jarvis cascade fechada 2026-05-15)"
+    epic_3: "6/8 Done (75%) — Tasks Module"
+    epic_3_done:
+      - "3.1 tasks-schema-validation (Done 2026-05-15)"
+      - "3.2 tasks-api-routes (Done 2026-05-16)"
+      - "3.3 tasks-list-view (Done)"
+      - "3.4 tasks-kanban-view (Done)"
+      - "3.5 tasks-calendar-view (Done 2026-05-18)"
+      - "3.6 tags-system (Done 2026-05-19 esta sessão)"
+    epic_3_remaining:
+      - id: "3.7"
+        title: "Recurrences (rrule + Inngest jobs)"
+        notes: "Backend desacoplado. Requer Inngest workspace EU (EB4) — referenciado em handoffs anteriores como pre-flight Eurico-pending"
+      - id: "3.8"
+        title: "Tools cérebro (toolRegistry para tasks: create_task, update_task, delete_task, etc.)"
+        notes: "Backend desacoplado. Pattern reusable Stories 3.1-3.6 (DRY helpers @/lib/api-helpers/auth + audit + Zod schemas .strict())"
+
+  critical_memory:
+    - id: "TEST-002 closed"
+      detail: "Próximos PRs NÃO precisam `gh pr merge --admin --squash` por causa de CI fail em kanban_columns.rls.test.ts. Path normal `gh pr merge --squash --delete-branch` funciona desde 2026-05-19."
+      impact: "high"
+    - id: "Trigger seed_kanban pattern"
+      detail: "Se draftares migration nova com trigger AFTER INSERT em tabelas multi-tenant (households, etc.) que insere dados em outras tabelas RLS, lembra de estender seedTwoHouseholds() para desactivar o novo trigger também (padrão try/finally em rls-harness.ts:213-275). Stories 1.5 + 3.1 são precedents."
+      impact: "medium"
+    - id: "Hotfix isolado pattern aprovado"
+      detail: "Eurico aprovou hotfix isolado para bug de 21 linhas em test infra (sem story formal). Pattern: criar branch fix/{slug}, commit @dev, PR via @devops, nota retroactive na story original done. Eficiente para fixes < 50 linhas em test infra ou bug pre-existing."
+      impact: "medium"
+
+  carry_over_followups:
+    - id: "PERF-001"
+      severity: low
+      description: "G1.1 EXPLAIN ANALYZE empírico deferred staging Story 3.6 — capturar p95 via OTel span db.query.duration em produção"
+      target: "Story 1.7 Observability backlog (OTel runtime monitoring)"
+    - id: "TEST-001"
+      severity: low
+      description: "Calendar page test (apps/web/.../calendario/page.test.tsx) flaky em batch parallel — passa em isolation 3/3, environment-bound (Story 3.5 CONCERN-1 carry-over)"
+      target: "Backlog Story 3.7+ housekeeping"
+
+  next_action_options:
+    - id: "A"
+      label: "@sm *draft 3.7 (Recurrences — rrule + Inngest)"
+      pros: "Crítica para Tasks Module completo. Backend desacoplado permite parallelization."
+      cons: "Pre-flight EB4 (Inngest workspace EU Frankfurt) ainda pendente Eurico — pode bloquear deploy. Local dev OK via `npx inngest-cli dev` (precedent Story 2.8)."
+      recommended: false
+    - id: "B"
+      label: "@sm *draft 3.8 (Tools cérebro — toolRegistry tasks)"
+      pros: "Backend desacoplado. Sem blocker externo. Pattern bem estabelecido (Story 2.3 toolRegistry foundation + Stories 3.1-3.6 DRY helpers). Conecta Epic 2 (cérebro) com Epic 3 (módulo tasks)."
+      cons: "Requer mockable-only inicialmente (Anthropic side mock até EB1 DPA UE)."
+      recommended: true
+      rationale: "Sem blocker externo, pattern claro, conecta epics, escopo M razoável."
+    - id: "C"
+      label: "@pm *create-epic Epic 4 (Finanças)"
+      pros: "Próximo módulo do MVP Fase 1 conforme PRD. Schema já existe (accounts/cards/transactions/installments/recurrences). Pode correr em paralelo com 3.7/3.8."
+      cons: "Overhead de planning Epic novo. Sem story imediato para @dev."
+      recommended: false
+    - id: "D"
+      label: "Outra task / decisão Eurico"
+      pros: "Eurico pode ter prioridade diferente (marketing, bugs reportados, etc.)"
+      cons: "n/a"
+      recommended: false
+
+next_action: >
+  Próximo terminal: ler este handoff, escolher opção A/B/C/D em next_action_options.
+  Recomendação: **Opção B — `@sm *draft 3.8` (Tools cérebro)**. Sem blocker, pattern estabelecido,
+  conecta Epic 2 com Epic 3. Após @sm draft, sucessor handoff sm→po criado normalmente.
+
+  Se Eurico preferir diferente (Opção A com Inngest workspace já provisionado, Opção C novo Epic 4 Finanças,
+  ou outro), basta override directo — este handoff é informativo, não actionable single-task.
+
+notes: |
+  Esta foi sessão multi-agente orquestrada com cascata Phase 4-5 SDC (Story 3.6) + hotfix isolado (TEST-002)
+  + nota retroactive (Story 1.4). Pattern reusable para futuras sessões.
+
+  **Lifecycle TEST-002 (4 commits, 2 PRs, 1 chore docs):**
+
+  | Etapa | Commit/PR | Quem | Quando |
+  |-------|-----------|------|--------|
+  | Discovered | QA gate Story 3.6 | @qa Quinn | 2026-05-19 ~01:25Z |
+  | Fixed | PR #2 squash `8a2439f` | @dev Dex + @devops Gage | 2026-05-19 ~02:00Z |
+  | Handoff index | chore `fd87aed` | @devops Gage | 2026-05-19 ~02:22Z |
+  | Documented | chore `474f248` | @sm River + @devops Gage | 2026-05-19 ~03:00Z |
+
+  **Memory keys preservadas (.claude/agent-memory/aiox-devops/):**
+  - `project_meu_jarvis_test_002_kanban_rls_fixture.md` (status: RESOLVED 2026-05-19)
+
+  **Vercel auto-deploy fra1:** triggered por todos os push events (PR #1 merge + PR #2 merge + chore 474f248).
+
+memory_feedback_used:
+  - "docs/handoffs/archive/mj-handoff-3.6-ready-for-push-20260519.yaml (TEST-002 inicial identificação)"
+  - "docs/stories/completed/3.6.tags-system.md (Story 3.6 v1.5 Done)"
+  - "docs/stories/completed/1.4.rls-helpers-test-suite.md (Post-Completion Hardening v1.4)"
+  - "packages/db-test/src/rls-harness.ts (seedTwoHouseholds fix)"
+  - "packages/db/migrations/0009_kanban_seed.sql (trigger context Story 3.1)"

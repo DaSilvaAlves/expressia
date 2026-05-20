@@ -1,0 +1,175 @@
+id: mj-handoff-session-pause-post-3.7-done-20260520
+from_agent: any-orchestrator
+from_agent_persona: "Sessão multi-agente (Dex @dev → Aria @architect → Gage @devops) orquestrada por Claude"
+to_agent: any
+created: '2026-05-20T18:30:00Z'
+status: pending
+consumed: false
+consumed_at: null
+consumed_by: null
+type: session-pause-cross-terminal
+priority: low
+blocking: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+supersedes: mj-handoff-session-pause-post-3.6-test-002-closed-20260519
+
+summary: >
+  META-HANDOFF — Session pause cross-terminal após Story 3.7 Done + EB4 satisfeito.
+  Sem trabalho incompleto, sem blocker. Branch `main` sincronizada com origin.
+
+  A sessão fechou o ciclo SDC completo da Story 3.7 (Inngest cron
+  `generate-recurring-tasks`) numa única conversa Eurico: `@dev *develop` →
+  `@architect *qa-gate` (APPROVED 9,6/10) → provisioning EB4 (Eurico criou o
+  workspace Inngest + keys) → `@devops *push` → Sync do endpoint + smoke test.
+  Mais um hotfix de infraestrutura (`DATABASE_URL_SERVICE_ROLE`) que desbloqueou
+  os jobs Inngest em produção.
+
+  **Epic 3 = 8/8 Done (100%) — Módulo Tarefas completo.**
+  Epic 1 = 7/7 Done. Epic 2 = 11/11 Done.
+
+  Próximo terminal escolhe livremente. Sem fila bloqueada, sem decisão pendente.
+
+context:
+  branch: main
+  head_commit: "(ver git log — bc17ed2 + commit deste handoff)"
+  origin_sync: "main sincronizada com origin/main após o push da Story 3.7 + hotfix"
+  working_tree: "limpo — apenas docs/marketing/edit/ untracked (binários marketing pré-existentes, Eurico decide; out-of-scope)"
+
+  session_deliveries:
+    - id: "Story 3.7 — desenvolvimento"
+      agent: "@dev Dex (YOLO mockable-only)"
+      detail: "11 Tasks (T1-T11), 10 ACs, 33 testes novos (22 rrule-helpers + 11 generate-recurring-tasks handler). 5/5 quality gates GREEN. 3 [DEV-DECISIONS] D-3.7.8/9/10. 2 NITs @po aplicados silently."
+    - id: "Story 3.7 — architect gate"
+      agent: "@architect Aria"
+      verdict: "APPROVED 9,6/10 HIGH"
+      detail: "10/10 ACs PASS. 3/3 DEV-DECISIONS ratificadas com verificação independente (D-3.7.9 = correcção de bug off-by-one genuíno). Gate file docs/qa/gates/3.7-architect-gate.md. 2 NITs LOW carry-over."
+    - id: "EB4 — provisioning Inngest"
+      agent: "Eurico (browser) + @devops Gage"
+      detail: "Eurico criou a conta/workspace Inngest `expressia-prod` e gerou as keys de Production. @devops populou INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY na Vercel (production + preview). Desvio: conta Inngest em região US (contas standard não oferecem EU) — aprovado pelo Eurico, documentado em ADR-010."
+    - id: "Story 3.7 — push"
+      agent: "@devops Gage"
+      detail: "Commits a707b0d (feat) + 00ec543 (chore housekeeping). CI cloud 3/3 GREEN. Migration 0013 aplicada (enum recurrences_generated + índice unique parcial idempotência). Story mv active→completed (Done v1.4). EB4 → SATISFIED no EPIC-3-EXECUTION.yaml."
+    - id: "Hotfix DATABASE_URL_SERVICE_ROLE"
+      agent: "@devops Gage"
+      commit: "bc17ed2"
+      detail: "A 1ª invocação do cron falhou em produção: getServiceDb() (packages/db/src/client.ts:71) lê DATABASE_URL_SERVICE_ROLE ?? SUPABASE_DB_URL — nenhuma estava na Vercel. Gap latente desde a Story 2.8. Fix: variável provisionada (= valor de DATABASE_URL_DIRECT, role postgres bypassa RLS) em production + preview + documentada em .env.example + runbook supabase-setup.md. CI 3/3 GREEN."
+    - id: "Sync + smoke test Inngest"
+      agent: "Eurico (browser)"
+      detail: "Sync do endpoint https://expressia-black.vercel.app/api/inngest registou as 2 funções (cleanup-expired-reverse-ops + generate-recurring-tasks). Smoke test: Rerun do generate-recurring-tasks → Completed 4,75s, step process-recurrences verde. Contadores 0 (ainda não há recorrências criadas via API /recurrences)."
+
+  roadmap_state:
+    epic_1: "7/7 Done (Foundation & Multi-Tenant Core)"
+    epic_2: "11/11 Done (Agent Cérebro + Cost Router)"
+    epic_3: "8/8 Done (100%) — Módulo Tarefas completo"
+    epic_3_done:
+      - "3.1 tasks-schema-validation (Done)"
+      - "3.2 tasks-api-routes (Done)"
+      - "3.3 tasks-list-view (Done)"
+      - "3.4 tasks-kanban-view (Done)"
+      - "3.5 tasks-calendar-view (Done)"
+      - "3.6 tags-system (Done)"
+      - "3.7 inngest-generate-recurring-tasks (Done v1.4 — esta sessão)"
+      - "3.8 tools-cerebro-tarefas (Done)"
+    epic_4: "NÃO iniciado — Finanças (schema accounts/cards/transactions/installments já existe da Story 1.3)"
+
+  operational_state:
+    inngest:
+      account: "expressia-prod (app.inngest.com) — região US (ADR-010 documenta o desvio à data residency EU)"
+      app: "expressia-web — synced em https://expressia-black.vercel.app/api/inngest"
+      functions_activas:
+        - "generate-recurring-tasks — cron 0 3 * * * UTC (Story 3.7)"
+        - "cleanup-expired-reverse-ops — cron 0 3 * * * UTC (Story 2.8 — estava inerte ~9 dias, agora activo)"
+    vercel_env_novas:
+      - "INNGEST_EVENT_KEY (production + preview)"
+      - "INNGEST_SIGNING_KEY (production + preview)"
+      - "DATABASE_URL_SERVICE_ROLE (production + preview)"
+
+  carry_over_followups:
+    - id: "DNS-001"
+      severity: medium
+      description: "Nameservers de expressia.pt não configurados — o Sync do Inngest usa a URL .vercel.app interim. Necessário para go-live público (marketing/onboarding) e para re-sincronizar o Inngest com a URL canónica."
+      target: "Tarefa de infra @devops antes do go-live"
+    - id: "ADR-010-revisit"
+      severity: low
+      description: "Conta Inngest em região US (data residency). Aceitável para Story 3.7 (cron sem PII — só contadores). Reavaliar se o Inngest passar a transportar PII (ex. event-driven jobs com payload de utilizador)."
+      target: "Revisão arquitectural futura — ver architecture.md §14.10"
+    - id: "NIT-3.7-A"
+      severity: low
+      description: "Comentário desalinhado em rrule-helpers.ts:165 (diz 'fim do dia', código usa meio-dia; comportamento correcto). Corrigir na próxima story que tocar o ficheiro."
+      target: "Backlog housekeeping"
+    - id: "NIT-3.7-B"
+      severity: low
+      description: "RRULE custom inválida persistente aborta o job inteiro via re-throw em vez de skip+warn per-recorrência. Mitigado pela validação na API 3.2. Considerar try/catch per-recorrência."
+      target: "Story futura Epic 3.x ou Epic 6"
+    - id: "NIT-DEVOPS-3.8.1"
+      severity: low
+      description: "PLANNER_SYSTEM_PROMPT + CLASSIFIER_SYSTEM_PROMPT v1 ainda mencionam '8 intents' (enum DB tem 11 desde a Story 3.8). Bump v2 dos prompts."
+      target: "Micro-task Story 3.8.1 (~30min)"
+    - id: "PERF-001"
+      severity: low
+      description: "G1.1 EXPLAIN ANALYZE empírico deferred — capturar p95 via OTel span db.query.duration em produção."
+      target: "Story 1.7 Observability backlog"
+    - id: "TEST-001"
+      severity: low
+      description: "Calendar page test flaky em batch parallel (passa em isolation). Environment-bound."
+      target: "Backlog housekeeping"
+
+  critical_memory:
+    - id: "getServiceDb exige DATABASE_URL_SERVICE_ROLE"
+      detail: "Qualquer job sistémico que use getServiceDb() (jobs Inngest, scripts admin, GDPR purge futuro) exige a env var DATABASE_URL_SERVICE_ROLE na Vercel. Os quality gates locais NÃO apanham a ausência (testes mockam o db-shim). Já provisionada em production+preview e documentada em .env.example + runbook supabase-setup.md desde o commit bc17ed2."
+      impact: high
+    - id: "Inngest Sync pós-deploy"
+      detail: "Adicionar uma função Inngest nova exige re-Sync no dashboard (Apps → Resync) só se o endpoint mudar; o serve() introspecta automaticamente as funções da array em route.ts a cada Sync. A app está synced em expressia-black.vercel.app/api/inngest."
+      impact: medium
+
+  next_action_options:
+    - id: "A"
+      label: "@pm *create-epic Epic 4 (Finanças)"
+      pros: "Epic 3 está 100% Done — Epic 4 é o próximo módulo do MVP Fase 1 (PRD). Schema accounts/cards/transactions/installments já existe (Story 1.3)."
+      cons: "Overhead de planning de Epic novo."
+      recommended: true
+      rationale: "Caminho natural — Módulo Tarefas completo, Finanças é o próximo bloco do MVP."
+    - id: "B"
+      label: "@sm *draft 3.8.1 (micro-task prompts v2 — NIT-DEVOPS-3.8.1)"
+      pros: "Trabalho curto (~30min), sem blocker. Sincroniza os system prompts com os 11 intents."
+      cons: "Baixo valor relativo — os prompts v1 funcionam (classifier OpenAI Zod já tem 11 valores)."
+      recommended: false
+    - id: "C"
+      label: "Tarefa de infra — DNS expressia.pt (DNS-001)"
+      pros: "Necessário para go-live público. Desbloqueia URL canónica no Inngest Sync."
+      cons: "Exige acção manual do Eurico no registrar de domínio + janela de propagação."
+      recommended: false
+    - id: "D"
+      label: "Outra decisão Eurico"
+      pros: "Eurico pode ter prioridade diferente (marketing, bugs, validação E2E das recorrências)."
+      cons: "n/a"
+      recommended: false
+
+next_action: >
+  Próximo terminal: ler este handoff e escolher opção A/B/C/D.
+  Recomendação: **Opção A — `@pm *create-epic Epic 4` (Finanças)**. O Módulo
+  Tarefas (Epic 3) está 100% completo; Finanças é o próximo módulo do MVP Fase 1
+  e o schema já existe desde a Story 1.3.
+
+  Este handoff é informativo (session-pause), não actionable single-task —
+  override directo se o Eurico preferir.
+
+notes: |
+  Sessão multi-agente orquestrada por Claude com ciclo SDC completo Phase 3-5 da
+  Story 3.7 + provisioning de infraestrutura externa (Inngest) guiado passo-a-passo
+  com o Eurico no browser + 1 hotfix de produção (DATABASE_URL_SERVICE_ROLE).
+
+  **Validação E2E real:** o cron generate-recurring-tasks correu em produção
+  (Inngest US → endpoint Vercel fra1 → Supabase eu-west-1) e devolveu o contrato
+  correcto. Para ver tarefas geradas de facto, criar primeiro uma recorrência via
+  a API /recurrences (Story 3.2) e re-invocar (ou esperar o cron das 03:00 UTC).
+
+trace:
+  - "docs/stories/completed/3.7.inngest-generate-recurring-tasks.story.md (Done v1.4)"
+  - "docs/qa/gates/3.7-architect-gate.md (APPROVED 9,6/10)"
+  - "docs/architecture.md §14.10 ADR-010 (Inngest região US)"
+  - "docs/epics/EPIC-3-EXECUTION.yaml (Epic 3 8/8 Done, EB4 SATISFIED)"
+  - "docs/runbooks/inngest-recurrences-runbook.md + inngest-setup.md + supabase-setup.md"
+  - "commits a707b0d + 00ec543 + bc17ed2"
