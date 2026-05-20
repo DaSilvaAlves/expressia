@@ -120,11 +120,12 @@ export type NewTask = typeof tasks.$inferInsert;
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Definição de recorrência (FR8). Job Inngest diário gera as instâncias futuras
- * para os próximos N dias (default 30).
+ * Definição de recorrência (FR8). O job Inngest diário `generate-recurring-tasks`
+ * (Story 3.7) gera as instâncias futuras para os próximos 90 dias (EPIC DP6).
  *
- * Suporta os presets do FR8 (daily, weekly, monthly, weekdays, weekends, dia do mês)
- * + RRULE livre via `customRrule`.
+ * Suporta os presets do FR8 (daily, weekly, monthly, weekdays, weekends,
+ * biweekly, yearly) + RRULE livre via `customRrule` (iCal RFC 5545) quando
+ * `frequency='custom'`.
  */
 export const taskRecurrences = pgTable(
   'task_recurrences',

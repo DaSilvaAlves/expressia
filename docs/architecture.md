@@ -1109,6 +1109,51 @@ Documentado em §4.6 + §13.1. Resumo:
 - `consultar_dados` resolvido direct-DB sem executor (poupa ~40% chamadas)
 - Quotas por plano com hard-stop a 110%
 
+### 14.10 ADR-010 — Inngest account em região US (desvio aprovado à data residency EU)
+
+**Contexto.** O CLAUDE.md fixa data residency UE obrigatória (Vercel `fra1` +
+Supabase `eu-central-1`). O ADR-005 (§14.5) escolheu o Inngest como provider de
+background jobs assumindo workspace EU (Frankfurt). Ao provisionar a conta para
+desbloquear EB4 (push da Story 3.7), confirmou-se que **as contas Inngest
+standard não oferecem selecção de região EU — a região EU (Frankfurt) é
+exclusiva do plano Enterprise.** O provisioning ficou, portanto, em região US.
+
+| Opção | Pró | Contra |
+|-------|-----|--------|
+| **Conta Inngest US (standard)** ✓ | Desbloqueia EB4 / Story 3.7 / cron Story 2.8 já; custo previsível (~€18/mês); sem renegociação de contrato | Plano de controlo do Inngest corre em US — desvio à regra EU do CLAUDE.md |
+| Inngest Enterprise (EU Frankfurt) | Conformidade EU integral | Custo Enterprise desproporcionado para o volume MVP; bloqueia a release indefinidamente |
+| Trocar para Vercel Cron + pg_cron | Sem vendor extra, tudo na infra EU | Perde retries/fan-out/step functions — exactamente o que o ADR-005 rejeitou; re-trabalho da Story 2.8 e 3.7 |
+
+**Decisão.** Avançar com a conta Inngest em região US para o MVP. Desvio à
+data residency EU **aprovado pelo Eurico em 2026-05-20**.
+
+**Razão (justificação zero-PII).** O risco de conformidade é desprezável neste
+caso concreto:
+- O cron `generate-recurring-tasks` (Story 3.7) e o `cleanup-expired-reverse-ops`
+  (Story 2.8) **não recebem payload** — são triggers cron sem dados de entrada.
+- O `Output` de cada run é **apenas contadores agregados** (`total_generated`,
+  `total_skipped`, `processed_recurrences`, `inactivated_recurrences`) — zero
+  PII. Os atributos do span seguem a whitelist sem PII da AC7 / NFR12.
+- Os **dados reais** (tarefas, recorrências, household) **nunca saem da
+  Supabase `eu-central-1`** — o Inngest apenas orquestra a invocação; a função
+  executa no runtime Next.js em `fra1` e fala directamente com a Supabase EU.
+- As **keys Inngest** (`INNGEST_SIGNING_KEY`, `INNGEST_EVENT_KEY`) ficam
+  guardadas como secrets na Vercel (infra EU), encriptadas.
+
+Ou seja: o plano de dados permanece 100% UE; só o plano de controlo
+(scheduling/observação de runs) do Inngest corre em US, e esse plano não
+processa PII.
+
+**Re-avaliar se:** o Inngest passar a ser usado para jobs que transportem PII
+no payload (ex.: GDPR purge com `user_id` + dados pessoais, Stripe webhook
+fan-out com dados de cliente). Nesse cenário, migrar para Inngest Enterprise
+EU Frankfurt ou mover esse job específico para infra EU própria torna-se
+bloqueante antes do go-live público.
+
+**Trace:** CLAUDE.md (data residency UE), ADR-005 §14.5, Story 3.7 (cron
+`generate-recurring-tasks`), Story 2.8 (`cleanup-expired-reverse-ops`),
+`docs/runbooks/inngest-setup.md`.
+
 ---
 
 ## 15. Próximos Passos

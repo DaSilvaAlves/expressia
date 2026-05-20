@@ -74,6 +74,10 @@ export const auditActionEnum = pgEnum('audit_action', [
   'kanban_column.updated',
   'kanban_column.deleted',
   'kanban_column.batch_updated',
+  // Jobs sistémicos (Story 3.7 — migration 0013)
+  // `recurrences_generated` é emitido pelo cron generate-recurring-tasks
+  // (1 row agregada por run). Distinto de recurrence.* que são user-actions.
+  'recurrences_generated',
 ]);
 
 export const dataExportStatusEnum = pgEnum('data_export_status', [
