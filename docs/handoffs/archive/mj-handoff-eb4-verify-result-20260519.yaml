@@ -1,0 +1,238 @@
+id: mj-handoff-eb4-verify-result-20260519
+from_agent: devops
+to_agent: any
+created: '2026-05-19T22:15:00Z'
+status: superseded
+consumed: true
+consumed_at: '2026-05-20T00:00:00Z'
+consumed_by: devops
+superseded_by: mj-handoff-eb4-action-required-20260520
+superseded_note: |
+  @devops Gage re-correu `*verify-eb4` em 2026-05-20 — EB4 continua BLOCKED
+  (verificação fresca via Vercel CLI: env vars Inngest ausentes em
+  Production+Preview, DNS expressia.pt por resolver). As 3 opções A/B/C
+  deste handoff estão obsoletas: Eurico decidiu Opção C (adiar). O handoff
+  sucessor `mj-handoff-eb4-action-required-20260520` converte essa decisão
+  num runbook de provisioning accionável Eurico-side.
+project: meu-jarvis
+project_prefix: mj
+related_blocker: EB4
+related_stories: ['3.7']
+last_command: '*verify-eb4'
+priority: medium
+
+summary: |
+  Verificação EB4 (Inngest workspace EU Frankfurt provisioning) executada
+  pelo @devops Gage em 2026-05-19 22:15Z. **Resultado: CASO 3 — EB4
+  BLOCKED (workspace NÃO provisionado).** Evidência concreta cruzada
+  via 4 fontes independentes mostra que o runbook
+  `docs/runbooks/inngest-setup.md` Step 1-4 NUNCA foi executado, apesar
+  do código Inngest da Story 2.8 estar em produção há ~8 dias. Story 3.7
+  (cron `generate-recurring-tasks`) push para produção VAI falhar pelo
+  mesmo motivo se for tentada sem provisioning prévio.
+
+  **Cadeia de evidência (4 fontes):**
+
+  (1) **Vercel env vars Production:** `vercel env ls production` corrido
+  pelo @devops (auth `euricojsalves-4744` válida, projecto
+  `expressia` org `team_Z7HN1UF28iHpUxCnZ4gT7wMF`) → 16 env vars
+  registadas (Sentry/Supabase/Anthropic/OpenAI/Grafana/etc.) **ZERO
+  Inngest**. Nem `INNGEST_EVENT_KEY` nem `INNGEST_SIGNING_KEY`
+  existem em Production.
+
+  (2) **Vercel env vars Preview:** `vercel env ls preview` → mesmas 15 vars
+  (KANBAN_AUDIT_ENABLED só Production). **ZERO Inngest** também em
+  Preview. Ou seja, o workspace `expressia-dev` do runbook Step 1.4
+  também nunca foi criado.
+
+  (3) **Production deploys existem mas inacessíveis publicamente:**
+  `vercel ls --prod` → 4 deploys Ready em 2h (HEAD `expressia-ds11jab2m
+  -euricojsalves-4744s-projects.vercel.app`). Tentativa
+  `curl https://expressia-ds11jab2m-.../api/inngest` retorna **HTTP 401
+  `{"message":"Unauthorized"}`** — Vercel SSO gate em URLs `.vercel.app`
+  brutos (esperado, não é erro Inngest). Tentativa `curl https://
+  expressia.pt/api/inngest` → **DNS unresolved** (`curl (6) Could not
+  resolve host`). `vercel domains ls` confirma `expressia.pt` registado
+  como Vercel domain (Third Party registrar, 51d idade) mas DNS/NS
+  ainda não configurados — Step 3 do runbook (`https://expressia.pt
+  /api/inngest`) não é ainda chamável por Inngest Cloud mesmo que o
+  workspace existisse.
+
+  (4) **Código Inngest deployed mas inerte:** Read confirmado em
+  `apps/web/src/lib/inngest/client.ts` (Inngest client `id:
+  'expressia-web'`), `apps/web/src/app/api/inngest/route.ts` (serve()
+  GET/POST/PUT handler), `apps/web/src/lib/inngest/functions/cleanup
+  -expired-reverse-ops.ts` (cron `0 3 * * *`). **Comments inline da
+  Story 2.8 explicitamente avisam:** `apps/web/src/lib/inngest
+  /client.ts:7-8` documenta "vazias em dev local — usar `npx
+  inngest-cli dev` para engine local; em prod Vercel as keys são
+  populadas pelo runbook `docs/runbooks/inngest-setup.md`". Story 2.8
+  AC4 (linha 77 da story file) tagged literalmente: "Status:
+  instruções para @devops Eurico-side antes do push." Inferência:
+  AC4 foi marcado [x] (instruções escritas) mas o runbook em si nunca
+  foi executado pelo Eurico — push 2.8 ocorreu sem os secrets em
+  Vercel, função `cleanup_expired_reverse_ops` está deployed mas
+  Inngest Cloud NUNCA chamou o endpoint (sem signing key, e DNS
+  expressia.pt ainda não resolve para registar URL pública).
+
+  **Impacto operacional:**
+
+  - Story 2.8 cron `cleanup-expired-reverse-ops` (housekeeping
+    `agent_reverse_ops` table) — **NÃO executa em produção há ~8 dias**.
+    Risco: tabela `agent_reverse_ops` pode acumular rows (não crítico
+    porque TTL `expires_at` já elimina pela lógica de application
+    quando endpoint `/undo` faz claim; mas housekeeping job nocturno
+    não está activo). Mitigação aplicação-side existe (D38 Architecture
+    cron ≥2 jobs trigger refactor pendente).
+  - Story 3.7 (Recurrences) — **push impossível para produção sem
+    provisioning prévio**. Pre-condição EB4 explicitamente bloqueia
+    Phase 5 SDC `@devops *push 3.7`. Drafting + implementação local
+    permanecem possíveis (mockable via `npx inngest-cli dev` per AC
+    Story 3.7 quando @sm draftar).
+  - **Domain `expressia.pt`:** Vercel knows o domínio mas DNS
+    nameservers Third Party ainda não apontam — segundo gap
+    infrastrutural que deve ser resolvido antes do go-live público
+    (mesmo sem Inngest, qualquer SEO/marketing depende disto). Não é
+    estritamente bloqueador EB4 — Inngest Cloud pode ser configurada
+    para apontar a `<vercel-prod-url>.vercel.app` interim — mas é
+    inelegante. **OUT OF SCOPE deste verify-eb4** — documentado aqui
+    para visibilidade Eurico.
+
+context:
+  what_devops_verified_locally:
+    - source: "Vercel CLI auth"
+      command: "vercel --version && vercel whoami"
+      result: "CLI 51.2.1 authenticated as euricojsalves-4744 — auth OK"
+    - source: "Vercel Production env vars"
+      command: "vercel env ls production"
+      result: |
+        16 vars registadas, ZERO Inngest:
+        KANBAN_AUDIT_ENABLED (Production)
+        ANTHROPIC_API_KEY, OPENAI_API_KEY (Preview+Production)
+        SENTRY_* (5 vars), OTEL_EXPORTER_OTLP_*, GRAFANA_* (2 vars)
+        SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, DATABASE_URL_DIRECT
+        NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
+        — INNGEST_EVENT_KEY: MISSING
+        — INNGEST_SIGNING_KEY: MISSING
+    - source: "Vercel Preview env vars"
+      command: "vercel env ls preview"
+      result: "Mesmas 15 (sem KANBAN_AUDIT_ENABLED) — INNGEST_*: MISSING em Preview também."
+    - source: "Vercel Production deploys"
+      command: "vercel ls --prod"
+      result: "4 deploys Ready em 2h. HEAD = https://expressia-ds11jab2m-euricojsalves-4744s-projects.vercel.app"
+    - source: "Production endpoint /api/inngest curl"
+      command: "curl https://expressia-ds11jab2m-.../api/inngest"
+      result: "HTTP 401 Unauthorized (Vercel SSO gate — esperado, não é erro Inngest per se)"
+    - source: "Production canonical domain curl"
+      command: "curl https://expressia.pt/api/inngest"
+      result: "DNS unresolved (curl: 6) — expressia.pt nameservers Third Party não configurados"
+    - source: "Vercel domains ls"
+      command: "vercel domains ls"
+      result: "expressia.pt registado Third Party (51d), DNS pendente"
+    - source: "Repo code state"
+      command: "Read apps/web/src/lib/inngest/ + route.ts"
+      result: |
+        Código Story 2.8 presente e correcto:
+        - client.ts: Inngest({ id: 'expressia-web' })
+        - route.ts: serve({ functions: [cleanupExpiredReverseOps] })
+        - functions/cleanup-expired-reverse-ops.ts: cron '0 3 * * *' + step.run
+        - Inline comments confirmam: secrets dependem do runbook (NÃO executado)
+
+  what_eurico_must_verify_manually:
+    note: |
+      @devops NÃO tem acesso ao Inngest Cloud dashboard (browser UI
+      auth pessoal Eurico). As 4 verificações abaixo são para Eurico
+      confirmar manualmente em `https://app.inngest.com`. Provavelmente
+      vão TODAS dar `NOT_EXIST` — porque a falta dos env vars Vercel é
+      sintoma muito forte de "runbook nunca executado":
+    items:
+      - "[ ] Existe workspace `expressia-prod` em app.inngest.com? (Step 1 runbook)"
+      - "[ ] Workspace tem region badge **EU (Frankfurt)**? (CRÍTICO — data residency)"
+      - "[ ] App `expressia-prod` Synced com URL endpoint registado? (Step 3 runbook — provavelmente NÃO porque DNS expressia.pt pendente E sem env vars em Vercel)"
+      - "[ ] Function `cleanup-expired-reverse-ops` visível com runs nos últimos 8 dias? (Confirma Story 2.8 cron está activo — esperado NÃO)"
+    estimate_eurico: "~3min só para confirmar `workspace NÃO existe`"
+
+  what_remains_to_provision:
+    full_runbook_steps_pending:
+      - "Step 1: Criar workspace `expressia-prod` (EU Frankfurt) + workspace `expressia-dev` em app.inngest.com — ~5min"
+      - "Step 2: Gerar Event Key + Signing Key em ambos os workspaces — ~3min"
+      - "Step 3: Registar endpoint Sync (BLOCKED até DNS expressia.pt resolver OU usar URL `.vercel.app` interim)"
+      - "Step 4: Popular Vercel secrets — INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY em Production + Preview — ~5min"
+      - "Step 4b: Redeploy obrigatório após adicionar secrets — Vercel Settings → Deployments → Redeploy last — ~3min"
+      - "Step 6: Smoke test cron — Inngest dashboard → Functions → cleanup-expired-reverse-ops → Invoke — verificar Output { rows_deleted: 0 ou >0 } — ~2min"
+      - "Pre-Step (paralelo): Configurar DNS expressia.pt nameservers para apontar a Vercel — necessário para Step 3 URL canónica + go-live público (NÃO estritamente EB4 mas adjacente; pode-se contornar registando `<vercel-prod-url>.vercel.app` no Inngest interim)"
+    total_estimate: "~20-30min provisioning + ~5-10min smoke test"
+
+  decision_eurico_options:
+    A:
+      title: "Provisionar EB4 completo agora (recomendado se prioridade Story 3.7)"
+      action: "Eurico executa runbook docs/runbooks/inngest-setup.md Steps 1-6 (~25-35min total). Depois @devops re-runs *verify-eb4 para confirmar SATISFIED."
+      unblocks: ["Story 3.7 push", "Story 2.8 cron activo (housekeeping reverse_ops)"]
+      side_effect: "Pode usar URL `.vercel.app` interim no Inngest Step 3 se DNS expressia.pt ainda pendente; refactor depois quando DNS resolver."
+    B:
+      title: "Provisionar EB4 + DNS expressia.pt em conjunto (bundle ideal)"
+      action: "Eurico configura nameservers expressia.pt apontados a Vercel (~10min via registrar Third Party). Aguarda propagação (24-48h max, normalmente <1h). Depois corre runbook Inngest Steps 1-6 com URL canónica."
+      unblocks: ["Story 3.7 push", "Story 2.8 cron", "Go-live público em expressia.pt (marketing/onboarding)"]
+      side_effect: "Janela DNS propagação pode atrasar — fazer em paralelo com Story 3.7 drafting (@sm) para não bloquear."
+    C:
+      title: "Adiar EB4 — focar Stories sem blocker"
+      action: "@sm *draft 3.7 hoje mockable-only com `npx inngest-cli dev`; @dev develop mockable-only; QA gate sem push. OR `@pm *create-epic Epic 4` (Finanças, schema 1.3 existe)."
+      unblocks: ["Stories 3.7 drafting + dev (mockable only)", "Epic 4 paralelo independente"]
+      side_effect: "Story 3.7 push fica pendente até Eurico provisionar EB4 numa sessão futura. Adia value-delivery cron Recurrences mas mantém momentum."
+
+next_action: |
+  Eurico decide entre Opção A (provisioning imediato), B (bundle DNS),
+  ou C (adiar). Recomendação @devops Gage: **Opção B (bundle DNS +
+  Inngest provisioning)** — DNS expressia.pt eventualmente terá de ser
+  configurado para go-live de qualquer forma, e fazer juntos evita
+  refactor do Inngest Step 3 URL depois.
+
+  **Se Opção A ou B escolhida:** após executar runbook, criar handoff
+  sucessor `mj-handoff-eb4-satisfied-{YYYYMMDD}.yaml` para `@sm` com
+  evidência (signing key prefix mascarado + dashboard screenshot ou
+  description + smoke test PASS). Depois `@sm *draft 3.7`.
+
+  **Se Opção C escolhida:** este handoff fica pending em INDEX como
+  recordatório. `@sm *draft 3.7` pode prosseguir mockable-only; push
+  permanece bloqueado até EB4 satisfied.
+
+action_items:
+  eurico_immediate:
+    - "Decidir opção A/B/C (5 min)"
+    - "Se A ou B: aceder app.inngest.com + executar runbook (~25-35min)"
+    - "Se B: configurar DNS expressia.pt em paralelo (~10min via registrar + propagação)"
+    - "Se C: nada, continuar planeamento alternativo"
+  devops_after_eurico_provisioning:
+    - "Re-run *verify-eb4 para confirmar Vercel env vars populated"
+    - "Criar handoff sucessor SATISFIED para @sm"
+    - "Actualizar EPIC-3-EXECUTION.yaml linha 102: PENDING_VERIFICATION → SATISFIED"
+    - "Actualizar _INDEX.md Epic 3 row 3.7 — remover badge bloqueador EB4"
+
+files_referenced:
+  - "docs/runbooks/inngest-setup.md (procedimento completo Step 1-6)"
+  - "apps/web/src/lib/inngest/client.ts (Story 2.8 — inline comment confirma deps runbook)"
+  - "apps/web/src/app/api/inngest/route.ts (Story 2.8 — handler serve())"
+  - "apps/web/src/lib/inngest/functions/cleanup-expired-reverse-ops.ts (Story 2.8 — cron 0 3 * * *)"
+  - "docs/epics/EPIC-3-EXECUTION.yaml linhas 99-109 (EB4 declaration)"
+  - "docs/stories/completed/2.8.undo-inngest-cleanup-ui.md AC4 linha 77 (deferred to Eurico-side)"
+
+constitution_compliance:
+  - "Article I CLI First: verificação 100% via CLI (vercel env ls, curl, Read tools)"
+  - "Article II Agent Authority: @devops exclusivo MCP/CI/deploy infra — confirmação status manual via dashboard delegada Eurico (UI auth pessoal)"
+  - "Article IV No Invention: zero inferência sem evidência; cada claim sustentado por output CLI tool"
+
+constraints_applied:
+  - "Constraint: NÃO push / NÃO PR (meta-work de status, ZERO modificação código produção)"
+  - "Constraint: NUNCA logar signing/event keys — confirmar apenas presence/absence (apenas absence verificada)"
+  - "Constraint: PT-PT obrigatório"
+  - "Constraint: L4-only — apenas docs/ + handoffs/ modificados (zero touch .aiox-core/)"
+
+trace:
+  - "EPIC-3-EXECUTION.yaml linhas 99-109 (EB4 spec)"
+  - "docs/runbooks/inngest-setup.md (procedimento)"
+  - "Story 2.8 AC4 (delegação histórica para Eurico-side)"
+  - "CLAUDE.md data residency EU obrigatória (Vercel fra1 + Supabase eu-central-1 + Inngest EU Frankfurt)"
+
+confidence: high
+scope_risk: narrow
+not_tested: "Smoke test do cron Inngest em produção (impossível sem workspace provisionado — pre-requisito)"

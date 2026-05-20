@@ -1,0 +1,264 @@
+id: mj-handoff-3.7-ready-for-dev-20260520
+from_agent: po
+to_agent: dev
+created: '2026-05-20T01:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-20T02:35:00Z'
+consumed_by: dev
+project: meu-jarvis
+project_prefix: mj
+related_blocker: EB4 (push-only deferred — Eurico Opção C 2026-05-20)
+related_stories: ['3.7']
+last_command: '*validate-story-draft 3.7'
+priority: medium
+
+summary: |
+  @po Pax validou Story 3.7 v1.0 — **GO 9.5/10 HIGH confidence** em 2026-05-20.
+  Story 3.7 "Inngest function generate-recurring-tasks (cron diário)" passou
+  10/10 checklist scoring + 11/11 anti-hallucination cross-confirms + 4/4
+  DPs confirmed (todos A) + 7/7 [AUTO-DECISIONS] D-3.7.1-7 ratified silent.
+
+  **Status update aplicado:** `Draft v1.0 → Ready v1.0`. Change Log v1.0
+  expanded com entry @po validation completa.
+
+  Eurico decidiu **avançar GO v1.0 sem v1.1 bump** — 2 NITs documentation
+  são silent guidance for @dev (não bloqueantes). @dev vai ler test real
+  Story 2.8 e implementar correctamente com awareness das 2 clarifications:
+  - NIT-PO-3.7.1: `withSpan` import de `@meu-jarvis/observability` (NÃO `@/lib/agent/tracing.ts`)
+  - NIT-PO-3.7.2: Mock pattern Story 2.8 real usa `vi.hoisted({handler, config, trigger})` shared
+
+  **Próximo passo único:** `@dev *develop 3.7` modo YOLO mockable-only.
+
+  Após @dev impl COMPLETE → `@architect *qa-gate 3.7` (Aria deep review) →
+  status "Done mockable" (precedente Story 2.8 v1.4 pre-push) → @devops push
+  permanece diferido até EB4 satisfied (Eurico Opção C).
+
+context:
+  validation_summary:
+    verdict: "GO"
+    score: "9.5/10"
+    confidence: "HIGH"
+    duration_pax: "~45min"
+
+  ten_point_checklist:
+    p1_title_clear: "2/2 — Inngest function generate-recurring-tasks (cron diário) — claro mensurável"
+    p2_description: "2/2 — User Story PT-PT com Como/Quero/Para que + exemplos concretos (Pagar renda, Comprar pão) + DST PT mention"
+    p3_testable_acs: "2/2 — 10 ACs cobrindo dep + function + helper + sync + migration + audit + span + 2× tests + runbook + gates — todos verificáveis"
+    p4_scope: "2/2 — File List explícito 3 NEW + 3 MODIFY + 1 migration + 1 runbook; R-3.7.7 explícito OUT OF SCOPE"
+    p5_dependencies: "2/2 — DEP-3.1/3.2/2.8/1.7 todos Done + EB4 VERIFIED_BLOCKED documented"
+    p6_complexity: "2/2 — M estimate justificado (~6h impl + ~2-3h tests + ~30min runbook) alinhado Story 2.8 M precedente"
+    p7_business_value: "2/2 — FR8 user trust + UX trimestre adiante + DST PT (não ser apanhado de surpresa)"
+    p8_risks_documented: "2/2 — 7 risks Severity-rated; R-3.7.1+R-3.7.2 CRITICAL com tests explícitos"
+    p9_done_criteria: "2/2 — AC10 5/5 quality gates GREEN explicit evidence requirements"
+    p10_prd_alignment: "2/2 — Trace explícito EPIC linhas 366-394 + DP6 + ADR-005 + Architecture §11.3"
+    total: "20/20 = 10.0/10 perfeito"
+
+  anti_hallucination_cross_confirms_pax:
+    note: "Pax re-verified independentemente cada uma das 11 entries River contra código real"
+    results:
+      "1_task_recurrences_schema": "✓ MATCH — Read tasks.ts:129-162 confirmou 8 colunas + index"
+      "2_tasks_recurrenceId_isRecurrenceTemplate": "✓ MATCH — Read tasks.ts:91-93"
+      "3_inngest_stack_story_2_8": "✓ MATCH — Bash ls inngest/ confirmou client.ts + functions/cleanup-expired-reverse-ops.ts + __tests__/cleanup-expired-reverse-ops.test.ts"
+      "4_apps_web_package_json_deps": "✓ MATCH — Read package.json confirmou inngest✓ date-fns✓ date-fns-tz✓ rrule✗"
+      "5_auditActionEnum": "✓ MATCH — Read audit.ts:28-77 confirmou recurrence.* existe mas NÃO recurrences_generated"
+      "6_migration_most_recent": "✓ MATCH — Bash ls migrations/ confirmou 0012 é última, 0013 disponível"
+      "7_agentIntentEnum_no_touch": "✓ MATCH — Read agent.ts:46-61 confirmou 11 valores; Story 3.7 zero touch"
+      "8_eb4_verified_blocked": "✓ MATCH — Bash ls handoffs/ + Read mj-handoff-eb4-verify-result-20260519.yaml status pending"
+      "9_jsdoc_30_vs_epic_90": "✓ MATCH — Read tasks.ts:122-125 JSDoc menciona 30 + EPIC linha 196 DP6 ratifica 90"
+      "10_withSpan_pattern": "✓ MATCH com NIT-PO-3.7.1 — withSpan vem de @meu-jarvis/observability (Story 1.7), tracing.ts é wrapper agent-prompt-specific"
+      "11_getServiceDb_db_shim": "✓ MATCH — Read db-shim.ts:52-56 + comment confirma vi.mock('@/lib/agent/db-shim') pattern testing"
+    total: "11/11 PASS"
+
+  dps_confirmation:
+    DP-3.7.1: "A — Horizon 90 dias confirmed (EPIC DP6 ratifica, JSDoc fix one-line cohesive)"
+    DP-3.7.2: "A — Audit log 1 row aggregated per run confirmed (NFR9 + row growth control + Pino logs per-recurrence detail)"
+    DP-3.7.3: "A — rrule@^2.8.1 stable confirmed (mature 8 anos + zero CVEs + Node 20+ compat)"
+    DP-3.7.4: "A — Cron 0 3 * * * UTC alinhado Story 2.8 confirmed (KISS + Inngest serialization + observability separation)"
+
+  auto_decisions_ratified:
+    D-3.7.1: "Confirm — Horizon 90 dias (EPIC DP6) + JSDoc fix"
+    D-3.7.2: "Confirm — Audit 1 row aggregated per run"
+    D-3.7.3: "Confirm — rrule v2.x stable"
+    D-3.7.4: "Confirm — Cron alignment Story 2.8"
+    D-3.7.5: "Confirm — date-fns-tz formatInTimeZone (IANA tzdata)"
+    D-3.7.6: "Confirm — Migration 0013 cohesive 3 mudanças (atomic deploy)"
+    D-3.7.7: "Confirm com nota — kanban_column NULL spawn (trade-off documentado, Story 3.7+1 backlog suficiente)"
+
+  nits_silent_guidance_for_dev:
+    NIT-PO-3.7.1:
+      severity: "LOW (non-blocking documentation clarity)"
+      location: "Story 3.7 Dev Notes line 294 (\"reuso apps/web/src/lib/agent/tracing.ts\")"
+      issue: "Ambíguo — tracing.ts é wrapper agent-prompt-specific com AgentPromptSpanAttributes interface"
+      guidance: |
+        @dev: usar `import { withSpan } from '@meu-jarvis/observability'` (base Story 1.7) directamente.
+        NÃO importar de `@/lib/agent/tracing.ts`. O `withSpan` exposed pelo `@meu-jarvis/observability`
+        é o helper genérico — `tracing.ts` em apps/web é específico para `POST /api/agent/prompt`
+        com attributes business-domain (intent_class, confidence_min, mode, etc.) que NÃO aplicam
+        a Story 3.7 background job.
+      eurico_decision: "Silent during @dev impl (no v1.0→v1.1 bump)"
+
+    NIT-PO-3.7.2:
+      severity: "LOW (non-blocking — pattern preference)"
+      location: "Story 3.7 Dev Notes lines 700-723 (mock pattern example)"
+      issue: "River escreveu pattern com `(generateRecurringTasks as any).__handler` cast. Codebase Story 2.8 real usa `vi.hoisted({handler: null, config: null, trigger: null})` shared object."
+      guidance: |
+        @dev: copiar pattern EXACTO de `apps/web/src/lib/inngest/functions/__tests__/cleanup-expired-reverse-ops.test.ts:17-59`:
+
+        ```ts
+        const mocks = vi.hoisted(() => ({
+          executeMock: vi.fn<(query: unknown) => Promise<unknown>>(),
+          loggerInfoMock: vi.fn(),
+          loggerErrorMock: vi.fn(),
+          captureExceptionMock: vi.fn(),
+        }));
+
+        const capturedHandlers = vi.hoisted(() => ({
+          handler: null as null | ((args: any) => Promise<unknown>),
+          config: null as null | { id: string; name?: string },
+          trigger: null as null | { cron?: string },
+        }));
+
+        vi.mock('@/lib/inngest/client', () => ({
+          inngest: {
+            createFunction: (config: any, trigger: any, handler: any) => {
+              capturedHandlers.config = config;
+              capturedHandlers.trigger = trigger;
+              capturedHandlers.handler = handler;
+              return { id: config.id, name: config.name, trigger, handler };
+            },
+          },
+        }));
+
+        // Test:
+        await capturedHandlers.handler({ step: makeStepMock(), runId: 'test-run-id' });
+        ```
+
+        ADICIONAR ao mock `@meu-jarvis/observability` o `withSpan` (Story 2.8 não usava):
+
+        ```ts
+        vi.mock('@meu-jarvis/observability', () => ({
+          childLogger: () => ({ info: mocks.loggerInfoMock, error: mocks.loggerErrorMock, warn: vi.fn() }),
+          captureException: mocks.captureExceptionMock,
+          withSpan: vi.fn(async (_name, fn) => fn({ setAttribute: vi.fn() })),
+        }));
+        ```
+      eurico_decision: "Silent during @dev impl (no v1.0→v1.1 bump)"
+
+  story_status_transition:
+    from: "Draft v1.0"
+    to: "Ready v1.0"
+    rationale: "Story-Lifecycle Phase 2 obriga @po a actualizar Status field em GO verdict (story-lifecycle.md)"
+    change_log_appended: "Yes — entry v1.0 → Ready com 9.5/10 HIGH score breakdown"
+
+what_dex_must_do:
+  primary_task: |
+    Executar `@dev *develop 3.7` modo YOLO mockable-only — implementação completa
+    de Story 3.7 v1.0 Ready cobrindo 11 Tasks (T1-T11) e 10 ACs.
+  execution_mode: "YOLO (autonomous, 0-1 prompts) — story-lifecycle Phase 3"
+  expected_completion: "~8-11h wall-clock (M estimate)"
+
+  task_sequence:
+    T1: "Adicionar rrule@^2.8.1 a apps/web/package.json + pnpm install + pnpm audit"
+    T2: "Implementar apps/web/src/lib/recurrences/rrule-helpers.ts (função pura DST-safe)"
+    T3: "Implementar apps/web/src/lib/inngest/functions/generate-recurring-tasks.ts (template directo Story 2.8)"
+    T4: "Modificar apps/web/src/app/api/inngest/route.ts (adicionar generateRecurringTasks à array functions)"
+    T5: "Migration 0013_audit_action_recurrences_generated.sql + Drizzle sync (audit.ts + tasks.ts JSDoc)"
+    T6: "Audit log INSERT + OTel span wrap (com NITs guidance)"
+    T7: "Tests Vitest unit rrule-helpers (~15 testes — incluindo 2 DST PT 2026-03-29 + 2026-10-25)"
+    T8: "Tests Vitest function handler (~10 testes mockable usando NIT-PO-3.7.2 pattern Story 2.8 real)"
+    T9: "Runbook docs/runbooks/inngest-recurrences-runbook.md"
+    T10: "Quality gates 5/5 GREEN (typecheck + lint + test + build + check:rls)"
+    T11: "Notas para @devops push deferred (status candidato Done mockable)"
+
+  critical_implementation_notes:
+    - "Story 3.7 é MOCKABLE-ONLY — @dev NÃO precisa Inngest Cloud account nem workspace EU"
+    - "Para dev local opcional: `npx inngest-cli@latest dev -u http://localhost:3000/api/inngest` (engine local porta 8288)"
+    - "Tests Vitest 100% mockáveis sem CI infra extra (D43 padrão Story 2.8/3.8)"
+    - "Idempotency CRITICAL (R-3.7.1): unique index parcial + INSERT ON CONFLICT DO NOTHING — test AC9 (3) valida"
+    - "DST PT CRITICAL (R-3.7.2): formatInTimeZone Europe/Lisbon — tests AC8 (12)+(13) explícitos 2026-03-29 spring + 2026-10-25 fall"
+    - "withSpan vem de @meu-jarvis/observability (NIT-PO-3.7.1)"
+    - "Mock pattern: copiar EXACTO de cleanup-expired-reverse-ops.test.ts:17-59 (NIT-PO-3.7.2)"
+
+  expected_artifacts_dev_completion:
+    - "3 ficheiros NEW (rrule-helpers.ts + generate-recurring-tasks.ts + 2 test files)"
+    - "3 ficheiros MODIFY (route.ts + audit.ts schema + tasks.ts JSDoc)"
+    - "1 migration NEW (0013_audit_action_recurrences_generated.sql)"
+    - "1 runbook NEW (inngest-recurrences-runbook.md)"
+    - "1 lockfile MODIFY (pnpm-lock.yaml com rrule entry)"
+    - "Story 3.7 File List section populated + checkboxes T1-T11 marked"
+    - "Story 3.7 Status: Ready v1.0 → InProgress v1.1 → Ready for Review v1.2"
+    - "Change Log entry v1.2 com summary 5/5 quality gates GREEN + tests count + DEV-DECISIONS (se houver)"
+
+  sucessor_handoff_dev_to_architect: |
+    Após @dev *develop COMPLETE: criar `mj-handoff-3.7-ready-for-architect-gate-{YYYYMMDD}.yaml`
+    com File List + tests count + quality gates evidence + DEV-DECISIONS (se houver) para
+    `@architect *qa-gate 3.7` (Aria deep review).
+
+next_action: |
+  @dev Dex assume control:
+  1. Ler Story 3.7 v1.0 Ready (~1100 linhas) na íntegra
+  2. Ler NITs guidance (NIT-PO-3.7.1 + NIT-PO-3.7.2) para implementação alinhada com codebase real
+  3. Executar T1-T11 em sequência (YOLO mode)
+  4. Aplicar 2 NITs silently during impl:
+     - withSpan import de @meu-jarvis/observability
+     - Mock pattern Story 2.8 real (vi.hoisted shared object)
+  5. Quality gates 5/5 GREEN obrigatório (AC10)
+  6. Story status Ready v1.0 → InProgress v1.1 → Ready for Review v1.2
+  7. Criar sucessor handoff dev→architect para *qa-gate 3.7
+  8. NOTA push: status candidato "Done mockable" — push diferido até EB4 satisfied (Eurico Opção C documented)
+
+action_items:
+  dex_immediate:
+    - "Read Story 3.7 v1.0 Ready file completo (~1100 linhas)"
+    - "Read precedente Story 2.8 v1.4 (Done) + cleanup-expired-reverse-ops.ts + cleanup-expired-reverse-ops.test.ts para template exacto"
+    - "Read schema/tasks.ts:129-162 + schema/audit.ts:28-77 + db-shim.ts para refs"
+    - "Execute T1-T11 in sequence YOLO mode"
+    - "Apply NITs silently (withSpan import path + mock pattern)"
+    - "Quality gates 5/5 GREEN (typecheck + lint + test + build + check:rls)"
+    - "Update story checkboxes T1-T11 + File List + Status Ready → InProgress → Ready for Review"
+    - "Create sucessor handoff dev→architect"
+
+files_referenced:
+  - "docs/stories/active/3.7.inngest-generate-recurring-tasks.story.md (Story 3.7 v1.0 Ready)"
+  - "docs/handoffs/mj-handoff-3.7-ready-for-po-validation-20260520.yaml (sm→po precedente, mark consumed)"
+  - "docs/handoffs/mj-handoff-eb4-verify-result-20260519.yaml (EB4 VERIFIED_BLOCKED — push deferred context)"
+  - "docs/epics/EPIC-3-EXECUTION.yaml (linhas 366-394 spec Story 3.7)"
+  - "docs/stories/completed/2.8.undo-inngest-cleanup-ui.md (Inngest mockable precedente Done v1.4)"
+  - "packages/db/src/schema/tasks.ts (task_recurrences schema + tasks.recurrenceId FK)"
+  - "packages/db/src/schema/audit.ts (auditActionEnum — recurrences_generated migration 0013 nova)"
+  - "apps/web/src/lib/inngest/client.ts + route.ts (Story 2.8 — reuse client + add function à array)"
+  - "apps/web/src/lib/inngest/functions/cleanup-expired-reverse-ops.ts (Story 2.8 — template directo)"
+  - "apps/web/src/lib/inngest/functions/__tests__/cleanup-expired-reverse-ops.test.ts (NIT-PO-3.7.2 pattern referência)"
+  - "apps/web/src/lib/agent/db-shim.ts (getServiceDb pattern + vi.mock target)"
+  - "apps/web/package.json (rrule add + date-fns-tz pre-existing)"
+
+constitution_compliance:
+  - "Article I CLI First: Story 3.7 é background job — CLI Inngest dashboard observa. ✓"
+  - "Article II Agent Authority: River draft → Pax validate → Dex impl → Aria gate → Gage push (deferred EB4). ✓"
+  - "Article III Story-Driven: Story 3.7 v1.0 Ready em docs/stories/active/. ✓"
+  - "Article IV No Invention: Pax 11/11 anti-hallucination cross-confirms PASS independente. ✓"
+  - "Article V Quality First: AC10 obriga 5/5 quality gates GREEN. ✓"
+  - "Article VI Absolute Imports: @/lib/recurrences/, @/lib/inngest/, @meu-jarvis/observability — zero relativos. ✓"
+
+constraints_applied:
+  - "Constraint: Eurico Opção C — Story 3.7 mockable-only obrigatório (push deferred EB4)"
+  - "Constraint: PT-PT estrito (zero PT-BR — utilizar, não usar; eliminar, não deletar)"
+  - "Constraint: @po NÃO faz push / NÃO faz PR (Constitution Article II — autoridade @devops)"
+  - "Constraint: L4-only paths (docs/, packages/db/, apps/web/ — zero touch .aiox-core/)"
+  - "Constraint: Story-lifecycle Phase 2 obriga @po a actualizar Status field em GO verdict"
+  - "Constraint: Eurico decisão NIT silently durante @dev — sem v1.0→v1.1 bump overhead"
+
+trace:
+  - "EPIC-3-EXECUTION.yaml linhas 366-394 (Story 3.7 scope)"
+  - "PRD FR8 (recurrences) + Epic 3 AC2 (cron daily generation)"
+  - "Story 2.8 Done v1.4 (Inngest mockable pattern precedente exacto)"
+  - "Story 3.1 Done v1.3 (schema task_recurrences validated)"
+  - "Story 3.2 Done v1.3 (API /recurrences populates task_recurrences)"
+  - "Handoff EB4 mj-handoff-eb4-verify-result-20260519.yaml (Opção C Eurico 2026-05-20)"
+  - "Handoff sm→po mj-handoff-3.7-ready-for-po-validation-20260520.yaml (consumed por este handoff)"
+  - "Story-lifecycle rule ~/.claude/rules/story-lifecycle.md (Phase 2 status transition obrigatória)"
+
+confidence: high
+scope_risk: narrow
+not_tested: "Smoke test do cron Inngest em produção (impossível sem EB4 satisfied — pre-requisito; mockable Vitest cobre 100% lógica)"

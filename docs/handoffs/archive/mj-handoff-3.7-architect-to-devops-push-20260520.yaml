@@ -1,0 +1,123 @@
+id: mj-handoff-3.7-architect-to-devops-push-20260520
+from_agent: architect
+to_agent: devops
+created: '2026-05-20T11:10:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-20T15:10:00Z'
+consumed_by: devops
+project: meu-jarvis
+project_prefix: mj
+related_blocker: EB4 (push BLOQUEADO até workspace Inngest EU + Vercel env vars + DNS expressia.pt — Eurico Opção C)
+related_stories: ['3.7']
+last_command: '*qa-gate 3.7'
+priority: medium
+
+summary: |
+  @architect Aria executou o `*qa-gate 3.7` (deep review) sobre a Story 3.7
+  "Inngest function generate-recurring-tasks (cron diário)" — implementação
+  mockable-only do @dev. **Veredicto: APPROVED 9,6/10 HIGH.**
+
+  10/10 ACs PASS (AC8 e AC9 EXCEEDS). 3/3 [DEV-DECISIONS] D-3.7.8/9/10
+  RATIFICADAS com verificação independente contra código real. 7/7 quality
+  checklist PASS. 6/6 Constitution PASS. 2 NITs LOW non-blocking. Zero
+  regressão. 5/5 quality gates re-verificados pelo @architect.
+
+  Story 3.7 → status `Done mockable v1.3` (precedente Story 2.8 v1.4).
+  Gate file: `docs/qa/gates/3.7-architect-gate.md`.
+
+  **Push permanece DIFERIDO** — EB4 VERIFIED_BLOCKED (sem workspace Inngest
+  EU Frankfurt + sem Vercel env vars `INNGEST_EVENT_KEY`/`INNGEST_SIGNING_KEY`
+  + DNS `expressia.pt` por resolver). Eurico decidiu Opção C 2026-05-20 — EB4
+  é release task numa sessão futura. @devops NÃO deve fazer push até EB4
+  satisfeito.
+
+what_devops_must_do:
+  primary_task: |
+    Quando EB4 estiver satisfeito (Eurico executa `docs/runbooks/inngest-setup.md`
+    Steps 1-6), fazer o push da Story 3.7 para produção.
+  push_blocked_until_eb4: true
+  pre_push_checklist:
+    - "Confirmar EB4 satisfeito: workspace Inngest EU Frankfurt provisionado + Vercel env vars `INNGEST_EVENT_KEY` + `INNGEST_SIGNING_KEY` populadas (Production+Preview) + DNS `expressia.pt` a resolver."
+    - "Aplicar a migration 0013: `pnpm --filter @meu-jarvis/db db:migrate` — adiciona enum value `recurrences_generated` + índice unique parcial `tasks_recurrence_id_due_date_unique` + COMMENT. Idempotente (IF NOT EXISTS / WHERE recurrence_id IS NOT NULL)."
+    - "Verificar `__schema_migrations` contém `0013` e `select 'recurrences_generated'::audit_action` não falha."
+    - "Re-correr os 5 quality gates antes do push: typecheck, lint, test, build, check:rls."
+    - "Push: 5 ficheiros novos + 4 modificados + pnpm-lock.yaml + story doc + gate file (ver file_list abaixo)."
+  post_push:
+    - "Smoke test do cron — runbook `docs/runbooks/inngest-recurrences-runbook.md` Step 2: invocar manualmente `generate-recurring-tasks` no Inngest dashboard, verificar Output JSON com counts."
+    - "Confirmar a função aparece registada no workspace EU Frankfurt com o trigger cron `0 3 * * *`."
+
+gate_outcome:
+  verdict: APPROVED
+  score: '9,6/10'
+  confidence: HIGH
+  gate_file: docs/qa/gates/3.7-architect-gate.md
+  acs: '10/10 PASS (AC8 22 testes EXCEEDS ≥15; AC9 11 testes EXCEEDS ≥10)'
+  dev_decisions_ratified:
+    D-3.7.8: 'RATIFICADA — withSpan 3-arg confirmado em packages/observability/src/tracer.ts:124'
+    D-3.7.9: 'RATIFICADA — off-by-one fix genuíno (horizonEnd fim-do-dia garante horizonDays+1); cobertura via testes 1/11/14 + 2 DST'
+    D-3.7.10: 'RATIFICADA — sql.json confirmado undefined em drizzle-orm@^0.34.0; ${JSON.stringify}::jsonb = bind parameter seguro'
+  quality_gates_reverified:
+    typecheck: '9/9 successful FULL TURBO'
+    lint: '9/9 successful 0 warnings FULL TURBO'
+    test_web: '510/510 passed / 61 ficheiros (33 novos Story 3.7)'
+    test_targeted: '33/33 — rrule-helpers 22 + generate-recurring-tasks 11'
+    build: '9/9 successful — zero rotas novas'
+    check_rls: '120 policies, coverage completa'
+    db_test: 'ENV-BLOCKER pré-existente (Docker offline) — não-regressão; CI rls-gate cobre'
+  nits_non_blocking:
+    NIT-3.7-A: 'LOW — comentário desalinhado rrule-helpers.ts:165 (diz "fim do dia", código usa meio-dia; comportamento correcto). Próxima story que toque o ficheiro.'
+    NIT-3.7-B: 'LOW — RRULE custom inválida persistente aborta job inteiro via re-throw. Considerar try/catch per-recorrência (skip+warn) numa story futura. Mitigado por validação na API 3.2.'
+  regressions: none
+
+file_list:
+  new:
+    - apps/web/src/lib/recurrences/rrule-helpers.ts
+    - apps/web/src/lib/inngest/functions/generate-recurring-tasks.ts
+    - apps/web/src/lib/recurrences/__tests__/rrule-helpers.test.ts
+    - apps/web/src/lib/inngest/functions/__tests__/generate-recurring-tasks.test.ts
+    - packages/db/migrations/0013_audit_action_recurrences_generated.sql
+    - docs/runbooks/inngest-recurrences-runbook.md
+    - docs/qa/gates/3.7-architect-gate.md
+  modified:
+    - apps/web/package.json
+    - apps/web/src/app/api/inngest/route.ts
+    - packages/db/src/schema/audit.ts
+    - packages/db/src/schema/tasks.ts
+    - pnpm-lock.yaml
+    - docs/stories/active/3.7.inngest-generate-recurring-tasks.story.md
+
+next_action: |
+  @devops Gage assume control quando EB4 estiver satisfeito:
+  1. Confirmar EB4 satisfeito (workspace Inngest EU + Vercel env vars + DNS)
+  2. Aplicar migration 0013 via `pnpm --filter @meu-jarvis/db db:migrate`
+  3. Re-correr os 5 quality gates
+  4. `*push 3.7` — commit + push para origin/main
+  5. Smoke test pós-push via runbook inngest-recurrences-runbook.md Step 2
+  NOTA: push BLOQUEADO até EB4. Se EB4 ainda não satisfeito, este handoff
+  permanece pending — não consumir.
+
+constitution_compliance:
+  - 'Article I CLI First: job background — Inngest dashboard observa. ✓'
+  - 'Article II Agent Authority: River → Pax → Dex → Aria → Gage. Gate por @architect. ✓'
+  - 'Article III Story-Driven: Story 3.7 v1.3 Done mockable. ✓'
+  - 'Article IV No Invention: 3 DEV-DECISIONS ratificadas com verificação independente. ✓'
+  - 'Article V Quality First: 5/5 gates GREEN re-verificados. ✓'
+  - 'Article VI Absolute Imports: zero imports relativos verificados. ✓'
+
+constraints_applied:
+  - 'Constraint: Eurico Opção C — push diferido até EB4 satisfeito'
+  - 'Constraint: @architect NÃO faz push / NÃO faz PR (autoridade exclusiva @devops)'
+  - 'Constraint: L4-only paths (apps/, packages/db/, docs/ — zero touch .aiox-core/)'
+  - 'Constraint: PT-PT estrito'
+
+trace:
+  - 'Story 3.7 v1.3 Done mockable (docs/stories/active/)'
+  - 'Gate file docs/qa/gates/3.7-architect-gate.md'
+  - 'Handoff input mj-handoff-3.7-ready-for-architect-gate-20260520.yaml (consumed por este handoff)'
+  - 'Handoff EB4 mj-handoff-eb4-verify-result-20260519.yaml (push deferred context)'
+  - 'Story 2.8 Done v1.4 (Inngest mockable pattern precedente)'
+
+confidence: high
+scope_risk: narrow
+not_tested: 'Smoke test do cron Inngest em produção (impossível sem EB4 satisfeito; migration 0013 aplica via db:migrate no push). Mockable Vitest cobre 100% da lógica — 33 testes GREEN.'

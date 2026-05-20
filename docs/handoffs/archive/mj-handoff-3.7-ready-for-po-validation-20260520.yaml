@@ -1,0 +1,193 @@
+id: mj-handoff-3.7-ready-for-po-validation-20260520
+from_agent: sm
+to_agent: po
+created: '2026-05-20T00:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-20T01:00:00Z'
+consumed_by: po
+project: meu-jarvis
+project_prefix: mj
+related_blocker: EB4 (push-only deferred — Eurico Opção C 2026-05-20)
+related_stories: ['3.7']
+last_command: '*draft 3.7'
+priority: medium
+
+summary: |
+  @sm River completou drafting Story 3.7 v1.0 em 2026-05-20 após context handoff
+  do @aiox-master Orion (sequência: Eurico decidiu Opção C handoff EB4 = adiar
+  provisioning Inngest workspace EU como release task; foco MVP/development).
+  Story 3.7 "Inngest function generate-recurring-tasks (cron diário)" drafted
+  em **mockable-only mode** com tag explícito precedente Story 2.8 v1.4 —
+  drafting + impl + QA local @architect podem prosseguir 100%; push diferido
+  até EB4 satisfied numa sessão futura.
+
+  **Estado actual:** `docs/stories/active/3.7.inngest-generate-recurring-tasks.story.md`
+  v1.0 Draft (~1100 linhas). _INDEX.md actualizado (linha 201 + line 214 +
+  trailer 218). Working tree tem 3 ficheiros modificados não-staged + 1 ficheiro
+  novo Story 3.7 (untracked) — pode ser commit por @dev no início do *develop
+  ou separadamente como meta-work @sm.
+
+  **Próximo passo único e claro:** `@po *validate-story-draft 3.7` (Pax 10-point
+  checklist + anti-hallucination cross-confirm).
+
+  **Constraints aplicados drafting:**
+  - Constraint: Eurico Opção C EB4 deferred — Story 3.7 mockable-only obrigatório
+  - Constraint: PT-PT estrito (zero PT-BR)
+  - Constraint: NÃO push / NÃO PR (sm não tem authority — Constitution Article II)
+  - Constraint: L4-only paths (docs/, packages/db/, apps/web/ — zero touch .aiox-core/)
+  - Constraint: Anti-Hallucination 11 verificações executadas pre-draft
+
+context:
+  story_3_7_summary:
+    title: "Inngest function generate-recurring-tasks (cron diário)"
+    estimate: "M (~8-11h: ~6h impl + ~2-3h tests + ~30min runbook)"
+    executor: "@dev"
+    quality_gate: "@architect"
+    mode: "mockable-only (precedente Story 2.8 v1.4)"
+    file_count_target: "3 NEW + 3 MODIFY + 1 migration + 1 runbook"
+
+  what_river_drafted:
+    sections:
+      - "Header (status/epic/owner/estimate/version/created/author)"
+      - "Anti-Hallucination Verificações Executadas (11 entries — schema, deps, EB4, Inngest stack, audit enum, etc.)"
+      - "Executor Assignment (com quality_gate_tools + optional_gate_tools)"
+      - "Bloqueadores Externos (DEP-3.1/3.2/2.8/1.7 Done + EB4 push-only)"
+      - "Decisões Pendentes de Validação @po (DP-3.7.1-4 todas [AUTO-DECISION] A)"
+      - "User Story PT-PT (FR8 narrative com DST PT exemplo)"
+      - "Dependências (Internas Done 6 stories + Externas EB4)"
+      - "10 Acceptance Criteria (AC1-AC10) detalhados com código exemplo Zod schemas + SQL"
+      - "7 [AUTO-DECISIONS] D-3.7.1-7 com justificação"
+      - "7 Risks (R-3.7.1 idempotency CRITICAL; R-3.7.2 DST CRITICAL; R-3.7.6 EB4 LOW)"
+      - "11 Tasks/Subtasks numeradas T1-T11 (T11 = notas devops push deferred)"
+      - "Dev Notes (contexto + estruturas + schema refs + patterns + Constitution check)"
+      - "Testing Strategy (Vitest mockable-only ~25 tests target)"
+      - "Change Log v1.0"
+
+  acs_summary:
+    AC1: "Add dependency rrule@^2.8.1 a apps/web/package.json (date-fns-tz pre-existing)"
+    AC2: "Inngest function generate-recurring-tasks (cron 0 3 * * * UTC alinhado Story 2.8)"
+    AC3: "rrule-helpers.ts (timezone-aware Europe/Lisbon DST-safe — formatInTimeZone IANA tzdata)"
+    AC4: "Sync apps/web/src/app/api/inngest/route.ts adicionar function à array"
+    AC5: "Migration 0013_audit_action_recurrences_generated.sql (3 mudanças: ALTER TYPE + UNIQUE INDEX parcial + COMMENT)"
+    AC6: "Audit log INSERT 1 row aggregated per run (DP-3.7.2 A)"
+    AC7: "OTel span agent.recurrences.generate (whitelist PII — 7 attrs counts + duration_ms + run_id)"
+    AC8: "Tests Vitest unit rrule-helpers (~15 testes — 8 frequencies + custom RRULE + DST PT 2 explicit cases)"
+    AC9: "Tests Vitest function handler (~10 testes mockable — idempotency + DB error + audit failure + 3 sequencial)"
+    AC10: "Runbook inngest-recurrences-runbook.md + Quality gates 5/5 GREEN"
+
+  auto_decisions:
+    D-3.7.1: "90 dias horizon (EPIC DP6 ratifica) + update JSDoc schema task_recurrences"
+    D-3.7.2: "Audit log 1 row aggregated per run (vs per-recurrence row explosion)"
+    D-3.7.3: "rrule@^2.8.1 stable (NÃO v3.x beta types)"
+    D-3.7.4: "Cron 0 3 * * * UTC alinhado Story 2.8 D38 (não cron distinto)"
+    D-3.7.5: "DST mitigation via date-fns-tz formatInTimeZone (não manual offset)"
+    D-3.7.6: "Migration 0013 one-shot (enum + unique index + JSDoc fix cohesive)"
+    D-3.7.7: "Tasks geradas spawnam kanban_column_id NULL (vista lista pura)"
+
+  risks:
+    R-3.7.1: "ALTO — Inngest at-least-once duplica INSERT → unique index parcial + ON CONFLICT DO NOTHING + test idempotency"
+    R-3.7.2: "ALTO — DST PT spring/fall → date-fns-tz formatInTimeZone Europe/Lisbon + 2 tests explícitos 2026-03-29 + 2026-10-25"
+    R-3.7.3: "MÉDIO — RRULE edge cases (BYDAY=-1FR, BYMONTHDAY=-1) → rrule v2.x mature library + test AC8 (9)+(15)"
+    R-3.7.4: "MÉDIO — Template task apagada → SELECT LIMIT 1 + NULL check skip+warn"
+    R-3.7.5: "MÉDIO — DB connection timeout mid-job → per-recurrence atomic + Inngest retry 4x"
+    R-3.7.6: "BAIXO — EB4 não provisionado → mockable-only Done tag (Story 2.8 v1.4 precedente)"
+    R-3.7.7: "BAIXO — agent_intent enum não tem 'criar_recurrencia' tool → OUT OF SCOPE 3.7 (future Story Epic 3.x+1 ou Epic 6)"
+
+  anti_hallucination_verifications_executed:
+    - "task_recurrences schema (tasks.ts:129-162)"
+    - "tasks.recurrenceId FK + tasks.isRecurrenceTemplate (tasks.ts:91-93)"
+    - "Inngest stack Story 2.8 Done (client.ts + route.ts + cleanup-expired-reverse-ops.ts)"
+    - "Dependencies apps/web/package.json (inngest✓ date-fns✓ date-fns-tz✓ rrule✗)"
+    - "auditActionEnum em audit.ts:28-77 (recurrence.* existe; recurrences_generated falta)"
+    - "Migration mais recente 0012 (Story 3.8) → próxima é 0013"
+    - "agentIntentEnum em agent.ts:46-61 (Story 3.7 não toca — não é user-prompted)"
+    - "EB4 status mj-handoff-eb4-verify-result-20260519.yaml VERIFIED_BLOCKED"
+    - "JSDoc schema conflict 30 vs 90 dias → resolução D-3.7.1 follow EPIC"
+    - "withSpan pattern Story 1.7 disponível em apps/web/src/lib/agent/tracing.ts"
+    - "getServiceDb em db-shim (Story 2.8 usa este pattern)"
+
+what_pax_must_do:
+  primary_task: |
+    Executar `@po *validate-story-draft 3.7` — 10-point checklist + anti-hallucination
+    cross-confirm contra Story 3.7 v1.0.
+  expected_artifacts:
+    - "10-point checklist scoring (PRD trace, AC clarity, dependencies, schema refs, tests strategy, risk mitigation, quality gates, file list, executor assignment, change log)"
+    - "Anti-hallucination cross-confirm contra schema real (rrule deps + Inngest stack + auditActionEnum + EB4 status)"
+    - "Verdict: GO / NO-GO / GO WITH FIXES"
+    - "PO_FIX_INLINE list (se NO-GO ou GO WITH FIXES)"
+    - "Version bump: 1.0 → 1.1 se fixes aplicados"
+    - "Sucessor handoff `mj-handoff-3.7-ready-for-dev-{date}.yaml` se GO"
+  decisions_for_eurico_confirmation:
+    - "DP-3.7.1 → A (90 dias horizon — EPIC DP6 ratifica)"
+    - "DP-3.7.2 → A (audit log 1 row aggregated)"
+    - "DP-3.7.3 → A (rrule@^2.8.1 stable)"
+    - "DP-3.7.4 → A (cron 0 3 * * * alinhado Story 2.8)"
+  cross_confirm_focus_areas:
+    - "Schema reality: confirmar rrule não está em package.json + date-fns-tz está + auditActionEnum tem recurrence.* mas não recurrences_generated"
+    - "EB4 mockable-only viable: confirmar Story 2.8 testing pattern reaproveitável"
+    - "R-3.7.1 idempotency: validar unique index parcial é o right approach vs full unique"
+    - "R-3.7.2 DST PT: validar date-fns-tz formatInTimeZone é mitigation suficiente"
+
+next_action: |
+  @po Pax assume control:
+  1. Ler docs/stories/active/3.7.inngest-generate-recurring-tasks.story.md (~1100 linhas)
+  2. Executar 10-point checklist validation
+  3. Cross-confirm anti-hallucination contra codebase real (rrule deps, Inngest stack, audit enum, EB4 status, withSpan)
+  4. Confirmar DP-3.7.1-4 com Eurico (silent ack ou explicit)
+  5. Verdict GO / NO-GO / GO WITH FIXES
+  6. Criar handoff sucessor:
+     - GO → `mj-handoff-3.7-ready-for-dev-{date}.yaml` (po→dev *develop 3.7)
+     - NO-GO ou GO WITH FIXES → `mj-handoff-3.7-fixes-needed-{date}.yaml` (po→sm v1.1)
+
+  Após @po GO + @dev *develop 3.7 mockable-only COMPLETE + @architect *qa-gate 3.7
+  APPROVED, story chegará a status **"Done mockable"** (precedente Story 2.8 v1.4 antes
+  de EB4 satisfied). @devops push permanece diferido até Eurico provisionar EB4.
+
+action_items:
+  pax_immediate:
+    - "Read story file v1.0 (~1100 linhas)"
+    - "Execute 10-point checklist + anti-hallucination 11 cross-confirms"
+    - "Decide DP-3.7.1-4 com Eurico"
+    - "Verdict + sucessor handoff"
+
+files_referenced:
+  - "docs/stories/active/3.7.inngest-generate-recurring-tasks.story.md (Story 3.7 v1.0 Draft — NOVO)"
+  - "docs/stories/active/_INDEX.md (linha 201 + 214 + 218 actualizadas)"
+  - "docs/epics/EPIC-3-EXECUTION.yaml (linhas 366-394 spec Story 3.7)"
+  - "docs/handoffs/mj-handoff-eb4-verify-result-20260519.yaml (EB4 VERIFIED_BLOCKED — context Opção C Eurico)"
+  - "docs/stories/completed/2.8.undo-inngest-cleanup-ui.md (mockable-only precedente Done v1.4)"
+  - "docs/stories/completed/3.8.tools-cerebro-tarefas.story.md (Epic 3 padrão mais recente Done v1.3)"
+  - "packages/db/src/schema/tasks.ts (task_recurrences + tasks.recurrenceId)"
+  - "packages/db/src/schema/audit.ts (auditActionEnum — recurrences_generated falta)"
+  - "apps/web/src/lib/inngest/client.ts + route.ts + functions/cleanup-expired-reverse-ops.ts (Story 2.8 reuse template)"
+  - "apps/web/package.json (inngest✓ date-fns✓ date-fns-tz✓ rrule✗)"
+
+constitution_compliance:
+  - "Article I CLI First: Story 3.7 é background job — CLI Inngest dashboard observa, não controla. ✓"
+  - "Article II Agent Authority: River (@sm) draft only — implementação @dev, gate @architect, push @devops. ✓"
+  - "Article III Story-Driven: docs/stories/active/3.7.* v1.0 criada. ✓"
+  - "Article IV No Invention: Anti-Hallucination 11 verificações executadas pre-draft. ✓"
+  - "Article V Quality First: AC10 obriga 5/5 quality gates GREEN. ✓"
+  - "Article VI Absolute Imports: @/lib/recurrences/, @/lib/inngest/, @meu-jarvis/observability — zero relativos. ✓"
+
+constraints_applied:
+  - "Constraint: Eurico Opção C — Story 3.7 mockable-only obrigatório (drafting tag explícito)"
+  - "Constraint: PT-PT estrito (zero PT-BR — verbo 'utilizar' não 'usar', 'eliminar' não 'deletar', etc.)"
+  - "Constraint: @sm NÃO faz push / NÃO faz PR (Constitution Article II — autoridade @devops)"
+  - "Constraint: L4-only paths (docs/, packages/db/, apps/web/ — zero touch .aiox-core/)"
+  - "Constraint: KISS — reuse máximo Story 2.8 Inngest infra + Story 3.1 schema + Story 3.2 API"
+  - "Constraint: Estimate M (~8-11h) não scope-shift para L (4 ACs backend puro + 1 helper + 1 migration + 2 test files + 1 runbook = M alinhado Story 2.8/3.8 precedentes)"
+
+trace:
+  - "EPIC-3-EXECUTION.yaml linhas 366-394 (Story 3.7 scope completo)"
+  - "PRD FR8 (recurrences) + Epic 3 AC2 (cron daily generation)"
+  - "Story 2.8 Done v1.4 (Inngest mockable pattern + cron 0 3 * * * UTC + cleanup-expired-reverse-ops template)"
+  - "Story 3.1 Done v1.3 (schema task_recurrences validated)"
+  - "Story 3.2 Done v1.3 (API /recurrences popula task_recurrences)"
+  - "Story 3.8 Done v1.3 (Epic 3 padrão mais recente + Anti-Hallucination structure)"
+  - "Handoff EB4 mj-handoff-eb4-verify-result-20260519.yaml (Opção C decisão Eurico 2026-05-20)"
+
+confidence: high
+scope_risk: narrow
+not_tested: "Smoke test do cron Inngest em produção (impossível sem EB4 satisfied — pre-requisito; mockable Vitest cobre 100% lógica)"

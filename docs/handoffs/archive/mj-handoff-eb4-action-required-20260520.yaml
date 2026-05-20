@@ -1,0 +1,216 @@
+id: mj-handoff-eb4-action-required-20260520
+from_agent: devops
+to_agent: any
+created: '2026-05-20T00:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-20T15:10:00Z'
+consumed_by: devops
+project: meu-jarvis
+project_prefix: mj
+related_blocker: EB4
+related_stories: ['3.7', '2.8']
+last_command: '*verify-eb4'
+priority: high
+supersedes: mj-handoff-eb4-verify-result-20260519
+
+summary: |
+  @devops Gage re-correu `*verify-eb4` em 2026-05-20 com verificação fresca
+  via Vercel CLI. **Resultado: EB4 AINDA BLOCKED — nada mudou desde
+  2026-05-19.** O workspace Inngest Cloud EU Frankfurt continua NÃO
+  provisionado e o DNS `expressia.pt` continua por resolver.
+
+  Este handoff SUPERSEDE `mj-handoff-eb4-verify-result-20260519` (que
+  apresentava 3 opções A/B/C). Eurico já decidiu Opção C — adiar. Este
+  handoff converte essa decisão num **runbook de acção accionável** para
+  o Eurico desbloquear EB4 e libertar o push da Story 3.7 (gate APPROVED
+  9,6/10 HIGH) + activar o cron da Story 2.8 (inerte há ~9 dias).
+
+  **O provisioning de uma conta Inngest Cloud de terceiro e a
+  configuração de DNS de domínio NÃO são automatizáveis pelo agente** —
+  exigem acção manual do Eurico num browser autenticado. Assim que o
+  Eurico fornecer as keys (Steps 1-3 abaixo), o @devops Gage executa os
+  `vercel env add` + push + smoke test (Steps 4-6 — âmbito @devops).
+
+verification_fresh_20260520:
+  - source: 'Vercel CLI auth'
+    command: 'vercel whoami'
+    result: 'euricojsalves-4744 — auth válida'
+  - source: 'Vercel Production env vars'
+    command: 'vercel env ls production'
+    result: |
+      16 vars (KANBAN_AUDIT_ENABLED, ANTHROPIC_API_KEY, OPENAI_API_KEY,
+      SENTRY_* x5, OTEL_* x2, GRAFANA_* x2, SUPABASE_SERVICE_ROLE_KEY,
+      DATABASE_URL, DATABASE_URL_DIRECT, NEXT_PUBLIC_SUPABASE_* x2).
+      INNGEST_EVENT_KEY: AUSENTE. INNGEST_SIGNING_KEY: AUSENTE.
+  - source: 'Vercel Preview env vars'
+    command: 'vercel env ls preview'
+    result: '15 vars (sem KANBAN_AUDIT_ENABLED). INNGEST_*: AUSENTE também.'
+  - source: 'DNS canónico'
+    command: 'curl https://expressia.pt/api/inngest'
+    result: 'HTTP 000 — Could not resolve host (exit 6). Nameservers não configurados.'
+  - source: 'Vercel domains'
+    command: 'vercel domains ls'
+    result: 'expressia.pt — Third Party registrar, 51d idade, NS pendentes.'
+  - source: 'Production deploys'
+    command: 'vercel ls --prod'
+    result: '14+ deploys Ready (HEAD expressia-ds11jab2m, 17h). Deploy OK — só falta provisioning Inngest.'
+  verdict: 'EB4 NOT SATISFIED — workspace Inngest EU Frankfurt não provisionado, env vars ausentes, DNS pendente.'
+
+scope_split:
+  eurico_must_do:
+    note: |
+      Os Steps 1-3 exigem browser autenticado (app.inngest.com + registrar
+      de domínio Third Party). O @devops NÃO tem esse acesso e NÃO pode
+      provisionar autonomamente uma conta de terceiro.
+    steps: ['Step 1 (Inngest workspace)', 'Step 2 (Event + Signing keys)', 'Step 3 (registar endpoint Sync)', 'Step 0 paralelo opcional (DNS expressia.pt)']
+  devops_must_do:
+    note: |
+      Assim que o Eurico fornecer as 4 keys (Step 2), o @devops Gage corre
+      os `vercel env add`, faz o push da Story 3.7 e o smoke test. Isto SIM
+      está no âmbito @devops (gestão de infra/CI/deploy — Article II).
+    steps: ['Step 4 (vercel env add x4)', 'Step 4b (redeploy)', 'Push Story 3.7 + migration 0013', 'Step 6 (smoke test)']
+
+eurico_action_runbook:
+  total_estimate: '~25-35 min de trabalho activo + janela DNS opcional (Step 0)'
+  reference: 'docs/runbooks/inngest-setup.md (Steps 1-6 detalhados)'
+
+  step_0_dns_optional:
+    title: 'DNS expressia.pt (PARALELO — opcional mas recomendado)'
+    estimate: '~10 min + propagação (normalmente <1h, máx 24-48h)'
+    blocking: false
+    detail: |
+      Não é estritamente bloqueador de EB4 (pode-se usar URL .vercel.app
+      interim no Step 3), mas o DNS terá de ser feito para go-live público
+      de qualquer forma. Fazer em paralelo evita refactor da URL do Step 3.
+    actions:
+      - 'Aceder ao registrar Third Party onde expressia.pt está registado.'
+      - 'Configurar os nameservers a apontar para a Vercel (Vercel dá os NS em vercel.com/<team>/expressia/settings/domains — tipicamente ns1.vercel-dns.com / ns2.vercel-dns.com).'
+      - 'Aguardar propagação. Verificar com: curl -I https://expressia.pt'
+
+  step_1_inngest_workspace:
+    title: 'Criar workspace Inngest EU Frankfurt'
+    estimate: '~5 min'
+    blocking: true
+    actions:
+      - 'Aceder a https://app.inngest.com — criar conta ou login com email do Eurico.'
+      - 'Ao criar workspace, no selector de region escolher EU (Frankfurt) — CRÍTICO para data residency (Vercel fra1 + Supabase eu-central-1).'
+      - 'Nomear o workspace expressia-prod.'
+      - 'Criar workspace adicional expressia-dev (para preview deploys + dev local).'
+    verify: 'Dashboard Inngest mostra 2 workspaces, region badge EU (Frankfurt) em ambos.'
+
+  step_2_keys:
+    title: 'Gerar Event Key + Signing Key (em ambos os workspaces)'
+    estimate: '~3 min'
+    blocking: true
+    actions:
+      - 'expressia-prod → Settings → Event Keys → copiar a Event Key (Production).'
+      - 'expressia-prod → Settings → Signing Keys → copiar a Signing Key (formato signkey-prod-...).'
+      - 'expressia-dev → Settings → Event Keys → copiar a Event Key.'
+      - 'expressia-dev → Settings → Signing Keys → copiar a Signing Key (formato signkey-dev-...).'
+      - 'Guardar as 4 keys num gestor de secrets (1Password/Vault). NUNCA comitar ao repo.'
+    handoff_to_devops: |
+      Passar as 4 keys ao @devops Gage de forma segura (NÃO por chat público,
+      NÃO em ficheiro commitado). O @devops corre então os `vercel env add`
+      do Step 4.
+
+  step_3_sync_endpoint:
+    title: 'Registar endpoint /api/inngest (Apps → Add app → Sync)'
+    estimate: '~3 min'
+    blocking: true
+    actions:
+      - 'expressia-prod → Apps → Add app → Sync → URL: https://expressia.pt/api/inngest (se DNS resolver) OU https://<vercel-prod-url>.vercel.app/api/inngest interim.'
+      - 'expressia-dev → Apps → Add app → Sync → URL: https://<vercel-preview-branch>.vercel.app/api/inngest'
+    note: |
+      O Sync só funciona DEPOIS do Step 4 (env vars + redeploy) porque o
+      endpoint precisa da signing key para autenticar o PUT de introspecção.
+      Ordem prática: Step 1 → Step 2 → entregar keys ao @devops → @devops
+      faz Step 4 + redeploy → Eurico volta ao Step 3 Sync → @devops faz push 3.7.
+
+devops_steps_after_keys:
+  step_4_vercel_env_add:
+    title: '@devops: popular Vercel secrets'
+    estimate: '~5 min'
+    commands: |
+      # @devops corre, com as keys fornecidas pelo Eurico (Step 2):
+      vercel env add INNGEST_EVENT_KEY production     # event key expressia-prod
+      vercel env add INNGEST_SIGNING_KEY production   # signing key expressia-prod
+      vercel env add INNGEST_EVENT_KEY preview        # event key expressia-dev
+      vercel env add INNGEST_SIGNING_KEY preview      # signing key expressia-dev
+    note: 'vercel env add é interactivo — pede o valor em stdin. @devops cola a key sem a logar.'
+  step_4b_redeploy:
+    title: '@devops: redeploy obrigatório'
+    estimate: '~3 min'
+    detail: 'Redeploy do último deploy production para o runtime Next.js ver os novos secrets.'
+  push_story_37:
+    title: '@devops: push Story 3.7'
+    estimate: '~10 min'
+    detail: |
+      Aplicar migration 0013 (pnpm --filter @meu-jarvis/db db:migrate),
+      re-correr os 5 quality gates, commit + push origin/main conforme o
+      pre-push checklist do handoff mj-handoff-3.7-architect-to-devops-push-20260520.
+  step_6_smoke_test:
+    title: '@devops + Eurico: smoke test do cron'
+    estimate: '~5 min'
+    detail: 'Runbook docs/runbooks/inngest-recurrences-runbook.md Step 2 — Invoke manual no dashboard Inngest, verificar Output JSON com counts.'
+
+next_action: |
+  EURICO: executar os Steps 1-3 do eurico_action_runbook acima
+  (~11 min activos + Step 0 DNS opcional ~10 min). Aceder a
+  https://app.inngest.com, criar 2 workspaces EU Frankfurt, gerar as 4
+  keys, e entregá-las ao @devops Gage de forma segura.
+
+  @DEVOPS GAGE (retoma): assim que o Eurico fornecer as 4 keys e/ou
+  confirmar provisioning:
+  1. Re-correr `*verify-eb4` para confirmar.
+  2. Correr os 4 `vercel env add` (Step 4) + redeploy (Step 4b).
+  3. Aplicar migration 0013 + re-correr 5 gates + `*push 3.7`.
+  4. Consumir ESTE handoff + o handoff de push architect→devops
+     (mj-handoff-3.7-architect-to-devops-push-20260520).
+  5. Smoke test pós-push (runbook inngest-recurrences-runbook.md Step 2).
+
+  Até lá: o handoff de push architect→devops permanece PENDING (não
+  consumir) — o push fica à espera. A Story 3.7 permanece em
+  docs/stories/active/ (Done mockable v1.3, ainda não pushed).
+
+caminho_de_retoma: |
+  Trigger de retoma = Eurico fornece as 4 keys Inngest OU confirma
+  provisioning do workspace EU. Nessa altura o @devops re-corre
+  `*verify-eb4`; se SATISFIED, executa o push num único passo.
+
+action_items:
+  eurico_immediate:
+    - 'Step 1: criar workspaces expressia-prod + expressia-dev EU Frankfurt (~5 min)'
+    - 'Step 2: gerar 4 keys (event + signing, prod + dev) (~3 min)'
+    - 'Step 2: entregar as 4 keys ao @devops Gage de forma segura (~1 min)'
+    - 'Step 3: registar endpoint Sync (~3 min — DEPOIS do @devops fazer Step 4)'
+    - 'Step 0 (opcional paralelo): configurar DNS expressia.pt (~10 min + propagação)'
+  devops_after_keys:
+    - 'Re-run *verify-eb4 para confirmar'
+    - 'vercel env add INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY (production + preview) — 4 comandos'
+    - 'Redeploy production'
+    - 'Aplicar migration 0013 + re-correr 5 gates + *push 3.7'
+    - 'Consumir este handoff + handoff push architect→devops'
+    - 'Smoke test runbook inngest-recurrences-runbook.md Step 2'
+
+files_referenced:
+  - 'docs/runbooks/inngest-setup.md (procedimento Steps 1-6 detalhado)'
+  - 'docs/runbooks/inngest-recurrences-runbook.md (smoke test pós-push Story 3.7)'
+  - 'docs/handoffs/mj-handoff-3.7-architect-to-devops-push-20260520.yaml (push pending — não consumir até EB4)'
+  - 'docs/handoffs/mj-handoff-eb4-verify-result-20260519.yaml (superseded por este handoff)'
+  - 'docs/stories/active/3.7.inngest-generate-recurring-tasks.story.md (Done mockable v1.3 — push à espera)'
+
+constitution_compliance:
+  - 'Article I CLI First: verificação 100% via CLI (vercel env ls, curl, vercel domains ls).'
+  - 'Article II Agent Authority: @devops exclusivo MCP/CI/deploy infra — provisioning de conta Inngest de terceiro + DNS de domínio delegados ao Eurico (browser auth pessoal, não automatizável).'
+  - 'Article IV No Invention: cada claim sustentado por output CLI tool fresco 2026-05-20.'
+
+constraints_applied:
+  - 'Constraint: NÃO push / NÃO PR (EB4 não satisfeito — pre-condição bloqueante).'
+  - 'Constraint: NUNCA logar/expor signing/event keys — apenas presence/absence verificada (ambas ABSENT).'
+  - 'Constraint: PT-PT estrito.'
+  - 'Constraint: L4-only — apenas docs/handoffs/ modificado (zero touch .aiox-core/).'
+
+confidence: high
+scope_risk: narrow
+not_tested: 'Smoke test do cron Inngest em produção (impossível sem workspace provisionado — pre-requisito EB4).'

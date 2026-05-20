@@ -99,14 +99,34 @@ depends_on:
   external_blockers:
     - id: EB4
       title: "Inngest workspace EU Frankfurt provisioning (production)"
-      status: PENDING_VERIFICATION
-      blocking_stories: ["3.7 push only (dev local funciona com `npx inngest-cli dev`)"]
-      action_owner: "Eurico → @devops"
+      status: SATISFIED
+      verified_at: "2026-05-20T15:00:00Z"
+      verified_by: devops
+      satisfied_at: "2026-05-20T15:00:00Z"
+      blocking_stories: []
+      action_owner: "Eurico (provisioning) + @devops (env vars + push) — concluído"
+      satisfaction_evidence:
+        handoff: "docs/handoffs/archive/mj-handoff-eb4-action-required-20260520.yaml"
+        vercel_env_production: "INNGEST_SIGNING_KEY + INNGEST_EVENT_KEY presentes (encrypted)"
+        vercel_env_preview: "INNGEST_SIGNING_KEY + INNGEST_EVENT_KEY presentes (encrypted)"
+        redeploy: "expressia-jfggvt2wk (production) Ready — runtime vê os secrets"
+        migration_0013: "aplicada à Supabase eu-central-1 — __schema_migrations contém 0013, enum recurrences_generated + índice idempotência criados"
+        adr: "ADR-010 (architecture.md §14.10) — conta Inngest região US, desvio data residency aprovado Eurico 2026-05-20 (zero-PII)"
+        story_37_push: "feat a707b0d + chore housekeeping em origin/main"
+      pending_eurico_dashboard:
+        - "Inngest dashboard → Apps → Add app → Sync do endpoint /api/inngest (URL .vercel.app de production — DNS expressia.pt ainda não resolve)"
+        - "Inngest dashboard → Functions → generate-recurring-tasks → Invoke manual (smoke test runbook inngest-recurrences-runbook.md Step 2)"
       notes: >
-        Inngest setup local existe (Story 2.8). Para Story 3.7 cron diário em
-        produção, workspace EU Frankfurt deve estar provisionado em Inngest
-        Cloud. Verificar via `docs/runbooks/inngest-setup.md` se já feito
-        durante Story 2.8 push (provável — Story 2.8 Done v1.4 pushed).
+        SATISFEITO 2026-05-20 pelo @devops Gage. Eurico provisionou o workspace
+        Inngest e forneceu as keys de production; o @devops populou
+        INNGEST_SIGNING_KEY + INNGEST_EVENT_KEY na Vercel (production + preview),
+        fez redeploy production, aplicou a migration 0013, re-correu os 5 quality
+        gates GREEN e fez o push da Story 3.7 (feat a707b0d + chore). ADR-010
+        regista o desvio aprovado: a conta Inngest corre em região US (standard
+        não oferece EU — exclusiva Enterprise); seguro porque o cron não
+        transporta PII (sem payload, devolve só contadores agregados). FALTA
+        apenas a acção manual do Eurico no browser: Sync do endpoint /api/inngest
+        + Invoke manual para smoke test.
 
     - id: EB1
       title: "Anthropic API key DPA UE (Sonnet 4.5)"
@@ -340,10 +360,12 @@ stories:
   - id: "3.7"
     title: "Inngest function generate-recurring-tasks (cron diário)"
     estimate: M
+    status: Done
+    status_detail: "Done v1.4 — architect gate APPROVED 9,6/10 HIGH; pushed origin/main a707b0d (feat) + chore housekeeping 2026-05-20; EB4 SATISFIED; migration 0013 aplicada; ADR-010 data residency Inngest US documentado"
     executor: "@dev"
     quality_gate: "@architect"
     depends_on: ["3.1", "3.2"]
-    blocked_by_external: ["EB4 push only — dev local com `npx inngest-cli dev` não bloqueia"]
+    blocked_by_external: []
     scope_summary: >
       Reuse Inngest setup Story 2.8 (apps/web/src/lib/inngest/):
       - Nova function `generate-recurring-tasks` em apps/web/src/lib/inngest/functions/

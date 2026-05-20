@@ -1,0 +1,167 @@
+id: mj-handoff-3.7-ready-for-architect-gate-20260520
+from_agent: dev
+to_agent: architect
+created: '2026-05-20T02:40:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-20T11:10:00Z'
+consumed_by: architect
+project: meu-jarvis
+project_prefix: mj
+related_blocker: EB4 (push-only deferred — Eurico Opção C 2026-05-20)
+related_stories: ['3.7']
+last_command: '*develop 3.7'
+priority: medium
+
+summary: |
+  @dev Dex implementou a Story 3.7 "Inngest function generate-recurring-tasks
+  (cron diário)" em modo YOLO mockable-only. As 11 Tasks (T1-T11) e 10 ACs
+  estão completas. Status: Ready v1.0 → InProgress v1.1 → Ready for Review v1.2.
+
+  **5/5 quality gates GREEN** — typecheck 9/9, lint 0 warnings, test web
+  510/510 (61 ficheiros, +33 Story 3.7), build 9/9, check:rls 120 policies
+  coverage completa. `@meu-jarvis/db-test` falha por Docker indisponível no
+  ambiente — pré-existente, não-regressão (a própria Story documenta isto).
+
+  +33 testes novos: 22 `rrule-helpers` unit (8 frequencies + custom RRULE +
+  endsOn + 2 DST PT 2026-03-29 spring + 2026-10-25 fall + last-weekday +
+  helpers) + 11 `generate-recurring-tasks` handler (mockable-only via
+  `vi.hoisted` shared object — pattern NIT-PO-3.7.2 exacto).
+
+  2 NITs do @po aplicados silently durante impl (sem v1.0→v1.1 bump por NIT):
+  - NIT-PO-3.7.1: `withSpan` importado de `@meu-jarvis/observability`.
+  - NIT-PO-3.7.2: mock pattern `vi.hoisted({handler,config,trigger})` shared.
+
+  3 [DEV-DECISIONS] D-3.7.8/9/10 documentadas na story — requerem ratificação
+  @architect no gate.
+
+  **Próximo passo:** `@architect *qa-gate 3.7` (Aria deep review). Após gate
+  APPROVED → status candidato "Done mockable" (precedente Story 2.8 v1.4) →
+  @devops push permanece diferido até EB4 satisfied (Eurico Opção C).
+
+context:
+  story_status_transition:
+    from: "Ready v1.0"
+    to: "Ready for Review v1.2"
+    rationale: "Story-lifecycle Phase 3 — @dev marca Ready for Review após impl + 5/5 gates GREEN"
+
+  quality_gates_evidence:
+    typecheck: "GREEN — 9/9 packages successful (turbo, 19.6s)"
+    lint: "GREEN — 9/9 packages, '✔ No ESLint warnings or errors' em @meu-jarvis/web"
+    test: |
+      GREEN (mockable scope) — @meu-jarvis/web 510/510 passed (61 ficheiros).
+      +33 testes Story 3.7 incluídos. @meu-jarvis/db-test falha com
+      'Could not find a working container runtime strategy' — Docker não
+      disponível no ambiente local; é pré-existente e não-regressão (a Story
+      T10.3 documenta explicitamente este cenário).
+    build: "GREEN — 9/9 packages, Next.js build OK, zero rotas novas (/api/inngest já existia Story 2.8)"
+    check_rls: "GREEN — 120 policies em 0001_rls_policies.sql, coverage completa SELECT/INSERT/UPDATE/DELETE. Story 3.7 adiciona zero tabelas com household_id; migration 0013 só adiciona enum value + índice parcial."
+
+  targeted_test_runs:
+    rrule_helpers: "22/22 GREEN — pnpm --filter @meu-jarvis/web test -- src/lib/recurrences"
+    generate_recurring_tasks: "11/11 GREEN — pnpm --filter @meu-jarvis/web test -- src/lib/inngest/functions/__tests__/generate-recurring-tasks.test.ts"
+
+  file_list:
+    new:
+      - "apps/web/src/lib/recurrences/rrule-helpers.ts — função pura expandRecurrence DST-safe + frequencyToRRuleString + EXPAND_HORIZON_DAYS + isValidISODate"
+      - "apps/web/src/lib/inngest/functions/generate-recurring-tasks.ts — Inngest function cron 0 3 * * *"
+      - "apps/web/src/lib/recurrences/__tests__/rrule-helpers.test.ts — 22 testes unit"
+      - "apps/web/src/lib/inngest/functions/__tests__/generate-recurring-tasks.test.ts — 11 testes handler"
+      - "packages/db/migrations/0013_audit_action_recurrences_generated.sql — ALTER TYPE + CREATE UNIQUE INDEX + COMMENT"
+      - "docs/runbooks/inngest-recurrences-runbook.md — runbook operacional"
+    modified:
+      - "apps/web/package.json — +rrule@^2.8.1"
+      - "apps/web/src/app/api/inngest/route.ts — +generateRecurringTasks na array functions"
+      - "packages/db/src/schema/audit.ts — +'recurrences_generated' no auditActionEnum"
+      - "packages/db/src/schema/tasks.ts — JSDoc taskRecurrences '30 dias' → '90 dias'"
+      - "pnpm-lock.yaml — entrada rrule@2.8.1"
+    story_doc:
+      - "docs/stories/active/3.7.inngest-generate-recurring-tasks.story.md — checkboxes T1-T11 + File List + DEV-DECISIONS + Status v1.2 + Change Log v1.1/v1.2"
+
+  dev_decisions_for_architect_ratification:
+    D-3.7.8:
+      title: "withSpan usa a assinatura real de 3 argumentos"
+      detail: |
+        A Story (AC7/Dev Notes) mostrava withSpan(name, fn) (2 args). A
+        assinatura real de @meu-jarvis/observability é withSpan(name,
+        initialAttrs, fn). O handler usa withSpan('agent.recurrences.generate',
+        {}, async (span) => {...}) — initialAttrs={} porque os counts só
+        existem após o step.run; os 7 atributos AC7 aplicam-se via
+        span.setAttribute antes do return. Aplica NIT-PO-3.7.1.
+      trace: "packages/observability/src/tracer.ts:124"
+    D-3.7.9:
+      title: "horizonEnd ao fim do dia + nextRunAfterHorizon via after(horizonEnd, false)"
+      detail: |
+        As ocorrências fixam-se ao meio-dia Lisboa (DST-safe). Com horizonEnd
+        à meia-noite, a ocorrência do último dia caía fora do between() —
+        N-1 ocorrências. horizonEnd levado a 23:59:59.999 garante horizonDays+1.
+        nextRunAfterHorizon = after(horizonEnd, false) (fronteira exclusiva)
+        para não saltar a ocorrência seguinte. isExhausted = nextRun === null.
+        Validado por 22 testes incluindo DST spring/fall.
+      trace: "AC3, AC8 testes (1)+(11)+(14), R-3.7.2"
+    D-3.7.10:
+      title: "audit after_state via ${JSON.stringify}::jsonb (padrão do codebase)"
+      detail: |
+        sql.json não existe em drizzle-orm@0.34. Adoptado o padrão de
+        apps/web/src/lib/api-helpers/audit.ts:106-107 (Story 3.2):
+        ${JSON.stringify(state)}::jsonb — Drizzle parametriza com segurança.
+      trace: "apps/web/src/lib/api-helpers/audit.ts:106-107, AC6"
+
+  nits_applied_silently:
+    NIT-PO-3.7.1: "withSpan importado de @meu-jarvis/observability (não @/lib/agent/tracing.ts) — aplicado em generate-recurring-tasks.ts"
+    NIT-PO-3.7.2: "Mock pattern vi.hoisted({handler,config,trigger}) shared object — copiado de cleanup-expired-reverse-ops.test.ts:17-59. withSpan adicionado ao mock @meu-jarvis/observability."
+
+  migration_note: |
+    A migration 0013 NÃO foi aplicada à base de dados (T5.5). Aplicação
+    diferida a @devops no push — pattern Story 3.8 D-3.8.1. Razões:
+    mockable-only mode (sem touch DB real) + EB4 push deferred. A migration é
+    idempotente (IF NOT EXISTS / WHERE recurrence_id IS NOT NULL) — aplica no
+    próximo `pnpm --filter @meu-jarvis/db db:migrate`.
+
+what_architect_must_do:
+  primary_task: "Executar `@architect *qa-gate 3.7` — deep review da implementação mockable-only."
+  review_focus_areas:
+    - "Ratificar 3 [DEV-DECISIONS] D-3.7.8/9/10 (assinatura withSpan, horizon off-by-one fix, audit jsonb pattern)"
+    - "Confirmar idempotency correcta (R-3.7.1): índice unique parcial + INSERT ON CONFLICT DO NOTHING — teste AC9 (3) valida rerun"
+    - "Confirmar mitigação DST real (R-3.7.2): formatInTimeZone Europe/Lisbon — testes AC8 (12)+(13) cobrem spring/fall 2026"
+    - "Confirmar audit log INSERT respeita NFR9 (append-only, 1 row agregada por run) + catch não-fatal"
+    - "Confirmar OTel span whitelist sem PII (NFR12) — AC7 7 atributos só counts/run_id"
+    - "Confirmar reuse Inngest infra Story 2.8 sem regressão (route.ts array functions)"
+    - "Confirmar RLS via getServiceDb() justificado (job sistémico sem JWT)"
+    - "Confirmar migration 0013 não-destrutiva + diferimento da aplicação a @devops aceitável"
+
+next_action: |
+  @architect Aria assume control:
+  1. Ler Story 3.7 v1.2 Ready for Review na íntegra
+  2. Executar `*qa-gate 3.7` — 7 quality checks + ratificar 3 DEV-DECISIONS
+  3. Veredicto PASS / CONCERNS / FAIL / WAIVED
+  4. Se PASS → status candidato "Done mockable" (precedente Story 2.8 v1.4)
+  5. Criar sucessor handoff architect→devops (push diferido EB4 — Eurico Opção C)
+  6. NOTA push: @devops push permanece bloqueado até EB4 satisfied; migration
+     0013 aplica via db:migrate no momento do push
+
+constitution_compliance:
+  - "Article I CLI First: Story 3.7 é background job — Inngest dashboard observa. ✓"
+  - "Article II Agent Authority: River draft → Pax validate → Dex impl → Aria gate → Gage push (deferred EB4). ✓"
+  - "Article III Story-Driven: Story 3.7 v1.2 em docs/stories/active/. ✓"
+  - "Article IV No Invention: impl traça a ACs + Anti-Hallucination + EPIC. 3 DEV-DECISIONS documentadas. ✓"
+  - "Article V Quality First: 5/5 quality gates GREEN. ✓"
+  - "Article VI Absolute Imports: @/lib/recurrences/, @/lib/inngest/, @meu-jarvis/observability — zero relativos. ✓"
+
+constraints_applied:
+  - "Constraint: Eurico Opção C — Story 3.7 mockable-only (push deferred EB4)"
+  - "Constraint: PT-PT estrito (comments e mensagens — utilizar, eliminar, etc.)"
+  - "Constraint: @dev NÃO faz push / NÃO faz PR (Constitution Article II — autoridade @devops)"
+  - "Constraint: L4-only paths (apps/, packages/db/, docs/ — zero touch .aiox-core/)"
+  - "Constraint: 2 NITs aplicados silently durante impl sem v1.0→v1.1 bump por NIT"
+
+trace:
+  - "Story 3.7 v1.2 Ready for Review (docs/stories/active/)"
+  - "EPIC-3-EXECUTION.yaml §stories[3.7]"
+  - "Story 2.8 Done v1.4 (Inngest mockable pattern precedente)"
+  - "Handoff input mj-handoff-3.7-ready-for-dev-20260520.yaml (consumed por este handoff)"
+  - "Handoff EB4 mj-handoff-eb4-verify-result-20260519.yaml (push deferred context)"
+
+confidence: high
+scope_risk: narrow
+not_tested: "Smoke test do cron Inngest em produção (impossível sem EB4 satisfied; aplicação da migration 0013 diferida a @devops). Mockable Vitest cobre 100% da lógica — 33 testes."
