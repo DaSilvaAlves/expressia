@@ -3,10 +3,11 @@ from_agent: any-orchestrator
 from_agent_persona: "Sessão multi-agente (Dex @dev → Aria @architect → Gage @devops) orquestrada por Claude"
 to_agent: any
 created: '2026-05-20T18:30:00Z'
-status: pending
-consumed: false
-consumed_at: null
-consumed_by: null
+status: consumed
+consumed: true
+consumed_at: '2026-05-20T21:35:00Z'
+consumed_by: devops (Gage)
+consumed_decision: "Eurico escolheu Opção A — @pm *create-epic Epic 4 (Finanças). Delegação preparada."
 type: session-pause-cross-terminal
 priority: low
 blocking: false
