@@ -58,7 +58,17 @@ export type TasksAuditAction =
   | 'transaction.deleted'
   | 'category.created'
   | 'category.updated'
-  | 'category.deleted';
+  | 'category.deleted'
+  // Story 4.4 Módulo Finanças — enum values JÁ presentes na DB (migration 0014,
+  // Story 4.1). Extensão puramente aditiva — sem migration nem feature flag.
+  // Prefixo `finance_recurrence.*` desambigua de `recurrence.*` (Tarefas,
+  // migration 0010). `installment.updated` deliberadamente omitido (DP-4.4.3 —
+  // prestações imutáveis, sem endpoint PATCH).
+  | 'finance_recurrence.created'
+  | 'finance_recurrence.updated'
+  | 'finance_recurrence.deleted'
+  | 'installment.created'
+  | 'installment.deleted';
 
 export interface AuditLogParams {
   readonly db: DbShim;
@@ -74,7 +84,9 @@ export interface AuditLogParams {
     | 'accounts'
     | 'cards'
     | 'transactions'
-    | 'categories';
+    | 'categories'
+    | 'recurrences'
+    | 'installments';
   readonly entityId?: string | null;
   readonly beforeState?: Record<string, unknown> | null;
   readonly afterState?: Record<string, unknown> | null;
