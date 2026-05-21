@@ -215,4 +215,28 @@ Total: 2S + 4M + 2L = 5-6 sprints (1 dev) OU 3-4 sprints (2 devs paralelo após 
 
 ---
 
-*Índice criado por River (@sm) em 2026-05-04. Actualizado 2026-05-20 com Story 3.7 Draft v1.0 (River @sm em mockable-only mode após Eurico decisão Opção C handoff EB4 — push diferido). Epic 3 = 7/8 Done (87.5%) + 1 Draft v1.0 — 3.1 (9.5) + 3.2 (9.3) + 3.3 (9.4) + 3.4 (9.3) + 3.5 (9.2) + 3.6 (9.1) + 3.8 (9.5) Done; 3.7 Draft v1.0 aguarda @po validate. Story 3.7 fechará como **"Done mockable"** (precedente Story 2.8 v1.4) — push permanece bloqueado até EB4 satisfied numa sessão futura quando Eurico provisionar Inngest workspace EU Frankfurt + DNS expressia.pt. Toda a implementação deve seguir o Story Development Cycle: @sm draft → @po validate → @dev develop → @architect gate → @devops push.*
+## Stories da Epic 4 — Módulo Finanças
+
+**Plan completo:** `docs/epics/epic-4-modulo-financas.md` v1.0 (Morgan @pm, 2026-05-20 — Validated, 8 DPs ratificadas por Eurico).
+**Epic Goal:** Finanças completas — variáveis, recorrentes, cartões com fatura, prestações, património por banco, vista mensal com projecção 30 dias, e tools do cérebro AI integradas. Tudo em EUR formato PT-PT. Ver PRD §2.1 FR13-FR19 + epic doc.
+
+**Cross-confirm anti-hallucination (sessões @pm + @sm + @po 2026-05-20/21):** schema das 6 tabelas (`accounts`/`cards`/`categories`/`recurrences`/`installments`/`transactions`) em `packages/db/src/schema/finance.ts` **JÁ COMPLETO** desde a Story 1.3; 24 RLS policies em `0001_rls_policies.sql:441-551` **JÁ COMPLETO**; 7 enums Postgres **definidos**; seed de categorias PT-PT `migrations/seeds/0001_default_categories.sql` **aplicado**; intents de Finanças no enum `agent_intent` **presentes**. Story 4.1 redefinida — NÃO cria schema, valida-o + estende audit + reconcilia docs.
+
+| Story | Ficheiro | Título | Status | Owner | Estimate | Bloqueadores |
+|-------|---------|--------|--------|-------|----------|-------------|
+| 4.1 | [4.1.finance-schema-validation.story.md](../completed/4.1.finance-schema-validation.story.md) | Validação Schema Finanças + Audit Actions Migration + RLS Gate | **Done v1.3** ✓ pushed | @sm → @po → @dev → @architect → @devops | S | **2026-05-21 — `@po *validate-story-draft 4.1` GO 10/10 — Status Draft v1.0 → Ready v1.1.** 10-point checklist perfeito + cross-confirm anti-hallucination 7 fontes (zero hallucinations). 2 achados AC10 ratificados (parity enum recorrência → PASS-com-nota; naming `finance_recurrence.*` aprovado). Scope migration 0014 aprovado (17 audit actions). 2 PO_FIX_INLINE: F1 (AC1 FR17 — saldo agregado computado DP1=A) + F2 (AC5 — validação do seed de categorias, gap Epic §3 IN). Sem bloqueador externo. Sucessor: `mj-handoff-4.1-ready-for-dev-20260521.yaml`. |
+| 4.2 | _(a criar — `@sm *draft 4.2`)_ | API routes — `accounts` + `cards` | Backlog | @sm → @po → @dev → @architect → @devops | M | Depende de 4.1 |
+| 4.3 | _(a criar)_ | API routes — `transactions` variáveis + `categories` | Backlog | @sm → @po → @dev → @architect → @devops | M | Depende de 4.2 |
+| 4.4 | _(a criar)_ | API routes — `recurrences` + `installments` | Backlog | @sm → @po → @dev → @architect → @devops | M | Depende de 4.3 |
+| 4.5 | _(a criar)_ | Geração automática — cron Inngest Finanças | Backlog | @sm → @po → @dev → @architect → @devops | M | Depende de 4.4 |
+| 4.6 | _(a criar)_ | Vista "Este mês" — agregações + projecção 30d | Backlog | @sm → @po → @dev → @architect → @devops | L | Depende de 4.3, 4.4 |
+| 4.7 | _(a criar)_ | Vistas "Variáveis" + "Recorrentes" | Backlog | @sm → @po → @dev → @architect → @devops | M | Depende de 4.3, 4.4 |
+| 4.8 | _(a criar)_ | Vista "Cartões" — fatura e prestações | Backlog | @sm → @po → @dev → @architect → @devops | M | Depende de 4.4 |
+| 4.9 | _(a criar)_ | Vista "Património" — balanço por conta | Backlog | @sm → @po → @dev → @architect → @devops | M | Depende de 4.2, 4.3 |
+| 4.10 | _(a criar)_ | Tools do cérebro Finanças | Backlog | @sm → @po → @dev → @architect → @devops | L | Depende de 4.2, 4.3, 4.4 |
+
+**Epic 4 Progress: 1/10 Done — Story 4.1 Done v1.3 pushed 2026-05-21 (`@architect *qa-gate 4.1` APPROVED 9.5/10 HIGH — empata Stories 3.1/3.8; 10/10 ACs · 5/5 gates GREEN · migration 0014 aplicada Supabase production · +11 testes RLS · gate report `docs/qa/gates/4.1-architect-gate.md`). Próximo: `@sm *draft 4.2` (API routes accounts + cards).**
+
+---
+
+*Índice criado por River (@sm) em 2026-05-04. Actualizado 2026-05-21 com a secção Epic 4 — Módulo Finanças (10 stories do `epic-4-modulo-financas.md` v1.0) + Story 4.1 Ready v1.1 (`@po *validate-story-draft 4.1` GO 10/10). Histórico: 2026-05-20 com Story 3.7 Draft v1.0 (River @sm em mockable-only mode após Eurico decisão Opção C handoff EB4 — push diferido). Epic 3 = 7/8 Done (87.5%) + 1 Draft v1.0 — 3.1 (9.5) + 3.2 (9.3) + 3.3 (9.4) + 3.4 (9.3) + 3.5 (9.2) + 3.6 (9.1) + 3.8 (9.5) Done; 3.7 Draft v1.0 aguarda @po validate. Story 3.7 fechará como **"Done mockable"** (precedente Story 2.8 v1.4) — push permanece bloqueado até EB4 satisfied numa sessão futura quando Eurico provisionar Inngest workspace EU Frankfurt + DNS expressia.pt. Toda a implementação deve seguir o Story Development Cycle: @sm draft → @po validate → @dev develop → @architect gate → @devops push.*

@@ -1,0 +1,104 @@
+id: mj-handoff-epic4-planning-ready-for-validation-20260520
+from_agent: pm
+to_agent: any
+created: '2026-05-20T23:45:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-21T00:30:00Z'
+consumed_by: sm
+project: meu-jarvis
+project_prefix: mj
+story_id: 'Epic 4'
+last_command: '*create-epic Epic 4'
+priority: medium
+
+summary: |
+  @pm Morgan criou o documento de planeamento do Epic 4 (Módulo Finanças) em
+  docs/epics/epic-4-modulo-financas.md (v0.1 Draft, ~10 stories alta-nível).
+  Decisão do Eurico que originou o trabalho: handoff consumido
+  mj-handoff-session-pause-post-3.7-done-20260520 — Opção A (avançar Epic 4).
+  Epic 3 (Tarefas) 8/8 Done; Epic 4 é o próximo módulo do MVP Fase 1.
+
+  ACHADO DE PLANEAMENTO QUE REDEFINIU O SCOPE: o PRD §6 Epic 4 sugeria a
+  Story 4.1 como "criar schema de accounts/cards/transactions/recurrences/
+  installments/categories". Verificação contra o codebase real (2026-05-20)
+  confirma que esse schema JÁ FOI MATERIALIZADO na Story 1.3 — as 6 tabelas
+  existem em packages/db/src/schema/finance.ts (435 linhas), as 24 RLS
+  policies estão em 0001_rls_policies.sql, os 7 enums Postgres estão
+  definidos, e as categorias default PT-PT estão seeded. Os intents de
+  Finanças (criar_financa_variavel/recorrente, criar_cartao, criar_parcelada,
+  consultar_dados) já estão no enum agent_intent. O que NÃO existe e é o
+  trabalho real do Epic 4: API routes /api/financas/*, páginas (app)/financas/*,
+  tools de Finanças em packages/agent/src/tools/, e o job Inngest de geração
+  de recorrências/prestações. A Story 4.1 foi por isso reduzida de "criar
+  schema" para "validar schema + reconciliação documental".
+
+eurico_validation: |
+  UPDATE 2026-05-20: As 8 decisões pendentes §8 foram validadas pelo Eurico
+  na mesma sessão — aceitou integralmente as 8 recomendações preliminares
+  (DP1=A recompute on-read · DP2=C híbrido · DP3=B navegação livre ·
+  DP4=A só o dia · DP5=A incluir query_finance_summary · DP6=A Story 4.1
+  corrige · DP7=A fatura on-the-fly · DP8=A prestações na criação).
+  Documento do epic actualizado para v1.0 (Validated). §8 reescrita com a
+  decisão validada como fonte de verdade. Bloqueio de planeamento levantado.
+
+next_action: |
+  Próximo passo único e autorizado: `@sm *draft 4.1` — drafting da Story 4.1
+  (Validação schema Finanças + reconciliação documental db-schema.md §4.6 +
+  audit actions migration). Estimate S, warm-up do epic, sem dependências
+  externas. As 8 DPs já estão validadas — o @sm consome o epic doc v1.0.
+
+  Alternativa: `@pm *execute-epic` — criar EPIC-4-EXECUTION.yaml e orquestrar
+  o epic em modo wave-based (precedente EPIC-2/EPIC-3-EXECUTION.yaml).
+
+context:
+  epic_doc: docs/epics/epic-4-modulo-financas.md
+  epic_doc_status: 'Validated v1.0 — 8 DPs validadas Eurico 2026-05-20; pronto para @sm *draft 4.1'
+  branch: main
+  prd_ref: docs/prd.md §5 + §6 Epic 4 (linhas 231, 315-336)
+  related_docs:
+    - docs/db-schema.md §4.6 (Finanças — TEM DISCREPÂNCIA: diz numeric(14,2), real é integer cents)
+    - docs/architecture.md §3.1 (grupo Finanças), §4.3 (toolRegistry), §8.1 (rotas financas/*)
+    - packages/db/src/schema/finance.ts (schema real, 435 linhas)
+    - packages/db/migrations/0001_rls_policies.sql:441-533 (RLS Finanças)
+  precedent_epics:
+    - docs/epics/epic-2-cerebro-ai-multi-intent.md (formato seguido)
+    - docs/epics/EPIC-2-EXECUTION.yaml
+    - docs/epics/EPIC-3-EXECUTION.yaml
+
+epic_4_summary:
+  total_stories: 10
+  estimates: '1×S, 6×M, 2×L'
+  stories:
+    - { id: '4.1', title: 'Validação schema Finanças + reconciliação documental', estimate: S }
+    - { id: '4.2', title: 'API routes accounts + cards', estimate: M }
+    - { id: '4.3', title: 'API routes transactions variáveis + categories', estimate: M }
+    - { id: '4.4', title: 'API routes recurrences + installments', estimate: M }
+    - { id: '4.5', title: 'Geração automática — cron Inngest Finanças', estimate: M }
+    - { id: '4.6', title: 'Vista Este mês — agregações + projecção 30d', estimate: L }
+    - { id: '4.7', title: 'Vistas Variáveis + Recorrentes', estimate: M }
+    - { id: '4.8', title: 'Vista Cartões — fatura e prestações', estimate: M }
+    - { id: '4.9', title: 'Vista Património — balanço por conta', estimate: M }
+    - { id: '4.10', title: 'Tools do cérebro Finanças', estimate: L }
+
+decisions_pending_for_eurico:
+  - { id: DP1, tema: 'Saldo de conta — stored vs computed', recomendacao: 'A (recompute on-read)' }
+  - { id: DP2, tema: 'Projecção 30d — materializada vs on-the-fly', recomendacao: 'C (híbrido: prestações materializadas, recorrências on-the-fly)' }
+  - { id: DP3, tema: 'Vista mensal — meses navegáveis', recomendacao: 'B (navegação livre)' }
+  - { id: DP4, tema: 'Cron — horizonte de materialização recorrências', recomendacao: 'A (só o dia, alinha Story 3.7)' }
+  - { id: DP5, tema: 'query_finance_summary no MVP', recomendacao: 'A (incluir — FR5)' }
+  - { id: DP6, tema: 'Reconciliação db-schema.md §4.6', recomendacao: 'A (Story 4.1 corrige)' }
+  - { id: DP7, tema: 'Fatura cartão — on-the-fly vs tabela dedicada', recomendacao: 'A (on-the-fly)' }
+  - { id: DP8, tema: 'Prestações — gerar transactions na criação vs cron', recomendacao: 'A (na criação, atómico)' }
+
+carry_over_low:
+  - 'NIT-DEVOPS-3.8.1 — bump prompts classifier/planner v2 com menção explícita dos intents Story 3.8; pode ser absorvido na Story 4.10 (que já bump os prompts para incluir tools Finanças).'
+  - 'PERF-001 — G1.1 EXPLAIN ANALYZE deferred staging (Story 1.7 backlog).'
+  - 'TEST-001 — calendar page.test.tsx flaky (Story 3.5 carry-over).'
+  - 'DNS-001 — runbook DNS expressia.pt (commit fd1530f — não bloqueia Epic 4).'
+
+notes_for_next_agent:
+  - 'Sem bloqueador externo novo. Keys LLM + infra Inngest já provisionadas (Epics 2/3). O cron de Finanças adiciona-se ao endpoint /api/inngest existente.'
+  - 'Working tree: apenas docs/marketing/edit/ untracked (binários marketing, fora de escopo). Este handoff + o epic doc são os únicos ficheiros novos desta sessão.'
+  - 'Authority: a criação de stories é exclusiva do @sm (rule agent-authority.md). @pm criou o epic; @sm faz o *draft. EPIC-4-EXECUTION.yaml (se via opção B) é exclusivo do @pm.'
+  - 'O documento do epic é Draft planning-only — NÃO detalhar stories antes da validação Eurico §8.'

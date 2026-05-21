@@ -1,0 +1,91 @@
+id: mj-handoff-4.1-ready-for-po-20260520
+from_agent: sm
+to_agent: po
+created: '2026-05-21T00:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-21T01:15:00Z'
+consumed_by: po
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.1'
+last_command: '*draft 4.1'
+priority: medium
+
+summary: |
+  @sm River executou `*draft 4.1` e criou a Story 4.1 do Epic 4 (Módulo
+  Finanças): "Validação Schema Finanças + Audit Actions Migration + RLS Gate".
+  Story file: docs/stories/active/4.1.finance-schema-validation.story.md
+  v1.0 Draft. Estimate S. Drafted seguindo o precedente directo da Story 3.1
+  (schema-validation de Tarefas, @architect APPROVED 9.5/10) — mesmo perfil
+  DB-pure: validation + migration enum + RLS tests + reconciliação documental.
+
+  CONTEXTO QUE DEFINE O ESTIMATE S: o schema Finanças (6 tabelas accounts/
+  cards/categories/recurrences/installments/transactions, 435 linhas em
+  packages/db/src/schema/finance.ts) + 24 RLS policies (0001_rls_policies.sql
+  441-551) + 7 enums + seed de categorias JÁ EXISTEM desde a Story 1.3. A
+  Story 4.1 NÃO cria schema — valida-o, estende o enum audit_action, prova
+  isolation cross-household e reconcilia a documentação.
+
+  Cross-confirm anti-hallucination feito pelo @sm contra o codebase real
+  (Read + grep 2026-05-20): finance.ts ranges das 6 tabelas, 0001 line
+  numbers das 24 policies, audit.ts enum (termina em recurrences_generated
+  linha 80). 10 ACs + 6 Tasks/Subtasks.
+
+  2 ACHADOS DE VALIDAÇÃO surgidos no draft (AC10, requerem ratificação @po):
+  (a) Parity do enum recurrence_freq_finance — não tem weekdays/weekends
+  explícitos que o enum de Tarefas tem; recomendação preliminar PASS-com-nota
+  (custom+customRrule cobre, FR14 não exige enum idêntico).
+  (b) Colisão de naming — recurrence.created/updated/deleted JÁ EXISTEM no
+  enum desde a Story 3.2 (para task_recurrences); as audit actions de
+  recorrência financeira usam prefixo finance_recurrence.* para desambiguar.
+
+next_action: |
+  `@po *validate-story-draft 4.1` — validação 10-point checklist + cross-confirm
+  anti-hallucination. Pontos de atenção para o @po:
+
+  1. Ratificar os 2 achados AC10 (parity enum recorrência + naming
+     finance_recurrence.*). São [SM_FLAG] — decisão consciente necessária.
+  2. Confirmar o scope da migration 0014: 17 audit actions de Finanças
+     (CRUD de account/card/category/transaction + finance_recurrence.* +
+     installment.created/deleted). A audit action do cron de Finanças é
+     deferida para a Story 4.5 (AC2c) — confirmar que o @po concorda.
+  3. installment.updated foi OMITIDO (DP8=A — prestações imutáveis após
+     criação). Confirmar.
+  4. _INDEX.md ainda não tem secção Epic 4 — o @po adiciona durante a
+     validation (precedente Story 3.1, File List).
+
+  Após @po GO → handoff po→dev para `@dev *develop 4.1` (YOLO mockable-friendly
+  se Docker offline, precedente Stories 3.1-3.8).
+
+context:
+  story_path: docs/stories/active/4.1.finance-schema-validation.story.md
+  story_status: 'Draft v1.0'
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  branch: main
+  estimate: S
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-epic4-planning-ready-for-validation-20260520.yaml
+
+anti_hallucination_sources:
+  - 'packages/db/src/schema/finance.ts — 6 tabelas: accounts 82-114, cards 123-168, categories 184-217, recurrences 232-279, installments 294-338, transactions 358-431'
+  - 'packages/db/migrations/0001_rls_policies.sql:441-551 — 24 policies (accounts/cards DELETE variant owner_admin; categories SELECT variant global_or_member)'
+  - 'packages/db/src/schema/audit.ts:28-81 — enum auditActionEnum actual termina em recurrences_generated'
+  - 'docs/db-schema.md:164 + :346 — 2 referências numeric(14,2) a corrigir (DP6=A)'
+  - 'docs/prd.md §2.1 FR13-FR19 (linhas 55-62)'
+
+story_summary:
+  acs: 10
+  tasks: 6
+  files_new_expected:
+    - 'packages/db/migrations/0014_finance_audit_actions.sql'
+    - 'test files RLS Finanças em packages/db-test/src/tests/ (NEW ou EXTEND)'
+  files_modified_expected:
+    - 'packages/db/src/schema/audit.ts (enum estendido)'
+    - 'docs/db-schema.md (linhas 164 + 346)'
+    - 'docs/stories/active/_INDEX.md (secção Epic 4 — @po)'
+
+notes_for_next_agent:
+  - 'Story DB-pure — zero alterações apps/web/ ou packages/agent/. Mesmo perfil da Story 3.1.'
+  - 'Sem bloqueador externo. EB1/EB2/EB4 RESOLVED, EB3 não relevante.'
+  - 'Working tree: docs/marketing/edit/ untracked (fora de escopo). Ficheiros desta sessão: epic doc, story 4.1, 2 handoffs, edições HANDOFF-INDEX.'
+  - 'Migration 0014 é a próxima na sequência (gap 0004 cosmético pre-documentado Story 3.1).'

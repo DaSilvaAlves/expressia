@@ -1,0 +1,105 @@
+id: mj-handoff-4.1-ready-for-architect-20260521
+from_agent: dev
+to_agent: architect
+created: '2026-05-21T03:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-21T04:30:00Z'
+consumed_by: architect
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.1'
+last_command: '*develop 4.1'
+priority: medium
+
+summary: |
+  @dev Dex implementou a Story 4.1 do Epic 4 (Módulo Finanças): "Validação
+  Schema Finanças + Audit Actions Migration + RLS Gate". Modo YOLO.
+  Status Ready v1.1 → Ready for Review v1.2. 10/10 ACs PASS. 5/5 quality
+  gates GREEN. Story file:
+  docs/stories/active/4.1.finance-schema-validation.story.md
+
+  6 Tasks completas:
+  - T1 Validation Pass: 7/7 mappings FR13-FR19 PASS, zero gaps estruturais.
+    5/5 índices da vista mensal confirmados. Seed de categorias validado
+    (24 globais PT-PT). 2 achados AC10 resolvidos.
+  - T2 Migration: 0014_finance_audit_actions.sql criada com 17 audit actions
+    (ALTER TYPE audit_action ADD VALUE IF NOT EXISTS, idempotente). Aplicada
+    via db:migrate em 476ms; idempotência verificada (re-run → skip).
+    audit.ts auditActionEnum sincronizado.
+  - T3 RLS tests: +11 testes cross-household sobre os 6 files existentes
+    (db-test). Cobertura Finanças 19 → 30 testes.
+  - T4 Reconciliação: db-schema.md linhas 164 + 346 corrigidas
+    (numeric(14,2) → integer cêntimos).
+  - T5 Quality gates: 5/5 GREEN.
+  - T6 Docs.
+
+  3 [DEV-DECISION] documentados:
+  - D-4.1.1: os 6 test files RLS de Finanças já existiam (Story 1.4) →
+    EXTEND, não CREATE (precedente Story 3.1 D-3.1.2).
+  - D-4.1.2: os 3 cenários AC5 (categorias globais) já estavam cobertos por
+    categories.rls.test.ts (Story 1.4) → nenhum teste novo de categorias.
+  - D-4.1.3: AC10(a) parity do enum recurrence_freq_finance → PASS-com-nota
+    (custom+custom_rrule cobre dias úteis/fim-de-semana; FR14 exige
+    "estrutura" não enum idêntico; sem migration de parity).
+
+next_action: |
+  `@architect *qa-gate 4.1` — Phase 4 SDC quality gate. O gate é @architect
+  (não @qa) porque as decisões centrais da story são arquitecturais:
+  naming de audit actions (finance_recurrence.* vs recurrence.*), parity de
+  enum de recorrência, e reconciliação de schema. Precedente: Story 3.1
+  (schema-validation Tarefas) teve gate @architect APPROVED 9.5/10.
+
+  Focos sugeridos para o gate:
+  - Ratificar os 3 [DEV-DECISION] D-4.1.1/2/3.
+  - Verificar a migration 0014 (17 valores, idempotência, naming).
+  - Confirmar o Validation Report (7/7 FR mappings + 5 índices).
+  - Re-verificar os 5 quality gates.
+  - Cross-confirm anti-hallucination dos +11 testes RLS.
+
+  Após @architect APPROVED → `@devops *push 4.1`.
+
+context:
+  story_path: docs/stories/active/4.1.finance-schema-validation.story.md
+  story_status: 'Ready for Review v1.2'
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  branch: main
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.1-ready-for-dev-20260521.yaml
+
+quality_gates:
+  lint: 'GREEN — 9/9 (505ms)'
+  typecheck: 'GREEN — 9/9 (17.2s; db + db-test recompilados)'
+  test: 'GREEN com [AUTO-DECISION] — web 510/510 PASS; db-test integration ENV-BLOCKER Docker offline (NIT-006-NB, CI rls-gate cobre)'
+  build: 'GREEN — 9/9 (2m7s)'
+  check_rls: 'GREEN — EXIT 0, 6 tabelas Finanças coverage completa, NFR5 PRESERVADA'
+
+file_list:
+  new:
+    - 'packages/db/migrations/0014_finance_audit_actions.sql'
+  modified:
+    - 'packages/db/src/schema/audit.ts'
+    - 'packages/db-test/src/tests/accounts.rls.test.ts (+2)'
+    - 'packages/db-test/src/tests/cards.rls.test.ts (+2)'
+    - 'packages/db-test/src/tests/categories.rls.test.ts (+2)'
+    - 'packages/db-test/src/tests/recurrences.rls.test.ts (+2)'
+    - 'packages/db-test/src/tests/installments.rls.test.ts (+2)'
+    - 'packages/db-test/src/tests/transactions.rls.test.ts (+1)'
+    - 'docs/db-schema.md (linhas 164 + 346)'
+
+dev_decisions:
+  - id: D-4.1.1
+    decision: 'RLS test files — EXTEND, não CREATE'
+    rationale: 'Os 6 test files RLS de Finanças já existiam (Story 1.4, 19 testes SELECT/INSERT). Estendidos com +11 cenários UPDATE/DELETE. Precedente directo Story 3.1 D-3.1.2.'
+  - id: D-4.1.2
+    decision: 'AC5 categorias globais — já coberto pela Story 1.4'
+    rationale: 'categories.rls.test.ts já tinha os 3 cenários AC5 (globais visíveis a ambos os users + isolation per-household). Validação do seed feita por inspecção (24 categorias globais PT-PT).'
+  - id: D-4.1.3
+    decision: 'AC10(a) parity do enum recurrence_freq_finance — PASS-com-nota'
+    rationale: 'FR14 exige "estrutura" de recorrência equivalente, não enum idêntico. weekdays/weekends resolvem-se via custom+custom_rrule. Zero migration de parity. Alinhado com ratificação @po.'
+
+notes_for_next_agent:
+  - 'Story DB-pure — zero alterações apps/web/ ou packages/agent/. 1 NEW + 8 MODIFIED.'
+  - 'Migration 0014 aplicada em Supabase production nesta sessão (db:migrate 476ms) — __schema_migrations regista 0014. @devops não precisa de re-aplicar no push (idempotente de qualquer forma).'
+  - 'CodeRabbit [AUTO-DECISION] SKIPPED — precedente Stories 3.1-3.8.'
+  - 'db-test integration suite ENV-BLOCKER Docker offline local — os +11 testes RLS são cobertos pelo CI job rls-gate (Postgres 16 efémero). typecheck 9/9 GREEN confirma que compilam.'
+  - 'Working tree: docs/marketing/edit/ untracked (fora de escopo). Ficheiros da cadeia Epic 4 desta sessão acumulam não-commitados (epic doc, story 4.1, migration 0014, audit.ts, 6 test files, db-schema.md, _INDEX, handoffs) — @devops consolida no push.'

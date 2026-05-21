@@ -1,0 +1,105 @@
+id: mj-handoff-4.1-architect-to-devops-push-20260521
+from_agent: architect
+to_agent: devops
+created: '2026-05-21T04:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-21T05:30:00Z'
+consumed_by: devops
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.1'
+last_command: '*qa-gate 4.1'
+priority: medium
+
+summary: |
+  @architect Aria executou o gate Phase 4 SDC da Story 4.1 (Epic 4 — Módulo
+  Finanças): "Validação Schema Finanças + Audit Actions Migration + RLS Gate".
+  Veredicto: APPROVED 9.5/10 HIGH confidence (empata Stories 3.1 e 3.8,
+  recordistas do Epic 3). Status Ready for Review v1.2 → Done v1.3.
+
+  Gate report: docs/qa/gates/4.1-architect-gate.md.
+  5/5 quality gates re-verificados independentemente. 10/10 ACs PASS.
+  Cross-confirm anti-hallucination 8 fontes — zero hallucinations.
+  3/3 [DEV-DECISION] D-4.1.1/2/3 ratificadas. Constitution 6/6 PASS.
+  1 concern LOW non-blocking (db-test ENV-BLOCKER Docker — CI cobre).
+
+next_action: |
+  `@devops *push 4.1` — consolidar e fazer push para origin/main (Phase 5 SDC).
+
+  Conteúdo a pushar (cadeia completa Epic 4 + Story 4.1, non-pushed):
+  - docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  - docs/stories/active/4.1.finance-schema-validation.story.md (v1.3 Done)
+  - packages/db/migrations/0014_finance_audit_actions.sql (NEW)
+  - packages/db/src/schema/audit.ts (MODIFIED — 17 audit actions)
+  - packages/db-test/src/tests/{accounts,cards,categories,recurrences,
+    installments,transactions}.rls.test.ts (6 MODIFIED — +11 testes RLS)
+  - docs/db-schema.md (MODIFIED — reconciliação numeric→integer cents)
+  - docs/stories/active/_INDEX.md (MODIFIED — secção Epic 4)
+  - docs/HANDOFF-INDEX.md (MODIFIED)
+  - docs/handoffs/ — handoffs da cadeia (pending: este; archive: epic4-planning,
+    4.1-ready-for-po, 4.1-ready-for-dev, 4.1-ready-for-architect)
+
+  Housekeeping post-push obrigatório:
+  - `git mv docs/stories/active/4.1.finance-schema-validation.story.md
+    docs/stories/completed/`
+  - Actualizar `_INDEX.md` — row 4.1 path active→completed
+  - Arquivar este handoff (consumed) + actualizar HANDOFF-INDEX
+
+  Após push → Epic 4 fica 1/10 Done. Próximo: `@sm *draft 4.2` (API routes
+  accounts + cards).
+
+context:
+  story_path: docs/stories/active/4.1.finance-schema-validation.story.md
+  story_status: 'Done v1.3'
+  gate_report: docs/qa/gates/4.1-architect-gate.md
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  branch: main
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.1-ready-for-architect-20260521.yaml
+
+gate_verdict:
+  result: APPROVED
+  score: 9.5
+  confidence: HIGH
+  acs_pass: '10/10'
+  quality_gates: '5/5 GREEN'
+  constitution: '6/6 PASS'
+  dev_decisions_ratified: 'D-4.1.1, D-4.1.2, D-4.1.3'
+  concerns:
+    - id: CONCERN-1
+      severity: LOW
+      blocking: false
+      description: 'db-test integration suite não corrida localmente (ENV-BLOCKER Docker offline NIT-006-NB). CI rls-gate cobre os 24 cenários RLS. Os +11 testes seguem o pattern proven dos files existentes.'
+
+push_notes:
+  migration_0014: |
+    A migration 0014_finance_audit_actions.sql JÁ FOI APLICADA em Supabase
+    production nesta sessão (db:migrate 476ms; __schema_migrations regista
+    0014). Idempotente (ALTER TYPE ADD VALUE IF NOT EXISTS) — re-aplicar é
+    seguro mas desnecessário. CI rls-gate aplica-a ao Postgres efémero.
+  coderabbit: '[AUTO-DECISION] SKIPPED expected — precedente Stories 3.1-3.8 (story pequena DB-pure, gate architect substitui review automatizado).'
+  ci_expectation: |
+    CI cloud deve ficar 3/3 GREEN (Quality + RLS Coverage Gate + Build).
+    A migration 0014 só altera o enum audit_action — zero impacto em testes
+    existentes. Os +11 testes RLS correm no job rls-gate (Postgres 16 efémero
+    + Testcontainers). NÃO há alteração ao enum agent_intent (lição
+    NIT-DEVOPS-3.8.1 não se aplica aqui — audit_action é independente).
+
+file_list:
+  new:
+    - 'packages/db/migrations/0014_finance_audit_actions.sql'
+  modified:
+    - 'packages/db/src/schema/audit.ts'
+    - 'packages/db-test/src/tests/accounts.rls.test.ts'
+    - 'packages/db-test/src/tests/cards.rls.test.ts'
+    - 'packages/db-test/src/tests/categories.rls.test.ts'
+    - 'packages/db-test/src/tests/recurrences.rls.test.ts'
+    - 'packages/db-test/src/tests/installments.rls.test.ts'
+    - 'packages/db-test/src/tests/transactions.rls.test.ts'
+    - 'docs/db-schema.md'
+
+notes_for_next_agent:
+  - 'Story DB-pure — 1 NEW + 8 MODIFIED. Zero alterações apps/web/ ou packages/agent/.'
+  - 'Esta sessão fechou a cadeia completa Epic 4 numa conversa: @pm create-epic → @sm draft 4.1 → @po validate → @dev develop → @architect gate. @devops fecha com o push.'
+  - 'Working tree também tem docs/marketing/edit/ untracked (binários marketing, fora de escopo — Eurico decide separadamente).'
+  - 'Conventional commit sugerido: feat(db) para a migration+schema+tests, ou feat(finance) — referência [Story 4.1]. Trailers Constraint/Confidence/Scope-risk aplicáveis.'
