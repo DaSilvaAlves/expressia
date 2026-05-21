@@ -1,0 +1,86 @@
+id: mj-handoff-4.4-push-architect-to-devops-20260521
+from_agent: architect
+to_agent: devops
+created: '2026-05-21T23:55:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-22T00:30:00Z'
+consumed_by: devops
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.4'
+last_command: '*qa-gate 4.4'
+priority: medium
+
+summary: |
+  @architect Aria executou o quality gate da Story 4.4 do Epic 4 (Módulo
+  Finanças): "API routes CRUD recurrences + installments (auth + RLS)".
+  Veredicto PASS — APPROVED 9,4/10 (HIGH confidence).
+
+  12/12 ACs PASS · 3/3 [DEV-DECISION] ratificadas (D-4.4.1/2/3) · Constitution
+  6/6 · zero hallucinations. Verificação independente: `check:rls`+`typecheck`
+  re-corridos GREEN; `grep getServiceDb` 0 matches; cross-confirm de schema
+  contra finance.ts:232-431. 1 concern LOW non-blocking (NIT-AR-4.4.1 —
+  rollback da geração atómica não coberto pelo pattern mockable).
+
+  Story status Ready for Review v1.2 → Done v1.3. Gate report:
+  docs/qa/gates/4.4-architect-gate.md
+
+next_action: |
+  `@devops *push 4.4` — consolidar e fazer push para origin/main. Commit
+  conventional `feat(financas): Story 4.4 — API routes CRUD recurrences +
+  installments [Story 4.4]`. Após push: `git mv` da story para
+  docs/stories/completed/, arquivar handoffs consumidos, actualizar
+  _INDEX.md + HANDOFF-INDEX.md.
+
+context:
+  story_path: docs/stories/active/4.4.finance-api-recurrences-installments.story.md
+  story_status: 'Done v1.3'
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  branch: main
+  gate_report: docs/qa/gates/4.4-architect-gate.md
+  gate_verdict: 'PASS — APPROVED 9,4/10 HIGH'
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.4-review-for-architect-20260521.yaml
+
+quality_gates:
+  - 'pnpm check:rls — GREEN (re-corrido @architect; NFR5 preservada, zero tabelas novas)'
+  - 'pnpm typecheck — GREEN 9/9 (re-corrido @architect)'
+  - 'pnpm lint — GREEN 9/9 zero warnings (evidência @dev)'
+  - 'pnpm test — GREEN 612/612 web (baseline 574 + 38 novos; evidência @dev)'
+  - 'pnpm build — GREEN 9/9, 4 rotas dynamic (evidência @dev)'
+
+files_to_push:
+  new:
+    - apps/web/src/lib/api-schemas/finance-recurrences.ts
+    - apps/web/src/lib/api-schemas/installments.ts
+    - apps/web/src/app/api/financas/recorrencias/route.ts
+    - apps/web/src/app/api/financas/recorrencias/[id]/route.ts
+    - apps/web/src/app/api/financas/prestacoes/route.ts
+    - apps/web/src/app/api/financas/prestacoes/[id]/route.ts
+    - apps/web/src/app/api/financas/recorrencias/__tests__/route.test.ts
+    - apps/web/src/app/api/financas/recorrencias/[id]/__tests__/route.test.ts
+    - apps/web/src/app/api/financas/prestacoes/__tests__/route.test.ts
+    - apps/web/src/app/api/financas/prestacoes/[id]/__tests__/route.test.ts
+    - docs/qa/gates/4.4-architect-gate.md
+  modified:
+    - apps/web/src/lib/api-helpers/audit.ts
+    - apps/web/src/lib/api-schemas/index.ts
+    - docs/stories/active/4.4.finance-api-recurrences-installments.story.md
+    - docs/stories/active/_INDEX.md
+    - docs/HANDOFF-INDEX.md
+  archive_handoffs:
+    - docs/handoffs/archive/mj-handoff-4.4-ready-for-po-20260521.yaml
+    - docs/handoffs/archive/mj-handoff-4.4-ready-for-dev-20260521.yaml
+    - docs/handoffs/archive/mj-handoff-4.4-review-for-architect-20260521.yaml
+    - docs/handoffs/mj-handoff-4.4-push-architect-to-devops-20260521.yaml (este — consumir após push)
+
+notes_for_next_agent:
+  - 'Story DB+API only — zero migration nova (audit actions já no enum via 0014).'
+  - 'Zero tabelas novas — check:rls preservado (NFR5).'
+  - 'CodeRabbit [AUTO-DECISION] SKIPPED expected — precedente consistente
+     Stories 2.2-4.3; o architect gate substitui o review automatizado.'
+  - 'Housekeeping post-push: `git mv` da story 4.4 active → completed.'
+  - 'NIT-AR-4.4.1 (LOW non-blocking) registado no gate report — follow-up
+     housekeeping, não bloqueia o push.'
+  - 'Há outros artefactos non-tracked não relacionados (docs/marketing/edit/) —
+     decidir scope do commit; recomendado commit isolado da Story 4.4.'

@@ -1,0 +1,73 @@
+id: mj-handoff-4.4-ready-for-po-20260521
+from_agent: sm
+to_agent: po
+created: '2026-05-21T21:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-21T21:30:00Z'
+consumed_by: po
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.4'
+last_command: '*draft 4.4'
+priority: medium
+
+summary: |
+  @sm River drafted a Story 4.4 do Epic 4 (Módulo Finanças): "API routes CRUD
+  recurrences + installments (auth + RLS)". Status Draft v1.0. Story file:
+  docs/stories/active/4.4.finance-api-recurrences-installments.story.md
+
+  9 métodos de endpoint em 4 route handlers sob /api/financas/{recorrencias,
+  prestacoes} (namespace DP-4.4.1). 3 Zod schemas .strict() em ficheiro distinto
+  finance-recurrences.ts + installments.ts (DP-4.4.2 — colisão com recurrences.ts
+  Tarefas evitada). Extensão aditiva do audit.ts (+5 finance_recurrence.*/
+  installment.* + entityTable +2 — zero migration, enum já na DB via 0014).
+
+  Novidade vs 4.2/4.3: geração ATÓMICA de N transactions na criação de uma
+  prestação (DP-4.4.4 — db.transaction()) + cascata de DELETE (DP-4.4.5 —
+  transactions antes do installment, para não violar o CHECK
+  installment_index_coherent). 12 ACs · 8 Tasks · 6 DPs.
+
+next_action: |
+  `@po *validate-story-draft 4.4` — 10-point checklist + cross-confirm
+  anti-hallucination contra o codebase real. Ratificar os 6 DPs:
+  - DP-4.4.1 namespace /api/financas/recorrencias + /prestacoes
+  - DP-4.4.2 ficheiro distinto finance-recurrences.ts (colisão recurrences.ts Tarefas)
+  - DP-4.4.3 recurrences soft delete (active=false) + installments imutáveis (sem PATCH)
+  - DP-4.4.4 geração atómica de N transactions via db.transaction()
+  - DP-4.4.5 ordem da cascata de DELETE (CHECK installment_index_coherent)
+  - DP-4.4.6 cadência mensal das transactions de prestação
+
+  Após @po GO → `@dev *develop 4.4`.
+
+context:
+  story_path: docs/stories/active/4.4.finance-api-recurrences-installments.story.md
+  story_status: 'Draft v1.0'
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  branch: main
+  estimate: M
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.3-push-architect-to-devops-20260521.yaml
+
+anti_hallucination_crossconfirm:
+  - 'finance.ts:232-282 — recurrences: campos + CHECK recurrences_account_or_card/interval_positive/currency_eur_only. Tem `active boolean`, NÃO tem `archived_at` (determina DP-4.4.3 soft via active).'
+  - 'finance.ts:294-341 — installments: card_id NOT NULL (305-307); CHECK num_positive (1-60)/total_positive; SEM archived_at, SEM active, SEM per_installment no payload (calculado).'
+  - 'finance.ts:358-431 — transactions: CHECK transactions_installment_index_coherent (425-428) — installment_id NULL exige installment_index NULL → determina ordem da cascata DP-4.4.5. FK recurrence_id/installment_id ON DELETE set null.'
+  - 'finance.ts:68-76 — recurrenceFreqFinanceEnum [daily/weekly/biweekly/monthly/quarterly/yearly/custom] — distinto do enum Tarefas.'
+  - '0001_rls_policies.sql:503-535 — recurrences + installments: 4 policies cada, todas _member, sem owner_admin.'
+  - '0014_finance_audit_actions.sql:89-95 — finance_recurrence.created/updated/deleted + installment.created/deleted JÁ no enum; installment.updated deliberadamente omitido (DP8=A).'
+  - 'db-shim.ts:31 — DbShim.transaction<T>(fn) existe — suporta geração atómica.'
+  - 'api-schemas/recurrences.ts — Tarefas-scoped (task_recurrences); colisão de nome resolvida via finance-recurrences.ts (DP-4.4.2).'
+
+decision_points:
+  - 'DP-4.4.1 — namespace /api/financas/recorrencias + /prestacoes (settled, precedente DP-4.2.1).'
+  - 'DP-4.4.2 — ficheiro finance-recurrences.ts + nomes FinanceRecurrence* distintos (colisão com recurrences.ts Tarefas).'
+  - 'DP-4.4.3 — recurrences DELETE soft via active=false; installments imutáveis (sem endpoint PATCH — DP8=A + 0014 omite installment.updated).'
+  - 'DP-4.4.4 — installments POST gera N transactions atomicamente via db.transaction() (DP8=A do Epic).'
+  - 'DP-4.4.5 — installments DELETE em cascata: DELETE transactions WHERE installment_id ANTES de DELETE installments, na mesma transacção (senão CHECK installment_index_coherent falha).'
+  - 'DP-4.4.6 — cadência mensal das transaction_date das N transactions a partir de first_installment_on.'
+
+notes_for_next_agent:
+  - 'Story DB+API only — zero migration nova (audit actions já no enum via 0014).'
+  - 'Zero tabelas novas — check:rls preservado (NFR5).'
+  - 'Lição aplicada da Story 4.3 (NIT-AR-4.3.2): schemas de data usam regex + .refine() de data válida — não deixar datas regex-válidas mas inválidas chegar ao cast ::date.'
+  - 'installments SEM endpoint PATCH (imutáveis) — apenas GET/POST/DELETE. 9 métodos no total (5 recorrencias + 4 prestacoes).'

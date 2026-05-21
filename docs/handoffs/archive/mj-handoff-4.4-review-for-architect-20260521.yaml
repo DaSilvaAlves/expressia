@@ -1,0 +1,96 @@
+id: mj-handoff-4.4-review-for-architect-20260521
+from_agent: dev
+to_agent: architect
+created: '2026-05-21T23:10:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-21T23:55:00Z'
+consumed_by: architect
+consumed_outcome: 'PASS — APPROVED 9,4/10 HIGH (architect gate). Story Done v1.3.'
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.4'
+last_command: '*develop 4.4'
+priority: medium
+
+summary: |
+  @dev Dex implementou a Story 4.4 do Epic 4 (Módulo Finanças): "API routes
+  CRUD recurrences + installments (auth + RLS)" em modo YOLO. 8 Tasks/Subtasks
+  DONE · 12/12 ACs satisfeitos · 5/5 quality gates GREEN.
+
+  10 ficheiros NEW (2 Zod schemas `.strict()` + 4 route handlers com 9 métodos
+  de endpoint + 4 test suites com 38 tests mockable-friendly) + 3 MODIFIED
+  (`audit.ts` union +5/entityTable +2 · `api-schemas/index.ts` re-export ·
+  story file). 6 DPs ratificados aplicados + PO_FIX_INLINE F1.
+
+  Story status Ready v1.1 → Ready for Review v1.2. Story file:
+  docs/stories/active/4.4.finance-api-recurrences-installments.story.md
+
+  Pronta para @architect *qa-gate 4.4.
+
+next_action: |
+  `@architect *qa-gate 4.4` — quality gate. Verificar: 12/12 ACs, 6 DPs
+  aplicados, PO_FIX_INLINE F1, geração atómica de prestações (DP-4.4.4),
+  cascata de DELETE (DP-4.4.5), AC4 (zero `getServiceDb`), Constitution 6/6.
+  3 [DEV-DECISION] D-4.4.1/2/3 para ratificar. Após @architect PASS →
+  @devops *push 4.4.
+
+context:
+  story_path: docs/stories/active/4.4.finance-api-recurrences-installments.story.md
+  story_status: 'Ready for Review v1.2'
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  branch: main
+  estimate: M
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.4-ready-for-dev-20260521.yaml
+
+quality_gates:
+  - 'pnpm lint — EXIT 0 (9/9 tasks, zero warnings)'
+  - 'pnpm typecheck — EXIT 0 (9/9 tasks, strict)'
+  - 'pnpm test — EXIT 0 (612/612 web tests, baseline 574 + 38 novos)'
+  - 'pnpm build — EXIT 0 (9/9 tasks, 4 rotas novas dynamic)'
+  - 'pnpm check:rls — EXIT 0 (NFR5 preservada, zero tabelas novas)'
+
+files_new:
+  - apps/web/src/lib/api-schemas/finance-recurrences.ts
+  - apps/web/src/lib/api-schemas/installments.ts
+  - apps/web/src/app/api/financas/recorrencias/route.ts
+  - apps/web/src/app/api/financas/recorrencias/[id]/route.ts
+  - apps/web/src/app/api/financas/prestacoes/route.ts
+  - apps/web/src/app/api/financas/prestacoes/[id]/route.ts
+  - apps/web/src/app/api/financas/recorrencias/__tests__/route.test.ts
+  - apps/web/src/app/api/financas/recorrencias/[id]/__tests__/route.test.ts
+  - apps/web/src/app/api/financas/prestacoes/__tests__/route.test.ts
+  - apps/web/src/app/api/financas/prestacoes/[id]/__tests__/route.test.ts
+
+files_modified:
+  - apps/web/src/lib/api-helpers/audit.ts
+  - apps/web/src/lib/api-schemas/index.ts
+  - docs/stories/active/4.4.finance-api-recurrences-installments.story.md
+
+dev_decisions:
+  - 'D-4.4.1 — `annotateSpan` extra-attributes: o tipo `DomainAttributes` da
+     `@meu-jarvis/observability` tem shape fixo. `transactions_generated`/
+     `transactions_deleted` passados via `extra: { "finance.transactions_generated": N }`
+     (chave namespaced) em vez de chaves top-level. Cumpre AC9 sem inventar
+     campos no tipo.'
+  - 'D-4.4.2 — As N transactions geradas pela prestação recebem
+     `description = "{installment.description} (parcela k/N)"`. A AC5(a) deixa
+     o sufixo como opcional ("DEV pode incluir para clareza na vista cartões").
+     Incluído para a vista Cartões (Story 4.8) ser auto-explicativa.'
+  - 'D-4.4.3 — Flaky test pré-existente `tarefas/calendario/__tests__/page.test.tsx`
+     (TEST-001, Story 3.5 carry-over) deu timeout numa corrida `pnpm test` full
+     sob carga; passa em isolamento (4093ms) e na corrida `--filter web`
+     (612/612). NÃO é regressão da Story 4.4 — teste de Tarefas, story só toca
+     `financas/`. Carry-over LOW mantém-se.'
+
+notes_for_next_agent:
+  - 'Story DB+API only — zero migration nova (audit actions já no enum via 0014).'
+  - 'Zero tabelas novas — check:rls preservado (NFR5).'
+  - '9 métodos de endpoint: 5 recorrencias (GET list/POST/GET[id]/PATCH[id]/
+     DELETE[id]) + 4 prestacoes (GET list/POST/GET[id]/DELETE[id]). Installments
+     SEM PATCH (imutáveis — DP-4.4.3).'
+  - 'PO_FIX_INLINE F1 implementado: `InstallmentCreateSchema.refine(total >= num)`
+     — test explícito `total=5, num=10` → 400 VALIDATION_ERROR limpo.'
+  - 'AC4 verificado: grep `getServiceDb` nos 4 route handlers = 0 matches.'
+  - 'CodeRabbit [AUTO-DECISION] SKIPPED expected at @devops push (precedente
+     consistente Stories 2.2-4.3).'

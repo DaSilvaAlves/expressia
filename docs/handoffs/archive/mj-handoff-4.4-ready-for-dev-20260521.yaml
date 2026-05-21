@@ -1,0 +1,118 @@
+id: mj-handoff-4.4-ready-for-dev-20260521
+from_agent: po
+to_agent: dev
+created: '2026-05-21T21:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-21T22:15:00Z'
+consumed_by: dev
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.4'
+last_command: '*validate-story-draft 4.4'
+priority: medium
+
+summary: |
+  @po Pax validou a Story 4.4 do Epic 4 (Módulo Finanças): "API routes CRUD
+  recurrences + installments (auth + RLS)". Veredicto GO 9,7/10 — 10-point
+  checklist (9 PASS + 1 PASS-com-fix) + cross-confirm anti-hallucination contra
+  8 fontes do codebase real (zero invenções) + 6 DPs ratificados + 1
+  PO_FIX_INLINE (F1) aplicado directamente ao story file.
+
+  Story status Draft v1.0 → Ready v1.1. Story file:
+  docs/stories/active/4.4.finance-api-recurrences-installments.story.md
+
+  Pronta para @dev *develop 4.4 em modo YOLO (precedente Stories 4.2/4.3).
+
+next_action: |
+  `@dev *develop 4.4` — implementar em modo YOLO. 8 Tasks · 12 ACs.
+  10 ficheiros NEW (2 Zod schemas + 4 route handlers + 4 test files) +
+  3 MODIFIED (audit.ts · api-schemas/index.ts · story file). 5/5 quality
+  gates GREEN antes de marcar Ready for Review. Após @dev → @architect gate.
+
+context:
+  story_path: docs/stories/active/4.4.finance-api-recurrences-installments.story.md
+  story_status: 'Ready v1.1'
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  branch: main
+  estimate: M
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.4-ready-for-po-20260521.yaml
+
+po_fix_inline:
+  - 'F1 (AC3 + AC6c) — guarda `total_amount_cents >= num_installments` no
+     `InstallmentCreateSchema` via `.refine()`. Sem ela, `per_installment_cents
+     = floor(total/num) = 0` faz os N-1 primeiros transactions terem
+     `amount_cents = 0`, o que viola o CHECK `transactions_amount_positive`
+     (finance.ts:422-423 — `amount_cents > 0`): o INSERT falha dentro de
+     `db.transaction()`, faz rollback e o handler devolve 500 INTERNAL_ERROR
+     em vez de um 400 VALIDATION_ERROR limpo. Mensagem PT-PT: "O valor total
+     tem de ser pelo menos o número de parcelas (mínimo 1 cêntimo por
+     parcela)." Test obrigatório em AC6 PASS (ex.: total=5, num=10 -> 400).'
+
+decision_points_ratified:
+  - 'DP-4.4.1 RATIFIED — namespace /api/financas/recorrencias + /prestacoes
+     (precedente DP-4.2.1/DP-4.3.1 — padrão de rotas de todo o Epic 4).'
+  - 'DP-4.4.2 RATIFIED — ficheiro distinto finance-recurrences.ts + exports
+     FinanceRecurrence*. `api-schemas/recurrences.ts` confirmado existente e
+     Tarefas-scoped (task_recurrences) — colisão de nome real. Mesma disciplina
+     de scope do DP-4.3.2.'
+  - 'DP-4.4.3 RATIFIED — recurrences DELETE soft via `active=false` (schema tem
+     `active boolean`, NÃO tem `archived_at` — confirmado finance.ts:262);
+     installments imutáveis, sem endpoint PATCH (coerente com 0014 que omite
+     `installment.updated`).'
+  - 'DP-4.4.4 RATIFIED — installments POST gera N transactions atomicamente via
+     `getDb().transaction()`. `db-shim.ts:31` confirma `transaction<T>(fn)`.'
+  - 'DP-4.4.5 RATIFIED — installments DELETE em cascata: DELETE transactions
+     WHERE installment_id ANTES de DELETE installments, na mesma transacção.
+     A ordem inversa viola o CHECK `transactions_installment_index_coherent`
+     (finance.ts:425-428) via `ON DELETE set null`.'
+  - 'DP-4.4.6 RATIFIED — cadência mensal das transaction_date a partir de
+     first_installment_on (`first_installment_on::date + interval 1 month *
+     (k-1)`).'
+
+anti_hallucination_crossconfirm:
+  - 'finance.ts:232-279 — recurrences: `active boolean` notNull default true;
+     SEM `archived_at`; CHECK `recurrences_account_or_card`/`interval_positive`/
+     `currency_eur_only`. VERIFICADO @po.'
+  - 'finance.ts:294-338 — installments: `card_id` NOT NULL (305-307);
+     `per_installment_cents` NOT NULL (314); CHECK `installments_num_positive`
+     (1-60), `installments_total_positive` (>0); SEM `active`/`archived_at`.
+     VERIFICADO @po.'
+  - 'finance.ts:422-428 — transactions: CHECK `transactions_amount_positive`
+     (`amount_cents > 0` — base do PO_FIX F1) + `installment_index_coherent`
+     (installment_id NULL exige installment_index NULL). FK recurrence_id/
+     installment_id ON DELETE set null (380-386). VERIFICADO @po.'
+  - 'finance.ts:68-76 — recurrenceFreqFinanceEnum [daily/weekly/biweekly/
+     monthly/quarterly/yearly/custom]. VERIFICADO @po.'
+  - '0001_rls_policies.sql:503-535 — recurrences (505-518) + installments
+     (522-535): 4 policies `_member` cada, sem owner_admin. VERIFICADO @po.'
+  - '0014_finance_audit_actions.sql:67-95 — `finance_recurrence.created/updated/
+     deleted` (89-91) + `installment.created/deleted` (94-95) JÁ no enum;
+     `installment.updated` deliberadamente omitido. VERIFICADO @po.'
+  - 'audit.ts:26-81 — `TasksAuditAction` union actual contém account.*/card.*/
+     transaction.*/category.* mas NÃO finance_recurrence.*/installment.*;
+     `entityTable` contém accounts/cards/transactions/categories mas NÃO
+     recurrences/installments. Extensão AC7 confirmada puramente aditiva (+5
+     valores no union, +2 no entityTable). VERIFICADO @po.'
+  - 'db-shim.ts:31 — `DbShim.transaction<T>(fn)` existe — suporta geração
+     atómica e cascata de DELETE. VERIFICADO @po.'
+
+notes_for_next_agent:
+  - 'Story DB+API only — zero migration nova (audit actions já no enum via 0014).'
+  - 'Zero tabelas novas — check:rls preservado (NFR5).'
+  - 'Greenfield confirmado: `api-schemas/{finance-recurrences,installments}.ts`
+     + `api/financas/{recorrencias,prestacoes}/` NÃO existem. `recurrences.ts`
+     Tarefas existe — NÃO tocar, NÃO colidir (DP-4.4.2).'
+  - 'Mock de db-shim nos tests tem de expor `transaction` (além de `execute`):
+     o mock de `transaction` invoca o callback com um `tx` mock que também tem
+     `execute`. Ver Dev Notes -> Tests Pattern.'
+  - 'Lição NIT-AR-4.3.2 da Story 4.3: schemas de data usam regex + `.refine()`
+     de data válida — não deixar datas regex-válidas mas inválidas chegar ao
+     cast `::date`.'
+  - 'Cada transaction gerada precisa de `created_by_user_id` (NOT NULL no
+     schema) = userId do JWT — análogo ao installment.'
+  - '9 métodos de endpoint no total: 5 recorrencias (GET list/POST/GET[id]/
+     PATCH[id]/DELETE[id]) + 4 prestacoes (GET list/POST/GET[id]/DELETE[id]).
+     installments SEM PATCH (imutáveis).'
+  - 'Após @dev *develop 4.4 -> criar handoff sucessor dev->architect e
+     `@architect *qa-gate 4.4`.'
