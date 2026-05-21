@@ -1,0 +1,69 @@
+id: mj-handoff-4.3-ready-for-po-20260521
+from_agent: sm
+to_agent: po
+created: '2026-05-21T18:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-21T19:00:00Z'
+consumed_by: po
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.3'
+last_command: '*draft 4.3'
+priority: medium
+
+summary: |
+  @sm River redigiu a Story 4.3 do Epic 4 (Módulo Finanças): "API routes CRUD
+  transactions variáveis + categories (auth + RLS)". Status Draft v1.0. Story
+  file: docs/stories/active/4.3.finance-api-transactions-categories.story.md
+
+  10 métodos de endpoint em 4 route handlers sob /api/financas/{transacoes,
+  categorias} + 2 Zod schemas .strict() + extensão aditiva do helper audit.ts
+  (union +6 valores transaction.*/category.* + entityTable). Zero migration nova
+  — audit actions já no enum via migration 0014 (Story 4.1). 12 ACs · 8 Tasks ·
+  5 DPs. Estimate M. ~32 tests integration esperados.
+
+next_action: |
+  `@po *validate-story-draft 4.3` — validação 10-point checklist + cross-confirm
+  anti-hallucination independente + ratificação dos 5 DPs.
+
+  DPs para ratificar:
+  - DP-4.3.1 — namespace /api/financas/transacoes + /categorias (settled por
+    DP-4.2.1 ratificada na Story 4.2).
+  - DP-4.3.2 — paginação cursor do GET /transacoes (volume superior a contas/
+    cartões; schema cursor local, sem mutar pagination.ts Tarefas-scoped).
+  - DP-4.3.3 — scope variable-only de PATCH/DELETE de transactions (gerada → 409).
+  - DP-4.3.4 — hard delete de transactions (tabela sem coluna archived_at).
+  - DP-4.3.5 — soft delete de categories (archived_at existe; hard delete nullava
+    transactions.category_id — perda de categorização).
+
+  Após @po GO → `@dev *develop 4.3`.
+
+context:
+  story_path: docs/stories/active/4.3.finance-api-transactions-categories.story.md
+  story_status: 'Draft v1.0'
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  branch: main
+  estimate: M
+  predecessor: Story 4.2 Done v1.4 (pushed a984271 — desbloqueou a 4.3)
+
+cross_confirm_anti_hallucination:
+  - 'finance.ts:358-431 — tabela transactions: campos + CHECK transactions_account_or_card (418-421), transactions_amount_positive (423), transactions_installment_index_coherent (425-428). Confirmado.'
+  - 'finance.ts:184-217 — tabela categories: campos + archived_at (201) + CHECK categories_default_is_global (212-215) + unique categories_unique_global_name (210). Confirmado.'
+  - '0001_rls_policies.sql:475-501 — categories: 4 policies incl. categories_select_global_or_member (globais household_id NULL visíveis a todos). Confirmado.'
+  - '0001_rls_policies.sql:537-552 — transactions: 4 policies todas _member (sem variant owner_admin). Confirmado.'
+  - '0014_finance_audit_actions.sql:78-85 — enum audit_action JÁ tem category.created/updated/deleted + transaction.created/updated/deleted. Zero migration nova necessária.'
+  - 'pagination.ts — CursorPayloadSchema é Tarefas-scoped (last_due_date). DP-4.3.2 cria cursor local em transactions.ts para evitar scope-creep.'
+
+dps_summary:
+  DP-4.3.1: 'Namespace de rotas. Recomendação B (/api/financas/transacoes + /categorias) — settled por DP-4.2.1.'
+  DP-4.3.2: 'Paginação. Recomendação A (cursor) — transactions têm volume superior; cursor schema local TransactionCursorSchema.'
+  DP-4.3.3: 'Scope mutação. Recomendação A (variable-only) — PATCH/DELETE só em transacções manuais; gerada → 409 CONFLICT.'
+  DP-4.3.4: 'DELETE transactions. Recomendação A (hard delete) — tabela sem archived_at; nada FK para transactions.id.'
+  DP-4.3.5: 'DELETE categories. Recomendação A (soft delete) — archived_at existe; hard delete nullava transactions.category_id.'
+
+notes_for_next_agent:
+  - 'Story DB+API only — zero bloqueador externo, zero migration nova.'
+  - 'Precedente directo: Story 4.2 (architect APPROVED 9.4/10) — mesma estrutura de 12 ACs, mesmo executor @dev, mesmo gate @architect.'
+  - 'Atenção @po na ratificação: AC8 menciona o code CONFLICT/409 — se @/lib/errors não o suportar, @dev decide (estender errors.ts ou VALIDATION_ERROR com 409). Vale confirmar durante validation.'
+  - 'AC6(c) — validação parent_id 1-nível de categorias: a categoria-pai tem de ter parent_id NULL (hierarquia máx 1 nível, finance.ts:182 comment).'

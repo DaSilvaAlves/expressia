@@ -1,0 +1,70 @@
+id: mj-handoff-4.3-push-architect-to-devops-20260521
+from_agent: architect
+to_agent: devops
+created: '2026-05-21T20:15:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-21T20:45:00Z'
+consumed_by: devops
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.3'
+last_command: '*qa-gate 4.3'
+priority: medium
+
+summary: |
+  @architect Aria executou `*qa-gate 4.3` (deep review / quality gate) da Story
+  4.3 do Epic 4 (Módulo Finanças): "API routes CRUD transactions variáveis +
+  categories (auth + RLS)". Veredicto: PASS — APPROVED 9,3/10 (HIGH). Story
+  status Ready for Review v1.2 → Done v1.3. Pronta para `@devops *push 4.3`.
+
+  Verificação independente: 33/33 tests `api/financas/{transacoes,categorias}`
+  GREEN (vitest run) + typecheck web PASS + AC4 grep `getServiceDb` 0 matches +
+  grep PT-BR 0 matches. Cross-confirm anti-hallucination em 6 fontes (zero
+  hallucinations). 12/12 ACs PASS. 3/3 DEV-DECISIONs ratificadas. Constitution
+  6/6. 2 concerns não-bloqueantes (1 MEDIUM, 1 LOW) — follow-up, não bloqueiam.
+
+next_action: |
+  `@devops *push 4.3` — consolidar e fazer push para origin/main.
+
+  Pre-push: re-verificar 5/5 quality gates (lint + typecheck + test + build +
+  check:rls). Working tree tem trabalho não-commitado da Story 4.3 a consolidar:
+  - 10 ficheiros NEW (2 Zod schemas + 4 route handlers + 4 test suites)
+  - 3 ficheiros MODIFIED (`audit.ts` · `api-schemas/index.ts` · story file)
+  - story file: mv `docs/stories/active/4.3.*.story.md` → `completed/`
+  - `docs/HANDOFF-INDEX.md` + `docs/stories/active/_INDEX.md` (Epic 4 progress)
+  - handoffs (este YAML + archive do dev→architect já movido)
+
+  `docs/marketing/edit/` untracked está FORA de escopo — não incluir no commit.
+  CodeRabbit [AUTO-DECISION] SKIPPED esperado (precedente Stories 2.2-4.2).
+
+context:
+  story_path: docs/stories/active/4.3.finance-api-transactions-categories.story.md
+  story_status: 'Done v1.3'
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  branch: main
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.3-review-for-architect-20260521.yaml
+  epic_progress: 'Epic 4 = 2/10 Done → 3/10 Done após push 4.3'
+
+gate_result:
+  verdict: 'PASS — APPROVED'
+  score: '9,3/10 (HIGH)'
+  acs: '12/12 PASS'
+  dev_decisions_ratified: 'D-4.3.A (keyset cursor) · D-4.3.B (null explícito no Update) · D-4.3.C (auto-referência parent_id)'
+  constitution: '6/6'
+  independent_verification:
+    tests: '33/33 GREEN — vitest run das 4 suites api/financas/{transacoes,categorias}'
+    typecheck: 'PASS — tsc --noEmit exit 0'
+    ac4_getservicedb: '0 matches em api/financas/{transacoes,categorias}/'
+    pt_br: '0 matches (usar/deletar/você)'
+  anti_hallucination: 'Zero hallucinations — cross-confirm 6 fontes (finance.ts transactions 358-431 + categories 184-217, 0001_rls_policies.sql 475-552, 0014 78-85)'
+
+concerns_non_blocking:
+  - 'NIT-AR-4.3.1 (MEDIUM) — invariante 1-nível incompletamente reforçado no PATCH de categorias: uma categoria-que-já-é-pai pode receber um parent_id, criando uma cadeia de 2 níveis. categories.parent_id não tem FK nem CHECK — validação aplicacional é a única defesa. Follow-up: rejeitar 400 se EXISTS sub-categorias. Não está no AC6(c) PASS list.'
+  - 'NIT-AR-4.3.2 (LOW) — filtros de data from/to (GET transacoes) e cursor last_transaction_date sem .refine() de data válida → datas regex-válidas mas inválidas (ex 2026-13-45) caem em 500 em vez de 400. Reusar TransactionDateSchema. Trivial.'
+  - 'db-test (LOW, herdado) — Docker ausente local; CI rls-gate cobre. Mesmo concern das Stories 4.1/4.2. Não-regressão (zero schema change).'
+
+notes_for_next_agent:
+  - 'Story DB+API only — zero migration nova (audit actions transaction.*/category.* já no enum via 0014, Story 4.1).'
+  - 'Zero tabelas novas — check:rls preservado (NFR5).'
+  - 'Após push 4.3, próximo passo do Epic 4: `@sm *draft 4.4` (API recurrences + installments).'

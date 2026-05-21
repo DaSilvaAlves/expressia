@@ -1,0 +1,89 @@
+id: mj-handoff-4.3-review-for-architect-20260521
+from_agent: dev
+to_agent: architect
+created: '2026-05-21T19:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-21T20:15:00Z'
+consumed_by: architect
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.3'
+last_command: '*develop 4.3'
+priority: medium
+
+summary: |
+  @dev Dex implementou a Story 4.3 do Epic 4 (Módulo Finanças): "API routes CRUD
+  transactions variáveis + categories (auth + RLS)". Status Ready v1.1 → Ready
+  for Review v1.2. Story file:
+  docs/stories/active/4.3.finance-api-transactions-categories.story.md
+
+  10 métodos de endpoint em 4 route handlers sob /api/financas/{transacoes,
+  categorias} (namespace DP-4.3.1). 2 Zod schemas .strict() + cursor schema
+  local. Extensão aditiva do helper audit.ts (union +6 transaction.*/category.*
+  + entityTable). 33 tests integration novos — todos GREEN.
+
+  12/12 ACs implementados. 5/5 quality gates locais GREEN (web 574/574;
+  db-test não corrido local por ausência de Docker — não-regressão, CI verde).
+  5 DPs aplicados + 2 PO_FIX (F1 unique→409, F2 confirmado).
+
+next_action: |
+  `@architect *qa-gate 4.3` — deep review / quality gate. Verificar:
+  - 12 ACs vs implementação (10 métodos de endpoint, 2 schemas, audit.ts).
+  - 3 DEV-DECISIONs implícitas (ver abaixo) — ratificar ou contestar.
+  - Cross-confirm anti-hallucination contra finance.ts + 0001_rls_policies.sql.
+  - Constitution 6/6.
+
+  Após @architect APPROVED → `@devops *push 4.3`.
+
+context:
+  story_path: docs/stories/active/4.3.finance-api-transactions-categories.story.md
+  story_status: 'Ready for Review v1.2'
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  branch: main
+  estimate: M
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.3-ready-for-dev-20260521.yaml
+
+implementation_summary:
+  files_new:
+    - 'apps/web/src/lib/api-schemas/transactions.ts — TransactionCreateSchema (.refine() account_or_card) + TransactionUpdateSchema + TransactionCursorSchema + encode/decodeTransactionCursor'
+    - 'apps/web/src/lib/api-schemas/categories.ts — CategoryCreateSchema + CategoryUpdateSchema'
+    - 'apps/web/src/app/api/financas/transacoes/route.ts — GET (list + filtros + paginação cursor) + POST'
+    - 'apps/web/src/app/api/financas/transacoes/[id]/route.ts — GET + PATCH + DELETE (hard, scope variable-only)'
+    - 'apps/web/src/app/api/financas/categorias/route.ts — GET (globais+household) + POST'
+    - 'apps/web/src/app/api/financas/categorias/[id]/route.ts — GET + PATCH + DELETE (soft via archived_at)'
+    - 'apps/web/src/app/api/financas/transacoes/__tests__/route.test.ts — 9 tests'
+    - 'apps/web/src/app/api/financas/transacoes/[id]/__tests__/route.test.ts — 8 tests'
+    - 'apps/web/src/app/api/financas/categorias/__tests__/route.test.ts — 9 tests'
+    - 'apps/web/src/app/api/financas/categorias/[id]/__tests__/route.test.ts — 7 tests'
+  files_modified:
+    - 'apps/web/src/lib/api-helpers/audit.ts — union TasksAuditAction +6 (transaction.*/category.*) + entityTable +2. Aditivo, sem feature flag (enum já na DB via migration 0014).'
+    - 'apps/web/src/lib/api-schemas/index.ts — re-export ./transactions + ./categories'
+  tests_new: 33
+  acs_total: 12
+  acs_done: 12
+
+quality_gates:
+  lint: 'PASS — next lint --max-warnings=0, 9/9 tasks (1 iteração de fix: import PAYMENT_METHODS não usado removido)'
+  typecheck: 'PASS — tsc --noEmit 9/9 tasks'
+  test: 'PASS (web 574/574 = 541 baseline + 33 novos). db-test não corrido local (Docker ausente — Story 1.4 Testcontainers); NÃO-regressão, CI rls-gate cobre.'
+  build: 'PASS — 9/9 tasks; 4 rotas novas dynamic /api/financas/{transacoes,categorias}(/[id])'
+  check_rls: 'PASS — NFR5 preservada, 0 tabelas novas'
+
+dev_decisions:
+  - 'D-4.3.A — keyset cursor pagination. GET /transacoes ordena transaction_date desc, id desc; pede limit+1 para detectar próxima página; next_cursor codifica {last_transaction_date, last_id}. TransactionCursorSchema + encode/decodeTransactionCursor são LOCAIS a transactions.ts (DP-4.3.2 — pagination.ts Tarefas-scoped intocado).'
+  - 'D-4.3.B — TransactionUpdateSchema aceita null explícito em account_id/card_id/category_id/notes (limpar o valor). O refinamento account_or_card composto não cabe no Update schema; anular ambos é apanhado pelo CHECK transactions_account_or_card do DB e convertido em 400 (pattern D-4.2.C).'
+  - 'D-4.3.C — PATCH de categorias verifica auto-referência (parent_id === id → 400) além da validação 1-nível, prevenindo um ciclo trivial. A coluna categories.parent_id não tem FK no schema — toda a validação de parent é aplicacional.'
+
+ac_notes:
+  - 'AC4 (R-4.7): grep getServiceDb em apps/web/src/app/api/financas/{transacoes,categorias}/ = 0 matches (route handlers + test files).'
+  - 'AC5: transactions DELETE hard (DELETE FROM — sem archived_at); categories DELETE soft (UPDATE archived_at). Scope variable-only: SELECT prévio detecta recurrence_id/installment_id → 409 CONFLICT em PATCH+DELETE.'
+  - 'AC6: account_or_card via .refine() Zod + CHECK DB; FK account_id/card_id/category_id verificados via SELECT RLS-scoped → 404; parent_id de categorias verificado (existência + não-arquivada + 1-nível + não-auto-ref).'
+  - 'PO_FIX F1: POST+PATCH de categorias capturam /categories_unique_global_name/i → 409 CONFLICT.'
+  - 'PO_FIX F2: apiError("CONFLICT", msg, 409) usado directamente — errors.ts aceita qualquer code/status. Zero DEV-DECISION.'
+
+notes_for_next_agent:
+  - 'Story DB+API only — zero migration nova (audit actions transaction.*/category.* já no enum via 0014, Story 4.1).'
+  - 'CodeRabbit [AUTO-DECISION] SKIPPED esperado no push (precedente Stories 2.2-4.2).'
+  - 'Working tree: trabalho da Story 4.3 (story file + 12 ficheiros de código + handoffs + INDEX) não-commitado — consolidado no @devops *push 4.3. docs/marketing/edit/ untracked fora de escopo.'
+  - '1 concern conhecido a confirmar pelo gate: db-test depende de Docker local (mesmo concern LOW das Stories 4.1/4.2 — ENV-BLOCKER, CI cobre).'

@@ -10,3 +10,6 @@ export * from './recurrences';
 // Story 4.2 — Módulo Finanças (accounts + cards)
 export * from './accounts';
 export * from './cards';
+// Story 4.3 — Módulo Finanças (transactions + categories)
+export * from './transactions';
+export * from './categories';

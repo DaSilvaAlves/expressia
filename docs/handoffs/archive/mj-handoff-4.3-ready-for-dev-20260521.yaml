@@ -1,0 +1,59 @@
+id: mj-handoff-4.3-ready-for-dev-20260521
+from_agent: po
+to_agent: dev
+created: '2026-05-21T19:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-21T19:30:00Z'
+consumed_by: dev
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.3'
+last_command: '*validate-story-draft 4.3'
+priority: medium
+
+summary: |
+  @po Pax validou a Story 4.3 do Epic 4 (Módulo Finanças): "API routes CRUD
+  transactions variáveis + categories (auth + RLS)". Veredicto GO 10/10 —
+  10-point checklist perfeito + cross-confirm anti-hallucination 7 fontes (zero
+  hallucinations) + 5 DPs ratificados + 2 PO_FIX_INLINE aplicados. Status Draft
+  v1.0 → Ready v1.1. Story file:
+  docs/stories/active/4.3.finance-api-transactions-categories.story.md
+
+next_action: |
+  `@dev *develop 4.3` — implementação. 8 Tasks, 12 ACs, ~32 tests esperados.
+
+  10 métodos de endpoint em 4 route handlers sob /api/financas/{transacoes,
+  categorias} + 2 Zod schemas .strict() + extensão aditiva do audit.ts
+  (union +6 valores transaction.*/category.* + entityTable). Zero migration nova.
+
+  Após @dev completar (5/5 quality gates GREEN) → `@architect *qa-gate 4.3`.
+
+context:
+  story_path: docs/stories/active/4.3.finance-api-transactions-categories.story.md
+  story_status: 'Ready v1.1'
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  branch: main
+  estimate: M
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.3-ready-for-po-20260521.yaml
+
+dps_ratified:
+  DP-4.3.1: 'B — namespace /api/financas/transacoes + /categorias (settled por DP-4.2.1).'
+  DP-4.3.2: 'A — cursor pagination do GET /transacoes; criar TransactionCursorSchema LOCAL em transactions.ts (NÃO mutar o CursorPayloadSchema Tarefas-scoped de pagination.ts).'
+  DP-4.3.3: 'A — PATCH/DELETE de transactions só em transacções variáveis (manuais); transacção gerada (recurrence_id/installment_id NOT NULL) → 409 CONFLICT.'
+  DP-4.3.4: 'A — transactions hard delete (DELETE FROM); a tabela não tem coluna archived_at.'
+  DP-4.3.5: 'A — categories soft delete (UPDATE archived_at = now()); a coluna existe; hard delete nullava transactions.category_id.'
+
+po_fixes_applied:
+  F1: 'AC6(d) NOVO — constraint categories_unique_global_name = unique(household_id, name) (finance.ts:210). Handler POST/PATCH de categorias detecta /categories_unique_global_name/i no erro e converte unique_violation (23505) em 409 CONFLICT "Já existe uma categoria com esse nome." Pattern D-4.2.C. Tasks T5.1/T5.2 + AC6 PASS + AC8 + DoD actualizados.'
+  F2: 'AC8 — questão em aberto resolvida. apiError (errors.ts:43-60) aceita qualquer code string + qualquer status numérico (sem enum de codes). apiError("CONFLICT", msg, 409) funciona tal-qual. Sem DEV-DECISION, sem extensão de errors.ts. Linguagem condicional removida.'
+
+implementation_notes:
+  - 'Precedente directo: Story 4.2 (api/financas/{contas,cartoes}) — architect APPROVED 9.4/10. Espelhar a estrutura: withSpan + requireAuth + getDb + insertAuditLog + apiError. Pattern de cross-confirm de FK RLS-scoped = PO_FIX F1 da 4.2 (SELECT do account_id).'
+  - 'Zero migration nova — audit actions transaction.*/category.* já no enum (migration 0014, Story 4.1).'
+  - 'transactions: created_by_user_id vem do JWT (auth.userId — requireAuth). É notNull no schema. POST cria SÓ transacções manuais: recurrence_id/installment_id/installment_index/agent_run_id NULL; is_projected false.'
+  - 'transactions PATCH: o refinamento account_or_card composto não cabe no Update schema (não conhece o estado existente) — deixar o CHECK transactions_account_or_card do DB apanhar e converter /transactions_account_or_card/ em 400 (pattern D-4.2.C).'
+  - 'categories: parent_id NÃO tem FK no schema (finance.ts:196) — a verificação aplicacional (AC6c) é a única defesa, obrigatória. Validar 1-nível: a categoria-pai tem de ter parent_id NULL.'
+  - 'categories GET lista globais (household_id IS NULL) + per-household — a RLS categories_select_global_or_member já trata; o handler não precisa de filtro household_id explícito.'
+  - 'AC4: grep getServiceDb em api/financas/{transacoes,categorias}/ tem de dar 0 matches (route handlers + test files) — atenção a comentários e mocks (iteração de fix conhecida da Story 4.2).'
+  - 'db-test pode falhar localmente por ausência de Docker (Testcontainers) — não-regressão se a story não tocar packages/db-test/ nem schema; CI rls-gate cobre. Gate web é o relevante.'

@@ -50,7 +50,15 @@ export type TasksAuditAction =
   | 'account.deleted'
   | 'card.created'
   | 'card.updated'
-  | 'card.deleted';
+  | 'card.deleted'
+  // Story 4.3 Módulo Finanças — enum values JÁ presentes na DB (migration 0014,
+  // Story 4.1). Extensão puramente aditiva — sem migration nem feature flag.
+  | 'transaction.created'
+  | 'transaction.updated'
+  | 'transaction.deleted'
+  | 'category.created'
+  | 'category.updated'
+  | 'category.deleted';
 
 export interface AuditLogParams {
   readonly db: DbShim;
@@ -64,7 +72,9 @@ export interface AuditLogParams {
     | 'task_recurrences'
     | 'kanban_columns'
     | 'accounts'
-    | 'cards';
+    | 'cards'
+    | 'transactions'
+    | 'categories';
   readonly entityId?: string | null;
   readonly beforeState?: Record<string, unknown> | null;
   readonly afterState?: Record<string, unknown> | null;
