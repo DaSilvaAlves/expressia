@@ -100,4 +100,24 @@ describe('RLS isolation: categories', () => {
     });
     expect(blocked).toBe(true);
   });
+
+  test('cross-household UPDATE bloqueado: userB não pode editar categoria de A', async () => {
+    const { householdA, householdB, userB } = await seedTwoHouseholds();
+    const catId = await insertCategory(admin(), householdA.id, 'Mercearia-A');
+
+    await asUser(userB.id, householdB.id, async (sql) => {
+      const result = await sql`update public.categories set name = 'hijack' where id = ${catId}`;
+      expect(result.count).toBe(0);
+    });
+  });
+
+  test('cross-household DELETE bloqueado: userB não pode eliminar categoria de A', async () => {
+    const { householdA, householdB, userB } = await seedTwoHouseholds();
+    const catId = await insertCategory(admin(), householdA.id, 'Lazer-A');
+
+    await asUser(userB.id, householdB.id, async (sql) => {
+      const result = await sql`delete from public.categories where id = ${catId}`;
+      expect(result.count).toBe(0);
+    });
+  });
 });

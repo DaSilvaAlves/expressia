@@ -37,4 +37,26 @@ describe('RLS isolation: recurrences', () => {
     });
     expect(blocked).toBe(true);
   });
+
+  test('cross-household UPDATE bloqueado: userB não pode editar recorrência de A', async () => {
+    const { householdA, householdB, userA, userB } = await seedTwoHouseholds();
+    const accId = await insertAccount(admin(), householdA.id);
+    const recId = await insertRecurrence(admin(), householdA.id, userA.id, accId);
+
+    await asUser(userB.id, householdB.id, async (sql) => {
+      const result = await sql`update public.recurrences set description = 'hijack' where id = ${recId}`;
+      expect(result.count).toBe(0);
+    });
+  });
+
+  test('cross-household DELETE bloqueado: userB não pode eliminar recorrência de A', async () => {
+    const { householdA, householdB, userA, userB } = await seedTwoHouseholds();
+    const accId = await insertAccount(admin(), householdA.id);
+    const recId = await insertRecurrence(admin(), householdA.id, userA.id, accId);
+
+    await asUser(userB.id, householdB.id, async (sql) => {
+      const result = await sql`delete from public.recurrences where id = ${recId}`;
+      expect(result.count).toBe(0);
+    });
+  });
 });

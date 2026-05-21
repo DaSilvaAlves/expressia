@@ -49,4 +49,28 @@ describe('RLS isolation: cards', () => {
     });
     expect(blocked).toBe(true);
   });
+
+  test('cross-household UPDATE bloqueado: userB não pode editar cartão de A', async () => {
+    const { householdA, householdB, userB } = await seedTwoHouseholds();
+    const accA = await insertAccount(admin(), householdA.id);
+    const cardId = await insertCard(admin(), householdA.id, accA);
+
+    await asUser(userB.id, householdB.id, async (sql) => {
+      const result = await sql`update public.cards set name = 'hijack' where id = ${cardId}`;
+      expect(result.count).toBe(0);
+    });
+  });
+
+  // DELETE em cards usa a variant `cards_delete_owner_admin` — ver nota análoga
+  // em accounts.rls.test.ts. userB é owner do householdB; a RLS filtra por A.
+  test('cross-household DELETE bloqueado: userB não pode eliminar cartão de A', async () => {
+    const { householdA, householdB, userB } = await seedTwoHouseholds();
+    const accA = await insertAccount(admin(), householdA.id);
+    const cardId = await insertCard(admin(), householdA.id, accA);
+
+    await asUser(userB.id, householdB.id, async (sql) => {
+      const result = await sql`delete from public.cards where id = ${cardId}`;
+      expect(result.count).toBe(0);
+    });
+  });
 });

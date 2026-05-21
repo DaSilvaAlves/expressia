@@ -48,4 +48,28 @@ describe('RLS isolation: accounts', () => {
     });
     expect(blocked).toBe(true);
   });
+
+  test('cross-household UPDATE bloqueado: userB não pode editar conta de A', async () => {
+    const { householdA, householdB, userB } = await seedTwoHouseholds();
+    const accId = await insertAccount(admin(), householdA.id, { name: 'Conta A' });
+
+    await asUser(userB.id, householdB.id, async (sql) => {
+      const result = await sql`update public.accounts set name = 'hijack' where id = ${accId}`;
+      expect(result.count).toBe(0);
+    });
+  });
+
+  // DELETE em accounts usa a variant `accounts_delete_owner_admin`.
+  // `seedTwoHouseholds` cria userB como `owner` do householdB — a USING clause
+  // da RLS (is_household_owner_or_admin(household_id de A)) filtra primeiro:
+  // userB não é membro de A → 0 rows. Exercita RLS, não privilégio insuficiente.
+  test('cross-household DELETE bloqueado: userB não pode eliminar conta de A', async () => {
+    const { householdA, householdB, userB } = await seedTwoHouseholds();
+    const accId = await insertAccount(admin(), householdA.id);
+
+    await asUser(userB.id, householdB.id, async (sql) => {
+      const result = await sql`delete from public.accounts where id = ${accId}`;
+      expect(result.count).toBe(0);
+    });
+  });
 });

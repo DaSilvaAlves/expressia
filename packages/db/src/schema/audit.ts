@@ -78,6 +78,32 @@ export const auditActionEnum = pgEnum('audit_action', [
   // `recurrences_generated` é emitido pelo cron generate-recurring-tasks
   // (1 row agregada por run). Distinto de recurrence.* que são user-actions.
   'recurrences_generated',
+  // Finanças — Accounts (Story 4.1 — migration 0014)
+  'account.created',
+  'account.updated',
+  'account.deleted',
+  // Finanças — Cards (Story 4.1 — migration 0014)
+  'card.created',
+  'card.updated',
+  'card.deleted',
+  // Finanças — Categories (Story 4.1 — migration 0014)
+  'category.created',
+  'category.updated',
+  'category.deleted',
+  // Finanças — Transactions (Story 4.1 — migration 0014)
+  'transaction.created',
+  'transaction.updated',
+  'transaction.deleted',
+  // Finanças — Recurrences (Story 4.1 — migration 0014)
+  // Prefixo `finance_` desambigua de `recurrence.*` (migration 0010), que se
+  // refere a `task_recurrences`. A tabela `recurrences` é de Finanças.
+  'finance_recurrence.created',
+  'finance_recurrence.updated',
+  'finance_recurrence.deleted',
+  // Finanças — Installments (Story 4.1 — migration 0014)
+  // `installment.updated` omitido — prestações são imutáveis no MVP (DP8=A).
+  'installment.created',
+  'installment.deleted',
 ]);
 
 export const dataExportStatusEnum = pgEnum('data_export_status', [

@@ -161,7 +161,7 @@ erDiagram
 | `accounts` | FR15, FR17 | `account_type` enum {corrente, poupança, credito_consignado, investimentos, outro}. `iban_last4` (4 dígitos, GDPR friendly). |
 | `cards` | FR15-16 | `closing_day`, `due_day`, `credit_limit`. `card_type` {credit, debit}. |
 | `categories` | FR18 | `is_default=true` para templates globais (household_id NULL). Hierárquica via `parent_id`. |
-| `transactions` | FR13-14 | `numeric(14,2)` para valores. `payment_method` enum PT (cash, card, transfer, direct_debit, **multibanco**, **mb_way**). CHECK: account_id ou card_id NOT NULL. |
+| `transactions` | FR13-14 | `amount_cents integer` — valores em cêntimos de euro (NÃO `numeric`). `payment_method` enum PT (cash, card, transfer, direct_debit, **multibanco**, **mb_way**). CHECK: account_id ou card_id NOT NULL. |
 | `recurrences` | FR14 | Regra json idêntica a tasks. `next_run_date` para cron Inngest. |
 | `installments` | FR16 | Compras parceladas (prestações). `total_amount`, `num_installments`, `current_installment`. |
 
@@ -343,7 +343,7 @@ Supabase fornece pgBouncer em `port 6543` (transaction mode). Drizzle usa via en
 
 3. **CHECK constraint `currency='EUR'` e `locale='pt-PT'` em `households`** — defesa em profundidade contra introdução acidental de multi-locale futuro sem decisão consciente.
 
-4. **`numeric(14,2)` para valores monetários** — não `bigint cents`. Razão: queries financeiras usam aritmética DB nativa, e `numeric` evita overflow (até €99.999.999.999,99).
+4. **`integer` cêntimos para valores monetários** — todas as colunas `*_cents` (`amount_cents`, `balance_cents`, `initial_balance_cents`, `total_amount_cents`, `per_installment_cents`, `credit_limit_cents`) são `integer`, NÃO `numeric(14,2)`. Razão: cêntimos em `integer` garantem aritmética exacta sem drift de floating-point e alinham com a Stripe (que opera em cents — `€78,70` = `7870`). A UI converte via `formatEur(amount_cents / 100)`. Trade-off: o limite `int4` é ~€21.474.836,47 por valor individual — adequado ao mercado família-first do MVP; re-avaliar `bigint` apenas se um valor único exceder esse limite (cenário fora do MVP). Fonte de verdade: `packages/db/src/schema/finance.ts:6-10` (JSDoc) — `architecture.md:167` e `CLAUDE.md` já alinhados. Reconciliado na Story 4.1 (DP6=A).
 
 5. **Audit log com `before_state` e `after_state` em json** — não snapshot tables. Razão: simplicidade no MVP, queries forensic raras. Re-avaliar com tabelas dedicadas em Fase 2 se compliance exigir.
 

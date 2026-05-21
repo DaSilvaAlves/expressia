@@ -60,4 +60,15 @@ describe('RLS isolation: transactions', () => {
       expect(result.count).toBe(0);
     });
   });
+
+  test('cross-household DELETE bloqueado: userB não pode eliminar transacção de A', async () => {
+    const { householdA, householdB, userA, userB } = await seedTwoHouseholds();
+    const accId = await insertAccount(admin(), householdA.id);
+    const txId = await insertTransaction(admin(), householdA.id, userA.id, accId);
+
+    await asUser(userB.id, householdB.id, async (sql) => {
+      const result = await sql`delete from public.transactions where id = ${txId}`;
+      expect(result.count).toBe(0);
+    });
+  });
 });
