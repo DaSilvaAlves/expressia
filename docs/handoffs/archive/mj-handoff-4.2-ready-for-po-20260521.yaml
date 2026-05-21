@@ -1,0 +1,97 @@
+id: mj-handoff-4.2-ready-for-po-20260521
+from_agent: sm
+to_agent: po
+created: '2026-05-21T06:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-21T07:00:00Z'
+consumed_by: po
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.2'
+last_command: '*draft 4.2'
+priority: medium
+
+summary: |
+  @sm River executou `*draft 4.2` e criou a Story 4.2 do Epic 4 (Módulo
+  Finanças): "API routes CRUD accounts + cards (auth + RLS)". Story file:
+  docs/stories/active/4.2.finance-api-accounts-cards.story.md v1.0 Draft.
+  Estimate M. Primeira story de implementação real do Epic 4 (a 4.1 foi
+  validação de schema).
+
+  Drafted seguindo o precedente directo da Story 3.2 (API routes CRUD
+  Tarefas, @architect APPROVED 9.3/10). Reusa os helpers DRY da Story 3.2:
+  requireAuth + resolveHouseholdId + resolveHouseholdRole (api-helpers/auth.ts)
+  + insertAuditLog (api-helpers/audit.ts) + Zod .strict() em api-schemas/.
+
+  Scope: 4 route handlers (~10 métodos de endpoint) sob
+  apps/web/src/app/api/financas/{contas,cartoes}/ — CRUD de accounts e cards
+  com auth, RLS via getDb(), audit log, soft-delete via archived_at, variant
+  delete_owner_admin, validação composta de cartão de crédito. 2 Zod schema
+  files + extensão do helper audit.ts. ~25 tests integration mockable-friendly.
+
+  ACHADO: o helper api-helpers/audit.ts tem o type union `TasksAuditAction`
+  (tasks-scoped) — a 4.2 estende-o com account.*/card.* (os valores JÁ
+  existem no enum Postgres audit_action via migration 0014 da Story 4.1 —
+  zero migration nova, zero feature flag, contraste com o caso kanban da
+  Story 3.4).
+
+  12 ACs + 8 Tasks/Subtasks + 4 DPs. Cross-confirm anti-hallucination @sm
+  contra codebase real (finance.ts schema, 0001 RLS policies, helpers,
+  api-schemas/tags.ts pattern).
+
+next_action: |
+  `@po *validate-story-draft 4.2` — validação 10-point checklist + cross-confirm
+  anti-hallucination. 4 DPs [SM_FLAG] para o @po ratificar:
+
+  - DP-4.2.1: namespace de rotas. Recomendação B (`/api/financas/contas` +
+    `/cartoes`) — evita a colisão da Story 4.4 com `/api/recurrences`
+    existente (recorrências de Tarefas). PONTO IMPORTANTE — afecta todo o
+    Epic 4.
+  - DP-4.2.2: DELETE soft via `archived_at`. Recomendação A (schema tem a
+    coluna; hard delete partiria FK cards.account_id + perderia histórico
+    transactions).
+  - DP-4.2.3: helper audit.ts — manter o nome `TasksAuditAction` (B) vs
+    renomear para `DomainAuditAction` (A, resolve NIT-AR-3.4.1 mas toca 9
+    route files de Tarefas). Recomendação B (extensão aditiva, rename fica
+    housekeeping separado).
+  - DP-4.2.4: `GET /api/financas/contas` NÃO computa saldo agregado (A) — o
+    saldo computado (DP1=A do Epic) é da Story 4.9 (vista Património), que
+    depende de transactions (Story 4.3). Recomendação A.
+
+  Após @po GO → handoff po→dev para `@dev *develop 4.2`.
+
+context:
+  story_path: docs/stories/active/4.2.finance-api-accounts-cards.story.md
+  story_status: 'Draft v1.0'
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  branch: main
+  estimate: M
+  precedent: 'Story 3.2 (docs/stories/completed/3.2.tasks-api-routes.md) — API routes CRUD Tarefas'
+
+anti_hallucination_sources:
+  - 'packages/db/src/schema/finance.ts — accounts 82-114, cards 123-168 (CHECK constraints credit_needs_limit/closing_day/due_day)'
+  - 'packages/db/migrations/0001_rls_policies.sql:441-472 — accounts + cards RLS (DELETE variant owner_admin linhas 454/471)'
+  - 'apps/web/src/lib/api-helpers/auth.ts — requireAuth/resolveHouseholdId/resolveHouseholdRole (read full)'
+  - 'apps/web/src/lib/api-helpers/audit.ts — insertAuditLog + type TasksAuditAction a estender (read full)'
+  - 'apps/web/src/lib/api-schemas/tags.ts — pattern Zod .strict() a espelhar (read full)'
+  - 'Story 4.1 migration 0014 — account.*/card.* já no enum audit_action'
+
+story_summary:
+  acs: 12
+  tasks: 8
+  estimate: M
+  dps: 4
+  files_new_expected:
+    - 'apps/web/src/lib/api-schemas/accounts.ts + cards.ts'
+    - 'apps/web/src/app/api/financas/{contas,cartoes}/route.ts + [id]/route.ts (4 handlers)'
+    - '4 test files __tests__/'
+  files_modified_expected:
+    - 'apps/web/src/lib/api-helpers/audit.ts (type union + entityTable — aditivo)'
+    - 'apps/web/src/lib/api-schemas/index.ts (re-export)'
+
+notes_for_next_agent:
+  - 'Story DB+API only — zero migration nova (audit actions já no enum, Story 4.1). Sem bloqueador externo.'
+  - '_INDEX.md row 4.2 actualizada para Draft v1.0 — @po pode actualizar status no GO.'
+  - 'Working tree: docs/marketing/edit/ untracked (fora de escopo). Ficheiros desta sessão: story 4.2 + este handoff + edições INDEX.'
+  - 'DP-4.2.1 (namespace) é a decisão mais consequente — define o padrão de rotas para todo o Epic 4 (Stories 4.3-4.10).'

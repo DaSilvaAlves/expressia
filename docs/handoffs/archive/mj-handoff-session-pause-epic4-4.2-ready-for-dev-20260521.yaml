@@ -1,0 +1,104 @@
+id: mj-handoff-session-pause-epic4-4.2-ready-for-dev-20260521
+from_agent: any-orchestrator
+to_agent: any
+created: '2026-05-21T07:10:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-21T17:15:00Z'
+consumed_by: dev
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.2'
+last_command: '*validate-story-draft 4.2'
+priority: medium
+
+summary: |
+  META-HANDOFF — Session pause cross-terminal. Esta sessão fez o kickoff
+  COMPLETO do Epic 4 (Módulo Finanças) numa única conversa Eurico:
+
+  1. @pm *create-epic Epic 4 — documento de planeamento
+     docs/epics/epic-4-modulo-financas.md criado; 10 stories alta-nível;
+     8 DPs validadas pelo Eurico (aceitou as 8 recomendações).
+  2. Story 4.1 (Validação Schema Finanças + Audit Actions Migration + RLS
+     Gate) — ciclo SDC COMPLETO: @sm draft → @po validate (GO 10/10) →
+     @dev develop → @architect gate (APPROVED 9.5/10 HIGH) → @devops push.
+     PUSHED origin/main fd1530f..57d369c (2 commits). CI cloud 3/3 GREEN.
+     Migration 0014 (17 audit actions Finanças) aplicada Supabase production.
+     Story 4.1 Done v1.3. **Epic 4 = 1/10 Done.**
+  3. Story 4.2 (API routes CRUD accounts + cards) — @sm draft → @po validate
+     (GO 10/10, 1 PO_FIX_INLINE F1, 4 DPs ratificados). Status Ready v1.1.
+     **NÃO implementada ainda.**
+
+  Roadmap: Epic 1 = 7/7 Done · Epic 2 = 11/11 Done · Epic 3 = 8/8 Done ·
+  Epic 4 = 1/10 Done (4.1) + 1 Ready (4.2).
+
+next_action: |
+  Próximo passo único e actionable: `@dev *develop 4.2` — implementar a
+  Story 4.2 (API routes CRUD accounts + cards), modo YOLO. O handoff
+  actionable po→dev `mj-handoff-4.2-ready-for-dev-20260521.yaml` tem toda a
+  guidance (DPs ratificados, helpers a reusar, pattern de route handler,
+  PO_FIX F1). Este meta-handoff NÃO o substitui — aponta para ele.
+
+  Sequência SDC restante do Epic 4 após 4.2: @dev develop → @architect
+  qa-gate → @devops push → @sm *draft 4.3 (API transactions + categories).
+
+working_tree_state: |
+  IMPORTANTE para o próximo terminal: a Story 4.1 está PUSHED (origin/main
+  em 57d369c). MAS o trabalho da Story 4.2 (draft + validate) está
+  NÃO-COMMITADO no working tree local — é docs-only e será consolidado no
+  push quando a Story 4.2 fechar o ciclo SDC (@devops *push 4.2).
+
+  Ficheiros não-commitados da Story 4.2 (working tree):
+  - docs/stories/active/4.2.finance-api-accounts-cards.story.md (Ready v1.1)
+  - docs/handoffs/mj-handoff-4.2-ready-for-dev-20260521.yaml (pending)
+  - docs/handoffs/mj-handoff-session-pause-epic4-4.2-ready-for-dev-20260521.yaml (este)
+  - docs/handoffs/archive/mj-handoff-4.2-ready-for-po-20260521.yaml (consumed)
+  - docs/HANDOFF-INDEX.md + docs/stories/active/_INDEX.md (editados)
+  - docs/marketing/edit/ (untracked — binários marketing, FORA DE ESCOPO,
+    NÃO incluir em nenhum commit)
+
+  Num terminal novo: `git status` mostrará estes ficheiros. São o estado
+  válido da sessão — o @dev continua a partir daqui (não precisa de pull
+  nem reset; o working tree é a fonte de verdade para a Story 4.2 in-flight).
+
+context:
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  story_42_path: docs/stories/active/4.2.finance-api-accounts-cards.story.md
+  story_42_status: 'Ready v1.1 (@po GO 10/10)'
+  actionable_handoff: docs/handoffs/mj-handoff-4.2-ready-for-dev-20260521.yaml
+  branch: main
+  origin_main_sha: '57d369c (Story 4.1 pushed)'
+
+epic_4_roadmap:
+  done:
+    - '4.1 — Validação Schema Finanças (Done v1.3, pushed, architect 9.5/10)'
+  ready:
+    - '4.2 — API routes CRUD accounts + cards (Ready v1.1, @po GO 10/10)'
+  backlog:
+    - '4.3 — API routes transactions + categories (M)'
+    - '4.4 — API routes recurrences + installments (M)'
+    - '4.5 — Geração automática cron Inngest Finanças (M)'
+    - '4.6 — Vista Este mês + projecção 30d (L)'
+    - '4.7 — Vistas Variáveis + Recorrentes (M)'
+    - '4.8 — Vista Cartões + fatura (M)'
+    - '4.9 — Vista Património (M)'
+    - '4.10 — Tools do cérebro Finanças (L)'
+
+key_decisions_epic_4:
+  - 'DP-4.2.1 — namespace de rotas /api/financas/* (PT-PT): padrão FIXADO para todas as Stories 4.3-4.10. Evita colisão da 4.4 com /api/recurrences (Tarefas).'
+  - 'DP1 (Epic) — saldo de conta recompute on-read; balance_cents é snapshot inicial; saldo agregado real é computado na vista Património (Story 4.9).'
+  - 'DP8 (Epic) — prestações geradas atomicamente na criação do installment (Story 4.4).'
+  - 'audit_action enum: migration 0014 (Story 4.1) provisionou 17 audit actions de Finanças — as Stories 4.2-4.4 consomem-nas via insertAuditLog, zero migration de enum nova.'
+
+carry_over_low:
+  - 'NIT-AR-3.4.1 — rename TasksAuditAction → DomainAuditAction (o nome é misnomer crescente após Finanças). Housekeeping dedicado, fora do Epic 4.'
+  - 'NIT-DEVOPS-3.8.1 — bump prompts classifier/planner v2 (será absorvido na Story 4.10 que bump os prompts para as tools de Finanças).'
+  - 'PERF-001 — G1.1 EXPLAIN ANALYZE deferred staging.'
+  - 'TEST-001 — calendar page.test.tsx flaky.'
+  - 'docs/marketing/edit/ — binários marketing untracked, Eurico decide separadamente.'
+
+notes_for_next_agent:
+  - 'Este é um pause artifact — NÃO é actionable single-task. O actionable é mj-handoff-4.2-ready-for-dev-20260521.yaml (@dev *develop 4.2).'
+  - 'Toda a Story 4.2 segue o precedente Story 3.2 (API routes Tarefas, @architect 9.3/10).'
+  - 'Sem bloqueador externo no Epic 4 — keys LLM + Inngest já provisionados (Epics 2/3).'
+  - 'O ciclo SDC do projecto: @sm draft → @po validate → @dev develop → @architect qa-gate → @devops push. Apenas @devops faz git push.'

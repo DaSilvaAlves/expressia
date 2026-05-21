@@ -1,0 +1,90 @@
+id: mj-handoff-4.2-review-for-architect-20260521
+from_agent: dev
+to_agent: architect
+created: '2026-05-21T17:20:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-21T17:40:00Z'
+consumed_by: architect
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.2'
+last_command: '*develop 4.2'
+priority: medium
+
+summary: |
+  @dev Dex implementou a Story 4.2 do Epic 4 (Módulo Finanças): "API routes
+  CRUD accounts + cards (auth + RLS)". Status Ready v1.1 → Ready for Review
+  v1.2. Story file:
+  docs/stories/active/4.2.finance-api-accounts-cards.story.md
+
+  10 métodos de endpoint em 4 route handlers sob `/api/financas/{contas,
+  cartoes}` (namespace DP-4.2.1=B). 2 Zod schemas `.strict()`. Extensão
+  aditiva do helper `audit.ts` (union `TasksAuditAction` + `entityTable`).
+  31 tests integration mockable-friendly novos — todos GREEN.
+
+  12/12 ACs implementados. 5/5 quality gates locais GREEN (web 541/541;
+  `db-test` falha só local por ausência de Docker — não-regressão, CI verde).
+  PO_FIX F1 implementado. 4 DPs aplicados conforme ratificação @po.
+
+next_action: |
+  `@architect *qa-gate 4.2` — deep review / quality gate. Verificar:
+  - 12 ACs vs implementação (10 métodos de endpoint, 2 schemas, audit.ts).
+  - 3 DEV-DECISIONs D-4.2.A/B/C (ver abaixo) — ratificar ou contestar.
+  - Cross-confirm anti-hallucination contra `finance.ts` + `0001_rls_policies.sql`.
+  - Constitution 6/6.
+
+  Após @architect APPROVED → `@devops *push 4.2`.
+
+context:
+  story_path: docs/stories/active/4.2.finance-api-accounts-cards.story.md
+  story_status: 'Ready for Review v1.2'
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  branch: main
+  estimate: M
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.2-ready-for-dev-20260521.yaml
+
+implementation_summary:
+  files_new:
+    - 'apps/web/src/lib/api-schemas/accounts.ts — AccountCreateSchema + AccountUpdateSchema (.strict())'
+    - 'apps/web/src/lib/api-schemas/cards.ts — CardCreateSchema (.refine() credit⇒limit) + CardUpdateSchema'
+    - 'apps/web/src/app/api/financas/contas/route.ts — GET (list + filtro archived) + POST'
+    - 'apps/web/src/app/api/financas/contas/[id]/route.ts — GET + PATCH + DELETE (soft)'
+    - 'apps/web/src/app/api/financas/cartoes/route.ts — GET (list + filtros) + POST'
+    - 'apps/web/src/app/api/financas/cartoes/[id]/route.ts — GET + PATCH + DELETE (soft)'
+    - 'apps/web/src/app/api/financas/contas/__tests__/route.test.ts — 7 tests'
+    - 'apps/web/src/app/api/financas/contas/[id]/__tests__/route.test.ts — 8 tests'
+    - 'apps/web/src/app/api/financas/cartoes/__tests__/route.test.ts — 9 tests'
+    - 'apps/web/src/app/api/financas/cartoes/[id]/__tests__/route.test.ts — 7 tests'
+  files_modified:
+    - 'apps/web/src/lib/api-helpers/audit.ts — union TasksAuditAction (+6 valores account.*/card.*) + entityTable (+accounts/cards). Aditivo, sem feature flag (enum já na DB via migration 0014).'
+    - 'apps/web/src/lib/api-schemas/index.ts — re-export ./accounts + ./cards'
+  tests_new: 31
+  acs_total: 12
+  acs_done: 12
+
+quality_gates:
+  lint: 'PASS — next lint --max-warnings=0, 9/9 tasks'
+  typecheck: 'PASS — tsc --noEmit 9/9 tasks'
+  test: 'PASS (web 541/541 = 510 baseline + 31 novos). db-test falha só local (Docker ausente — Testcontainers Story 1.4); NÃO-regressão, CI rls-gate corre contra Postgres efémero.'
+  build: 'PASS — 9/9 tasks; 4 rotas novas dynamic /api/financas/{contas,cartoes}(/[id])'
+  check_rls: 'PASS — NFR5 preservada, 0 tabelas novas'
+
+dev_decisions:
+  - 'D-4.2.A — AccountUpdateSchema NÃO inclui initial_balance_cents. O AC1 PATCH não o lista como editável; editá-lo causaria drift do balance_cents (snapshot DP-4.2.4 — recompute pertence à Story 4.9). Update = name/account_type/bank_name/iban_last4.'
+  - 'D-4.2.B — Semântica do filtro `archived` no GET: archived=false (default) → archived_at IS NULL (activas); archived=true → archived_at IS NOT NULL (só arquivadas). Filtro directo sobre o estado, consistente com os filtros directos account_id/card_type do GET cartões. Parse estrito (só literal "true").'
+  - 'D-4.2.C — cards_credit_needs_limit no PATCH: CardUpdateSchema não tem refinamento composto (não conhece o estado existente do cartão). Mudar card_type para credit sem limite é apanhado pelo CHECK do DB; o handler PATCH detecta a violação e converte em 400 VALIDATION_ERROR (não 500). Defesa em profundidade.'
+
+dp_application:
+  DP-4.2.1: 'B aplicado — rotas sob apps/web/src/app/api/financas/{contas,cartoes}/.'
+  DP-4.2.2: 'A aplicado — DELETE faz UPDATE archived_at = now(). Resposta { archived: true, id }.'
+  DP-4.2.3: 'B aplicado — union mantém o nome TasksAuditAction, só estendido (aditivo). NIT-AR-3.4.1 permanece.'
+  DP-4.2.4: 'A aplicado — GET contas devolve initial_balance_cents + balance_cents stored, sem JOIN transactions.'
+  PO_FIX_F1: 'Aplicado — SELECT de verificação do account_id (POST cartões) tem filtro archived_at IS NULL → conta arquivada devolve 404. Test cobre o cenário.'
+
+notes_for_next_agent:
+  - 'AC4 (R-4.7): grep getServiceDb em apps/web/src/app/api/financas/ = 0 matches (route handlers + test files). Os handlers só usam getDb() (RLS via JWT).'
+  - 'CodeRabbit [AUTO-DECISION] SKIPPED esperado no push (precedente Stories 2.2-4.1).'
+  - 'Story DB+API only — zero migration nova (audit actions já no enum via 0014, Story 4.1).'
+  - 'Working tree: trabalho da Story 4.2 (story file + 12 ficheiros de código + handoffs + INDEX) não-commitado — consolidado no @devops *push 4.2. docs/marketing/edit/ untracked fora de escopo.'
+  - '1 concern conhecido a confirmar pelo gate: db-test depende de Docker local (mesmo concern LOW da Story 4.1 — ENV-BLOCKER, CI cobre).'

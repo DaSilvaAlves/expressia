@@ -41,14 +41,30 @@ export type TasksAuditAction =
   | 'kanban_column.created'
   | 'kanban_column.updated'
   | 'kanban_column.deleted'
-  | 'kanban_column.batch_updated';
+  | 'kanban_column.batch_updated'
+  // Story 4.2 Módulo Finanças — enum values JÁ presentes na DB (migration 0014,
+  // Story 4.1, pushed `57d369c`). Extensão puramente aditiva — sem migration nem
+  // feature flag (contraste com o caso kanban_column.* acima).
+  | 'account.created'
+  | 'account.updated'
+  | 'account.deleted'
+  | 'card.created'
+  | 'card.updated'
+  | 'card.deleted';
 
 export interface AuditLogParams {
   readonly db: DbShim;
   readonly householdId: string;
   readonly userId: string;
   readonly action: TasksAuditAction;
-  readonly entityTable: 'tasks' | 'tags' | 'task_tags' | 'task_recurrences' | 'kanban_columns';
+  readonly entityTable:
+    | 'tasks'
+    | 'tags'
+    | 'task_tags'
+    | 'task_recurrences'
+    | 'kanban_columns'
+    | 'accounts'
+    | 'cards';
   readonly entityId?: string | null;
   readonly beforeState?: Record<string, unknown> | null;
   readonly afterState?: Record<string, unknown> | null;

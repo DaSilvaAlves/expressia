@@ -225,7 +225,7 @@ Total: 2S + 4M + 2L = 5-6 sprints (1 dev) OU 3-4 sprints (2 devs paralelo após 
 | Story | Ficheiro | Título | Status | Owner | Estimate | Bloqueadores |
 |-------|---------|--------|--------|-------|----------|-------------|
 | 4.1 | [4.1.finance-schema-validation.story.md](../completed/4.1.finance-schema-validation.story.md) | Validação Schema Finanças + Audit Actions Migration + RLS Gate | **Done v1.3** ✓ pushed | @sm → @po → @dev → @architect → @devops | S | **2026-05-21 — `@po *validate-story-draft 4.1` GO 10/10 — Status Draft v1.0 → Ready v1.1.** 10-point checklist perfeito + cross-confirm anti-hallucination 7 fontes (zero hallucinations). 2 achados AC10 ratificados (parity enum recorrência → PASS-com-nota; naming `finance_recurrence.*` aprovado). Scope migration 0014 aprovado (17 audit actions). 2 PO_FIX_INLINE: F1 (AC1 FR17 — saldo agregado computado DP1=A) + F2 (AC5 — validação do seed de categorias, gap Epic §3 IN). Sem bloqueador externo. Sucessor: `mj-handoff-4.1-ready-for-dev-20260521.yaml`. |
-| 4.2 | _(a criar — `@sm *draft 4.2`)_ | API routes — `accounts` + `cards` | Backlog | @sm → @po → @dev → @architect → @devops | M | Depende de 4.1 |
+| 4.2 | [4.2.finance-api-accounts-cards.story.md](../completed/4.2.finance-api-accounts-cards.story.md) | API routes CRUD accounts + cards (auth + RLS) | **Done v1.4** ✓ pushed | @sm → @po → @dev → @architect → @devops | M | **2026-05-21 — `@devops *push 4.2` COMPLETO.** Architect Gate APPROVED 9.4/10 HIGH (`*qa-gate 4.2` — 12/12 ACs · 31/31 tests `api/financas/` verificados independentemente · 3 DEV-DECISIONs ratificadas · zero hallucinations · Constitution 6/6). Pre-push 5/5 quality gates re-verificados FULL TURBO (lint/typecheck/check:rls/build/test web 541/541). 10 NEW + 2 MODIFIED código (4 route handlers `api/financas/{contas,cartoes}/` namespace DP-4.2.1=B + 2 Zod schemas `.strict()` + `audit.ts` union +6 valores). CodeRabbit [AUTO-DECISION] SKIPPED. `db-test` não corrido local (Docker ausente — CI cobre). Story file mv `active/`→`completed/`. |
 | 4.3 | _(a criar)_ | API routes — `transactions` variáveis + `categories` | Backlog | @sm → @po → @dev → @architect → @devops | M | Depende de 4.2 |
 | 4.4 | _(a criar)_ | API routes — `recurrences` + `installments` | Backlog | @sm → @po → @dev → @architect → @devops | M | Depende de 4.3 |
 | 4.5 | _(a criar)_ | Geração automática — cron Inngest Finanças | Backlog | @sm → @po → @dev → @architect → @devops | M | Depende de 4.4 |
@@ -235,7 +235,7 @@ Total: 2S + 4M + 2L = 5-6 sprints (1 dev) OU 3-4 sprints (2 devs paralelo após 
 | 4.9 | _(a criar)_ | Vista "Património" — balanço por conta | Backlog | @sm → @po → @dev → @architect → @devops | M | Depende de 4.2, 4.3 |
 | 4.10 | _(a criar)_ | Tools do cérebro Finanças | Backlog | @sm → @po → @dev → @architect → @devops | L | Depende de 4.2, 4.3, 4.4 |
 
-**Epic 4 Progress: 1/10 Done — Story 4.1 Done v1.3 pushed 2026-05-21 (`@architect *qa-gate 4.1` APPROVED 9.5/10 HIGH — empata Stories 3.1/3.8; 10/10 ACs · 5/5 gates GREEN · migration 0014 aplicada Supabase production · +11 testes RLS · gate report `docs/qa/gates/4.1-architect-gate.md`). Próximo: `@sm *draft 4.2` (API routes accounts + cards).**
+**Epic 4 Progress: 2/10 Done — Story 4.1 Done v1.3 pushed 2026-05-21 (`@architect *qa-gate 4.1` APPROVED 9.5/10 HIGH) + Story 4.2 Done v1.4 pushed 2026-05-21 (`@architect *qa-gate 4.2` APPROVED 9.4/10 HIGH — API routes CRUD accounts + cards · 10 métodos de endpoint · 31 tests · 12/12 ACs). Próximo: `@sm *draft 4.3` (API routes `transactions` + `categories`).**
 
 ---
 

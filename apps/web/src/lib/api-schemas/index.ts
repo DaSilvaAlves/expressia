@@ -7,3 +7,6 @@ export * from './pagination';
 export * from './tasks';
 export * from './tags';
 export * from './recurrences';
+// Story 4.2 — Módulo Finanças (accounts + cards)
+export * from './accounts';
+export * from './cards';

@@ -1,0 +1,79 @@
+id: mj-handoff-4.2-ready-for-dev-20260521
+from_agent: po
+to_agent: dev
+created: '2026-05-21T07:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-21T17:15:00Z'
+consumed_by: dev
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.2'
+last_command: '*validate-story-draft 4.2'
+priority: medium
+
+summary: |
+  @po Pax validou a Story 4.2 do Epic 4 (Módulo Finanças): "API routes CRUD
+  accounts + cards (auth + RLS)". Veredicto: GO 10/10. Status Draft v1.0 →
+  Ready v1.1. Story file:
+  docs/stories/active/4.2.finance-api-accounts-cards.story.md
+
+  10-point checklist 10/10. Cross-confirm anti-hallucination independente em
+  6 fontes — zero hallucinations. 4 DPs RATIFICADOS. 1 PO_FIX_INLINE aplicado.
+
+  4 DPs ratificados:
+  - DP-4.2.1 → B: namespace de rotas `/api/financas/contas` + `/cartoes`.
+    Fixa o padrão de rotas de TODO o Epic 4 (Stories 4.3-4.10). Evita a
+    colisão da Story 4.4 com `/api/recurrences` (recorrências de Tarefas).
+  - DP-4.2.2 → A: soft-delete via `archived_at = now()`.
+  - DP-4.2.3 → B: manter o nome `TasksAuditAction` (extensão aditiva; rename
+    fica NIT-AR-3.4.1 housekeeping).
+  - DP-4.2.4 → A: `GET /api/financas/contas` NÃO computa saldo agregado — o
+    saldo computado (DP1=A do Epic) é da Story 4.9 (vista Património).
+
+  PO_FIX_INLINE F1: AC6 — o SELECT de verificação do `account_id` (POST
+  cartão) ganha filtro `archived_at IS NULL` (impede criar cartão sobre
+  conta arquivada). Cenário de teste adicionado ao AC6 PASS.
+
+next_action: |
+  `@dev *develop 4.2` — implementação, modo YOLO. Sequência T1→T8 da story:
+  T1 pre-flight DPs → T2 Zod schemas accounts.ts + cards.ts → T3 extensão
+  audit.ts (union + entityTable, aditivo) → T4 routes contas → T5 routes
+  cartoes → T6 ~25 tests integration mockable-friendly → T7 5 quality gates
+  → T8 docs + handoff sucessor dev→architect.
+
+  Após @dev → `@architect *qa-gate 4.2`.
+
+context:
+  story_path: docs/stories/active/4.2.finance-api-accounts-cards.story.md
+  story_status: 'Ready v1.1'
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  branch: main
+  estimate: M
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.2-ready-for-po-20260521.yaml
+
+dev_guidance_silent:
+  - 'Namespace confirmado: criar sob apps/web/src/app/api/financas/{contas,cartoes}/ (DP-4.2.1=B).'
+  - 'Helpers DRY a reusar: requireAuth/resolveHouseholdId/resolveHouseholdRole (@/lib/api-helpers/auth) + insertAuditLog (@/lib/api-helpers/audit). Pattern de route handler: apps/web/src/app/api/conta/preferencias/route.ts + as routes da Story 3.2 (api/tasks/).'
+  - 'audit.ts: estender o type union TasksAuditAction com account.created/updated/deleted + card.created/updated/deleted, e o entityTable union com accounts/cards. Aditivo — SEM feature flag (os valores já estão no enum Postgres via migration 0014, Story 4.1; contraste com o caso kanban_column.* da Story 3.4).'
+  - 'DELETE = soft via archived_at = now() + verificação resolveHouseholdRole (member → 403; o soft-delete é tecnicamente UPDATE, por isso a policy delete_owner_admin não se aplica sozinha — o handler verifica o role explicitamente).'
+  - 'CardCreateSchema: Zod .refine() — card_type=credit ⇒ credit_limit_cents obrigatório. account_id verificado RLS-scoped + archived_at IS NULL (PO_FIX F1).'
+  - 'GET contas: devolve initial_balance_cents + balance_cents (snapshot) SEM computar SUM transactions (DP-4.2.4=A — saldo computado é Story 4.9).'
+  - 'Tests: pattern mockable-friendly vi.hoisted() + vi.mock(@meu-jarvis/auth/server) + vi.mock(@/lib/agent/db-shim) — reference apps/web/src/app/api/tasks/__tests__/create.test.ts.'
+
+story_summary:
+  acs: 12
+  tasks: 8
+  estimate: M
+  files_new_expected:
+    - 'apps/web/src/lib/api-schemas/accounts.ts + cards.ts'
+    - 'apps/web/src/app/api/financas/{contas,cartoes}/route.ts + [id]/route.ts'
+    - '4 test files __tests__/'
+  files_modified_expected:
+    - 'apps/web/src/lib/api-helpers/audit.ts (type union + entityTable — aditivo)'
+    - 'apps/web/src/lib/api-schemas/index.ts (re-export)'
+
+notes_for_next_agent:
+  - 'Story DB+API only — zero migration nova. Sem bloqueador externo.'
+  - 'CodeRabbit [AUTO-DECISION] SKIPPED esperado (precedente Stories 2.2-4.1).'
+  - 'Working tree pode ter docs/marketing/edit/ untracked (fora de escopo).'
