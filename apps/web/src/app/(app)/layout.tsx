@@ -35,6 +35,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Link href="/tarefas" className="hover:underline">
                 Tarefas
               </Link>
+              <Link href="/financas/este-mes" className="hover:underline">
+                Finanças
+              </Link>
               <Link href="/conta/preferencias" className="hover:underline">
                 Conta
               </Link>
