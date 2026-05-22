@@ -22,8 +22,8 @@ interface TabDef {
 
 const TABS: readonly TabDef[] = [
   { view: 'este-mes', label: 'Este mês', href: '/financas/este-mes' },
-  { view: 'variaveis', label: 'Variáveis', href: null },
-  { view: 'recorrentes', label: 'Recorrentes', href: null },
+  { view: 'variaveis', label: 'Variáveis', href: '/financas/variaveis' },
+  { view: 'recorrentes', label: 'Recorrentes', href: '/financas/recorrentes' },
   { view: 'cartoes', label: 'Cartões', href: null },
   { view: 'patrimonio', label: 'Património', href: null },
 ];

@@ -3,23 +3,28 @@
 import { useRouter } from 'next/navigation';
 
 /**
- * `<FinanceEmptyState>` — estados vazios da vista de Finanças (Story 4.6 AC6).
+ * `<FinanceEmptyState>` — estados vazios das vistas de Finanças
+ * (Story 4.6 AC6; variant `no-results` adicionado na Story 4.7 AC7).
  *
  * - `error`: o fetch RSC falhou. CTA tenta novamente (`router.refresh`).
- * - `no-movements`: o mês não tem transacções reais. Mensagem informativa,
- *   sem erro — usa `monthLabel` para contexto.
+ * - `no-movements`: o mês não tem transacções reais (vista "Este mês").
+ * - `no-results`: lista sem resultados (vistas "Variáveis"/"Recorrentes") —
+ *   distingue "sem dados" de "sem resultados para os filtros" via `message`.
  *
- * Trace: Story 4.6 AC6; precedente `EmptyState` (Story 3.3).
+ * Trace: Story 4.6 AC6, Story 4.7 AC7.
  */
 export interface FinanceEmptyStateProps {
-  readonly variant: 'error' | 'no-movements';
-  /** Label do mês (obrigatório para `no-movements`). */
+  readonly variant: 'error' | 'no-movements' | 'no-results';
+  /** Label do mês (variant `no-movements`). */
   readonly monthLabel?: string;
+  /** Mensagem (variant `no-results`). */
+  readonly message?: string;
 }
 
 export function FinanceEmptyState({
   variant,
   monthLabel,
+  message,
 }: FinanceEmptyStateProps): React.ReactElement {
   const router = useRouter();
 
@@ -39,6 +44,16 @@ export function FinanceEmptyState({
         >
           Tentar novamente
         </button>
+      </div>
+    );
+  }
+
+  if (variant === 'no-results') {
+    return (
+      <div className="rounded-lg border border-black/10 bg-neutral-50 p-8 text-center dark:border-white/10 dark:bg-neutral-900/40">
+        <p className="text-sm text-neutral-700 dark:text-neutral-300">
+          {message ?? 'Sem resultados.'}
+        </p>
       </div>
     );
   }
