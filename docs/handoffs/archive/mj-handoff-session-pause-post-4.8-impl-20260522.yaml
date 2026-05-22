@@ -1,10 +1,18 @@
 from_agent: "devops"
 to_agent: "architect"
 created: "2026-05-22T18:30:00Z"
-status: "pending"
-consumed: false
-consumed_at: null
-consumed_by: null
+status: "consumed"
+consumed: true
+consumed_at: "2026-05-22T19:10:00Z"
+consumed_by: "devops (Gage)"
+consumed_note: >
+  Cadeia gate+push cumprida. @qa (Quinn) executou o quality gate da Story 4.8 —
+  veredicto PASS 9,5/10 HIGH (docs/qa/gates/4.8-qa-gate.md): 7-point gate, 8/8 ACs PASS,
+  5/5 quality gates re-verificados independentemente (716/716 testes web), risco R-4.6
+  mitigado, Constitution 6/6, 1 observação LOW non-blocking (NIT-4.8.1). @devops (Gage)
+  executou *push: housekeeping commit 0384c24 (QA Results + gate file + story mv
+  active/->completed/ + Status Done v1.3) + push origin/main (ad0b746..0384c24).
+  Epic 4 = 8/10 Done. Sucessor pending: mj-handoff-session-pause-post-4.8-done-20260522.yaml.
 
 project: "meu-jarvis (Expressia)"
 prefix: "mj-"

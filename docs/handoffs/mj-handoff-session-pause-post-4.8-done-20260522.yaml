@@ -1,0 +1,85 @@
+from_agent: "devops"
+to_agent: "sm"
+created: "2026-05-22T19:10:00Z"
+status: "pending"
+consumed: false
+consumed_at: null
+consumed_by: null
+
+project: "meu-jarvis (Expressia)"
+prefix: "mj-"
+
+summary: >
+  SESSION PAUSE cross-terminal — Story 4.8 (Vista "Cartões") FECHADA em produção.
+  Epic 4 agora 8/10 Done. A acção imediata para continuar o epic é `@sm *draft 4.9`
+  (Vista "Património" — o último placeholder de FinanceViewTabs). Esta sessão executou
+  o quality gate da 4.8 (@qa PASS 9,5/10) e o push (@devops). Supersede
+  `mj-handoff-session-pause-post-4.8-impl-20260522` (cujo next_action gate+push foi cumprido).
+
+next_action: >
+  `@sm *draft 4.9` — criar a story da Vista "Património" a partir de
+  `docs/epics/epic-4-modulo-financas.md` (§5 Story 4.9, FR17). Reusa a infra
+  reuse-heavy já provada nas Stories 4.6/4.7/4.8: `MoneyDisplay`, `FinanceViewTabs`,
+  `FinanceEmptyState`, padrão RSC fetch-direct via `getDb()`, helper `db`-injectável.
+  A 4.9 converte o ÚLTIMO placeholder de `FinanceViewTabs` (`patrimonio`, hoje `<span>`
+  desactivado) em `<Link>`. Depois: cadeia SDC normal — @po validate → @dev develop →
+  @qa gate → @devops push. Story 4.10 (tools do cérebro Finanças) fecha o Epic 4.
+
+story:
+  id: "4.9"
+  title: "Vista Património — balanço agregado por banco/conta com drilldown (FR17)"
+  path: "docs/stories/active/4.9.*.story.md (a criar)"
+  status: "não iniciada"
+  epic: "Epic 4 — Módulo Finanças"
+
+context: >
+  Sessão Eurico longa — cadeia SDC completa de 3 stories do Epic 4 (4.6, 4.7, 4.8).
+  A Story 4.8 (Vista "Cartões") foi fechada nesta continuação:
+
+    - @qa (Quinn) *qa-gate 4.8 → PASS 9,5/10 HIGH. 7-point gate, 8/8 ACs PASS,
+      8/8 [AUTO-DECISIONS] ratificadas, Constitution 6/6. Os 5 quality gates foram
+      RE-VERIFICADOS independentemente pelo @qa (não aceites por reporte): typecheck,
+      lint 0w, test web 716/716, build (rota /financas/cartoes presente), check:rls.
+      Núcleo de risco R-4.6 (fronteira do ciclo de fecho) inspeccionado — convenção
+      D-4.8.1 (fecho inclusivo) correcta e testada. R-4.8.4 mitigado (getDb(), zero
+      getServiceDb()). 1 observação LOW: NIT-4.8.1.
+    - @devops (Gage) *push → housekeeping commit 0384c24 (QA Results na story +
+      docs/qa/gates/4.8-qa-gate.md + story mv active/->completed/ + Status Done v1.3)
+      e push origin/main (ad0b746..0384c24, 3 commits: 204b585 feat + 43c13aa handoff
+      + 0384c24 housekeeping).
+
+  NOTA de routing: a story 4.8 atribuía o gate a @architect, mas o gate foi corrido
+  por @qa por invocação explícita do utilizador — *qa-gate é comando exclusivo do @qa
+  (agent-authority). Para a 4.9, a cadeia SDC normal aplica-se.
+
+session_commits_pushed:
+  - "58e79d2 — feat(financas) Story 4.6"
+  - "aa33fe3 — chore(docs) Story 4.6 Done"
+  - "faa629f — feat(financas) Story 4.7"
+  - "ad0b746 — chore(docs) Story 4.7 Done"
+  - "204b585 — feat(financas) Story 4.8 — vista Cartões"
+  - "43c13aa — chore(docs,handoff) session pause post 4.8 impl"
+  - "0384c24 — chore(docs,housekeeping) Story 4.8 Done — QA gate PASS + story mv"
+
+roadmap_epic_4:
+  done: "8/10 — 4.1 (schema+audit) · 4.2 (API accounts/cards) · 4.3 (API transactions/categories) · 4.4 (API recurrences/installments) · 4.5 (cron Inngest) · 4.6 (vista Este mês) · 4.7 (vistas Variáveis+Recorrentes) · 4.8 (vista Cartões)"
+  remaining:
+    - "4.9 — Vista 'Património' (M) — balanço agregado por banco/conta com drilldown (FR17). Depende 4.2+4.3. Reusa MoneyDisplay/FinanceViewTabs/FinanceEmptyState; converte o ÚLTIMO placeholder de FinanceViewTabs (patrimonio)."
+    - "4.10 — Tools do cérebro Finanças (L) — 5 tools no toolRegistry + TOOL_TO_INTENT_MAP + prompts classifier/planner v-bump. Fecha o Epic 4."
+
+carry_over:
+  - "Story 4.6 gate C1 (MEDIUM) — capturar EXPLAIN ANALYZE da vista mensal contra staging seeded (AC7 PARCIAL aceite como waiver; runbook docs/runbooks/finance-month-view-perf.md tem a metodologia)."
+  - "Story 4.6 gate C2 (LOW) — doc-sync architecture.md §8.4 (MoneyDisplay/packages/ui diverge da implementação real — D-4.6.9/D-4.6.1)."
+  - "Story 4.7 gate C1 (MEDIUM) — adicionar teste unitário de DeleteRowButton (confirm cancelado / erro / sucesso)."
+  - "Story 4.7 gate C2 (LOW) — substituir window.confirm por dialog de confirmação estilizado."
+  - "Story 4.8 gate NIT-4.8.1 (LOW) — query installments em list-card-statements.ts sem filtro card_id explícito (deviation funcional-equivalente da AC3; RLS scopa por household; documentada nas Completion Notes). Opcional: alinhar query à AC ou actualizar a AC numa story futura."
+  - "docs/marketing/edit/ untracked — binários mp4 de marketing; decisão pendente do Eurico (gitignore/commitar). Excluído de todos os commits 4.1-4.8."
+  - "db-test não corre local (LOW) — Docker ausente; CI job rls-gate cobre. Herdado Stories 4.1-4.8."
+  - "TEST-001 (LOW) — flaky tarefas/calendario/page.test.tsx por timeout; passa isolado; não-regressão confirmada."
+
+blockers: []
+
+git_branch: "main"
+git_head: "0384c24"
+git_unpushed: "nenhum — main sincronizado com origin/main"
+current_story: "4.8 Done v1.3 (pushed); a seguir 4.9 (não iniciada)"
