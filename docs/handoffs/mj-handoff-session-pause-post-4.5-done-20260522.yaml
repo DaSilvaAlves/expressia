@@ -1,0 +1,77 @@
+from_agent: "aiox-master"
+to_agent: "any"
+created: "2026-05-22T17:30:00Z"
+status: "pending"
+consumed: false
+consumed_at: null
+consumed_by: null
+
+project: "meu-jarvis (Expressia)"
+prefix: "mj-"
+
+summary: >
+  META-HANDOFF — Session pause cross-terminal pós Story 4.5 Done v1.3 (Epic 4 = 5/10 Done — metade
+  do Módulo Finanças completa). Sessão executou a cadeia SDC completa da Story 4.5 (@sm draft →
+  @po GO 9,7/10 → @dev develop → @architect APPROVED 9,6/10 HIGH → @devops push) numa única
+  conversa Eurico, mais housekeeping de 8 handoffs stale do HANDOFF-INDEX. Working tree limpo,
+  CI cloud 3/3 GREEN, sem bloqueador. NÃO é actionable single-task — artefacto de resume.
+  Próximo passo recomendado: `@sm *draft 4.6` (Vista "Este mês").
+
+story:
+  id: "4.5"
+  title: "Geração automática — cron Inngest Finanças"
+  path: "docs/stories/completed/4.5.inngest-cron-finance-recurrences.story.md"
+  status: "Done v1.3"
+  epic: "Epic 4 — Módulo Finanças"
+
+context: >
+  Story 4.5 fechada em produção nesta sessão. Cadeia SDC completa:
+    - @sm River — draft v1.0 (13 anti-hallucination verificações, 8 ACs, 6 [AUTO-DECISIONS])
+    - @po Pax — validate GO 9,7/10 HIGH (1 PO_FIX_INLINE: enum no fim do array auditActionEnum)
+    - @dev Dex — develop YOLO (9/9 Tasks, 8/8 ACs, 5/5 gates, 27 testes, 2 [DEV-DECISION] D-4.5.7/8)
+    - @architect Aria — gate APPROVED 9,6/10 HIGH (melhor score do Epic 4; 7/7 quality gate)
+    - @devops Gage — push origin/main `eba5a6d..2d27919` (2 commits: 7ff534e feat + 2d27919 chore)
+
+  Story 4.5 entregou: Inngest function cron diário `generate-finance-recurrences` que materializa
+  transacções de `recurrences` cujo `next_run_on <= today` (DP4=A), idempotente via índice unique
+  parcial `transactions_recurrence_id_date_unique` + `ON CONFLICT DO NOTHING`. Migration 0015
+  (audit action `finance_recurrences_generated` + índice) aplicada em produção. Prestações NÃO
+  são scope do cron (DP8=A — geradas na criação do installment, Story 4.4).
+
+  CI cloud run `26266949687` — 3/3 SUCCESS (Quality · RLS Coverage Gate · Build Next.js).
+  Vercel auto-deploy `fra1` triggered (zero env vars novas — infra Inngest reusada da Story 3.7).
+
+  Housekeeping: 8 handoffs pending stale arquivados (cadeias 2.1/2.5/2.8/3.2/3.6/3.7/3.8 +
+  cascata /jarvis). A tabela Pending do HANDOFF-INDEX tem agora 2 entradas: este meta-handoff
+  + `mj-handoff-1.7-post-deploy-ui-tasks-20260508` (ver carry-overs).
+
+roadmap_epic_4:
+  done: "5/10 — 4.1 (schema+audit) · 4.2 (API accounts/cards) · 4.3 (API transactions/categories) · 4.4 (API recurrences/installments) · 4.5 (cron Inngest)"
+  remaining:
+    - "4.6 — Vista 'Este mês' (L) — agregações categoria/dia + projecção 30d. Depende 4.3+4.4 (ambas Done). PRIMEIRA story com UI do Epic 4. RECOMENDADO próximo."
+    - "4.7 — Vistas 'Variáveis' + 'Recorrentes' (M) — listas CRUD. Depende 4.3+4.4. Paraleliza com 4.8/4.9."
+    - "4.8 — Vista 'Cartões' (M) — fatura on-the-fly por ciclo closing_day/due_day (DP7=A). Depende 4.4."
+    - "4.9 — Vista 'Património' (M) — balanço por banco/conta. Depende 4.2+4.3."
+    - "4.10 — Tools do cérebro Finanças (L) — 5 tools no toolRegistry + prompts v-bump. Depende 4.2/4.3/4.4."
+  note: "Vistas 4.6-4.9 independentes entre si (paralelização leve possível). 4.10 independente de 4.6-4.9."
+
+carry_over:
+  - "TEST-001 (LOW, non-blocking) — `apps/web/src/app/.../tarefas/calendario/page.test.tsx` flaky por timeout; passa isolado. Herdado desde Story 3.5. Não-regressão confirmada em cada push."
+  - "db-test não corre local (LOW) — Docker ausente na máquina; CI job `rls-gate` cobre. Herdado Stories 4.1-4.5."
+  - "NIT-AR-4.5.1 (LOW, non-blocking) — inconsistência de estilo entre `todayDateString` (UTC) e `parseISO` (local) em finance-recurrence-helpers; zero impacto funcional (aritmética calendar-based). Architect aceitou."
+  - "PERF-001 (LOW) — EXPLAIN ANALYZE da projecção mensal deferido; RELEVANTE para a Story 4.6 (vista 'Este mês' tem budget p95 < 500ms NFR2 — validar com fixture realista)."
+  - "`docs/marketing/edit/` untracked — binários mp4 de marketing; decisão pendente do Eurico (ignorar/gitignore/commitar). Excluído de todos os commits 4.1-4.5."
+
+blockers: []
+
+next_action: >
+  `@sm *draft 4.6` — criar a Story 4.6 'Vista Este mês' (estimate L). Inputs: epic doc
+  `docs/epics/epic-4-modulo-financas.md` §5 (DP2=C híbrido, DP3=B navegação livre, FR18) +
+  Stories 4.3/4.4 completed (padrão API routes Finanças) + precedente de vistas com UI das
+  Stories 3.3-3.6 (Epic 3 Tarefas — primeiras páginas). Atenção ao carry-over PERF-001:
+  a Story 4.6 deve incluir validação EXPLAIN ANALYZE da query de projecção 30d.
+  Alternativas válidas: 4.7/4.8/4.9 (vistas, paralelizáveis) ou 4.10 (tools cérebro).
+
+git_branch: "main"
+git_head: "2d27919"
+current_story: "4.6 (próxima a draftar)"
