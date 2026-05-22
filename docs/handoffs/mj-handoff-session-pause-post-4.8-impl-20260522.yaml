@@ -1,0 +1,93 @@
+from_agent: "devops"
+to_agent: "architect"
+created: "2026-05-22T18:30:00Z"
+status: "pending"
+consumed: false
+consumed_at: null
+consumed_by: null
+
+project: "meu-jarvis (Expressia)"
+prefix: "mj-"
+
+summary: >
+  SESSION PAUSE cross-terminal — Story 4.8 (Vista "Cartões") IMPLEMENTADA mas NÃO publicada.
+  Commit local `204b585` à frente de `origin/main`, Status "Ready for Review". A acção
+  imediata é o quality gate do @architect: `@architect *qa-gate 4.8`. Depois do veredicto
+  APPROVED, `@devops *push` publica + fecha a story (Epic 4 passa a 8/10 Done). Esta sessão
+  fechou as Stories 4.6 e 4.7 em produção e implementou a 4.8. Supersede o meta-handoff
+  `mj-handoff-session-pause-post-4.5-done-20260522` (cujo next_action `*draft 4.6` foi cumprido).
+
+next_action: >
+  `@architect *qa-gate 4.8` — quality gate arquitectural da Story 4.8 (ficheiro
+  `docs/stories/active/4.8.finance-cards-view.story.md`, Status "Ready for Review",
+  commit local `204b585`). Pontos a ratificar: D-4.8.1 (fronteira do ciclo de fecho
+  inclusiva — mitiga R-4.6 do epic), D-4.8.3 (4 queries fixas, sem N+1), D-4.8.4 (guard
+  para cartões sem `closing_day`/`due_day`), D-4.8.6 (`transfer` fora dos totais),
+  D-4.8.7 (vista read-only), RSC sem leak RLS (`getDb()`, zero `getServiceDb()`),
+  R-4.8.5 (largura da janela de fetch ±2 meses). Após APPROVED → reactivar `@devops`
+  com `*push`: o @devops commita o QA Results + marca Done + mv `active/`→`completed/` +
+  `git push origin main` (`204b585` + commit de housekeeping). Padrão idêntico ao das
+  Stories 4.6/4.7 já fechadas nesta sessão.
+
+story:
+  id: "4.8"
+  title: "Vista Cartões — fatura on-the-fly + prestações"
+  path: "docs/stories/active/4.8.finance-cards-view.story.md"
+  status: "Ready for Review v1.2"
+  epic: "Epic 4 — Módulo Finanças"
+
+context: >
+  Sessão Eurico longa — executou a cadeia SDC completa de 3 stories do Epic 4:
+
+    - Story 4.6 (Vista "Este mês"): @sm draft → @po GO 9,4/10 → @dev develop →
+      @architect APPROVED 9,4/10 → @devops push. DONE v1.4, em produção
+      (commits `58e79d2` feat + `aa33fe3` chore).
+    - Story 4.7 (Vistas "Variáveis" + "Recorrentes"): cadeia SDC completa.
+      DONE v1.4, em produção (commits `faa629f` feat + `ad0b746` chore).
+    - Story 4.8 (Vista "Cartões"): @sm draft → @po GO 9,4/10 → @dev develop
+      (YOLO, 5/5 quality gates GREEN, 716/716 testes web, 21 testes novos).
+      IMPLEMENTADA — commit local `204b585`, Status "Ready for Review".
+      FALTA: @architect gate + @devops push.
+
+  Story 4.8 entregou a página `/financas/cartoes`: por cartão de crédito, a fatura
+  corrente e a próxima calculadas on-the-fly do ciclo `closing_day`/`due_day` (DP7=A,
+  sem tabela `card_statements`) + prestações associadas com progresso parcela X/N.
+  Núcleo de risco R-4.6 (fronteira do ciclo) isolado na função pura `calcStatementCycle`
+  com 10 testes de fronteira. 8 ficheiros criados + 1 modificado (`FinanceViewTabs.tsx`).
+
+  Toda a infra é reuse-heavy das Stories 4.6/4.7: `MoneyDisplay`, `FinanceViewTabs`,
+  `FinanceEmptyState`, padrão RSC fetch-direct, helper `db`-injectável.
+
+  PORQUÊ ESTE HANDOFF: o utilizador reportou fricção no loop de fim-de-story —
+  o @devops é invocado mas tem de esperar pelo gate do @architect. Para continuar
+  noutro terminal sem re-explicar contexto: correr directamente `@architect *qa-gate 4.8`.
+
+session_commits_pushed:
+  - "58e79d2 — feat(financas) Story 4.6"
+  - "aa33fe3 — chore(docs) Story 4.6 Done"
+  - "faa629f — feat(financas) Story 4.7"
+  - "ad0b746 — chore(docs) Story 4.7 Done"
+  - "204b585 — feat(financas) Story 4.8 — LOCAL, NÃO PUBLICADO"
+
+roadmap_epic_4:
+  done: "7/10 — 4.1 (schema+audit) · 4.2 (API accounts/cards) · 4.3 (API transactions/categories) · 4.4 (API recurrences/installments) · 4.5 (cron Inngest) · 4.6 (vista Este mês) · 4.7 (vistas Variáveis+Recorrentes)"
+  in_flight: "4.8 (vista Cartões) — implementada, commit local 204b585, aguarda @architect gate + @devops push → passa a 8/10"
+  remaining:
+    - "4.9 — Vista 'Património' (M) — balanço agregado por banco/conta com drilldown (FR17). Depende 4.2+4.3. Reusa MoneyDisplay/FinanceViewTabs/FinanceEmptyState; converte o último placeholder de FinanceViewTabs."
+    - "4.10 — Tools do cérebro Finanças (L) — 5 tools no toolRegistry + TOOL_TO_INTENT_MAP + prompts classifier/planner v-bump. Fecha o Epic 4."
+
+carry_over:
+  - "Story 4.6 gate C1 (MEDIUM) — capturar EXPLAIN ANALYZE da vista mensal contra staging seeded (AC7 PARCIAL aceite como waiver; runbook docs/runbooks/finance-month-view-perf.md tem a metodologia)."
+  - "Story 4.6 gate C2 (LOW) — doc-sync architecture.md §8.4 (MoneyDisplay/packages/ui diverge da implementação real — D-4.6.9/D-4.6.1)."
+  - "Story 4.7 gate C1 (MEDIUM) — adicionar teste unitário de DeleteRowButton (confirm cancelado / erro / sucesso)."
+  - "Story 4.7 gate C2 (LOW) — substituir window.confirm por dialog de confirmação estilizado."
+  - "docs/marketing/edit/ untracked — binários mp4 de marketing; decisão pendente do Eurico (gitignore/commitar). Excluído de todos os commits 4.1-4.8."
+  - "db-test não corre local (LOW) — Docker ausente; CI job rls-gate cobre. Herdado Stories 4.1-4.8."
+  - "TEST-001 (LOW) — flaky tarefas/calendario/page.test.tsx por timeout; passa isolado; não-regressão confirmada."
+
+blockers: []
+
+git_branch: "main"
+git_head: "204b585"
+git_unpushed: "204b585 (Story 4.8 feat) — 1 commit local à frente de origin/main"
+current_story: "4.8 (aguarda gate+push); a seguir 4.9"

@@ -1,10 +1,14 @@
 from_agent: "aiox-master"
 to_agent: "any"
 created: "2026-05-22T17:30:00Z"
-status: "pending"
-consumed: false
-consumed_at: null
-consumed_by: null
+status: "consumed"
+consumed: true
+consumed_at: "2026-05-22T18:30:00Z"
+consumed_by: "devops"
+consumed_note: >
+  Superseded por mj-handoff-session-pause-post-4.8-impl-20260522. O next_action
+  recomendado (`@sm *draft 4.6`) foi cumprido — Stories 4.6 e 4.7 fechadas em
+  produção e 4.8 implementada na mesma sessão. Arquivado em housekeeping.
 
 project: "meu-jarvis (Expressia)"
 prefix: "mj-"
