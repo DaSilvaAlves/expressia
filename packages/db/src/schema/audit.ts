@@ -104,6 +104,11 @@ export const auditActionEnum = pgEnum('audit_action', [
   // `installment.updated` omitido — prestações são imutáveis no MVP (DP8=A).
   'installment.created',
   'installment.deleted',
+  // Finanças — Job sistémico (Story 4.5 — migration 0015)
+  // `finance_recurrences_generated` é emitido pelo cron generate-finance-recurrences
+  // (1 row agregada por run). Distinto de `recurrences_generated` (Tarefas,
+  // Story 3.7) e de `finance_recurrence.*` (user-actions, Story 4.1).
+  'finance_recurrences_generated',
 ]);
 
 export const dataExportStatusEnum = pgEnum('data_export_status', [
