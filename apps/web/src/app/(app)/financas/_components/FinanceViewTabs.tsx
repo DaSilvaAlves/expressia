@@ -24,7 +24,7 @@ const TABS: readonly TabDef[] = [
   { view: 'este-mes', label: 'Este mês', href: '/financas/este-mes' },
   { view: 'variaveis', label: 'Variáveis', href: '/financas/variaveis' },
   { view: 'recorrentes', label: 'Recorrentes', href: '/financas/recorrentes' },
-  { view: 'cartoes', label: 'Cartões', href: null },
+  { view: 'cartoes', label: 'Cartões', href: '/financas/cartoes' },
   { view: 'patrimonio', label: 'Património', href: null },
 ];
 
