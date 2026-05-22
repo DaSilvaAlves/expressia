@@ -1,0 +1,108 @@
+from_agent: "po"
+to_agent: "dev"
+created: "2026-05-22T12:00:00Z"
+status: "consumed"
+consumed: true
+consumed_at: "2026-05-22T14:30:00Z"
+consumed_by: "dev"
+
+project: "meu-jarvis (Expressia)"
+prefix: "mj-"
+
+summary: >
+  Story 4.5 Ready v1.1 — validada por @po (Pax) com GO 9,7/10 HIGH. Pronta para
+  `@dev *develop 4.5` em modo YOLO. Cron Inngest Finanças que materializa transacções
+  de `recurrences` (`next_run_on <= today`, DP4=A), idempotente via índice unique
+  parcial + `ON CONFLICT DO NOTHING`. Cross-confirm anti-hallucination 13/13 PASS.
+  Zero bloqueadores externos.
+
+story:
+  id: "4.5"
+  title: "Geração automática — cron Inngest Finanças"
+  path: "docs/stories/active/4.5.inngest-cron-finance-recurrences.story.md"
+  status: "Ready v1.1"
+  version: "1.1"
+  estimate: "M"
+  epic: "Epic 4 — Módulo Finanças"
+
+po_validation:
+  verdict: "GO"
+  score: "9,7/10"
+  confidence: "HIGH"
+  checklist: "10-point — 8 PASS + 2 N/A (UI e CodeRabbit não aplicáveis)"
+  anti_hallucination: "13/13 verificações PASS contra ficheiros reais — zero hallucinations"
+  auto_decisions: "6 [AUTO-DECISIONS] D-4.5.1-6 ratificadas pelo @po"
+  dp_consistency: "DP4=A (só dia corrente) + DP8=A (prestações fora do cron) confirmadas"
+
+po_fix_inline:
+  - "AC1 — posicionamento do enum value: `'finance_recurrences_generated'` deve ser
+     adicionado NO FIM do array `auditActionEnum` em `audit.ts` (após `'installment.deleted'`,
+     linha 106), NÃO após `'recurrences_generated'` (linha 80). Mantém os valores `finance_*`
+     contíguos e respeita a ordem de migração (0014 antes de 0015). `ALTER TYPE ADD VALUE`
+     é append na DB — a posição no array Drizzle é apenas organizacional."
+
+context: >
+  Story 4.5 é o job Inngest cron diário (03:00 UTC) que materializa transacções
+  financeiras recorrentes. Backend puro — zero UI. Reusa integralmente a infra
+  Inngest da Story 3.7 (`generate-recurring-tasks.ts` é o template directo).
+
+  Diferenças críticas vs Story 3.7 (ler a tabela em Dev Notes da story):
+    - Entidade `recurrences` (Finance), output em `transactions`
+    - Frequências: aritmética `date-fns` simples (sem RRULE) — `recurrenceFreqFinanceEnum`
+      tem `quarterly` e NÃO tem `weekdays`/`weekends`
+    - Horizonte: só dia corrente (DP4=A) vs 90 dias das Tarefas
+    - `is_projected=false` (transacção do dia corrente)
+    - Enum audit `finance_recurrences_generated` (migration 0015)
+
+  Ficheiros verificados pelo @po (todos confirmados):
+    - `packages/db/src/schema/finance.ts:68-76` (enum), `:232-282` (recurrences),
+      `:358-431` (transactions)
+    - `packages/db/src/schema/audit.ts:28-107` (auditActionEnum)
+    - `apps/web/src/app/api/inngest/route.ts` (2 functions actuais — adicionar a 3ª)
+    - `apps/web/src/lib/inngest/functions/generate-recurring-tasks.ts` (template)
+    - `packages/db/migrations/0013_*.sql` (padrão one-shot ALTER TYPE + CREATE UNIQUE INDEX)
+    - `apps/web/src/lib/agent/db-shim.ts` (`getServiceDb()` exportado)
+    - `apps/web/package.json:36` (`date-fns@^4` já instalado)
+
+acceptance_criteria:
+  - "AC1: Migration 0015 — enum `finance_recurrences_generated` + índice unique `transactions_recurrence_id_date_unique` (ver PO_FIX_INLINE para posicionamento no array)"
+  - "AC2: Helper `finance-recurrence-helpers.ts` — `calcNextRunDate` (date-fns puro) + `isRecurrenceDue` + `FINANCE_CRON_ID`"
+  - "AC3: Inngest function `generate-finance-recurrences.ts` — SELECT→INSERT ON CONFLICT DO NOTHING→UPDATE next_run_on"
+  - "AC4: Sync `route.ts` — terceira function no array `functions`"
+  - "AC5: Audit log `finance_recurrences_generated` 1 row aggregated + OTel span `finance.recurrences.generate` (PII whitelist)"
+  - "AC6: Tests Vitest helper `finance-recurrence-helpers.test.ts` (~15 testes puros)"
+  - "AC7: Tests Vitest handler `generate-finance-recurrences.test.ts` (~10 testes, padrão vi.hoisted)"
+  - "AC8: Runbook `inngest-finance-recurrences-runbook.md` + 5/5 quality gates GREEN"
+
+files_to_create_or_modify:
+  - "packages/db/migrations/0015_finance_recurrences_generated_audit.sql (CREATE)"
+  - "packages/db/src/schema/audit.ts (MODIFY — enum value no fim do array, ver PO_FIX_INLINE)"
+  - "apps/web/src/lib/finance/finance-recurrence-helpers.ts (CREATE)"
+  - "apps/web/src/lib/finance/__tests__/finance-recurrence-helpers.test.ts (CREATE)"
+  - "apps/web/src/lib/inngest/functions/generate-finance-recurrences.ts (CREATE)"
+  - "apps/web/src/lib/inngest/functions/__tests__/generate-finance-recurrences.test.ts (CREATE)"
+  - "apps/web/src/app/api/inngest/route.ts (MODIFY — adicionar 3ª function)"
+  - "docs/runbooks/inngest-finance-recurrences-runbook.md (CREATE)"
+
+quality_gates:
+  - "pnpm typecheck — zero erros (enum Drizzle sincronizado)"
+  - "pnpm lint — 0 warnings"
+  - "pnpm test — web TOTAL GREEN (~25 novos + baseline 612)"
+  - "pnpm build — GREEN"
+  - "pnpm check:rls — GREEN (índice unique parcial sem household_id novo)"
+
+blockers: []
+
+risks_flagged:
+  - "R-4.5 ALTO: Idempotência Inngest at-least-once — mitigado por índice unique parcial (AC1) + ON CONFLICT DO NOTHING (AC3). Teste AC7-3 valida zero duplicação."
+  - "R-4.5.2 MÉDIO: calcNextRunDate monthly end-of-month clamp (31 Jan → 28 Fev) — date-fns addMonths clamps; testado em AC6-6."
+
+next_action: >
+  `@dev *develop 4.5` em modo YOLO. Seguir as 9 Tasks/Subtasks pela ordem
+  (T1 migration+enum → T2 helper → T3 function → T4 audit+span → T5 route →
+  T6 tests helper → T7 tests handler → T8 runbook → T9 quality gates).
+  Aplicar o PO_FIX_INLINE da AC1 no posicionamento do enum value.
+  Após implementação → `@architect *qa-gate 4.5`.
+
+git_branch: "main"
+current_story: "4.5"

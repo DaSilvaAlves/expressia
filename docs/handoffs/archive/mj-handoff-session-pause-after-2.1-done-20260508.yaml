@@ -13,8 +13,10 @@ handoff_id: mj-handoff-session-pause-after-2.1-done-20260508
 from_agent: aiox-master (Orion)
 to_agent: any (Orion / @sm / @devops próxima sessão)
 created: 2026-05-08T19:00:00+01:00
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-05-22T17:00:00Z"
+consumed_by: aiox-master
 priority: medium
 project_prefix: mj
 project_codename: meu-jarvis

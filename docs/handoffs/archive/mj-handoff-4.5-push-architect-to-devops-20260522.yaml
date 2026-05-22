@@ -1,0 +1,91 @@
+from_agent: "architect"
+to_agent: "devops"
+created: "2026-05-22T16:00:00Z"
+status: "consumed"
+consumed: true
+consumed_at: "2026-05-22T17:05:00Z"
+consumed_by: "devops"
+
+project: "meu-jarvis (Expressia)"
+prefix: "mj-"
+
+summary: >
+  Story 4.5 (Geração automática — cron Inngest Finanças) passou o Architect
+  Quality Gate — APPROVED 9,6/10 HIGH. 7-point gate 7/7 PASS, 8/8 ACs PASS,
+  2/2 [DEV-DECISION] ratificadas, Constitution 6/6, zero hallucinations.
+  Verificação independente: typecheck/lint/check:rls/testes targeted 4.5
+  re-corridos GREEN (27/27). Story transicionada Ready for Review v1.2 →
+  Done v1.3 e movida para `docs/stories/completed/`. Pronta para
+  `@devops *push 4.5`.
+
+story:
+  id: "4.5"
+  title: "Geração automática — cron Inngest Finanças"
+  path: "docs/stories/completed/4.5.inngest-cron-finance-recurrences.story.md"
+  status: "Done v1.3"
+  version: "1.3"
+  estimate: "M"
+  epic: "Epic 4 — Módulo Finanças"
+
+gate:
+  reviewer: "architect (Aria)"
+  verdict: "APPROVED"
+  score: "9,6/10"
+  confidence: "HIGH"
+  gate_report: "docs/qa/gates/4.5-architect-gate.md"
+  seven_point_gate: "7/7 PASS — requirements traceability · risk mitigation R-4.5 · test architecture · NFR compliance · code quality · Constitution 6/6 · backward compatibility"
+  acs: "8/8 PASS"
+  dev_decisions_ratified:
+    - "D-4.5.7 — RATIFY: todayDateString() UTC explícito vs formatISO local-TZ. Elimina ambiguidade da janela 00:00-02:00 CET; fonte de verdade determinística e independente da região de deploy."
+    - "D-4.5.8 — RATIFY: helpers puros reais (não-mockados) nos testes do handler. Cobertura de integração grátis; helper puro já coberto por AC6 (16 testes)."
+  independent_verification:
+    - "pnpm typecheck — re-corrido GREEN (9/9 FULL TURBO)"
+    - "pnpm lint — re-corrido GREEN (9/9, 0 warnings)"
+    - "pnpm check:rls — re-corrido GREEN (zero tabelas novas, NFR5 preservada)"
+    - "testes targeted 4.5 — re-corridos GREEN 27/27 (2,36s): src/lib/finance + generate-finance-recurrences.test.ts"
+    - "pnpm build — aceite por evidência @dev (zero rotas novas)"
+  anti_hallucination: "8/8 cross-confirm PASS — idempotência (índice parcial + ON CONFLICT predicado coincidente), getServiceDb justificado, cálculo DST-safe, audit action sem conflito, schemas finance.ts, route.ts, span whitelist"
+  concerns:
+    - "NIT-AR-4.5.1 (LOW non-blocking) — inconsistência teórica de estilo entre todayDateString UTC e parseISO local; zero impacto funcional (aritmética calendar-based preserva o dia em servidor fra1). Follow-up housekeeping opcional."
+    - "Carry-over TEST-001 (LOW pré-existente) — flaky timeout tarefas/calendario/page.test.tsx, não-regressão, ficheiro não tocado."
+    - "db-test não corrido local (LOW herdado) — Docker ausente, CI rls-gate cobre. Precedente Stories 4.1-4.4."
+
+files_to_push:
+  created:
+    - "packages/db/migrations/0015_finance_recurrences_generated_audit.sql"
+    - "apps/web/src/lib/finance/finance-recurrence-helpers.ts"
+    - "apps/web/src/lib/finance/__tests__/finance-recurrence-helpers.test.ts"
+    - "apps/web/src/lib/inngest/functions/generate-finance-recurrences.ts"
+    - "apps/web/src/lib/inngest/functions/__tests__/generate-finance-recurrences.test.ts"
+    - "docs/runbooks/inngest-finance-recurrences-runbook.md"
+    - "docs/qa/gates/4.5-architect-gate.md"
+  modified:
+    - "packages/db/src/schema/audit.ts — enum value finance_recurrences_generated no fim do array"
+    - "apps/web/src/app/api/inngest/route.ts — registo da 3ª Inngest function"
+  housekeeping:
+    - "docs/stories/completed/4.5.inngest-cron-finance-recurrences.story.md — story mv active/→completed/ (já feito por @architect; @devops apenas faz git add)"
+    - "docs/stories/active/_INDEX.md — Epic 4 = 5/10 Done; linha 4.5 → Done v1.3"
+    - "docs/HANDOFF-INDEX.md — handoff dev→architect arquivado; este handoff adicionado a Pending"
+    - "docs/handoffs/archive/mj-handoff-4.5-review-for-architect-20260522.yaml — consumed"
+    - "docs/handoffs/mj-handoff-4.5-push-architect-to-devops-20260522.yaml — este ficheiro (arquivar ao consumir)"
+
+pre_push_notes: >
+  Migration 0015 já aplicada local (550ms). Em produção, o runner db:migrate
+  aplica-a idempotentemente (IF NOT EXISTS em ALTER TYPE + CREATE INDEX).
+  Re-correr os 5 quality gates pre-push (lint/typecheck/check:rls/build/test)
+  conforme precedente Stories 4.1-4.4. CodeRabbit [AUTO-DECISION] SKIPPED —
+  precedente Stories 2.2-4.4; o architect gate substitui o review automatizado.
+  `docs/marketing/edit/` permanece untracked — excluir do push (decisão
+  pendente Eurico, precedente Stories 4.1-4.4).
+
+blockers: []
+
+next_action: >
+  `@devops *push 4.5`. Re-verificar os 5 quality gates pre-push, fazer git add
+  dos 9 ficheiros (7 NEW incl. gate report + 2 MODIFIED) + housekeeping docs,
+  commit conventional `feat(financas)` com referência [Story 4.5], push para
+  origin/main. Após push: arquivar este handoff (consumed) + actualizar
+  HANDOFF-INDEX.md. Próximo na Epic 4: `@sm *draft 4.6` (Vista "Este mês").
+
+git_branch: "main"
+current_story: "4.5"

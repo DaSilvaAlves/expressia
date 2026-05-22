@@ -2,10 +2,10 @@ from_agent: "any-orchestrator"
 from_agent_persona: "Multi-agent session (Quinn @qa → Gage @devops → Dex @dev → River @sm) orquestrada por Claude"
 to_agent: "any"
 created: "2026-05-19T03:00:00Z"
-status: pending
-consumed: false
-consumed_at: null
-consumed_by: null
+status: consumed
+consumed: true
+consumed_at: "2026-05-22T17:00:00Z"
+consumed_by: aiox-master
 type: session-pause-cross-terminal
 priority: low
 blocking: false

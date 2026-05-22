@@ -12,8 +12,10 @@
 from_agent: "@aiox-dev (Dex)"
 to_agent: "any (Eurico / @architect / @aiox-master próxima sessão)"
 created: "2026-05-09T19:45:00+01:00"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-05-22T17:00:00Z"
+consumed_by: aiox-master
 
 project: "meu-jarvis (Expressia — expressia.pt)"
 

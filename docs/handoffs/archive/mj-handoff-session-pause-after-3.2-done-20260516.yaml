@@ -3,8 +3,10 @@ from_agent_persona: "Gage (@devops) — GitHub Repository Manager"
 to_agent: "any"
 to_agent_options: ["sm", "pm", "aiox-master", "dev", "architect", "ux-design-expert"]
 created: "2026-05-16T18:15:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-05-22T17:00:00Z"
+consumed_by: aiox-master
 
 story_id: "session-pause-after-3.2-done"
 story_path: "docs/stories/completed/3.2.tasks-api-routes.md"

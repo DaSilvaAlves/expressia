@@ -1,0 +1,104 @@
+from_agent: "sm"
+to_agent: "po"
+created: "2026-05-22T00:00:00Z"
+status: "consumed"
+consumed: true
+consumed_at: "2026-05-22T12:00:00Z"
+consumed_by: "po"
+
+project: "meu-jarvis (Expressia)"
+prefix: "mj-"
+
+summary: >
+  Story 4.5 Draft v1.0 pronta para validação @po.
+  Cron Inngest Finanças — materializa transacções de `recurrences` cujo `next_run_on <= today` (DP4=A),
+  idempotente via índice unique parcial `transactions_recurrence_id_date_unique` + `ON CONFLICT DO NOTHING`.
+  Reusa infra Inngest Story 3.7 (terceira function no `/api/inngest`). Zero bloqueadores externos.
+
+story:
+  id: "4.5"
+  title: "Geração automática — cron Inngest Finanças"
+  path: "docs/stories/active/4.5.inngest-cron-finance-recurrences.story.md"
+  status: "Draft v1.0"
+  version: "1.0"
+  estimate: "M"
+  epic: "Epic 4 — Módulo Finanças"
+  created: "2026-05-22"
+
+context: >
+  Story 4.5 é o job Inngest cron diário (03:00 UTC, alinhado Stories 2.8 + 3.7) que materializa
+  transacções financeiras recorrentes. DP4=A (só dia corrente, `next_run_on <= today`) e DP8=A
+  (prestações NÃO são scope — geradas atomicamente pela Story 4.4 na criação do installment).
+
+  Precedente directo: Story 3.7 Done v1.4 (`generate-recurring-tasks.ts`) — padrão Inngest
+  idêntico com adaptações para domínio Finanças:
+    - Entidade: `recurrences` (Finance, não task_recurrences)
+    - Output: INSERT em `transactions` (não em `tasks`)
+    - Frequências: aritmética date-fns simples (daily/weekly/biweekly/monthly/quarterly/yearly/custom)
+      em vez de RRULE; `recurrenceFreqFinanceEnum` tem `quarterly` e NÃO tem `weekdays`/`weekends`.
+    - Horizonte: só dia corrente (DP4=A) vs 90 dias para Tarefas
+    - is_projected=false (transacção do dia corrente, NÃO futura)
+    - Enum audit: `finance_recurrences_generated` (migration 0015), NÃO `recurrences_generated` (Story 3.7)
+
+  13 anti-hallucination verificações executadas:
+    - Schema `recurrences` (`finance.ts:232-282`) + enum `recurrenceFreqFinanceEnum` (`finance.ts:68-76`)
+    - Schema `transactions` (`finance.ts:358-431`) incl. CHECKs obrigatórios
+    - Infra Inngest (`route.ts` já com 2 functions — 4.5 adiciona a 3ª)
+    - `auditActionEnum` (`audit.ts:28-107`) — `finance_recurrences_generated` NÃO existe, migration 0015 cria
+    - Índice unique `transactions_recurrence_id_date_unique` NÃO existe — migration 0015 cria
+    - `getServiceDb()` padrão confirmado para jobs sistémicos
+    - `recurrences.nextRunOn` inicializado = `starts_on` pela Story 4.4 AC1 POST confirmado
+
+auto_decisions:
+  - "D-4.5.1: `finance_recurrences_generated` enum distinto de `recurrences_generated` (Story 3.7 Tarefas) — prefixo `finance_` alinha com convenção Story 4.1"
+  - "D-4.5.2: Sem reuso do `rrule-helpers.ts` de Tarefas — `date-fns` puro para frequências simples (enum tem `quarterly`, não tem `weekdays`/`weekends`; DP4=A elimina necessidade de horizonte multi-dia)"
+  - "D-4.5.3: `is_projected=false` para transacções do cron (transacção do dia corrente, não futura; vista mensal Story 4.6 agrega `is_projected=false` para totais reais)"
+  - "D-4.5.4: `custom` RRULE tratado como fallback `monthly` no MVP (documentado no JSDoc + runbook)"
+  - "D-4.5.5: Sem ajuste de timezone para `transactionDate` — `recurrences.next_run_on` é `date` type YYYY-MM-DD sem timezone (diferença de domínio vs Tarefas que têm instantes temporais)"
+  - "D-4.5.6: Migration 0015 inclui enum + índice unique (one-shot — coesão; padrão D-3.7.6)"
+
+acceptance_criteria_summary:
+  - "AC1: Migration 0015 — `finance_recurrences_generated` enum + índice unique `transactions_recurrence_id_date_unique`"
+  - "AC2: Helper `finance-recurrence-helpers.ts` — `calcNextRunDate` (date-fns puro) + `isRecurrenceDue`"
+  - "AC3: Inngest function `generate-finance-recurrences.ts` — SELECT→INSERT ON CONFLICT DO NOTHING→UPDATE next_run_on"
+  - "AC4: Sync `route.ts` — terceira function adicionada ao array `functions`"
+  - "AC5: Audit log `finance_recurrences_generated` 1 row aggregated + OTel span `finance.recurrences.generate` (PII whitelist)"
+  - "AC6: Tests Vitest helper `finance-recurrence-helpers.test.ts` (~15 testes, puros)"
+  - "AC7: Tests Vitest handler `generate-finance-recurrences.test.ts` (~10 testes, padrão vi.hoisted Story 3.7)"
+  - "AC8: Runbook `inngest-finance-recurrences-runbook.md` + 5/5 quality gates GREEN"
+
+files_modified:
+  - "docs/stories/active/4.5.inngest-cron-finance-recurrences.story.md (CREATED)"
+  - "docs/stories/active/_INDEX.md (UPDATED — Story 4.5 Draft row + Epic 4 progress)"
+
+files_to_be_created_by_dev:
+  - "packages/db/migrations/0015_finance_recurrences_generated_audit.sql"
+  - "packages/db/src/schema/audit.ts (MODIFY — enum value)"
+  - "apps/web/src/lib/finance/finance-recurrence-helpers.ts"
+  - "apps/web/src/lib/finance/__tests__/finance-recurrence-helpers.test.ts"
+  - "apps/web/src/lib/inngest/functions/generate-finance-recurrences.ts"
+  - "apps/web/src/lib/inngest/functions/__tests__/generate-finance-recurrences.test.ts"
+  - "apps/web/src/app/api/inngest/route.ts (MODIFY — add 3rd function)"
+  - "docs/runbooks/inngest-finance-recurrences-runbook.md"
+
+blockers: []
+
+risks_flagged:
+  - "R-4.5 ALTO: Idempotência Inngest at-least-once — mitigado por UNIQUE INDEX parcial (AC1) + ON CONFLICT DO NOTHING (AC3)"
+  - "R-4.5.2 MÉDIO: calcNextRunDate monthly end-of-month clamp (ex: 31 Jan → 28 Fev) — comportamento date-fns documentado e testado em AC6-6"
+
+po_validation_focus:
+  - "Cross-confirm: `recurrenceFreqFinanceEnum` valores exactos em `finance.ts:68-76` — verificar que AC2 `calcNextRunDate` cobre todos (daily/weekly/biweekly/monthly/quarterly/yearly/custom)"
+  - "Cross-confirm: `transactions.isProjected` semântica — confirmar D-4.5.3 (`false` para transacções do dia corrente)"
+  - "Cross-confirm: `audit.ts` secção Jobs sistémicos — confirmar que `finance_recurrences_generated` NÃO existe e que a migration 0015 é necessária"
+  - "Cross-confirm: `apps/web/src/app/api/inngest/route.ts` — confirmar que actualmente tem 2 functions (padrão para adicionar 3ª)"
+  - "DP4=A (apenas dia corrente) — confirmar que os ACs são consistentes com esta decisão (sem geração multi-dia, sem horizonte futuro)"
+  - "DP8=A (prestações NÃO no cron) — confirmar que o scope de 4.5 é exclusivamente `recurrences`, zero toques em `installments`"
+
+next_action: >
+  `@po *validate-story-draft 4.5` — executar 10-point checklist + cross-confirm anti-hallucination
+  (focar nas 13 verificações documentadas na story + 6 DPs confirmadas no epic).
+  Após GO → `@dev *develop 4.5` YOLO.
+
+git_branch: "main"
+current_story: "4.5"

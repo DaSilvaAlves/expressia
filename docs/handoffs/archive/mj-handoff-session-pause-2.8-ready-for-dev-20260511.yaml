@@ -13,8 +13,10 @@ id: mj-handoff-session-pause-2.8-ready-for-dev-20260511
 from_agent: "aiox-master (Orion) — sessão orquestradora cascata SDC Story 2.8 (@sm draft + @po validate completos)"
 to_agent: "any (Eurico / @dev / @aiox-master próxima sessão)"
 created: "2026-05-11T01:00:00+01:00"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-05-22T17:00:00Z"
+consumed_by: aiox-master
 priority: medium
 project_prefix: mj
 project: "meu-jarvis (Expressia — expressia.pt)"

@@ -1,0 +1,97 @@
+from_agent: "dev"
+to_agent: "architect"
+created: "2026-05-22T14:30:00Z"
+status: "consumed"
+consumed: true
+consumed_at: "2026-05-22T16:00:00Z"
+consumed_by: "architect"
+
+project: "meu-jarvis (Expressia)"
+prefix: "mj-"
+
+summary: >
+  Story 4.5 implementada por @dev (Dex) em modo YOLO — Ready for Review v1.2.
+  Cron Inngest Finanças `generate-finance-recurrences` que materializa
+  transacções de `recurrences` activas (`next_run_on <= today`, DP4=A),
+  idempotente via índice unique parcial + ON CONFLICT DO NOTHING. 9/9 Tasks
+  DONE, 8/8 ACs PASS, 6 ficheiros criados + 2 modificados, 27 testes novos
+  GREEN, 5/5 quality gates GREEN. Pronta para `@architect *qa-gate 4.5`.
+
+story:
+  id: "4.5"
+  title: "Geração automática — cron Inngest Finanças"
+  path: "docs/stories/active/4.5.inngest-cron-finance-recurrences.story.md"
+  status: "Ready for Review v1.2"
+  version: "1.2"
+  estimate: "M"
+  epic: "Epic 4 — Módulo Finanças"
+
+implementation:
+  agent_model: "Claude Opus 4.7 (1M context) — @dev (Dex)"
+  mode: "YOLO"
+  tasks_done: "9/9"
+  acs_pass: "8/8"
+  migration: "0015_finance_recurrences_generated_audit.sql aplicada local em 550ms (ALTER TYPE finance_recurrences_generated + índice unique parcial transactions_recurrence_id_date_unique WHERE recurrence_id IS NOT NULL)"
+  tests_new: "27 (16 helper puros finance-recurrence-helpers.test.ts + 11 handler generate-finance-recurrences.test.ts vi.hoisted)"
+  po_fix_applied: "AC1 — enum 'finance_recurrences_generated' adicionado no FIM do array auditActionEnum (após 'installment.deleted')"
+
+acceptance_criteria_results:
+  - "AC1 PASS — Migration 0015 (ALTER TYPE enum + CREATE UNIQUE INDEX parcial) + audit.ts enum sincronizado no fim do array. typecheck GREEN."
+  - "AC2 PASS — finance-recurrence-helpers.ts: calcNextRunDate (date-fns puro, switch exaustivo com never guard), isRecurrenceDue, FINANCE_CRON_ID."
+  - "AC3 PASS — generate-finance-recurrences.ts: SELECT recurrences via getServiceDb() → INSERT transactions ON CONFLICT DO NOTHING (is_projected=false) → UPDATE next_run_on ou active=false."
+  - "AC4 PASS — route.ts regista generateFinanceRecurrences como 3ª function."
+  - "AC5 PASS — audit INSERT finance_recurrences_generated 1 row aggregated (try/catch warn não-fatal) + withSpan('finance.recurrences.generate') com 6 atributos whitelist PII-safe."
+  - "AC6 PASS — 16 testes helper puros (15 AC6 + 1 extra), zero mocks."
+  - "AC7 PASS — 11 testes handler (10 AC7 + 1 registo id/cron), padrão vi.hoisted."
+  - "AC8 PASS — runbook inngest-finance-recurrences-runbook.md + 5/5 quality gates GREEN."
+
+quality_gates:
+  - "pnpm typecheck — GREEN (9/9 tasks, 30,5s)"
+  - "pnpm lint — GREEN (9/9 tasks, 0 warnings)"
+  - "pnpm test — 27 testes novos GREEN; suite web 639 total (1 flaky timeout pré-existente tarefas/calendario/page.test.tsx — passa isolado em 1636ms, não-regressão, ficheiro não tocado)"
+  - "pnpm build — GREEN (9/9 tasks, 1m30s)"
+  - "pnpm check:rls — GREEN (20 tabelas com RLS coverage; índice unique parcial em transactions sem household_id novo, zero impacto no gate)"
+
+dev_decisions:
+  - "D-4.5.7 — todayDateString() usa new Date().toISOString().slice(0,10) (UTC explícito) em vez de date-fns formatISO (que usaria o timezone local do servidor Vercel fra1 = CET/CEST). Razão: o cron corre às 03:00 UTC e transaction_date é tipo `date` sem TZ — UTC explícito elimina ambiguidade na janela 00:00-02:00 CET. Coerente com D-4.5.5."
+  - "D-4.5.8 — Testes do handler NÃO mockam finance-recurrence-helpers (diverge do template Story 3.7 que mocka expandRecurrence). Razão: calcNextRunDate é função pura determinística sem dependências externas — testá-la real dá cobertura de integração grátis e os testes AC7 (esgotada, next_run_on NULL) ficam fiéis a produção. Story 3.7 mockava expandRecurrence porque a expansão RRULE é não-determinística por horizonte/DST."
+
+dev_decisions_note: >
+  As 6 [AUTO-DECISIONS] D-4.5.1-6 da story (já ratificadas pelo @po) foram
+  seguidas sem alteração. As 2 [DEV-DECISION] D-4.5.7/D-4.5.8 acima são novas,
+  tomadas durante a implementação — aguardam ratificação no architect gate.
+
+files_created:
+  - "packages/db/migrations/0015_finance_recurrences_generated_audit.sql"
+  - "apps/web/src/lib/finance/finance-recurrence-helpers.ts"
+  - "apps/web/src/lib/finance/__tests__/finance-recurrence-helpers.test.ts"
+  - "apps/web/src/lib/inngest/functions/generate-finance-recurrences.ts"
+  - "apps/web/src/lib/inngest/functions/__tests__/generate-finance-recurrences.test.ts"
+  - "docs/runbooks/inngest-finance-recurrences-runbook.md"
+
+files_modified:
+  - "packages/db/src/schema/audit.ts — enum value finance_recurrences_generated no fim do array"
+  - "apps/web/src/app/api/inngest/route.ts — registo da 3ª Inngest function"
+
+blockers: []
+
+concerns_for_gate:
+  - "db-test não corrido local (Docker ausente — padrão Stories 4.1-4.4; CI rls-gate cobre). Concern LOW herdado."
+  - "1 flaky timeout pré-existente em tarefas/calendario/page.test.tsx (Story 3.5 carry-over TEST-001) — passa isolado em 1636ms, não-regressão."
+
+git_state: >
+  Trabalho em apps/web/ + packages/db/ + docs/. Branch main. @dev NÃO faz
+  git push nem git commit nesta sessão (commits ficam para o devops na cadeia
+  pós-gate). Working tree tem os 8 ficheiros da story + atualizações de
+  _INDEX.md e HANDOFF-INDEX.md.
+
+next_action: >
+  `@architect *qa-gate 4.5`. Verificar: idempotência correcta (R-4.5 — índice
+  unique parcial + ON CONFLICT DO NOTHING), calcNextRunDate por função pura
+  (date-fns, fim-de-mês clamp), getServiceDb() justificado para job sistémico,
+  RLS exclusão correcta, finance_recurrences_generated audit action sem
+  conflito com recurrences_generated (Story 3.7). Ratificar D-4.5.7 + D-4.5.8.
+  Após gate PASS → handoff architect→devops para `@devops *push 4.5`.
+
+git_branch: "main"
+current_story: "4.5"

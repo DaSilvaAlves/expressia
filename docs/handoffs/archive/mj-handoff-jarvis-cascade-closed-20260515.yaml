@@ -13,8 +13,10 @@ id: mj-handoff-jarvis-cascade-closed-20260515
 from_agent: "devops (Gage) — sessão hotfix cascata /jarvis (orquestrada por Claude main thread via Task delegation @dev + @devops)"
 to_agent: "any (Eurico / próxima sessão)"
 created: "2026-05-15T02:30:00+01:00"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-05-22T17:00:00Z"
+consumed_by: aiox-master
 priority: medium
 project_prefix: mj
 project: "meu-jarvis (Expressia — expressia.pt)"
