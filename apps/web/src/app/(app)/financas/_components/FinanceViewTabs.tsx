@@ -4,12 +4,11 @@ import Link from 'next/link';
  * `<FinanceViewTabs>` — navegação entre as 5 vistas do Módulo Finanças
  * (Story 4.6 AC1, D-4.6.8).
  *
- * As páginas `variaveis`/`recorrentes`/`cartoes`/`patrimonio` só existem a
- * partir das Stories 4.7-4.9 — até lá são renderizadas como `<span>`
- * desactivados (linkar para rotas inexistentes daria 404). Cada story futura
- * converte o seu placeholder em `<Link>` ao entregar a página.
+ * Após a Story 4.9, todas as 5 vistas (`este-mes`, `variaveis`, `recorrentes`,
+ * `cartoes`, `patrimonio`) existem como rotas reais — zero placeholders. O
+ * tipo `href: string | null` é mantido para extensibilidade futura.
  *
- * Trace: Story 4.6 AC1, D-4.6.8, architecture.md:670-675.
+ * Trace: Story 4.6 AC1, D-4.6.8, Story 4.9 AC1, architecture.md:670-675.
  */
 export type FinanceView = 'este-mes' | 'variaveis' | 'recorrentes' | 'cartoes' | 'patrimonio';
 
@@ -25,7 +24,7 @@ const TABS: readonly TabDef[] = [
   { view: 'variaveis', label: 'Variáveis', href: '/financas/variaveis' },
   { view: 'recorrentes', label: 'Recorrentes', href: '/financas/recorrentes' },
   { view: 'cartoes', label: 'Cartões', href: '/financas/cartoes' },
-  { view: 'patrimonio', label: 'Património', href: null },
+  { view: 'patrimonio', label: 'Património', href: '/financas/patrimonio' },
 ];
 
 const ACTIVE_CLASS =

@@ -49,3 +49,30 @@ describe('<MoneyDisplay>', () => {
     expect(screen.getByText('€0,00')).toBeInTheDocument();
   });
 });
+
+describe('<MoneyDisplay tone="signed"> (Story 4.9 D-4.9.8 — saldos com sinal)', () => {
+  it('negativo → prefixo − + cor vermelha (descoberto)', () => {
+    const { container } = render(<MoneyDisplay cents={-5000} tone="signed" />);
+    const span = container.querySelector('span');
+    expect(span?.textContent).toBe('−€50,00');
+    expect(span?.className).toContain('text-red-600');
+  });
+
+  it('positivo → SEM prefixo, cor neutra (nunca renderiza "+")', () => {
+    // Valor < 1000 EUR para evitar ambiguidade do separador de milhar entre versões de ICU
+    // (mesma cautela dos testes predecessores neste ficheiro).
+    const { container } = render(<MoneyDisplay cents={12345} tone="signed" />);
+    const span = container.querySelector('span');
+    expect(span?.textContent).toBe('€123,45');
+    expect(span?.className).not.toContain('text-red');
+    expect(span?.className).not.toContain('text-green');
+  });
+
+  it('zero → €0,00 sem prefixo nem cor', () => {
+    const { container } = render(<MoneyDisplay cents={0} tone="signed" />);
+    const span = container.querySelector('span');
+    expect(span?.textContent).toBe('€0,00');
+    expect(span?.className).not.toContain('text-red');
+    expect(span?.className).not.toContain('text-green');
+  });
+});

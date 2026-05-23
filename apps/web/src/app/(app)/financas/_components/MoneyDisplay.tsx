@@ -12,7 +12,14 @@
  * magnitude (separadores de milhar/decimal correctos) e prefixa-se `€`.
  *
  * `amount_cents` é sempre positivo no schema (`transactions_amount_positive`
- * CHECK); o sinal/cor visual vem da prop `tone`, NUNCA do valor.
+ * CHECK); o sinal/cor visual vem da prop `tone`, NUNCA do valor — para
+ * transacções.
+ *
+ * Story 4.9 D-4.9.8 — extensão aditiva: `tone="signed"` apresenta um valor
+ * que PODE ser negativo (saldos de conta / património), em que o sinal
+ * mostrado é o sinal REAL do valor (`−` quando `cents < 0`, nada quando
+ * `cents >= 0` — nunca `+`) e a cor é vermelha quando negativo, neutra
+ * quando >= 0. Os tones existentes (`expense`/`income`/`neutral`) NÃO mudam.
  */
 
 /** Formatador de magnitude — separadores PT-PT (`,` decimal). */
@@ -34,10 +41,15 @@ export interface MoneyDisplayProps {
   /** Valor em cêntimos de euro (inteiro — schema `*_cents integer`). */
   readonly cents: number;
   /**
-   * Sinal visual: `expense` a vermelho com prefixo `−`, `income` a verde com
-   * prefixo `+`, `neutral` sem cor nem prefixo. Default: `neutral`.
+   * Sinal visual:
+   *  - `expense` → prefixo `−`, vermelho (transacção de despesa, valor sempre positivo no schema)
+   *  - `income`  → prefixo `+`, verde (transacção de receita, valor sempre positivo no schema)
+   *  - `neutral` → sem prefixo, sem cor (uso geral, descarta sinal — magnitude)
+   *  - `signed`  → prefixo `−` quando `cents < 0`, nada quando `cents >= 0`; vermelho se negativo,
+   *                neutro se positivo. Story 4.9 D-4.9.8 — saldos de conta / património.
+   *  Default: `neutral`.
    */
-  readonly tone?: 'expense' | 'income' | 'neutral';
+  readonly tone?: 'expense' | 'income' | 'neutral' | 'signed';
   readonly className?: string;
 }
 
@@ -47,13 +59,22 @@ export function MoneyDisplay({
   className = '',
 }: MoneyDisplayProps): React.ReactElement {
   const formatted = formatEuroCents(cents);
-  const prefix = tone === 'expense' ? '−' : tone === 'income' ? '+' : '';
-  const toneClass =
-    tone === 'expense'
-      ? 'text-red-600 dark:text-red-400'
-      : tone === 'income'
-        ? 'text-green-600 dark:text-green-400'
-        : '';
+
+  let prefix = '';
+  let toneClass = '';
+  if (tone === 'expense') {
+    prefix = '−';
+    toneClass = 'text-red-600 dark:text-red-400';
+  } else if (tone === 'income') {
+    prefix = '+';
+    toneClass = 'text-green-600 dark:text-green-400';
+  } else if (tone === 'signed') {
+    // D-4.9.8 — sinal real do valor; nunca `+`; vermelho se negativo, neutro se >= 0.
+    if (cents < 0) {
+      prefix = '−';
+      toneClass = 'text-red-600 dark:text-red-400';
+    }
+  }
   const text = `${prefix}${formatted}`;
 
   return (
