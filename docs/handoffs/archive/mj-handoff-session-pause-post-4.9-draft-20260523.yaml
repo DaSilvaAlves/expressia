@@ -1,0 +1,125 @@
+id: mj-handoff-session-pause-post-4.9-draft-20260523
+from_agent: sm
+to_agent: any
+created: '2026-05-23T00:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-23T14:35:00Z'
+consumed_by: devops
+consumed_verdict: 'Cumprido — Option B executada na sequência (@po→@dev→@architect→@devops)'
+consumed_notes: |
+  Meta-handoff de session pause cumprido integralmente. Option B recomendada
+  foi a executada: @po *validate-story-draft 4.9 (GO 9.5/10 HIGH) → @dev *develop 4.9
+  (modo YOLO, 5/5 gates GREEN, 27 testes GREEN) → @architect *qa-gate 4.9 (APPROVED
+  9,5/10 HIGH) → @devops *push 4.9 (CICLO COMPLETO; commits feat+chore; push origin/main).
+  Sucessor handoff actionable (mj-handoff-4.9-ready-for-po-20260522.yaml) já tinha
+  sido consumido pelo @po. Carry-overs LOW preservados conforme especificado no
+  meta-handoff. docs/marketing/edit/ continua untracked (decisão Eurico pendente
+  desde Story 4.1, comportamento esperado). Arquivado em housekeeping de Story 4.9.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '4.9'
+last_command: '*draft 4.9'
+priority: medium
+
+summary: |
+  SESSION PAUSE cross-terminal — Story 4.9 (Vista "Património") Draft v1.0
+  acabada de ser criada por @sm (River). Story file existe localmente mas NÃO
+  está commitada. O handoff actionable sucessor (`mj-handoff-4.9-ready-for-po-
+  20260522.yaml`) já está pending na fila com `to_agent: po`. A acção imediata
+  do próximo terminal é decidir entre:
+
+    (A) Commitar+pushar o draft 4.9 + housekeeping ANTES da validação @po,
+        para que o draft viva em origin/main (precedente: drafts costumam
+        ficar locais e só são pushed depois do gate; mas há precedente também
+        de drafts pushed antes do cycle — Eurico decide).
+    (B) Avançar directo para `@po *validate-story-draft 4.9` em modo local
+        (sem push intermédio) e deixar o @devops pushar o ciclo todo
+        (draft → ready → impl → gate → push) num único push final, como nas
+        Stories 4.6/4.7/4.8.
+
+  Story 4.9 é a ÚLTIMA vista do Módulo Finanças. Após merge, `FinanceViewTabs`
+  fica sem placeholders e resta apenas a Story 4.10 (tools do cérebro) para
+  fechar o Epic 4.
+
+next_action: |
+  Opção recomendada (B — coerente com 4.6/4.7/4.8): no próximo terminal,
+  arrancar directamente com `@po *validate-story-draft 4.9`. O @po consome
+  o handoff actionable `mj-handoff-4.9-ready-for-po-20260522.yaml` (já pending
+  no INDEX) e segue o ciclo normal SDC. O @devops pushará o ciclo completo no
+  fim.
+
+  Se Eurico preferir Opção A (push intermédio do draft), o próximo terminal
+  invoca `@devops *push` para commitar+pushar:
+    - docs/stories/active/4.9.finance-patrimony-view.story.md (NEW)
+    - docs/handoffs/mj-handoff-4.9-ready-for-po-20260522.yaml (NEW)
+    - docs/handoffs/archive/mj-handoff-session-pause-post-4.8-done-20260522.yaml (MOVED)
+    - docs/HANDOFF-INDEX.md (M)
+    - docs/stories/active/_INDEX.md (M)
+    - este YAML (NEW — mj-handoff-session-pause-post-4.9-draft-20260523)
+  e só depois invocar `@po *validate-story-draft 4.9`.
+
+  Em ambos os casos a fila de handoffs está consistente — o handoff actionable
+  sm→po existe e o INDEX reflecte o estado.
+
+context:
+  story_path: docs/stories/active/4.9.finance-patrimony-view.story.md
+  story_status: 'Draft v1.0'
+  story_summary: |
+    Vista `financas/patrimonio` (FR17) — saldo computado on-read por conta
+    (DP1=A: `initial_balance_cents + SUM(income) − SUM(expense)`), agregado
+    por banco, com património total e drilldown banco→conta→movimentos (link
+    "Ver movimentos" → `/financas/variaveis?account_id=…` reutiliza a vista
+    4.7). Helper puro `getAccountBalances` (2 queries fixas, sem N+1) isola o
+    núcleo de risco da computação. ~7 ficheiros novos + 2 modificados
+    (`FinanceViewTabs`, `MoneyDisplay`). Zero migration, zero RLS, zero
+    alteração de schema. 8 ACs · 7 Tasks · 8 [AUTO-DECISIONS] D-4.9.1-8 ·
+    6 riscos · 11 verificações anti-hallucination.
+  epic_doc: 'docs/epics/epic-4-modulo-financas.md (v1.0 Validated)'
+  epic_progress: 'Epic 4 = 8/10 Done (4.1-4.8); 4.9 Draft; resta 4.10 (tools do cérebro).'
+  estimate: M
+  successor_handoff_actionable: docs/handoffs/mj-handoff-4.9-ready-for-po-20260522.yaml
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-session-pause-post-4.8-done-20260522.yaml
+
+git_state:
+  branch: main
+  head: 72a358c
+  unpushed: 'nenhum commit local — main sincronizado com origin/main'
+  uncommitted_changes:
+    - 'M  docs/HANDOFF-INDEX.md (pending 4.9 entry + archived 4.8-done entry)'
+    - 'M  docs/stories/active/_INDEX.md (Epic 4 progress 5/10→8/10; rows 4.6/4.7/4.8 reconciliadas; row 4.9 Draft v1.0)'
+    - 'RM docs/handoffs/mj-handoff-session-pause-post-4.8-done-20260522.yaml → archive/ (consumed by sm)'
+    - 'A  docs/handoffs/mj-handoff-4.9-ready-for-po-20260522.yaml (NEW — actionable sm→po)'
+    - 'A  docs/stories/active/4.9.finance-patrimony-view.story.md (NEW — Draft v1.0)'
+    - 'A  docs/handoffs/mj-handoff-session-pause-post-4.9-draft-20260523.yaml (NEW — este meta-handoff)'
+    - '?? docs/marketing/edit/ (untracked — carry-over; decisão pendente Eurico)'
+
+decisions_pending_for_po_validate:
+  - 'D-4.9.2 — `transfer` EXCLUÍDO da soma do saldo (schema modela transacção com um único account_id; precedente D-4.6.5/D-4.8.6/R-4.10).'
+  - 'D-4.9.7 — vista read-only; SEM caminho de criação de contas no scope do Epic (tools 4.10 NÃO incluem `create_account`).'
+  - 'Restantes 6 AUTO-DECISIONS (D-4.9.1/3/4/5/6/8) são ratify silent.'
+
+carry_over:
+  - 'Story 4.6 gate C1 (MEDIUM) — EXPLAIN ANALYZE da vista mensal contra staging seeded (waiver aceite; runbook tem metodologia).'
+  - 'Story 4.6 gate C2 (LOW) — doc-sync architecture.md §8.4 (MoneyDisplay/packages/ui diverge da implementação real).'
+  - 'Story 4.7 gate C1 (MEDIUM) — adicionar teste unitário de DeleteRowButton (confirm cancelado/erro/sucesso).'
+  - 'Story 4.7 gate C2 (LOW) — substituir window.confirm por dialog estilizado.'
+  - 'Story 4.8 gate NIT-4.8.1 (LOW) — query installments em list-card-statements.ts sem filtro card_id explícito (RLS scopa por household).'
+  - 'docs/marketing/edit/ untracked — binários mp4; decisão pendente Eurico. Excluído de todos os commits 4.1-4.9-draft.'
+  - 'db-test não corre local (LOW) — Docker ausente; CI rls-gate cobre. Herdado Stories 4.1-4.8.'
+  - 'TEST-001 (LOW) — flaky tarefas/calendario/page.test.tsx por timeout; passa isolado; não-regressão.'
+
+blockers: []
+
+roadmap_epic_4:
+  done: '8/10 — 4.1 (schema+audit) · 4.2 (API accounts/cards) · 4.3 (API transactions/categories) · 4.4 (API recurrences/installments) · 4.5 (cron Inngest) · 4.6 (vista Este mês) · 4.7 (vistas Variáveis+Recorrentes) · 4.8 (vista Cartões)'
+  in_progress: '4.9 Draft v1.0 — Vista "Património" (M). Reusa MoneyDisplay/FinanceViewTabs/FinanceEmptyState; converte o ÚLTIMO placeholder de FinanceViewTabs (patrimonio).'
+  remaining:
+    - '4.10 — Tools do cérebro Finanças (L) — 5 tools no toolRegistry + TOOL_TO_INTENT_MAP + prompts classifier/planner v-bump. Fecha o Epic 4.'
+
+notes_for_next_agent:
+  - 'O HANDOFF-INDEX.md JÁ está actualizado — `mj-handoff-4.9-ready-for-po-20260522` está em Pending; o predecessor 4.8-done já foi movido para Archived.'
+  - 'Não há push pendente — main = origin/main em 72a358c. As mudanças locais são todas docs (story + handoffs + índices).'
+  - 'Se @po validar com GO directamente sem push intermédio, o @dev arranca em modo local e o @devops pusha tudo no fim (precedente 4.6/4.7/4.8).'
+  - 'A Story 4.9 é a última vista do Módulo Finanças — depois dela só falta a 4.10 (tools do cérebro) para fechar o Epic 4.'

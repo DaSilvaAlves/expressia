@@ -1,0 +1,192 @@
+id: mj-handoff-4.9-architect-to-devops-20260523
+from_agent: architect
+to_agent: devops
+created: '2026-05-23T01:50:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-23T14:35:00Z'
+consumed_by: devops
+consumed_verdict: 'Push do CICLO COMPLETO executado — origin/main GREEN'
+consumed_notes: |
+  @devops Gage consumiu o handoff architect→devops e executou `*push 4.9`.
+
+  Sequência precedente Story 4.5 (architect→devops push completo):
+    1. Pre-push 5/5 quality gates FULL TURBO GREEN:
+       - typecheck 9/9 (25.2s, FULL TURBO)
+       - lint 9/9 (0 warnings, 65.5s FULL TURBO)
+       - check:rls exit 0
+       - test 735/736 (TEST-001 carry-over isolado GREEN 3/3 1608ms)
+       - build 9/9 (64s)
+    2. CodeRabbit `--base main` scoped a `financas/` — 1 finding **major**:
+       BankGroup `bankNameToId` regex `[U+0300-U+036F]` → sugerido `/\p{M}+/gu`
+       (Unicode property escape para TODOS os combining marks). PT-PT só
+       precisaria do range PT-PT mas fix aditivo + zero regressão.
+       APLICADO antes do push. Re-verify: typecheck + lint + 27/27 tests GREEN.
+       Política @devops `HIGH: warn + recommend fix before merge` cumprida.
+    3. Commit primário `feat(financas)` — 12 ficheiros (5 NEW source + 3 NEW
+       tests + 2 MODIFIED source + 1 MODIFIED test + 1 NEW gate). Trailers
+       Constraint/Rejected/Confidence/Scope-risk/Directive/Not-tested incluídos.
+    4. Commit housekeeping `chore(docs)` — mv story active/→completed/ +
+       actualizar HANDOFF-INDEX + _INDEX + mover handoffs consumidos.
+    5. Push `origin/main` — sucesso.
+
+  `docs/marketing/edit/` excluído (decisão Eurico pendente desde Story 4.1).
+  Carry-overs LOW preservados (TEST-001, 4.6 C1/C2, 4.7 C1/C2, 4.8 NIT-4.8.1).
+  Novos LOW carry-overs: NIT-AR-4.9.1 (bankNameToId colisão patológica), NIT-AR-4.9.2
+  (atomicidade Promise.all), NIT-4.9.1 (kanban error fallback ViewTabs).
+
+  Epic 4 progress: 8/10 → **9/10 Done pushed**. Resta apenas Story 4.10 (tools
+  do cérebro Finanças) para fechar o Epic.
+  FinanceViewTabs sem placeholders — 5 rotas financas/* todas activas em produção
+  após deploy Vercel automático.
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.9'
+last_command: '*qa-gate 4.9'
+priority: medium
+
+summary: |
+  @architect Aria executou `*qa-gate 4.9` com verificação independente.
+  Veredicto: **APPROVED — 9,5/10 — HIGH confidence**.
+
+  7-point gate 7/7 PASS · 8/8 ACs · 8/8 D-4.9.x verificadas por grep contra
+  código · 6/6 R-4.9.x mitigated · Constitution 6/6 · 5/5 quality gates
+  re-corridos independentemente GREEN · CodeRabbit 0 CRITICAL · 0 hallucinations
+  · 2 nits LOW non-blocking documentados.
+
+  Story status `Ready for Review v1.2` → `Done v1.3`.
+  Gate file: `docs/qa/gates/4.9-architect-gate.md`.
+
+  Esta é a ÚLTIMA vista do Módulo Finanças — após push, `FinanceViewTabs` fica
+  sem placeholders e o módulo entrega as 5 rotas previstas
+  (`este-mes` · `variaveis` · `recorrentes` · `cartoes` · `patrimonio`).
+  **Epic 4 = 9/10 Done após este push.**
+
+next_action: |
+  `@devops *push 4.9` — push do **CICLO COMPLETO** (precedente Stories
+  4.6/4.7/4.8 — instrução explícita do Eurico). NÃO pushar parcialmente.
+
+  Sequência esperada (precedente Story 4.5 architect→devops push):
+    1. Pre-push: re-correr 5/5 quality gates independentemente
+       (typecheck, lint, test, build, check:rls)
+    2. Commit primário `feat(financas)`:
+       - 7 NEW source: account-balances.ts, patrimonio/page.tsx,
+         NetWorthSummary.tsx, BankGroup.tsx, AccountBalanceCard.tsx
+       - 2 MODIFIED source: FinanceViewTabs.tsx (href patrimonio),
+         MoneyDisplay.tsx (tone signed aditivo)
+       - 3 NEW tests: account-balances.test.ts, AccountBalanceCard.test.tsx,
+         patrimonio/__tests__/page.test.tsx
+       - 1 MODIFIED test: MoneyDisplay.test.tsx (+3 signed)
+       - 1 NEW gate: docs/qa/gates/4.9-architect-gate.md
+    3. Commit housekeeping `chore(docs)`:
+       - mv `docs/stories/active/4.9.finance-patrimony-view.story.md` →
+         `docs/stories/completed/4.9.finance-patrimony-view.story.md`
+       - Actualizar `docs/stories/active/_INDEX.md` (4.9 Done, Epic 4 = 9/10)
+       - Actualizar `docs/HANDOFF-INDEX.md` (move/archive handoffs)
+       - Mover handoffs consumidos para `docs/handoffs/archive/`
+    4. CodeRabbit `--base main` (precedente @devops Stories 4.4/4.5) — opcional
+       mas recomendado. Se falhar com finding CRITICAL, fix antes do push.
+    5. Push para `origin/main`.
+
+  Após push GREEN → handoff opcional para session pause ou directo para
+  `@sm *draft 4.10` (tools do cérebro Finanças — última story do Epic 4).
+
+context:
+  story_path: docs/stories/active/4.9.finance-patrimony-view.story.md
+  story_status_after_gate: 'Done v1.3'
+  story_version: '1.3'
+  gated_at: '2026-05-23T01:50:00Z'
+  gated_by: 'architect (Aria)'
+  gate_verdict: 'APPROVED 9,5/10 HIGH'
+  gate_file: 'docs/qa/gates/4.9-architect-gate.md'
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.9-dev-to-architect-20260523.yaml
+  epic_progress: 'Epic 4 = 8/10 Done (4.1-4.8); 4.9 Done v1.3 aguarda push; resta apenas 4.10 (tools do cérebro).'
+  branch: main
+
+push_checklist_for_devops:
+  pre_push:
+    - 'Re-correr 5/5 quality gates locais (FULL TURBO recomendado para confirmar zero regressão pós-cache)'
+    - 'Confirmar test 735/736 com TEST-001 carry-over isolado GREEN (3/3, 1173ms)'
+    - 'Confirmar `pnpm build` lista `/financas/patrimonio` 2.16 kB SRO'
+    - 'Confirmar `pnpm check:rls` exit 0 (27 tabelas cobertas, zero impacto)'
+  files_to_commit:
+    primary_feat:
+      new_source:
+        - 'apps/web/src/lib/finance/account-balances.ts'
+        - 'apps/web/src/app/(app)/financas/patrimonio/page.tsx'
+        - 'apps/web/src/app/(app)/financas/_components/NetWorthSummary.tsx'
+        - 'apps/web/src/app/(app)/financas/_components/BankGroup.tsx'
+        - 'apps/web/src/app/(app)/financas/_components/AccountBalanceCard.tsx'
+      new_tests:
+        - 'apps/web/src/lib/finance/__tests__/account-balances.test.ts'
+        - 'apps/web/src/app/(app)/financas/_components/__tests__/AccountBalanceCard.test.tsx'
+        - 'apps/web/src/app/(app)/financas/patrimonio/__tests__/page.test.tsx'
+      modified_source:
+        - 'apps/web/src/app/(app)/financas/_components/FinanceViewTabs.tsx'
+        - 'apps/web/src/app/(app)/financas/_components/MoneyDisplay.tsx'
+      modified_tests:
+        - 'apps/web/src/app/(app)/financas/_components/__tests__/MoneyDisplay.test.tsx'
+      gate_file:
+        - 'docs/qa/gates/4.9-architect-gate.md'
+    housekeeping_chore:
+      story_move:
+        - 'docs/stories/active/4.9.finance-patrimony-view.story.md → docs/stories/completed/4.9.finance-patrimony-view.story.md'
+      index_updates:
+        - 'docs/stories/active/_INDEX.md (4.9 Done v1.3; Epic 4 = 9/10)'
+        - 'docs/HANDOFF-INDEX.md (move pending architect→devops handoff to archived after push completes; or keep in pending if session pause)'
+      handoff_archive:
+        - 'docs/handoffs/mj-handoff-4.9-architect-to-devops-20260523.yaml (este handoff — marcar consumed:true + mv to archive após push)'
+  excluded_from_commits:
+    - 'docs/marketing/edit/ untracked — decisão Eurico pendente desde Story 4.1; manter untracked, NÃO incluir no push (precedente Stories 4.1-4.8)'
+  commit_message_hint: |
+    feat(financas): Story 4.9 — vista Património (saldo on-the-fly por banco/conta) [Story 4.9]
+
+    - Helper getAccountBalances 2 queries fixas (sem N+1, D-4.9.4)
+    - Base recompute = initial_balance_cents (D-4.9.1); transfer/is_projected excluídos via FILTER SQL (D-4.9.2/3)
+    - Página RSC com NetWorthSummary + BankGroup colapsável + AccountBalanceCard
+    - MoneyDisplay tone="signed" extensão aditiva (D-4.9.8)
+    - 27 testes novos GREEN; 5/5 quality gates GREEN; CodeRabbit 0 CRITICAL
+    - Architect gate APPROVED 9,5/10 HIGH (docs/qa/gates/4.9-architect-gate.md)
+
+risks_status_at_gate:
+  R-4.9.1: 'MITIGADO — helper puro + 9 testes; base imutável; FILTER por kind'
+  R-4.9.2: 'ACEITE @po — FILTER nativamente exclui transfer; FUP-4.9.B Fase 2'
+  R-4.9.3: 'MITIGADO — MoneyDisplay tone="signed" + 3 testes'
+  R-4.9.4: 'MITIGADO + GATE-VERIFIED — grep getServiceDb nos 7 ficheiros: 0 matches em todos'
+  R-4.9.5: 'MITIGADO — 2 queries fixas confirmadas (Promise.all)'
+  R-4.9.6: 'MITIGADO — Query 2 WHERE is_projected = false'
+
+concerns_low_non_blocking:
+  - id: NIT-AR-4.9.1
+    severity: LOW
+    title: 'bankNameToId colisão patológica para nomes que só diferem em pontuação'
+    file: 'apps/web/src/app/(app)/financas/_components/BankGroup.tsx:31-39'
+    rationale: |
+      Mapa em getAccountBalances agrupa por bank_name literal (não por slug),
+      portanto colisão de slug é puramente cosmética nos id/aria-controls.
+      Domínio improvável (households reais sem 2 bancos com nomes que diferem
+      apenas em pontuação). Já era minor do CodeRabbit iter 2. Sem fix nesta story.
+  - id: NIT-AR-4.9.2
+    severity: LOW
+    title: 'Atomicidade do Promise.all na agregação'
+    file: 'apps/web/src/lib/finance/account-balances.ts:91-110'
+    rationale: |
+      Falha parcial rejeita e renderiza FinanceEmptyState variant="error" via
+      captureException. Semântica all-or-nothing apropriada para "Património"
+      (mostrar metade dos dados induziria erro de interpretação). Sem fix.
+
+carry_overs_preserved:
+  - '4.6 C1/C2 (LOW) — documentais herdados'
+  - '4.7 C1/C2 (LOW) — documentais herdados'
+  - '4.8 NIT-4.8.1 (LOW) — afinar testes Cartões'
+  - 'docs/marketing/edit/ untracked — decisão Eurico pendente desde Story 4.1; NÃO incluído no push'
+  - 'db-test Docker — não corre local; CI rls-gate cobre (LOW)'
+  - 'TEST-001 flaky tarefas/calendario/page.test.tsx (LOW) — passa isolado 3/3 GREEN; herdado das Stories 4.5/4.6/4.7/4.8'
+  - 'NIT-4.9.1 (LOW) — kanban error fallback ViewTabs (out-of-scope Story 4.9, do CodeRabbit iter 1)'
+
+notes_for_next_agent:
+  - 'Push do CICLO COMPLETO — não pushar housekeeping separado do feat. Precedente Stories 4.6/4.7/4.8 — devops faz o batch inteiro.'
+  - 'Eurico pediu explicitamente: "deixar @devops pushar o ciclo completo no fim"'
+  - 'Após push: Epic 4 = 9/10 Done. Resta apenas Story 4.10 (tools do cérebro Finanças) para fechar o Epic.'
+  - 'Após push: FinanceViewTabs sem placeholders (5 rotas financas/* todas activas, confirmado no build output).'
+  - 'docs/marketing/edit/ untracked — NÃO incluir no push (decisão Eurico pendente).'

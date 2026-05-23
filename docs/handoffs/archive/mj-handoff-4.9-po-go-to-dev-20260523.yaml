@@ -1,0 +1,171 @@
+id: mj-handoff-4.9-po-go-to-dev-20260523
+from_agent: po
+to_agent: dev
+created: '2026-05-23T00:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-23T01:05:00Z'
+consumed_by: dev
+consumed_verdict: 'Implementação completa — Ready for Review v1.2; 5/5 quality gates GREEN; CodeRabbit 0 CRITICAL'
+consumed_notes: |
+  @dev Dex executou `*develop 4.9` em modo YOLO.
+  Sequência: T2 + T6.1 (TDD do núcleo) → T1 + T3 → T4 → T5 → T6.2 + T6.3 → T7 → CodeRabbit pre-commit.
+
+  Resultados:
+  - 8 ACs PASS
+  - 27 testes novos GREEN (9 helper + 3 MoneyDisplay signed + 3 AccountBalanceCard + 5 page.test); +0 regressões
+  - 5/5 quality gates: typecheck 9/9 · lint 9/9 (0 warnings) · test 735/736 (1 TEST-001 flaky carry-over não-regressão, GREEN isolado) · build 9/9 (rota /financas/patrimonio 2.16 kB SRO) · check:rls GREEN
+  - CodeRabbit iter 1: 2 majors — 1 fix aplicado (BankGroup `bankNameToId` slug), 1 out-of-scope (kanban). Iter 2: 1 minor documented, 1 major fix defensivo aplicado. Zero CRITICAL.
+  - Zero migration · zero RLS · zero schema · zero `getServiceDb()` (R-4.9.4 preservada)
+  - File list: 7 NEW source + 2 MODIFIED + 4 testes (3 NEW + 1 MODIFIED MoneyDisplay.test.tsx)
+  Story status `Ready for Dev v1.1` → `Ready for Review v1.2`.
+  Successor handoff: mj-handoff-4.9-dev-to-architect-20260523.
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.9'
+last_command: '*validate-story-draft 4.9'
+priority: medium
+
+summary: |
+  @po Pax validou Story 4.9 (Vista "Património" — balanço por banco/conta) em modo local.
+  Status `Draft v1.0` → `Ready for Dev v1.1`. Verdict: **GO 9.5/10 HIGH confidence**.
+
+  10-point checklist 10/10 PASS · 11/11 cross-confirm anti-hallucination contra o
+  codebase real (finance.ts schema, FinanceViewTabs/MoneyDisplay components, vista
+  Variáveis, padrão helper db-injectável, Epic 4 FR17/DP1/R-4.10).
+
+  Dois recortes resolvidos:
+    - D-4.9.2 (transfer excluído da computação do saldo): **ACCEPT** — determinismo
+      forçado pelo schema (account_id único, sem par origem/destino); coerência
+      transversal com D-4.6.5/D-4.8.6/R-4.10.
+    - D-4.9.7 (vista read-only, sem caminho de criação de contas no scope): **ACCEPT
+      + follow-up** — coerente com D-4.7.1/D-4.8.7 já validadas; lacuna registada
+      como FUP-4.9.A no backlog para Fase 2.
+
+  6 AUTO-DECISIONS silent (D-4.9.1/3/4/5/6/8) ratificadas.
+
+  Esta é a ÚLTIMA vista do Módulo Finanças — após merge da 4.9, Epic 4 = 9/10 Done
+  e `FinanceViewTabs` fica sem placeholders.
+
+next_action: |
+  `@dev *develop 4.9` — implementar Story 4.9 conforme as 7 Tasks / 17 subtasks.
+
+  Modo recomendado: YOLO (story bem isolada, reuse-heavy sobre 4.6/4.7/4.8, sem
+  ambiguidade após @po GO). Núcleo de risco está confinado ao helper puro
+  `getAccountBalances` — começar por T2 + T6.1 (TDD do helper) antes de qualquer
+  UI elimina o risco logo no início.
+
+  Sequência sugerida (não-bloqueante — @dev decide):
+    1. T2 (helper account-balances.ts) + T6.1 (~9 testes) — TDD do núcleo de risco
+    2. T1 (FinanceViewTabs href + esqueleto da rota)
+    3. T3 (MoneyDisplay modo signed — extensão aditiva) + T6.2 (~3 testes)
+    4. T4 (página patrimonio + NetWorthSummary)
+    5. T5 (BankGroup client + AccountBalanceCard) + T6.3 (~3 + ~3 testes)
+    6. T7 (5/5 quality gates locais — typecheck, lint, test, build, check:rls)
+
+  Após implementação completa: handoff para @architect (`*qa-gate 4.9`) seguindo
+  o precedente Epic 4 (4.6/4.7/4.8 — @architect gate por se tratar de agregação
+  financeira sensível). @devops fará o push do ciclo completo no fim (precedente
+  Stories 4.6/4.7/4.8).
+
+context:
+  story_path: docs/stories/active/4.9.finance-patrimony-view.story.md
+  story_status: 'Ready for Dev v1.1'
+  story_version: '1.1'
+  story_validated_at: '2026-05-23T00:30:00Z'
+  story_validated_by: 'po (Pax)'
+  validation_verdict: 'GO 9.5/10 HIGH'
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.9-ready-for-po-20260522.yaml
+  epic_doc: docs/epics/epic-4-modulo-financas.md
+  epic_progress: 'Epic 4 = 8/10 Done (4.1-4.8); 4.9 Ready for Dev; resta 4.10 (tools do cérebro).'
+  branch: main
+  estimate: M
+  executor: '@dev'
+  quality_gate: '@architect'
+  quality_gate_tools:
+    - 'pnpm typecheck'
+    - 'pnpm lint'
+    - 'pnpm test'
+    - 'pnpm build'
+    - 'pnpm check:rls'
+
+po_decisions:
+  d_4_9_2_transfer_excluded: ACCEPT
+  d_4_9_2_justification: |
+    Schema modela transacção com account_id único (finance.ts:368) — direcção (débito/crédito)
+    de uma transfer row é indeterminável sem assumir convenção. Precedente transversal coerente:
+    D-4.6.5 (vista mensal), D-4.8.6 (fatura cartão), R-4.10 do Epic todos excluem transfer.
+    Determinismo > completude no MVP. Limitação documentada e testada em AC7.
+    Modelação correcta = FUP-4.9.B (Fase 2).
+  d_4_9_7_read_only: ACCEPT_WITH_FOLLOWUP
+  d_4_9_7_justification: |
+    Coerente com D-4.7.1 (vista Variáveis) e D-4.8.7 (vista Cartões) já validadas.
+    Caminho canónico de criação de contas existe — POST /api/financas/contas (Story 4.2 Done).
+    Botão "+ Nova conta" desactivado com title informativo (precedente tarefas/page.tsx / D-4.8.7).
+    Lacuna registada formalmente como FUP-4.9.A no backlog para Fase 2.
+  silent_ratifications:
+    - 'D-4.9.1 — base do recompute = initial_balance_cents (imutável); balance_cents stored ignorado'
+    - 'D-4.9.3 — só transacções reais (is_projected=false); projecções/prestações futuras fora do património'
+    - 'D-4.9.4 — getAccountBalances faz exactamente 2 queries fixas (sem N+1)'
+    - 'D-4.9.5 — drilldown = grupos colapsáveis + link vista Variáveis (sem 3.ª query)'
+    - 'D-4.9.6 — contas arquivadas excluídas; bank_name NULL → grupo "Sem banco" (último)'
+    - 'D-4.9.8 — MoneyDisplay estendido para saldos com sinal (extensão aditiva, zero regressão)'
+
+followup_backlog:
+  - id: FUP-4.9.A
+    title: 'Gestão de Contas — UI de criação/edição/arquivar + tool `create_account` no cérebro'
+    origin: 'D-4.9.7 (Story 4.9 @po validate)'
+    priority: medium
+    sprint_suggested: 'Fase 2 — pós Epic 4'
+    notes: |
+      Cobertura: rota /financas/contas/nova (RSC + Server Action POST → reusa API 4.2) +
+      tool create_account no toolRegistry. Investigar também UI de arquivar / editar conta
+      (nome, bank_name, account_type — initial_balance_cents permanece imutável por D-4.2.A).
+  - id: FUP-4.9.B
+    title: 'Modelação correcta de transferências entre contas (par origem/destino)'
+    origin: 'D-4.9.2 (Story 4.9 @po validate)'
+    priority: low
+    sprint_suggested: 'Fase 2 — após validação de uso real de transfer no MVP'
+    notes: |
+      Opções a investigar: (a) tabela transfers (id, household_id, from_account_id,
+      to_account_id, amount_cents, transaction_date) separada; (b) par de transactions
+      linkadas via transfer_pair_id; (c) novo kind transfer_in/transfer_out com sinal
+      explícito. Implica revisar agregações em todas as vistas de Finanças.
+  - id: FUP-4.9.C
+    title: 'Reconciliação de accounts.balance_cents (coluna stored vestigial)'
+    origin: 'D-4.9.1 — smell documental (Story 4.9 @po validate)'
+    priority: low
+    sprint_suggested: 'Fase 2 — coerente com R-4.4 do Epic'
+    notes: |
+      Opções: (a) remover balance_cents via migration; (b) manter como cache assíncrona
+      actualizada por trigger/job; (c) renomear para cached_balance_cents. Não bloqueia
+      MVP — coluna simplesmente não é lida por nenhuma vista após Story 4.9.
+
+carry_overs:
+  preserved_from_handoff_chain:
+    - 'Story 4.6 C1/C2 (LOW) — DP-4.6.3 documentação + discrepância packages/ui no architecture.md'
+    - 'Story 4.7 C1/C2 (LOW) — itens documentais herdados'
+    - 'Story 4.8 NIT-4.8.1 (LOW) — afinar testes de Cartões'
+    - 'docs/marketing/edit/ untracked — decisão Eurico pendente desde Story 4.1'
+    - 'db-test Docker — não corre local; CI rls-gate cobre (concern LOW herdado)'
+    - 'TEST-001 — flaky pré-existente tarefas/calendario/page.test.tsx (não-regressão, passa isolado)'
+
+verification_evidence:
+  anti_hallucination_passes:
+    - 'finance.ts:82-114 (accounts) — balance_cents + initial_balance_cents integer notNull default 0; bank_name nullable; iban_last4 com CHECK regex; archived_at nullable; índices household_idx + active_idx'
+    - 'finance.ts:358-431 (transactions) — account_id FK ON DELETE set null nullable; kind enum (expense/income/transfer); amount_cents CHECK > 0; is_projected default false; índice transactions_account_idx ON (account_id, transaction_date)'
+    - 'epic-4-modulo-financas.md:136 — DP1 = A Recompute on-read'
+    - 'epic-4-modulo-financas.md:107 — R-4.10 SUM amount_cents FILTER por kind'
+    - 'FinanceViewTabs.tsx:28 — patrimonio é o único TabDef com href: null'
+    - 'MoneyDisplay.tsx:30 — formatEuroCents usa Math.abs (descarta sinal); tone só expense/income/neutral'
+    - 'variaveis/page.tsx:27 + VariableTxFilters.tsx:92 — account_id em FILTER_KEYS e lido por searchParams.get'
+    - 'month-summary.ts:18,24 — padrão helper db-injectável (DbShim) confirmado existente'
+
+notes_for_next_agent:
+  - 'Story totalmente self-contained — Dev Notes inclui exemplo numérico, schema linhas exactas, padrão RSC, lista de ficheiros, padrão de helper de referência. Implementação directa.'
+  - 'NÃO usar getServiceDb() (R-4.9.4) — RSC exclusivamente getDb() (RLS authenticated). @architect grep no gate.'
+  - 'NÃO ler nem actualizar accounts.balance_cents stored (D-4.9.1) — base do recompute é initial_balance_cents.'
+  - 'AC2 Query 2 DEVE filtrar account_id IS NOT NULL AND is_projected = false AND kind IN (income, expense) — transfer fora.'
+  - 'MoneyDisplay modo signed (D-4.9.8) é extensão ADITIVA — não mudar comportamento de tone=expense/income/neutral existentes (zero regressão para Stories 4.6/4.7/4.8).'
+  - '@dev não faz push — após implementação + gate @architect, @devops faz o push do ciclo completo (precedente 4.6/4.7/4.8).'
+  - 'docs/marketing/edit/ continua untracked — não incluir em commits desta story (decisão Eurico pendente).'

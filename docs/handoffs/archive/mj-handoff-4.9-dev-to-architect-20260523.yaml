@@ -1,0 +1,169 @@
+id: mj-handoff-4.9-dev-to-architect-20260523
+from_agent: dev
+to_agent: architect
+created: '2026-05-23T01:05:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-23T01:50:00Z'
+consumed_by: architect
+consumed_verdict: 'APPROVED 9,5/10 HIGH'
+consumed_notes: |
+  @architect Aria executou `*qa-gate 4.9` em modo local com verificação independente.
+  Resultado: APPROVED 9,5/10 HIGH confidence.
+  - 7-point gate: 7/7 PASS
+  - 8/8 ACs PASS
+  - 8/8 D-4.9.x verificadas por grep contra código (initial_balance_cents linha 131; FILTER kind income/expense linhas 105-106; is_projected=false linha 109; 2x db.execute confirmado; drilldown link AccountBalanceCard:74; localeCompare PT-PT; botão disabled patrimonio/page.tsx:82-84; MoneyDisplay tone signed branch separado 71-73)
+  - 6/6 R-4.9.x mitigated (R-4.9.4 gate-verified: 0 matches getServiceDb nos 7 ficheiros)
+  - Constitution 6/6 PASS (Article VI imports: 0 matches "from '../..'" nos 5 ficheiros NEW)
+  - Quality gates re-corridos independentemente: typecheck 9/9 GREEN, lint 9/9 GREEN (0 warnings), check:rls GREEN, 27/27 targeted tests GREEN (1.99s)
+  - CodeRabbit 0 CRITICAL confirmado pelo @dev
+  - 2 nits LOW non-blocking: NIT-AR-4.9.1 (bankNameToId colisão patológica improvável), NIT-AR-4.9.2 (atomicidade Promise.all apropriada para read-only)
+  - Hallucinations: 0
+  Gate file: docs/qa/gates/4.9-architect-gate.md
+  Story status Ready for Review v1.2 → Done v1.3.
+  Successor: mj-handoff-4.9-architect-to-devops-20260523.
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.9'
+last_command: '*develop 4.9'
+priority: medium
+
+summary: |
+  @dev Dex implementou Story 4.9 (Vista "Património" — balanço por banco/conta)
+  em modo YOLO seguindo a sequência sugerida pelo @po (TDD do núcleo de risco
+  primeiro). Status `Ready for Dev v1.1` → `Ready for Review v1.2`.
+
+  Resumo do trabalho:
+    - 8 ACs PASS · 7 Tasks / 17 subtasks [x]
+    - 27 testes novos GREEN (9 helper + 3 MoneyDisplay signed + 3 AccountBalanceCard + 5 page.test)
+    - 5/5 quality gates GREEN locais:
+        typecheck 9/9 · lint 9/9 (0 warnings) ·
+        test 735/736 (1 TEST-001 flaky carry-over não-regressão, GREEN isolado 3/3) ·
+        build 9/9 (rota /financas/patrimonio 2.16 kB server-rendered on demand) ·
+        check:rls GREEN (27 tabelas cobertas, zero impacto)
+    - CodeRabbit pre-commit self-healing: 0 CRITICAL (gate passado);
+        2 majors resolvidos (1 fix BankGroup `bankNameToId`, 1 documented out-of-scope kanban);
+        1 major false-positive fixado defensivamente (page.tsx key);
+        1 minor documented per policy.
+    - Zero migration · zero RLS · zero schema · zero `getServiceDb()` (R-4.9.4 preservada)
+
+  Esta é a ÚLTIMA vista do Módulo Finanças — após push, Epic 4 = 9/10 Done e
+  `FinanceViewTabs` fica sem placeholders (todas as 5 rotas `financas/*` listadas
+  no build output).
+
+next_action: |
+  `@architect *qa-gate 4.9` — gate por @architect (precedente Stories 4.6/4.7/4.8 —
+  agregação financeira sensível é decisão arquitectural). Verificações esperadas:
+    1. Computação do saldo correcta (snapshot `initial_balance_cents` + `income − expense`;
+       `transfer` excluído por FILTER SQL; `is_projected=false` filtrado).
+    2. Base do recompute é `initial_balance_cents` (imutável, D-4.2.A), NÃO `balance_cents`
+       (stored vestigial — D-4.9.1).
+    3. Zero N+1: confirmar que `getAccountBalances` faz exactamente 2 `db.execute` (D-4.9.4).
+    4. RSC fetch direct sem leak RLS — grep `getServiceDb` em ficheiros novos = 0 matches
+       (R-4.9.4); todas as 2 queries via `getDb()` authenticated.
+    5. Saldos negativos renderizados com sinal correcto via `MoneyDisplay tone="signed"`
+       (D-4.9.8); modos antigos `expense`/`income`/`neutral` sem regressão (10/10 testes
+       MoneyDisplay GREEN).
+    6. AC8 quality gates verificados independentemente.
+    7. CodeRabbit 0 CRITICAL confirmado (já documentado no story Dev Agent Record).
+
+  Após @architect APPROVED → handoff architect→devops → `@devops *push 4.9` fecha o ciclo
+  completo (precedente 4.6/4.7/4.8 — devops faz push do batch inteiro).
+
+context:
+  story_path: docs/stories/active/4.9.finance-patrimony-view.story.md
+  story_status: 'Ready for Review v1.2'
+  story_version: '1.2'
+  implemented_at: '2026-05-23T01:05:00Z'
+  implemented_by: 'dev (Dex)'
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.9-po-go-to-dev-20260523.yaml
+  epic_doc: docs/epics/epic-4-modulo-financas.md
+  epic_progress: 'Epic 4 = 8/10 Done (4.1-4.8); 4.9 Ready for Review v1.2 (aguarda gate @architect); resta 4.10 (tools do cérebro).'
+  branch: main
+  executor: '@dev'
+  quality_gate: '@architect'
+
+implementation_summary:
+  approach: |
+    Modo YOLO. TDD do núcleo de risco (helper puro `getAccountBalances`) primeiro
+    para neutralizar R-4.9.1 logo no início. Reuse-heavy sobre Stories 4.6/4.7/4.8
+    (padrões RSC, DbShim helper-injectável, vi.hoisted + vi.mock testing, MoneyDisplay).
+    Zero invenção — toda decisão técnica rastreável a FR/NFR/CON/AC ou precedente
+    explícito de stories Done.
+  sequence_executed:
+    - 'T2 + T6.1 — Helper getAccountBalances + 9 testes (TDD do núcleo)'
+    - 'T1 — FinanceViewTabs href + esqueleto rota'
+    - 'T3 — MoneyDisplay tone="signed" (extensão aditiva, D-4.9.8)'
+    - 'T4 — patrimonio/page.tsx (RSC) + NetWorthSummary'
+    - 'T5 — BankGroup (client, colapsável) + AccountBalanceCard'
+    - 'T6.2 + T6.3 — +3 MoneyDisplay signed + 3 AccountBalanceCard + 5 page.test'
+    - 'T7 — Quality gates 5/5 GREEN'
+    - 'CodeRabbit pre-commit self-healing — 2 iterações (0 CRITICAL final)'
+
+files_changed:
+  new_source:
+    - 'apps/web/src/lib/finance/account-balances.ts — helper db-injectável (2 queries fixas; FILTER por kind)'
+    - 'apps/web/src/app/(app)/financas/patrimonio/page.tsx — RSC (auth + getDb + withSpan + captureException)'
+    - 'apps/web/src/app/(app)/financas/_components/NetWorthSummary.tsx — cartão património total'
+    - 'apps/web/src/app/(app)/financas/_components/BankGroup.tsx — client colapsável + bankNameToId slug'
+    - 'apps/web/src/app/(app)/financas/_components/AccountBalanceCard.tsx — saldo + entradas/saídas + drilldown link'
+  new_tests:
+    - 'apps/web/src/lib/finance/__tests__/account-balances.test.ts — 9 tests'
+    - 'apps/web/src/app/(app)/financas/_components/__tests__/AccountBalanceCard.test.tsx — 3 tests'
+    - 'apps/web/src/app/(app)/financas/patrimonio/__tests__/page.test.tsx — 5 tests'
+  modified_source:
+    - 'apps/web/src/app/(app)/financas/_components/FinanceViewTabs.tsx — patrimonio.href: null → /financas/patrimonio'
+    - 'apps/web/src/app/(app)/financas/_components/MoneyDisplay.tsx — adicionado tone="signed" (extensão aditiva)'
+  modified_tests:
+    - 'apps/web/src/app/(app)/financas/_components/__tests__/MoneyDisplay.test.tsx — +3 tests para signed'
+
+verification_checklist_for_architect:
+  - 'Confirmar 2 queries fixas no helper (D-4.9.4) — grep `db.execute` em account-balances.ts'
+  - 'Confirmar FILTER SQL exclui transfer (D-4.9.2) — grep `kind = ''income''` + `kind = ''expense''`'
+  - 'Confirmar is_projected = false (D-4.9.3) — grep `is_projected = false`'
+  - 'Confirmar base = initial_balance_cents (D-4.9.1) — grep `initial_balance_cents` em helper'
+  - 'Confirmar zero getServiceDb (R-4.9.4) — grep `getServiceDb` nos 5 ficheiros novos = 0 matches'
+  - 'Confirmar MoneyDisplay extensão aditiva — testes antigos (7) ainda GREEN no MoneyDisplay.test.tsx'
+  - 'Confirmar tests targeted 4.9 GREEN: pnpm --filter @meu-jarvis/web test -- src/lib/finance/__tests__/account-balances src/app/\\(app\\)/financas'
+  - 'Re-correr quality gates locais (typecheck/lint/test/build/check:rls) independentemente'
+
+risks_status:
+  R-4.9.1_saldo_errado: 'MITIGADO — helper puro isolado, 9 testes (incluindo positivo/negativo/sem transacções)'
+  R-4.9.2_transfer_excluido: 'ACEITE @po — FILTER por kind exclui nativamente; limitação MVP documentada (FUP-4.9.B)'
+  R-4.9.3_saldo_negativo: 'MITIGADO — MoneyDisplay tone="signed" + 3 testes (negativo a vermelho)'
+  R-4.9.4_rls_leak: 'MITIGADO — exclusivamente getDb(); @architect re-confirma com grep no gate'
+  R-4.9.5_n_plus_1: 'MITIGADO — 2 queries fixas confirmadas em D-4.9.4 + teste fakeDb com mockResolvedValueOnce×2'
+  R-4.9.6_is_projected: 'MITIGADO — WHERE is_projected = false na Query 2 + teste (6) cobre conta sem somas reais'
+
+decisions_d_4_9_followup_status:
+  d_4_9_2_transfer: 'IMPLEMENTED — Query 2 usa SUM ... FILTER (WHERE kind=''income'')/(WHERE kind=''expense''); transfer não aparece em SumRow'
+  d_4_9_7_read_only: 'IMPLEMENTED — botão "+ Nova conta" desactivado com title informativo; FUP-4.9.A no backlog'
+  d_4_9_1_initial_base: 'IMPLEMENTED — helper lê initial_balance_cents; balance_cents stored NUNCA lido'
+  d_4_9_3_is_projected_false: 'IMPLEMENTED — Query 2 WHERE is_projected = false'
+  d_4_9_4_two_queries: 'IMPLEMENTED — Promise.all([accountRows, sumRows]); zero N+1'
+  d_4_9_5_drilldown: 'IMPLEMENTED — BankGroup colapsável + AccountBalanceCard.Link → variaveis?account_id=<id>'
+  d_4_9_6_sem_banco_last: 'IMPLEMENTED — bankNames.sort PT-PT; null acrescentado por último'
+  d_4_9_8_signed_aditive: 'IMPLEMENTED — MoneyDisplay tone="signed" sem alterar expense/income/neutral; testes pré-existentes GREEN'
+
+carry_overs:
+  preserved:
+    - '4.6 C1/C2 (LOW) — documentais herdados'
+    - '4.7 C1/C2 (LOW) — documentais herdados'
+    - '4.8 NIT-4.8.1 (LOW) — afinar testes Cartões'
+    - 'docs/marketing/edit/ untracked — decisão Eurico pendente desde Story 4.1; NÃO incluído nos commits desta story'
+    - 'db-test Docker — não corre local; CI rls-gate cobre (LOW)'
+    - 'TEST-001 flaky tarefas/calendario/page.test.tsx (LOW) — passa isolado 3/3 GREEN, falha em paralelo; herdado das Stories 4.5/4.6/4.7/4.8'
+  new_followups:
+    - id: 'NIT-4.9.1'
+      title: 'CodeRabbit out-of-scope: ViewTabs no error fallback do Kanban (tarefas/kanban/page.tsx:110-118)'
+      priority: low
+      notes: |
+        CodeRabbit iter 1 sugere remover <ViewTabs> do error fallback do Kanban para
+        alinhar com padrão do error de filter-parsing. Fora do scope desta story —
+        candidato a story dedicada de housekeeping da error UX do módulo Tarefas.
+
+notes_for_next_agent:
+  - 'Implementação 100% conforme expectativa do @po — todas as 8 decisões D-4.9.x implementadas; backlog FUP-4.9.A/B/C registado por @po preservado.'
+  - 'Story file inclui Dev Agent Record completo: Agent Model, Debug Log References (TEST-001 + MoneyDisplay magnitude), CodeRabbit summary (0 CRITICAL), Completion Notes (8 ACs PASS detalhados), File List.'
+  - '@architect: re-correr os 5 quality gates independentemente é precedente (Stories 4.5-4.8). Quality gate file canónico: docs/qa/gates/4.9-architect-gate.md (a criar no gate).'
+  - '@devops faz push do CICLO COMPLETO no fim — instrução explícita do Eurico (precedente Stories 4.6/4.7/4.8). NÃO pushar parcialmente após o gate.'

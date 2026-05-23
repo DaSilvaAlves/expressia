@@ -1,0 +1,96 @@
+id: mj-handoff-4.9-ready-for-po-20260522
+from_agent: sm
+to_agent: po
+created: '2026-05-22T20:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-23T00:30:00Z'
+consumed_by: po
+consumed_verdict: 'GO 9.5/10 HIGH'
+consumed_notes: |
+  @po Pax executou `*validate-story-draft 4.9` em modo local.
+  - 10-point checklist: 10/10 PASS
+  - Anti-hallucination cross-confirm: 11/11 PASS (verificado contra finance.ts, FinanceViewTabs.tsx, MoneyDisplay.tsx, variaveis/page.tsx, VariableTxFilters.tsx, month-summary.ts, epic-4-modulo-financas.md)
+  - D-4.9.2 (transfer excluído): ACCEPT — schema com account_id único é determinante; precedente coerente
+  - D-4.9.7 (vista read-only sem caminho de criação de contas): ACCEPT + follow-up FUP-4.9.A registado no backlog para Fase 2
+  - 6 AUTO-DECISIONS silent (D-4.9.1/3/4/5/6/8): ratificadas
+  - Backlog follow-up registado: FUP-4.9.A (gestão de contas — Medium), FUP-4.9.B (modelação transferências — Low), FUP-4.9.C (reconciliação balance_cents vestigial — Low)
+  Story status Draft v1.0 → Ready for Dev v1.1. Successor handoff: mj-handoff-4.9-po-go-to-dev-20260523.
+project: meu-jarvis
+project_prefix: mj
+story_id: '4.9'
+last_command: '*draft 4.9'
+priority: medium
+
+summary: |
+  @sm River drafted a Story 4.9 do Epic 4 (Módulo Finanças): "Vista
+  'Património' — balanço por banco/conta". Status Draft v1.0. Story file:
+  docs/stories/active/4.9.finance-patrimony-view.story.md
+
+  Vista `financas/patrimonio` (FR17) — saldo computado on-read de cada conta
+  (DP1=A), agregado por banco, com património total e drilldown. É a ÚLTIMA
+  vista do Módulo Finanças: após o merge, as 5 páginas `financas/*` estão
+  entregues e `FinanceViewTabs` fica sem placeholders.
+
+  Reuse-heavy sobre as Stories 4.6/4.7/4.8 (MoneyDisplay, FinanceViewTabs,
+  FinanceEmptyState, padrão RSC fetch direct, helper db-injectável). Núcleo de
+  risco — computação do saldo on-read — isolado no helper puro
+  `getAccountBalances`. ~7 ficheiros novos + 2 modificados (FinanceViewTabs +
+  MoneyDisplay). Zero migration, zero RLS, zero alteração de schema.
+
+  8 ACs · 7 Tasks · 8 [AUTO-DECISIONS] D-4.9.1-8 · 6 riscos · 11 verificações
+  anti-hallucination.
+
+next_action: |
+  `@po *validate-story-draft 4.9` — 10-point checklist + cross-confirm
+  anti-hallucination contra o codebase real.
+
+  DOIS recortes marcados explicitamente para confirmação do @po:
+  - D-4.9.2 — `transfer` EXCLUÍDO da computação do saldo. Justificação: o
+    schema modela uma transacção com um único account_id (não as duas pernas
+    de uma transferência); a direcção é indeterminável; precedente D-4.6.5 /
+    D-4.8.6 / R-4.10 do Epic exclui sempre transfer. Limitação conhecida do
+    MVP — se o agregado usar transfers, o saldo não as reflecte.
+  - D-4.9.7 — vista read-only; SEM caminho de criação de contas no scope do
+    Epic 4. A lista de tools do cérebro (Epic §5 Story 4.10) NÃO inclui
+    `create_account` — só `create_card`/`create_finance_*`. O único caminho de
+    criação de conta é a API POST /api/financas/contas (Story 4.2). @po decide:
+    aceitar a lacuna no MVP ou abrir story dedicada de gestão de contas.
+
+  Restantes 6 AUTO-DECISIONS (D-4.9.1/3/4/5/6/8) são ratify silent.
+  Após @po GO → `@dev *develop 4.9`.
+
+context:
+  story_path: docs/stories/active/4.9.finance-patrimony-view.story.md
+  story_status: 'Draft v1.0'
+  epic_doc: docs/epics/epic-4-modulo-financas.md (v1.0 Validated)
+  branch: main
+  estimate: M
+  predecessor_handoff: docs/handoffs/mj-handoff-session-pause-post-4.8-done-20260522.yaml
+  epic_progress: 'Epic 4 = 8/10 Done (4.1-4.8); 4.9 Draft; resta 4.10 (tools do cérebro).'
+
+anti_hallucination_crossconfirm:
+  - 'finance.ts:82-114 — accounts: balance_cents + initial_balance_cents (ambas integer notNull default 0), bank_name nullable, account_type enum, iban_last4, archived_at nullable. Índices accounts_household_idx / accounts_active_idx.'
+  - 'finance.ts:358-431 — transactions: account_id FK accounts ON DELETE set null (nullable), kind enum (expense/income/transfer), amount_cents > 0 (CHECK), is_projected boolean default false. Índice transactions_account_idx ON (account_id, transaction_date).'
+  - 'epic-4-modulo-financas.md §8 DP1 = A — saldo recompute on-read; Story 4.9 é o consumidor da computação.'
+  - 'docs/stories/completed/4.2...story.md:338,478,545 — DP-4.2.4=A: GET /api/financas/contas NÃO computa saldo; balance_cents inicializado = initial_balance_cents (snapshot); D-4.2.A torna initial_balance_cents imutável. Consumidor do saldo computado = Story 4.9.'
+  - 'Precedente exclusão de transfer: D-4.6.5 (vista mensal) + D-4.8.6 (fatura cartão) + R-4.10 do Epic — agregações sempre SUM FILTER por kind.'
+  - 'FinanceViewTabs.tsx:23-29 — patrimonio é o único TabDef com href: null (placeholder <span> desactivado); 4.9 converte-o em <Link>.'
+  - 'MoneyDisplay.tsx:29-64 — formatEuroCents usa Math.abs (descarta sinal); tone só expense/income/neutral — não renderiza saldo negativo neutro. 4.9 estende (D-4.9.8).'
+  - 'variaveis/page.tsx:27 FILTER_KEYS inclui account_id + VariableTxFilters.tsx:92 lê searchParams.get(account_id) — drilldown /financas/variaveis?account_id=<uuid> funciona (rota+param já existentes).'
+
+decision_points:
+  - 'D-4.9.1 — saldo computado on-read = initial_balance_cents + SUM(income) − SUM(expense); base = initial_balance_cents (imutável), NÃO balance_cents (stored vestigial). [silent]'
+  - 'D-4.9.2 — transfer EXCLUÍDO da soma do saldo. [REQUER CONFIRMAÇÃO @po]'
+  - 'D-4.9.3 — só transacções reais (is_projected=false); prestações futuras não contam para o património. [silent]'
+  - 'D-4.9.4 — getAccountBalances faz 2 queries fixas — sem N+1. [silent]'
+  - 'D-4.9.5 — drilldown = grupos de banco colapsáveis + link Ver movimentos → vista Variáveis (4.7); sem 3ª query. [silent]'
+  - 'D-4.9.6 — contas arquivadas excluídas; contas sem bank_name no grupo "Sem banco" (último). [silent]'
+  - 'D-4.9.7 — vista read-only; SEM caminho de criação de contas no scope do Epic. [REQUER CONFIRMAÇÃO @po]'
+  - 'D-4.9.8 — MoneyDisplay estendido para saldos com sinal (negativo/descoberto) — extensão aditiva. [silent]'
+
+notes_for_next_agent:
+  - 'Story frontend + leitura — zero migration, zero RLS, zero alteração de schema. check:rls preservado (NFR5).'
+  - 'O smell documental do schema (balance_cents nunca actualizado, igual a initial_balance_cents) está registado em D-4.9.1 como observação — sem correcção nesta story (sem migration).'
+  - 'Story 4.9 é a última vista do Módulo Finanças — após merge, FinanceViewTabs fica sem placeholders.'
+  - 'Executor @dev; quality gate @architect (precedente Stories 4.6/4.7/4.8 — decisões de agregação financeira são arquitecturais).'
