@@ -80,3 +80,7 @@ export { TOOL_SPAN_ATTRIBUTE_KEYS } from './tracing';
 // Tools concretas — domínio Tarefas (Story 3.8).
 // Re-export + side-effect register no toolRegistry singleton.
 export * from './tasks';
+
+// Tools concretas — domínio Finanças (Story 4.10).
+// Re-export + side-effect register no toolRegistry singleton.
+export * from './finance';

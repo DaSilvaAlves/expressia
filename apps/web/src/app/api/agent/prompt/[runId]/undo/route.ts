@@ -251,15 +251,31 @@ export async function POST(
  *   - `composite` → recursivamente cada op
  *
  * Tabelas alvo são whitelisted para evitar SQL injection via `table` field.
+ *
+ * Story 4.10 — Task T11: whitelist actualizada com `cards` (criado por
+ * `create_card` tool) e `_noop` (sentinela inerte para read-only — pattern
+ * Story 3.8 R1b reusado pelas tools `listar_tarefas`/`listar_atrasadas`/
+ * `query_finance_summary`). Removidos `card_accounts`/`card_transactions` —
+ * tabelas que NÃO existem no schema real (`packages/db/src/schema/finance.ts`
+ * tem apenas `cards`).
  */
 const ALLOWED_REVERSE_TABLES = new Set([
   'tasks',
   'transactions',
   'recurrences',
-  'card_accounts',
-  'card_transactions',
+  'cards',
   'installments',
 ]);
+
+/**
+ * Tabela sentinela inerte (Story 3.8 R1b v1.1 + Story 4.10 D-4.10.3).
+ *
+ * Tools read-only persistem uma row em `agent_reverse_ops` com
+ * `reverse_op.table = '_noop'` para satisfazer `ReverseOpDeleteRowSchema` sem
+ * permitir undo real. Aqui no endpoint, simplesmente saltamos a aplicação
+ * (sem erro nem efeito — `executed_at` ainda é marcado para impedir replay).
+ */
+const NOOP_SENTINEL_TABLE = '_noop';
 
 async function applyReverseOp(
   op: ReverseOp,
@@ -269,6 +285,13 @@ async function applyReverseOp(
     for (const sub of op.ops) {
       await applyReverseOp(sub, db);
     }
+    return;
+  }
+
+  // Sentinela `_noop` — read-only tools (Story 3.8 R1b / Story 4.10 D-4.10.3).
+  // No-op silencioso: a row continua marcada `executed_at = now()` pelo caller
+  // (linha 170-174) para impedir replay.
+  if (op.table === NOOP_SENTINEL_TABLE) {
     return;
   }
 
