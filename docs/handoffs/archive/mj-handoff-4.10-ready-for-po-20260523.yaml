@@ -1,0 +1,173 @@
+id: mj-handoff-4.10-ready-for-po-20260523
+from_agent: sm
+to_agent: po
+created: '2026-05-23T15:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-23T16:00:00Z'
+consumed_by: po
+consumed_verdict: 'GO conditional 9,0/10 HIGH com 7 PO_FIX_INLINE F1-F7 aplicados directamente; Status Draft v1.0 → Ready v1.1'
+consumed_notes: |
+  @po Pax consumiu o handoff sm→po e executou `*validate-story-draft 4.10`
+  em modo local. 10-point checklist 10/10. Cross-confirm anti-hallucination
+  contra schema real revelou 7 hallucinations em campos específicos (não
+  em design): F1-F7 aplicadas inline ao ficheiro da story.
+
+  4 DPs ratificadas:
+    DP-4.10.A=A (aceitar heterogeneidade EN/PT — FUP-4.10.A LOW Fase 2)
+    DP-4.10.B=A (monthAnchor parametrizado, com F5 a ajustar getMonthSummary signature)
+    DP-4.10.C=B (sem transfer — coerente D-4.6.5/D-4.8.6/D-4.9.2)
+    DP-4.10.D=B (fallback Outros por kind + name, com F6 a corrigir slug→name)
+
+  8 [AUTO-DECISIONS] ratificadas (D-4.10.8 com PO_FIX_INLINE F6).
+
+  Helpers adicionados: resolve-default-category.ts (F6) + month-bounds.ts (F5).
+  6 verificações anti-hallucination novas (#16-#21) documentando os achados.
+
+  Story status `Draft v1.0` → `Ready v1.1`. Sucessor pending:
+  `mj-handoff-4.10-po-go-to-dev-20260523.yaml`.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '4.10'
+last_command: '*draft 4.10'
+priority: high
+
+summary: |
+  Story 4.10 — Tools do cérebro Finanças — Draft v1.0 criada por @sm (River) e
+  pronta para validação @po. É a ÚLTIMA story do Epic 4 — após ciclo
+  validate→dev→gate→push, Epic 4 = 10/10 Done.
+
+  Scope: 5 tools concretas em EN (per Epic §5 literal) em
+  `packages/tools/src/finance/`, espelhando a estrutura da Story 3.8
+  (tools Tarefas):
+    1. `create_finance_variable` — transacção variável (INSERT em
+       `transactions`, reverse delete_row).
+    2. `create_finance_recurrence` — recorrência (INSERT em `recurrences`,
+       reverse delete_row).
+    3. `create_card` — cartão de crédito/débito (INSERT em `cards`, reverse
+       delete_row).
+    4. `create_installment` — compra parcelada (INSERT em `installments` +
+       N transactions atomicamente; reverse composite ANINHADO).
+    5. `query_finance_summary` — read-only consulta sumário do mês
+       (consome helpers `getMonthSummary` da 4.6 + `getAccountBalances` da
+       4.9; reverse sentinela `_noop` pattern 3.8 R1b).
+
+  Bumps prompts versionados:
+    - classifier v1 → v2 (header "11 intents canónicos"; 5 few-shots Finance).
+    - planner v1 → v2 (11 intents; 5 few-shots Finance; corrige drift
+      `create_task` → `criar_tarefa` no Exemplo 1; substitui Exemplo 3 por
+      `create_installment` único).
+
+  Zero migration (D-4.10.2): todas as 5 intents `criar_financa_*`/
+  `criar_cartao`/`criar_parcelada`/`consultar_dados` já estão em
+  `agent_intent` desde a migration `0000_initial_schema.sql:125`.
+
+  FUP-4.9.A honrado: SEM `create_account` no scope (D-4.9.7 da Story 4.9
+  validada pelo @po Pax 2026-05-23).
+
+next_action: |
+  No próximo terminal (ou aqui mesmo se @po activar-se nesta sessão):
+
+    @po *validate-story-draft 4.10
+
+  Executar o 10-point checklist + cross-confirm anti-hallucination das 15
+  verificações documentadas em §"Anti-Hallucination Verificações Executadas".
+  Atenção especial às 4 DPs em §"Decisões Pendentes de Validação @po":
+
+    - DP-4.10.A (naming EN vs PT) — recomendação @sm: A (aceitar heterogeneidade;
+      Epic literal manda EN; refactor de 3.8 é scope creep e parte snapshot
+      test). @po decide se concorda ou exige refactor.
+
+    - DP-4.10.B (`monthAnchor` parametrizado em `query_finance_summary`) —
+      recomendação @sm: A (parametrizado; espelha `getMonthSummary` da 4.6).
+
+    - DP-4.10.C (`kind` só `expense`/`income` em `create_finance_variable`/
+      `create_finance_recurrence`) — recomendação @sm: B (sem `transfer`;
+      schema modela 1 `account_id` único, precedente D-4.6.5/D-4.8.6/D-4.9.2).
+
+    - DP-4.10.D (`categoryId` fallback "Outros") — recomendação @sm: B
+      (resolve "Outros" via SELECT em `categories WHERE household_id IS NULL
+      AND slug='outros' LIMIT 1` do seed `0001_default_categories.sql`).
+
+  Atenção também à R-4.10.4 — Task 11 do plano: validar a ordem de execução
+  das ops dentro de um composite reverse_op no endpoint `/undo` (FIFO/LIFO/
+  paralelo). A ordem afecta a viabilidade do composite aninhado de
+  `create_installment` (transactions devem ser apagadas ANTES do installment
+  row para evitar CHECK `transactions_installment_index_coherent`).
+  Recomendação @sm: investigar no T11 da implementação; se LIFO, ajustar
+  ordem no payload de reverse_op.
+
+  Se @po der GO: criar handoff sucessor `mj-handoff-4.10-po-go-to-dev-
+  20260523.yaml` para `@dev *develop 4.10`. Se NO-GO: handoff de volta para
+  `@sm` com lista de fixes.
+
+context:
+  story_path: docs/stories/active/4.10.tools-cerebro-financas.story.md
+  story_status: 'Draft v1.0'
+  story_summary: |
+    Última story do Epic 4. 5 tools de Finanças em EN per Epic §5 literal
+    (D-4.10.1). Zero migration (D-4.10.2). Composite reverse_op aninhado
+    para `create_installment` respeitar COMPOSITE_REVERSE_OP_MAX_OPS=10
+    per-level (D-4.10.4). Sentinela `_noop` para `query_finance_summary`
+    read-only (D-4.10.3, pattern 3.8 R1b). 11 ACs · 12 Tasks · 8
+    [AUTO-DECISIONS] D-4.10.1-8 · 10 riscos · 15 verificações
+    anti-hallucination. Estimate L.
+  epic_doc: 'docs/epics/epic-4-modulo-financas.md (v1.0 Validated 2026-05-20)'
+  epic_progress: |
+    Epic 4 = 9/10 Done + 1 Draft v1.0 (4.10). Após validate→dev→gate→push da
+    4.10, Epic 4 fecha em 10/10.
+  estimate: L
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-session-pause-post-4.9-draft-20260523.yaml
+  related_handoffs:
+    - 'docs/handoffs/archive/mj-handoff-4.9-architect-to-devops-20260523.yaml (4.9 push completo — fecha o ciclo da story precedente)'
+    - 'docs/handoffs/archive/mj-handoff-4.9-ready-for-po-20260522.yaml (4.9 PO validation — onde FUP-4.9.A foi registado)'
+
+git_state:
+  branch: main
+  head: 9ca3a01
+  unpushed: 'nenhum commit local — main sincronizado com origin/main'
+  uncommitted_changes:
+    - 'A  docs/stories/active/4.10.tools-cerebro-financas.story.md (NEW — Draft v1.0)'
+    - 'A  docs/handoffs/mj-handoff-4.10-ready-for-po-20260523.yaml (NEW — este handoff)'
+    - 'M  docs/HANDOFF-INDEX.md (+ linha 4.10-ready-for-po em Pending)'
+    - 'M  docs/stories/active/_INDEX.md (Epic 4 row 4.10 Backlog → Draft v1.0; progress 9/10 + 1 Draft)'
+    - '?? docs/marketing/edit/ (untracked — carry-over; decisão pendente Eurico desde Story 4.1)'
+
+decisions_pending_for_po_validate:
+  - 'DP-4.10.A — heterogeneidade naming EN (4.10) vs PT (3.8). Recomendação A (aceitar). @po cross-confirm.'
+  - 'DP-4.10.B — `query_finance_summary` parametrizado por `monthAnchor` (default mês corrente). Recomendação A. @po cross-confirm.'
+  - 'DP-4.10.C — `create_finance_variable`/`create_finance_recurrence` só aceitam kind `expense`/`income` (sem `transfer`). Recomendação B. @po cross-confirm (alinha com D-4.6.5/D-4.8.6/D-4.9.2).'
+  - 'DP-4.10.D — `categoryId` opcional com fallback "Outros" via SELECT no seed. Recomendação B. @po cross-confirm (categoria existe em `0001_default_categories.sql`).'
+  - 'D-4.10.1/2/3/4/5/6/7/8 — 8 AUTO-DECISIONS detalhadas na story; @po ratifica silent ou levanta concern.'
+
+carry_over:
+  - 'Story 3.8 drift naming `criar_tarefa` (PT) vs convenção futura EN (D-4.10.1 propõe aceitar) — tech-debt LOW para Epic 5/6.'
+  - 'Story 4.6 gate C1 (MEDIUM) — EXPLAIN ANALYZE vista mensal contra staging seeded (waiver herdado).'
+  - 'Story 4.6 gate C2 (LOW) — doc-sync architecture.md §8.4 (MoneyDisplay/packages/ui).'
+  - 'Story 4.7 gate C1 (MEDIUM) — teste unitário DeleteRowButton.'
+  - 'Story 4.7 gate C2 (LOW) — window.confirm → dialog estilizado.'
+  - 'Story 4.8 NIT-4.8.1 (LOW) — query installments sem filtro card_id explícito.'
+  - 'Story 4.9 NIT-AR-4.9.1/2 (LOW) — bankNameToId colisão patológica + Promise.all atomicidade read-only.'
+  - 'FUP-4.9.A (Gestão Contas — MEDIUM): tool dedicada `create_account` ou UI dedicada de gestão de contas, Fase 2. Story 4.10 NÃO resolve (deliberadamente — Epic §5 literal exclui).'
+  - 'FUP-4.9.B (modelação de transferências par origem/destino — LOW): Fase 2.'
+  - 'FUP-4.9.C (reconciliação `balance_cents` vestigial — LOW): Fase 2.'
+  - 'docs/marketing/edit/ untracked — binários mp4; decisão pendente Eurico desde Story 4.1.'
+  - 'db-test não corre local (LOW) — Docker ausente; CI rls-gate cobre. Herdado.'
+  - 'TEST-001 (LOW) — flaky `tarefas/calendario/page.test.tsx`; passa isolado; não-regressão.'
+
+blockers: []
+
+roadmap_epic_4:
+  done: '9/10 — 4.1 (schema+audit) · 4.2 (API accounts/cards) · 4.3 (API transactions/categories) · 4.4 (API recurrences/installments) · 4.5 (cron Inngest) · 4.6 (vista Este mês) · 4.7 (Variáveis+Recorrentes) · 4.8 (Cartões) · 4.9 (Património)'
+  in_progress: '4.10 Draft v1.0 — Tools do cérebro Finanças (L). Aguarda @po *validate-story-draft 4.10.'
+  remaining: []
+  after_4_10: 'Epic 4 = 10/10 Done — fecha o Módulo Finanças. Backlog: 3 FUPs (4.9.A/B/C) + dashboard "Visão" widget (Epic 5) + chat panel SSE (Epic 5).'
+
+notes_for_next_agent:
+  - 'A Story 4.10 segue muito de perto o pattern da Story 3.8 — recomenda-se ler ambas em paralelo durante o validate. As verificações anti-hallucination #1-#15 da story 4.10 cruzam o codebase real (toolRegistry, COMPOSITE_REVERSE_OP_MAX_OPS, agent_intent enum, schema finance.ts, helpers month-summary/account-balances) e dão ao @po o atalho para cross-confirm rápido.'
+  - 'O ponto mais sensível tecnicamente é R-4.10.4 (Task 11) — a ordem das ops dentro de um composite reverse_op. A story propõe sub-composites de transactions PRIMEIRO + delete_row installments POR ÚLTIMO assumindo FIFO; se o endpoint /undo for LIFO, há que inverter. O @po pode aceitar a ressalva ou pedir investigação prévia (recomendação @sm: aceitar — é trabalho de implementação T11, não de validação).'
+  - 'DP-4.10.C (sem `transfer`) é coerente com 3 precedentes anteriores do Epic 4 (D-4.6.5/D-4.8.6/D-4.9.2). @po pode ratificar silent.'
+  - 'DP-4.10.D (categoryId fallback "Outros") é UX pragmática para chat — o utilizador raramente diz "id `5a3b...` Categoria Alimentação" em linguagem natural. Confirmar que a categoria "Outros" existe no seed (verificação #14 da story aponta para `migrations/seeds/0001_default_categories.sql`).'
+  - 'Após @po GO, o @dev arranca em modo YOLO (precedente 4.6/4.7/4.8/4.9) e o @architect faz `*qa-gate` (gate por agregação financeira sensível + composite reverse_op não trivial). O @devops faz push do ciclo completo no fim (precedente 4.9).'
+  - 'Esta é a última story do Epic 4. Após o merge, sugerir ao Eurico: (a) housekeeping do directório `docs/marketing/edit/` (binários mp4 untracked desde 4.1); (b) backlog dos 3 FUPs (4.9.A/B/C) para priorização Fase 2; (c) decisão de avançar para Epic 5 (Web App UI — Visão e Chat) ou pivot para outra fase do roadmap.'

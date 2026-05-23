@@ -1,0 +1,198 @@
+id: mj-handoff-4.10-dev-to-architect-20260523
+from_agent: dev
+to_agent: architect
+created: '2026-05-23T20:55:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '4.10'
+last_command: '*develop 4.10'
+priority: high
+
+summary: |
+  @dev Dex implementou a Story 4.10 — Tools do cérebro Finanças — em modo YOLO
+  conforme handoff `mj-handoff-4.10-po-go-to-dev-20260523.yaml` (po→dev).
+
+  **12/12 tasks completas + 5/5 quality gates locais GREEN + zero regressão.**
+
+  Implementação:
+    - 6 helpers puros em `packages/tools/src/finance/_helpers/` (61 testes)
+    - 5 tools concretas em `packages/tools/src/finance/` (106 testes unitários)
+    - Side-effect register no barrel + `export * from './finance'` no parent index
+    - Bump classifier v1→v2 (11 intents canónicos, 10 few-shots incluindo 5 Finance)
+    - Bump planner v1→v2 (Exemplo 1 corrigido criar_tarefa PT, Exemplo 3 simplificado
+      para 1 tool call create_installment, 5 few-shots Finance novos)
+    - Integration test `finance-flow.test.ts` (16 cenários E2E mockable)
+    - T11 BÓNUS: Whitelist do /undo route corrigida — `card_accounts`/`card_transactions`
+      (tabelas inexistentes) substituídos por `cards`; +tratamento `_noop` no-op
+      silencioso (necessário para AC9 cenário consultar_dados undo). Não estava
+      explícito no scope mas descoberto durante T11 e indispensável.
+
+  Composite reverse_op aninhado D-4.10.4 implementado e testado:
+    - N=12 → top-level [sub[10 tx], sub[2 tx], delete installments]
+    - N=60 → top-level 7 ops (6 sub-composites de 10 tx + 1 delete installments)
+    - Ordem CRÍTICA verificada empiricamente: FIFO no /undo route → transactions
+      PRIMEIRO, installment delete POR ÚLTIMO (preserva CHECK constraint
+      `transactions_installment_index_coherent` durante undo).
+
+  D-4.10.5 (reuse helpers 4.6/4.9) — boundary cross-package proíbe import directo
+  de `apps/web/src/lib/finance/` em `packages/tools/`. Solução: cópia controlada
+  das 4 queries SQL inline em `query-finance-summary.ts` com nota de manutenção
+  explícita. Invariante calculatório com a UI preservado.
+
+next_action: |
+  No próximo terminal (ou aqui mesmo se @architect activar-se nesta sessão):
+
+    @architect *qa-gate 4.10
+
+  Pattern de gate por precedente directo (4.6/4.7/4.8/4.9): 7-point gate +
+  verificação independente das decisões + cross-confirm anti-hallucination.
+
+  Pontos de atenção sugeridos pelo @dev (Dex) para o @architect (Aria):
+
+  1. **Composite reverse_op aninhado D-4.10.4** — verificar a ordem do payload
+     em `create-installment.ts:reverse()`. Sub-composites de transactions
+     PRIMEIRO, `delete_row installments` POR ÚLTIMO (FIFO no /undo). Comentário
+     JSDoc do método documenta a expectativa exacta. Testes `create-installment.test.ts`
+     incluem assertion explícita: `op.ops[op.ops.length - 1]?.table === 'installments'`.
+
+  2. **Cálculo de prestações R-4.1** — invariante `(N-1)*per + last === total`
+     testada em 9 cenários patológicos em `installment-split.test.ts` (€1.000/3,
+     €100/7, €1.200/12, €333/3, €1/1, N=60 com totalAmountCents grande).
+     Helper puro `computeInstallmentSplit` isolado em `_helpers/`.
+
+  3. **/undo whitelist** (T11 bónus) — `apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts`
+     modificada: removidos `card_accounts`/`card_transactions` (tabelas inexistentes
+     no schema real), adicionado `cards`, adicionado tratamento `_noop` no-op.
+     Confirmar que o gate aceita este "scope creep necessário" — ou registar
+     como SEP-handoff se preferir story separada. Eu prefiro mantê-lo em 4.10
+     porque AC9 cenário "consultar_dados undo → 410 Gone" exige `_noop` handling
+     e AC9 "create_card undo → row eliminada" exige `cards` na whitelist.
+     11/11 testes de `undo.test.ts` continuam GREEN (zero regressão).
+
+  4. **PII whitelist D-4.10.6** — verificada implicitamente via tracing.ts
+     existente (`TOOL_SPAN_ATTRIBUTE_KEYS`). Nenhuma tool de Finanças adiciona
+     amount_cents/description/last4/account_id/card_id a span attributes.
+
+  5. **Snapshot tests dos prompts v2** — actualizados (não eram hash-fixed antes,
+     o test de hash era `KNOWN_HASH = hash` dinâmico). Adicionei assertions
+     anti-drift mais fortes: 11 intents por nome + 5 Finance tools por nome +
+     `create_card_transaction`/`create_installment_plan` NÃO devem aparecer (drift
+     da v1 eliminado).
+
+  Cobertura de testes (todos GREEN):
+    - tools package: 264 → 264 + 167 = ~431 testes (61 helpers + 106 tools + 264 baseline)
+    - classifier: 80/80 (sem regressão; +1 teste novo para 11 intents header)
+    - planner-executor: 62/62 (sem regressão; +5 testes novos snapshot v2)
+    - apps/web: 752/752 (sem regressão; +16 finance-flow.test.ts)
+    - undo.test.ts: 11/11 (sem regressão pós whitelist update)
+
+context:
+  story_path: docs/stories/active/4.10.tools-cerebro-financas.story.md
+  story_status: 'Done v1.2'
+  story_summary: |
+    Última story do Epic 4. 5 tools de Finanças em EN per Epic §5 literal
+    (D-4.10.1) implementadas em `packages/tools/src/finance/` espelhando
+    Story 3.8. Zero migration (D-4.10.2). Composite reverse_op aninhado
+    para `create_installment` respeitar COMPOSITE_REVERSE_OP_MAX_OPS=10
+    per-level (D-4.10.4). Sentinela `_noop` para `query_finance_summary`
+    read-only (D-4.10.3). Helpers puros isolados (D-4.10.7 — computeInstallmentSplit;
+    D-4.10.8/F6 — resolveDefaultCategory).
+
+    7 PO_FIX_INLINE aplicados conforme handoff po→dev:
+      - F1: transactions.description NOT NULL + paymentMethod inferido
+      - F2: recurrences description/startsOn schema-correct
+      - F3: cards.accountId NOT NULL + creditLimitCents + enum EN credit/debit + CHECK
+      - F4: installments.firstInstallmentOn NOT NULL + addMonthsSafe(firstInstallmentOn, i-1)
+      - F5: getMonthSummary {db, monthStart, monthEnd} + netCents + computeMonthBounds
+      - F6: resolveDefaultCategory por kind+name (categories.slug não existe)
+      - F7: 6 verificações anti-hallucination novas #16-#21
+
+  epic_doc: 'docs/epics/epic-4-modulo-financas.md (v1.0 Validated 2026-05-20)'
+  epic_progress: |
+    Epic 4 = 9/10 Done pushed + 1 Done v1.2 (gate+push pending). Após
+    architect→devops da 4.10, Epic 4 = 10/10 Done — fecha o Módulo Finanças.
+  estimate: L
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.10-po-go-to-dev-20260523.yaml
+  related_handoffs:
+    - 'docs/handoffs/archive/mj-handoff-4.10-ready-for-po-20260523.yaml (po validate)'
+    - 'docs/handoffs/archive/mj-handoff-4.9-architect-to-devops-20260523.yaml (precedente directo do mesmo pattern dev→architect)'
+
+git_state:
+  branch: main
+  head: 9ca3a01
+  unpushed: 'commit local a fazer por @dev (precedente Story 4.9: @dev faz commit, @devops faz push)'
+  uncommitted_changes:
+    - 'A  packages/tools/src/finance/ (5 tools + 6 helpers + 11 ficheiros de teste)'
+    - 'A  apps/web/src/app/api/agent/__tests__/finance-flow.test.ts'
+    - 'M  packages/tools/src/index.ts (+1 export)'
+    - 'M  packages/classifier/src/prompts/classifier-system.ts (v1→v2)'
+    - 'M  packages/classifier/src/__tests__/prompts.test.ts (11 intents)'
+    - 'M  packages/planner-executor/src/prompts/planner-system.ts (v1→v2)'
+    - 'M  packages/planner-executor/src/__tests__/prompts.test.ts (v2 + Finance tools)'
+    - 'M  apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts (whitelist T11)'
+    - 'M  docs/stories/active/4.10.tools-cerebro-financas.story.md (Ready v1.1 → Done v1.2)'
+    - 'M  docs/stories/active/_INDEX.md (Epic 4 row 4.10 Ready v1.1 → Done v1.2)'
+    - 'M  docs/HANDOFF-INDEX.md (consume po→dev + add dev→architect)'
+    - 'A  docs/handoffs/mj-handoff-4.10-dev-to-architect-20260523.yaml (este handoff sucessor)'
+    - 'RM docs/handoffs/mj-handoff-4.10-po-go-to-dev-20260523.yaml → archive/'
+    - '?? docs/marketing/edit/ (untracked carry-over desde Story 4.1)'
+
+implementation_decisions:
+  - id: 'IMPL-4.10.1'
+    description: 'D-4.10.5 reuse de getMonthSummary/getAccountBalances impossível por boundary cross-package — queries SQL replicadas inline em query-finance-summary.ts com nota explícita de manutenção. Invariante calculatório com UI preservado.'
+  - id: 'IMPL-4.10.2'
+    description: 'T11 (FUP-4.10.C resolvido) — confirmado FIFO no /undo route. Ordem do payload em create_installment.reverse() mantém-se: sub-composites tx PRIMEIRO + delete installments POR ÚLTIMO. Comentário JSDoc explícito.'
+  - id: 'IMPL-4.10.3'
+    description: 'T11 BÓNUS NÃO ANTECIPADO — whitelist do /undo route tinha bugs (card_accounts/card_transactions não existem). Corrigido para cards + tratamento _noop. Sem este fix, AC9 falharia em 2 cenários (create_card undo + consultar_dados undo). 11/11 testes de undo.test.ts continuam GREEN (zero regressão).'
+  - id: 'IMPL-4.10.4'
+    description: 'Helper paymentMethod inference em F1 — quando omisso, cardId presente → "card", accountId presente → "transfer". Documentado em AC1 da story + comentário no execute().'
+  - id: 'IMPL-4.10.5'
+    description: 'addMonthsSafe — parsing manual de strings YYYY-MM-DD (sem new Date() para evitar timezone drift). Edge cases bissextos 2000/1900/2024 testados explicitamente.'
+
+quality_gates_local:
+  typecheck: '9/9 packages GREEN (incluindo tools + classifier + planner-executor + apps/web)'
+  lint: '9/9 packages GREEN (0 warnings em apps/web Next.js eslint)'
+  test: '8/8 packages GREEN (apps/web 752/752 testes incluindo 16 finance-flow novos); db-test SKIPPED (Docker ausente — carry-over LOW conhecido, CI rls-gate cobre)'
+  build: '9/9 packages GREEN (apps/web Next.js production build completo)'
+  check_rls: '28 tabelas todas com 4 policies (zero impacto — Story 4.10 não cria tabelas)'
+
+coderabbit_pre_commit:
+  status: 'NOT_EXECUTED (mode YOLO, deferred to architect gate ou @devops pre-push per matriz Self-Healing da story)'
+  rationale: 'Story 4.10 §CodeRabbit Integration: Self-healing light mode, max 2 iter, CRITICAL only. Padrão YOLO precedente 4.6/4.7/4.8/4.9 é @dev marca completo + @architect/@devops correm CodeRabbit antes de push.'
+
+backlog_followups:
+  - id: 'FUP-4.10.A'
+    severity: 'LOW (Fase 2)'
+    description: 'Harmonização naming EN para tools 3.8 (criar_tarefa → create_task). Mantida intocada — drift PT/EN aceite como tech-debt.'
+  - id: 'FUP-4.10.B'
+    severity: 'LOW (Fase 2)'
+    description: 'Avaliar elevar COMPOSITE_REVERSE_OP_MAX_OPS ou adicionar kind=cascade_delete — workaround actual (nested composite) funciona para N=60.'
+  - id: 'FUP-4.10.C'
+    severity: 'RESOLVED'
+    description: 'T11 confirmou FIFO. Sem ajuste necessário.'
+  - id: 'NIT-4.10.1'
+    severity: 'LOW'
+    description: 'D-4.10.5 cópia controlada de queries SQL em query-finance-summary.ts cria coupling implícito com `getMonthSummary`/`getAccountBalances`. Se Stories 4.6/4.9 alterarem queries, esta tool precisa sync manual. Mitigação: comentário JSDoc explícito na tool + Architecture decisão documentada em D-4.10.5.'
+
+carry_over:
+  - 'docs/marketing/edit/ untracked — decisão pendente Eurico desde Story 4.1.'
+  - 'db-test não corre local (LOW) — Docker ausente; CI rls-gate cobre.'
+  - 'TEST-001 (LOW) — flaky tarefas/calendario/page.test.tsx; passa isolado; não-regressão.'
+  - 'Story 4.6 gate C1 (MEDIUM) — EXPLAIN ANALYZE vista mensal contra staging seeded.'
+  - 'Story 4.6 gate C2 (LOW) — doc-sync architecture.md §8.4.'
+  - 'Story 4.7 gate C1 (MEDIUM) — teste unitário DeleteRowButton.'
+  - 'Story 4.7 gate C2 (LOW) — window.confirm → dialog estilizado.'
+  - 'Story 4.8 NIT-4.8.1 (LOW) — query installments sem filtro card_id explícito.'
+  - 'Story 4.9 NIT-AR-4.9.1/2 (LOW) — bankNameToId colisão + Promise.all atomicidade read-only.'
+
+blockers: []
+
+notes_for_next_agent:
+  - 'A implementação respeita o pattern Story 3.8 muito de perto. Cada tool segue a estrutura ToolDefinition<I,O> com inputSchema/outputSchema Zod + preview() PT-PT + execute() via ctx.db + reverse() declarativo. Side-effect register no barrel finance/index.ts.'
+  - 'Composite reverse_op aninhado é a parte mais sensível — recomendar verificar `create-installment.test.ts:describe("composite aninhado")` para confirmar a estrutura. O test inclui assertion explícita da ordem (delete_row installments é a ÚLTIMA op no array, FIFO no /undo processa por último).'
+  - 'D-4.10.5 cross-package boundary justifica clones de SQL — sem alternativa pragmática sem criar novo package (scope creep YOLO mode). Architecture pode pedir SEP-handoff para mover helpers para `@meu-jarvis/finance` package partilhado em Fase 2.'
+  - 'T11 BÓNUS — whitelist do /undo era um defeito pré-existente. Corrigi-o em scope (vs. SEP-handoff) porque era impossível AC9 passar sem o fix. Architecture pode decidir manter ou separar — sugiro manter dado que o testes do undo continuam GREEN.'
+  - 'Quality gates locais 5/5 GREEN. CodeRabbit pre-commit deferred para @architect/@devops conforme matriz Self-Healing.'

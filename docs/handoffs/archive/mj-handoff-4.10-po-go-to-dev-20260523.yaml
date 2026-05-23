@@ -1,0 +1,196 @@
+id: mj-handoff-4.10-po-go-to-dev-20260523
+from_agent: po
+to_agent: dev
+created: '2026-05-23T16:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-23T20:55:00Z'
+consumed_by: dev
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '4.10'
+last_command: '*validate-story-draft 4.10'
+priority: high
+
+summary: |
+  @po Pax validou a Story 4.10 — Tools do cérebro Finanças — em modo local.
+  **Verdict: GO 9,0/10 HIGH confidence** com 7 PO_FIX_INLINE F1-F7 aplicados
+  directamente ao ficheiro (precedente Story 4.1 F1+F2 e prática Pax).
+
+  10-point checklist 10/10. Cross-confirm anti-hallucination revelou 7
+  hallucinations em campos específicos (não em design) — todas eram
+  schema-fact corrections (não scope creep) e estão agora corrigidas no
+  ficheiro Ready v1.1.
+
+  4 DPs ratificadas. 8 [AUTO-DECISIONS] ratificadas. Story passa de
+  `Draft v1.0` → `Ready v1.1`. @dev pode arrancar.
+
+  Esta é a ÚLTIMA story do Epic 4. Após validate→dev→gate→push,
+  Epic 4 = 10/10 Done — fecha o Módulo Finanças.
+
+next_action: |
+  No próximo terminal (ou aqui mesmo se @dev activar-se nesta sessão):
+
+    @dev *develop 4.10
+
+  Modo recomendado: **YOLO** (precedente 4.6/4.7/4.8/4.9 — backend bem
+  especificado, scope estável após PO_FIX_INLINE, helpers isolados em
+  módulos puros, mocking 100% sem Postgres real).
+
+  Sequência sugerida pelo @po (paralela à 3.8):
+    1. T1 + T2 (scaffold + 5 helpers puros) — TDD do núcleo de risco R-4.1
+       e R-4.10.4 (computeInstallmentSplit + chunkArray + resolveDefaultCategory
+       + computeMonthBounds + addMonthsSafe + formatEuroCents)
+    2. T3 + T4 + T5 (3 tools simples: variable, recurrence, card) — paralelizáveis
+    3. T6 (create_installment — mais complexa, composite reverse_op aninhado)
+    4. T7 (query_finance_summary read-only com sentinela _noop)
+    5. T8 (side-effect register no barrel + verificar typecheck)
+    6. T9 (bump prompts classifier v2 + planner v2 — re-gerar hashes)
+    7. T10 (integration tests E2E)
+    8. T11 (verificar ordem composite reverse_op no endpoint /undo — CRITICAL
+       para R-4.10.4; se LIFO, ajustar ordem no payload de create_installment)
+    9. T12 (5/5 quality gates locais — typecheck/lint/test/build/check:rls)
+
+  CodeRabbit self-healing pre-commit em light mode (max 2 iter, CRITICAL only)
+  conforme matriz `*Self-Healing Configuration` da story.
+
+  Se algum dos 7 PO_FIX_INLINE precisar de revisão adicional (improvável —
+  são todas correcções triviais contra schema verificado), @dev pode escalar
+  via handoff dev→po em vez de implementar contra schema potencialmente
+  errado.
+
+context:
+  story_path: docs/stories/active/4.10.tools-cerebro-financas.story.md
+  story_status: 'Ready v1.1'
+  story_summary: |
+    Última story do Epic 4. 5 tools de Finanças em EN per Epic §5 literal
+    (D-4.10.1). Zero migration (D-4.10.2). Composite reverse_op aninhado
+    para `create_installment` respeitar COMPOSITE_REVERSE_OP_MAX_OPS=10
+    per-level (D-4.10.4). Sentinela `_noop` para `query_finance_summary`
+    read-only (D-4.10.3, pattern 3.8 R1b).
+
+    Após PO_FIX_INLINE F1-F7:
+      - AC1 description NOT NULL + paymentMethod inferido
+      - AC2 description rename + sem dayOfMonth + startsOn rename
+      - AC3 accountId NOT NULL + sem brand/bankName + creditLimitCents
+        + enum EN + CHECK cards_credit_needs_limit
+      - AC4 firstInstallmentOn NOT NULL + cálculo addMonthsSafe(firstInstallmentOn, i-1)
+      - AC5 getMonthSummary {db, monthStart, monthEnd} real + netCents
+      - D-4.10.8 resolveDefaultCategory({db, kind}) por kind+name (sem slug)
+      - 6 novas verificações anti-hallucination #16-#21
+
+    11 ACs · 12 Tasks · 8 [AUTO-DECISIONS] D-4.10.1-8 · 10 riscos · 21
+    verificações anti-hallucination. Estimate L (mantém).
+
+  epic_doc: 'docs/epics/epic-4-modulo-financas.md (v1.0 Validated 2026-05-20)'
+  epic_progress: |
+    Epic 4 = 9/10 Done + 1 Ready v1.1 (4.10). Após dev→gate→push da 4.10,
+    Epic 4 fecha em 10/10.
+  estimate: L
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.10-ready-for-po-20260523.yaml
+  related_handoffs:
+    - 'docs/handoffs/archive/mj-handoff-4.9-architect-to-devops-20260523.yaml (4.9 push completo — story precedente)'
+    - 'docs/handoffs/archive/mj-handoff-4.9-po-go-to-dev-20260523.yaml (precedente directo do mesmo pattern po→dev)'
+
+git_state:
+  branch: main
+  head: 9ca3a01
+  unpushed: 'nenhum commit local — main sincronizado com origin/main'
+  uncommitted_changes:
+    - 'A  docs/stories/active/4.10.tools-cerebro-financas.story.md (NEW — Draft v1.0 + PO_FIX_INLINE F1-F7 → Ready v1.1)'
+    - 'A  docs/handoffs/mj-handoff-4.10-po-go-to-dev-20260523.yaml (NEW — este handoff sucessor po→dev)'
+    - 'RM docs/handoffs/mj-handoff-4.10-ready-for-po-20260523.yaml → archive/ (consumed by @po)'
+    - 'M  docs/HANDOFF-INDEX.md (consume sm→po row + add po→dev pending)'
+    - 'M  docs/stories/active/_INDEX.md (Epic 4 row 4.10 Draft v1.0 → Ready v1.1)'
+    - '?? docs/marketing/edit/ (untracked — carry-over Eurico desde 4.1)'
+
+ratified_decisions:
+  - 'DP-4.10.A=A — Aceitar heterogeneidade naming EN/PT (FUP-4.10.A LOW Fase 2)'
+  - 'DP-4.10.B=A — `query_finance_summary` parametrizado por `monthAnchor` (com F5 a corrigir signature getMonthSummary)'
+  - 'DP-4.10.C=B — `create_finance_*` só aceitam kind=expense/income (sem transfer — coerente D-4.6.5/D-4.8.6/D-4.9.2)'
+  - 'DP-4.10.D=B — `categoryId` opcional com fallback Outros por kind (PO_FIX_INLINE F6)'
+  - 'D-4.10.1 — Tool naming EN per Epic §5 literal (ratify silent)'
+  - 'D-4.10.2 — Zero migration (intents já em agent_intent enum desde 0000)'
+  - 'D-4.10.3 — Sentinela _noop para read-only (pattern 3.8 R1b)'
+  - 'D-4.10.4 — Composite reverse_op aninhado (respeita COMPOSITE_REVERSE_OP_MAX_OPS=10 per-level)'
+  - 'D-4.10.5 — Reuse helpers getMonthSummary + getAccountBalances (com F5 a corrigir signature)'
+  - 'D-4.10.6 — PII whitelist OTel finance domain (sem amount_cents/description/last4/IDs)'
+  - 'D-4.10.7 — computeInstallmentSplit helper puro (R-4.10.1 / R-4.1)'
+  - 'D-4.10.8 — resolveDefaultCategory por kind+name (PO_FIX_INLINE F6 — sem slug)'
+
+po_fix_inline_applied:
+  - id: F1
+    ac: AC1
+    severity: critical
+    description: 'transactions.description NOT NULL (schema linha 375) — era opcional no draft; paymentMethod exposto como input opcional com inferência (card_id → card; account_id → transfer)'
+  - id: F2
+    ac: AC2
+    severity: critical
+    description: 'recurrences.description (não name); remover dayOfMonth (não existe); startsOn (não startDate); subset frequency MVP documentado'
+  - id: F3
+    ac: AC3
+    severity: critical
+    description: 'cards.accountId NOT NULL omitido — adicionado; remover brand/bankName (não existem em cards); creditLimitCents (não limitCents); enum EN credit/debit (não PT); CHECK cards_credit_needs_limit obriga creditLimitCents p/ crédito'
+  - id: F4
+    ac: AC4
+    severity: critical
+    description: 'installments.firstInstallmentOn NOT NULL omitido — adicionado; cálculo transaction_date = addMonthsSafe(firstInstallmentOn, i-1), NÃO addMonths(purchasedOn, i)'
+  - id: F5
+    ac: AC5
+    severity: medium
+    description: 'getMonthSummary assina {db, monthStart, monthEnd} (não monthAnchor); output netCents (não balanceCents); topCategories derivado de byCategory.filter(kind=expense).slice(0,5); helper computeMonthBounds(anchor) adicionado'
+  - id: F6
+    ac: D-4.10.8 + DP-4.10.D
+    severity: critical
+    description: 'categories.slug NÃO EXISTE no schema; seed tem 2 categorias por kind (Outros gastos/Outros rendimentos); helper resolveDefaultCategory({db, kind}) por kind+name'
+  - id: F7
+    ac: §Anti-Hallucination
+    severity: cosmetic
+    description: 'Adicionadas 6 verificações novas #16-#21 documentando os achados schema-fact (categories, cards, recurrences, transactions, installments, getMonthSummary)'
+
+backlog_followups:
+  - id: 'FUP-4.10.A'
+    severity: 'LOW (Fase 2 ou Epic 5/6)'
+    description: 'Harmonização naming EN para tools 3.8 (criar_tarefa → create_task) — quando próximo refactor tocar toolRegistry. Não bloqueia nada.'
+  - id: 'FUP-4.10.B'
+    severity: 'LOW (Fase 2)'
+    description: 'Avaliar elevar COMPOSITE_REVERSE_OP_MAX_OPS (actual=10 per-level) ou adicionar kind=cascade_delete — workaround actual (nested composite) funciona mas é menos elegante.'
+  - id: 'FUP-4.10.C'
+    severity: 'INFO'
+    description: 'R-4.10.4 (Task 11) — confirmar comportamento FIFO/LIFO/paralelo do endpoint /undo durante implementação. Se LIFO, ajustar ordem do payload em create_installment.reverse() (transactions LAST, installment FIRST).'
+
+carry_over:
+  - 'Story 3.8 drift naming criar_tarefa (PT) vs convenção futura EN — FUP-4.10.A.'
+  - 'Story 4.6 gate C1 (MEDIUM) — EXPLAIN ANALYZE vista mensal contra staging seeded.'
+  - 'Story 4.6 gate C2 (LOW) — doc-sync architecture.md §8.4 (MoneyDisplay/packages/ui).'
+  - 'Story 4.7 gate C1 (MEDIUM) — teste unitário DeleteRowButton.'
+  - 'Story 4.7 gate C2 (LOW) — window.confirm → dialog estilizado.'
+  - 'Story 4.8 NIT-4.8.1 (LOW) — query installments sem filtro card_id explícito.'
+  - 'Story 4.9 NIT-AR-4.9.1/2 (LOW) — bankNameToId colisão patológica + Promise.all atomicidade read-only.'
+  - 'FUP-4.9.A (Gestão Contas — MEDIUM): Fase 2.'
+  - 'FUP-4.9.B (modelação transferências par origem/destino — LOW): Fase 2.'
+  - 'FUP-4.9.C (reconciliação balance_cents vestigial — LOW): Fase 2.'
+  - 'docs/marketing/edit/ untracked — decisão pendente Eurico desde Story 4.1.'
+  - 'db-test não corre local (LOW) — Docker ausente; CI rls-gate cobre.'
+  - 'TEST-001 (LOW) — flaky tarefas/calendario/page.test.tsx; passa isolado; não-regressão.'
+
+blockers: []
+
+roadmap_epic_4:
+  done: '9/10 — 4.1 (schema+audit) · 4.2 (API accounts/cards) · 4.3 (API transactions/categories) · 4.4 (API recurrences/installments) · 4.5 (cron Inngest) · 4.6 (vista Este mês) · 4.7 (Variáveis+Recorrentes) · 4.8 (Cartões) · 4.9 (Património)'
+  in_progress: '4.10 Ready v1.1 — Tools do cérebro Finanças (L). Aguarda @dev *develop 4.10.'
+  remaining: []
+  after_4_10: |
+    Epic 4 = 10/10 Done — fecha o Módulo Finanças.
+    Backlog acumulado para Fase 2: FUP-4.9.A/B/C + FUP-4.10.A/B/C +
+    carry-overs LOW/MEDIUM. Dashboard "Visão" widget + chat panel SSE
+    são scope Epic 5.
+
+notes_for_next_agent:
+  - 'Story 4.10 segue o pattern da 3.8 muito de perto — recomenda-se ler ambas em paralelo. As verificações anti-hallucination #1-#21 da 4.10 cruzam o codebase real (toolRegistry, COMPOSITE_REVERSE_OP_MAX_OPS, agent_intent enum, schema finance.ts, helpers month-summary/account-balances, seed categories) e dão ao @dev o atalho para implementação directa.'
+  - 'O ponto mais sensível tecnicamente é R-4.10.4 / Task 11 — a ordem das ops dentro de um composite reverse_op no endpoint /undo. Pre-Task6 (create_installment.reverse), @dev DEVE ler `apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts` para confirmar ordem (FIFO esperada). Se LIFO, inverter ordem do payload: transactions sub-composites primeiro NO ARRAY (porque LIFO processa do fim para o início, então o final deve ser delete_row installments).'
+  - 'PO_FIX_INLINE F6 obriga 2 lookups (um por kind) — manter o helper `resolveDefaultCategory({db, kind})` puro e testável. Não cachear (volume baixo, RLS-aware automaticamente).'
+  - 'F5 obriga implementar `computeMonthBounds(anchor)` — helper trivial mas tem 1 edge case: fevereiro de ano bissexto (29 vs 28). Adicionar teste explícito.'
+  - 'Bumps de prompts (T9) exigem re-gerar hashes SHA-256 nos snapshot tests — padrão Story 2.4 D11 / Story 2.5 D11. Se hash não bate, CI parte deterministicamente.'
+  - 'Esta é a última story do Epic 4. @dev YOLO mode + @architect gate + @devops push do ciclo completo (precedente 4.9). Após push, Epic 4 = 10/10 e sugerir ao Eurico avançar para Epic 5 ou pivot.'
