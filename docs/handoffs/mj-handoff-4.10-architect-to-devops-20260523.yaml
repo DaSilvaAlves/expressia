@@ -1,0 +1,258 @@
+id: mj-handoff-4.10-architect-to-devops-20260523
+from_agent: architect
+to_agent: devops
+created: '2026-05-23T21:20:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '4.10'
+last_command: '*qa-gate 4.10'
+priority: high
+
+summary: |
+  @architect Aria executou `*qa-gate 4.10` com verificação independente.
+  Veredicto: **APPROVED — 9,5/10 — HIGH confidence**.
+
+  7-point gate 7/7 PASS · 11/11 ACs verificados por inspecção · 8/8 [AUTO-DECISIONS]
+  RATIFIED · 5/5 [DEV-DECISION] IMPL-4.10.1 a 5 ACEITES · Constitution 6/6 · 5/5
+  quality gates re-corridos GREEN independentemente · ~1233 testes verdes ·
+  0 hallucinations · 1 nit LOW non-blocking (NIT-AR-4.10.1 — promovido a FUP-4.10.D
+  Fase 2).
+
+  Verificações empíricas LOAD-BEARING:
+    - Composite reverse_op aninhado D-4.10.4 verificado em `create-installment.ts:224-246`:
+      sub-composites tx FIRST + `delete_row installments` LAST (ordem FIFO correcta).
+      Cross-confirmed contra `undo/route.ts:285` linear `for (const sub of op.ops)`.
+    - PII guardrail D-4.10.6: grep `setAttribute` em produção das 5 tools = 0 matches
+      (apenas mocks em testes); `TOOL_SPAN_ATTRIBUTE_KEYS` inalterado em tracing.ts.
+    - Cross-package boundary D-4.10.5: grep `import.*apps/web` em
+      `packages/tools/src/finance` = 0 matches; SQL clonado inline com nota JSDoc.
+    - T11 BÓNUS whitelist /undo: tabelas `card_accounts`/`card_transactions` (não
+      existem no schema) substituídas por `cards` + tratamento `_noop` no-op silencioso.
+      11/11 `undo.test.ts` GREEN.
+
+  Story status `Done v1.2` → `Done v1.3`.
+  Gate file: `docs/qa/gates/4.10-architect-gate.md`.
+
+  **Esta é a ÚLTIMA story do Epic 4 (Módulo Finanças).** Após push:
+  **Epic 4 = 10/10 Done — Módulo Finanças COMPLETO.**
+
+next_action: |
+  `@devops *push 4.10` — push do **CICLO COMPLETO** (precedente Stories
+  4.6/4.7/4.8/4.9 — instrução explícita do Eurico). NÃO pushar parcialmente.
+
+  Sequência esperada (precedente Stories 4.6-4.9 architect→devops push):
+    1. Pre-push: re-correr 5/5 quality gates independentemente
+       (typecheck, lint, test, build, check:rls).
+    2. CodeRabbit `--base main` scoped a packages tocados:
+         - packages/tools/src/finance/
+         - packages/classifier/src/prompts/classifier-system.ts
+         - packages/planner-executor/src/prompts/planner-system.ts
+         - apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts
+       Política: HIGH = warn + recommend fix; CRITICAL = block + fix.
+       Se 0 CRITICAL → push directo; se HIGH → avaliar fix in-line antes push.
+    3. Commit primário `feat(financas,agent)`:
+       - 6 NEW helpers em packages/tools/src/finance/_helpers/ + 6 test files
+       - 5 NEW tools em packages/tools/src/finance/ + 5 test files
+       - 1 NEW barrel index.ts
+       - 1 NEW integration test apps/web/src/app/api/agent/__tests__/finance-flow.test.ts
+       - 1 MODIFIED packages/tools/src/index.ts (+1 export line)
+       - 2 MODIFIED prompts (classifier v1→v2 + planner v1→v2) + 2 MODIFIED test files
+       - 1 MODIFIED apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts (whitelist T11)
+       - 1 NEW gate file docs/qa/gates/4.10-architect-gate.md
+    4. Commit housekeeping `chore(docs)`:
+       - mv `docs/stories/active/4.10.tools-cerebro-financas.story.md` →
+         `docs/stories/completed/4.10.tools-cerebro-financas.story.md`
+       - Actualizar `docs/stories/active/_INDEX.md` (4.10 Done v1.3, Epic 4 = 10/10)
+       - Actualizar `docs/HANDOFF-INDEX.md` (move/archive consumed handoffs)
+       - Mover handoffs consumidos para `docs/handoffs/archive/`:
+         - `mj-handoff-4.10-dev-to-architect-20260523.yaml` (consumed by architect)
+         - `mj-handoff-4.10-architect-to-devops-20260523.yaml` (consumed by devops após push)
+    5. Push para `origin/main`.
+
+  **NOTA:** os 2 commits primários da Story 4.10 já estão no histórico local:
+    b6e9666 chore(docs,handoff): Story 4.10 Done v1.2 + dev→architect handoff [Story 4.10]
+    9501efa feat(financas,agent): Story 4.10 — Tools do cérebro Finanças [Story 4.10]
+  Confirma com `git log --oneline -10` antes de qualquer novo commit. Pode ser necessário
+  apenas o commit housekeeping desta vez — verifica `git status` para descobrir.
+
+  Após push GREEN → handoff opcional para session pause OU directo para
+  `@pm *create-epic 5` (Web App UI — Visão e Chat) OU outra acção a definir
+  pelo Eurico. Epic 4 fica fechado.
+
+context:
+  story_path: docs/stories/active/4.10.tools-cerebro-financas.story.md
+  story_status_after_gate: 'Done v1.3'
+  story_version: '1.3'
+  gated_at: '2026-05-23T21:20:00Z'
+  gated_by: 'architect (Aria)'
+  gate_verdict: 'APPROVED 9,5/10 HIGH'
+  gate_file: 'docs/qa/gates/4.10-architect-gate.md'
+  predecessor_handoff: docs/handoffs/archive/mj-handoff-4.10-dev-to-architect-20260523.yaml
+  epic_progress: 'Epic 4 = 9/10 Done pushed; 4.10 Done v1.3 aguarda push; após push: 10/10 Done — Módulo Finanças COMPLETO.'
+  branch: main
+
+push_checklist_for_devops:
+  pre_push:
+    - 'Confirmar `git log --oneline -10` — verificar se 4.10 já está commitado (b6e9666 + 9501efa) ou se precisa commit primário fresco.'
+    - 'Re-correr 5/5 quality gates locais (FULL TURBO recomendado para confirmar zero regressão pós-cache).'
+    - 'Confirmar test ~1233 GREEN: tools 339/339 · classifier 80/80 · planner-executor 62/62 · apps/web 752/752 · undo 11/11.'
+    - 'Confirmar `pnpm build` 9/9 GREEN (apps/web Next.js production build completo).'
+    - 'Confirmar `pnpm check:rls` exit 0 (28 tabelas cobertas, zero impacto Story 4.10).'
+  coderabbit_pre_push:
+    scope: 'packages/tools/src/finance/ + packages/classifier/src/prompts/classifier-system.ts + packages/planner-executor/src/prompts/planner-system.ts + apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts'
+    command: 'wsl bash -c "cd /mnt/c/Users/XPS/Documents/meu-jarvis && ~/.local/bin/coderabbit --prompt-only --base main"'
+    policy: 'HIGH = warn + recommend fix before push; CRITICAL = block + fix mandatorily; LOW = ignore. Precedente Story 4.9: 1 finding MAJOR detectado e fixado in-line antes do push.'
+  files_to_commit:
+    note: 'Verificar `git status` — possivelmente os 2 commits primários b6e9666 + 9501efa já cobriram a maioria; pode bastar 1 commit housekeeping.'
+    primary_feat_if_needed:
+      new_helpers:
+        - 'packages/tools/src/finance/_helpers/installment-split.ts'
+        - 'packages/tools/src/finance/_helpers/add-months-safe.ts'
+        - 'packages/tools/src/finance/_helpers/chunk-array.ts'
+        - 'packages/tools/src/finance/_helpers/format-euro-cents.ts'
+        - 'packages/tools/src/finance/_helpers/month-bounds.ts'
+        - 'packages/tools/src/finance/_helpers/resolve-default-category.ts'
+      new_helper_tests:
+        - 'packages/tools/src/finance/_helpers/__tests__/installment-split.test.ts (20 tests)'
+        - 'packages/tools/src/finance/_helpers/__tests__/add-months-safe.test.ts (15 tests)'
+        - 'packages/tools/src/finance/_helpers/__tests__/chunk-array.test.ts (7 tests)'
+        - 'packages/tools/src/finance/_helpers/__tests__/format-euro-cents.test.ts (8 tests)'
+        - 'packages/tools/src/finance/_helpers/__tests__/month-bounds.test.ts (11 tests)'
+      new_tools:
+        - 'packages/tools/src/finance/create-finance-variable.ts'
+        - 'packages/tools/src/finance/create-finance-recurrence.ts'
+        - 'packages/tools/src/finance/create-card.ts'
+        - 'packages/tools/src/finance/create-installment.ts'
+        - 'packages/tools/src/finance/query-finance-summary.ts'
+        - 'packages/tools/src/finance/index.ts'
+      new_tool_tests:
+        - 'packages/tools/src/finance/__tests__/create-finance-variable.test.ts (31 tests)'
+        - 'packages/tools/src/finance/__tests__/create-finance-recurrence.test.ts (20 tests)'
+        - 'packages/tools/src/finance/__tests__/create-card.test.ts (20 tests)'
+        - 'packages/tools/src/finance/__tests__/create-installment.test.ts (20 tests)'
+        - 'packages/tools/src/finance/__tests__/query-finance-summary.test.ts (15 tests)'
+      new_integration_test:
+        - 'apps/web/src/app/api/agent/__tests__/finance-flow.test.ts (16 tests)'
+      modified_source:
+        - 'packages/tools/src/index.ts (+1 line export * from ./finance)'
+        - 'packages/classifier/src/prompts/classifier-system.ts (v1→v2: 11 intents + 5 Finance few-shots)'
+        - 'packages/planner-executor/src/prompts/planner-system.ts (v1→v2: Exemplo 1 criar_tarefa PT + Exemplo 3 simplificado create_installment único + 5 Finance few-shots)'
+        - 'apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts (whitelist T11: -card_accounts -card_transactions +cards +_noop no-op)'
+      modified_tests:
+        - 'packages/classifier/src/__tests__/prompts.test.ts (v2 + 11 intents + ≥10 exemplos)'
+        - 'packages/planner-executor/src/__tests__/prompts.test.ts (v2 + drift checks + 5 Finance tools)'
+      gate_file:
+        - 'docs/qa/gates/4.10-architect-gate.md'
+    housekeeping_chore:
+      story_move:
+        - 'docs/stories/active/4.10.tools-cerebro-financas.story.md → docs/stories/completed/4.10.tools-cerebro-financas.story.md'
+      story_update:
+        - 'Story v1.2 → v1.3 com QA Results block (Architect Quality Gate Aria 2026-05-23) já adicionado + Change Log entry v1.3 já presente'
+      index_updates:
+        - 'docs/stories/active/_INDEX.md (4.10 Done v1.3; Epic 4 = 10/10 Done; cabeçalho Epic 4 actualizado)'
+        - 'docs/HANDOFF-INDEX.md (move pending architect→devops handoff to archived após push completa)'
+      handoff_archive:
+        - 'docs/handoffs/mj-handoff-4.10-dev-to-architect-20260523.yaml (consumed by architect → mv to archive/)'
+        - 'docs/handoffs/mj-handoff-4.10-architect-to-devops-20260523.yaml (este handoff — marcar consumed:true + mv to archive após push)'
+  excluded_from_commits:
+    - 'docs/marketing/edit/ untracked — decisão Eurico pendente desde Story 4.1; manter untracked, NÃO incluir no push (precedente Stories 4.1-4.9).'
+  commit_message_hint: |
+    feat(financas,agent): Story 4.10 — Tools do cérebro Finanças [Story 4.10]
+
+    5 tools EN em packages/tools/src/finance/ (create_finance_variable,
+    create_finance_recurrence, create_card, create_installment, query_finance_summary)
+    + 6 helpers puros (installment-split, add-months-safe, chunk-array,
+    format-euro-cents, month-bounds, resolve-default-category) + bump prompts
+    classifier/planner v1→v2 (11 intents + 5 Finance few-shots + correcção drift
+    create_task→criar_tarefa) + composite reverse_op aninhado D-4.10.4 para
+    create_installment (N=60 → 7 ops top-level) + integration test E2E mockable
+    + T11 BÓNUS whitelist /undo route corrigida (card_accounts/card_transactions
+    não existem; +cards; +tratamento _noop no-op).
+
+    Constraint: COMPOSITE_REVERSE_OP_MAX_OPS=10 per-level (Story 2.3)
+    Constraint: PII whitelist NFR12 (zero amount_cents/description/last4 em spans)
+    Constraint: D-4.10.5 cross-package boundary (no import apps/web em packages/tools)
+    Rejected: Migration FK ON DELETE CASCADE | scope creep
+    Rejected: Elevar COMPOSITE_REVERSE_OP_MAX_OPS para 100 | contrato global, requer signoff separado
+    Rejected: @meu-jarvis/finance package partilhado | scope creep (FUP-4.10.D Fase 2)
+    Confidence: high
+    Scope-risk: moderate
+    Directive: D-4.10.4 ordem composite reverse_op é load-bearing — sub-composites tx FIRST + delete_row installments LAST. NÃO inverter ordem sem confirmar FIFO no /undo route.
+    Directive: D-4.10.5 SQL clonado inline em query-finance-summary.ts requer sync manual se Stories 4.6/4.9 alterarem queries (FUP-4.10.D Fase 2 promove a package partilhado).
+    Not-tested: Anthropic real LLM E2E (depende EB1 DPA UE — Story 2.10 cobre)
+
+    - Architect gate APPROVED 9,5/10 HIGH (docs/qa/gates/4.10-architect-gate.md)
+    - 11/11 ACs PASS · 8/8 [AUTO-DECISIONS] RATIFIED · 5/5 [DEV-DECISION] ACEITES
+    - 5/5 quality gates GREEN · ~1233 testes verdes · zero regressões
+    - Constitution 6/6 · NFR5/NFR12/NFR19 cobertos
+
+  housekeeping_message_hint: |
+    chore(docs,housekeeping): Story 4.10 Done v1.3 — gate APPROVED + Epic 4 COMPLETO [Story 4.10]
+
+    - Story 4.10 Done v1.3 (architect gate APPROVED 9,5/10 HIGH)
+    - mv docs/stories/active/4.10.tools-cerebro-financas.story.md → completed/
+    - Update _INDEX.md Epic 4 = 10/10 Done (Módulo Finanças COMPLETO)
+    - Update HANDOFF-INDEX.md (consume dev→architect + architect→devops handoffs)
+    - Archive consumed handoffs
+
+risks_status_at_gate:
+  R-4.10.1: 'MITIGADO — computeInstallmentSplit helper puro + invariante (N-1)*per+last===total testado em 20 cenários incluindo €1.000/3, €100/7, €1.200/12.'
+  R-4.10.2: 'MITIGADO — ctx.householdId derivado do JWT, NUNCA do input; grep confirma uso correcto nas 5 tools.'
+  R-4.10.3: 'MITIGADO + GATE-VERIFIED — N=60 → 7 ops top-level (6 sub-composites de 10 + 1 delete installments) respeita per-level limit 10.'
+  R-4.10.4: 'MITIGADO + GATE-VERIFIED — ordem FIFO confirmada empiricamente em undo/route.ts:285; sub-composites tx FIRST + delete installments LAST.'
+  R-4.10.5: 'ACEITE — edge case improvável (cron 4.5 corre 1×/dia); FK transactions.recurrence_id ON DELETE SET NULL deixa coerência.'
+  R-4.10.6: 'MITIGADO — snapshot tests classifier/planner v2 actualizados (sem hash fixo, mas testes de drift assertion verificam ausência de create_card_transaction/create_installment_plan).'
+  R-4.10.7: 'MITIGADO com NIT-AR-4.10.1 — cross-package coupling implícito documentado em D-4.10.5 + JSDoc; FUP-4.10.D Fase 2 propõe package partilhado.'
+  R-4.10.8: 'MITIGADO — resolveDefaultCategory throw ToolExecutionError PT-PT se categoria global "Outros gastos"/"Outros rendimentos" ausente; seed garante existência.'
+  R-4.10.9: 'ACEITE — Story 4.10 não corre benchmark E2E real; cobertura via descriptions PT-PT explícitas + 5 Finance few-shots no planner v2.'
+  R-4.10.10: 'MITIGADO — Anthropic SDK valida tool names contra `tools` array em runtime; drift PT/EN aceite como FUP-4.10.A LOW Fase 2.'
+
+concerns_low_non_blocking:
+  - id: NIT-AR-4.10.1
+    severity: LOW
+    title: 'Cross-package SQL clone em query-finance-summary.ts cria coupling implícito com getMonthSummary/getAccountBalances'
+    file: 'packages/tools/src/finance/query-finance-summary.ts'
+    rationale: |
+      D-4.10.5 documenta o trade-off explicitamente: boundary cross-package
+      proíbe import de apps/web/src/lib/finance/ em packages/tools/. Alternativa
+      (criar @meu-jarvis/finance package partilhado) é scope creep YOLO mode.
+      Mitigação: JSDoc explícito + grep regression-detection (typecheck + tests
+      apanham se assinaturas helpers 4.6/4.9 mudarem). Promovido a FUP-4.10.D Fase 2.
+
+backlog_followups:
+  - id: FUP-4.10.A
+    severity: 'LOW (Fase 2)'
+    description: 'Harmonização naming EN para tools 3.8 (criar_tarefa → create_task). Mantida intocada — drift PT/EN aceite como tech-debt. Trigger: refactor de toolRegistry ou Epic 5/6.'
+  - id: FUP-4.10.B
+    severity: 'LOW (Fase 2)'
+    description: 'Avaliar elevar COMPOSITE_REVERSE_OP_MAX_OPS ou adicionar kind=cascade_delete — workaround actual (nested composite) funciona para N=60.'
+  - id: FUP-4.10.C
+    severity: 'RESOLVED'
+    description: 'T11 confirmou FIFO. Sem ajuste necessário.'
+  - id: FUP-4.10.D
+    severity: 'LOW (Fase 2)'
+    description: 'NOVO — promovido de NIT-AR-4.10.1. Avaliar criar @meu-jarvis/finance package partilhado para queries cross-app/tools, eliminando o clone controlado de SQL em query-finance-summary.ts. Trigger: Story 4.6/4.9 alterar queries OU Epic 5 incluir mais agregações.'
+
+carry_overs_preserved:
+  - '4.6 C1/C2 (LOW) — documentais herdados'
+  - '4.7 C1/C2 (LOW) — documentais herdados'
+  - '4.8 NIT-4.8.1 (LOW) — afinar testes Cartões'
+  - '4.9 NIT-AR-4.9.1/2 (LOW) — bankNameToId + Promise.all atomicidade'
+  - 'docs/marketing/edit/ untracked — decisão Eurico pendente desde Story 4.1; NÃO incluído no push (precedente 4.1-4.9)'
+  - 'db-test Docker — não corre local; CI rls-gate cobre (LOW)'
+  - 'TEST-001 flaky tarefas/calendario/page.test.tsx (LOW) — herdado'
+  - 'EB1 Anthropic DPA UE — PENDING; Story 4.10 mockable-friendly não bloqueia'
+
+notes_for_next_agent:
+  - 'Story 4.10 é a ÚLTIMA do Epic 4 — após push, Epic 4 = 10/10 Done (Módulo Finanças COMPLETO).'
+  - 'Os 2 commits primários da Story 4.10 (b6e9666 + 9501efa) JÁ ESTÃO no histórico local (verificado com git log). Verifica `git status` antes de fazer novo commit feat — pode bastar 1 commit housekeeping desta vez.'
+  - 'Push do CICLO COMPLETO — precedente Stories 4.6/4.7/4.8/4.9, instrução explícita do Eurico.'
+  - 'CodeRabbit pre-push recomendado scoped a 4 paths (packages/tools/src/finance/ + 2 prompts + undo route.ts). Política: HIGH = warn; CRITICAL = block + fix.'
+  - 'docs/marketing/edit/ untracked — NÃO incluir no push (decisão Eurico pendente).'
+  - 'Após push GREEN: handoff opcional para session pause OU directo para @pm *create-epic 5 (Web App UI — Visão e Chat) OU outra acção a definir pelo Eurico. Epic 4 fica fechado.'
+  - 'T11 BÓNUS whitelist /undo: o fix mantém-se em scope 4.10 (decisão @architect APPROVED). Tabelas card_accounts/card_transactions removidas (não existem); cards adicionado; _noop tratado como no-op. 11/11 undo.test.ts continuam GREEN.'
+
+blockers: []
