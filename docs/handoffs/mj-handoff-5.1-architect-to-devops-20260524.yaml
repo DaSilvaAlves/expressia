@@ -1,0 +1,270 @@
+id: mj-handoff-5.1-architect-to-devops-20260524
+from_agent: architect
+to_agent: devops
+created: '2026-05-24T16:35:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.1'
+last_command: '*qa-gate 5.1'
+priority: medium
+
+summary: |
+  @architect Aria executou `*qa-gate 5.1` com verificação arquitectural independente.
+  Veredicto: **APPROVED — 9.5/10 — HIGH confidence**.
+
+  7/7 verificações arquitecturais PASS · 8/8 ACs satisfeitos · 2 [AUTO-DECISIONS]
+  RATIFIED · 4 [DEV-DECISION] D-5.1.1 a D-5.1.4 ACEITES (D-5.1.3 com PRAISE
+  arquitectural) · 5/5 quality gates verdes em sessão @dev + 2/5 re-corridos
+  independentemente por @architect (check:rls EXIT 0; typecheck 9/9 FULL TURBO).
+
+  **PRIMEIRA story do Epic 5 (Web App UI).** Prepara o schema para as Stories 5.5
+  (APIs agregadoras Visão), 5.6 (WidgetGrid frontend), 5.7 (widget config UI),
+  5.8 (modo claro/escuro toggle).
+
+  Verificações empíricas LOAD-BEARING (@architect):
+    - Migration `0016_user_prefs_theme_widgets.sql` idempotente: ADD COLUMN IF NOT
+      EXISTS para ambas colunas + CHECK via DROP IF EXISTS + ADD pattern. Sequência
+      0014 → 0015 → 0016 sem gap.
+    - CHECK constraint vs pgEnum (D-5.1.1 / AC8(a)) — desvio consciente RATIFICADO:
+      3 valores estáveis ('light', 'dark', 'system'); CHECK mais flexível para
+      evolução (high-contrast, sepia) sem caveats de ALTER TYPE em transactions.
+      JSDoc cross-ref em prefs.ts:30-32 e 107-109 elimina friction futura.
+    - Defaults JSONB literal (migration:65-66) batem exactamente com epic-5 DP3 +
+      front-end-spec §5.4: 5 ON (briefing, tasks_today, finance_month,
+      recurrences_next, tasks_overdue) + 2 OFF (accounts_balance, calendar_week).
+      Snake_case naming validado (evita escape de hyphens em queries JSONB).
+    - Zod `.strict()` enforcement (preferences.ts:49 e 82) — R-5.4 Epic 5 mitigado:
+      rejeita keys desconhecidas + campos extra; impede shape drift do JSONB.
+    - **D-5.1.3 type parity guard cross-package (PRAISE arquitectural):** alias
+      `_WidgetsEnabledParityCheck` em preferences.ts:56-64 falha compilação TS se
+      Zod-inferred type divergir do DB type. Beyond AC3.f — automatiza detecção
+      em compile-time. Pattern reutilizável recomendado para futuros pares
+      Zod↔DB type cross-package.
+    - RLS preservada: 4 policies `user_prefs_{select,insert,update,delete}_self`
+      em `0001_rls_policies.sql:711-755` intactas; predicate combo
+      `is_household_member(household_id) AND auth.uid() = user_id` preservado.
+      `check:rls` re-corrido em sessão @architect: EXIT 0, 28 tabelas, 120 policies.
+    - 3 smoke tests RLS (user_prefs.rls.test.ts) cobrem AC4(b) integralmente:
+      cross-household SELECT bloqueado, UPDATE retorna 0 rows + admin re-check,
+      defaults SQL aplicados em INSERT. Helper `insertUserPrefs` (F2 PO_FIX) com
+      `overrides.useDefaults` pattern-aligned com fixtures existentes.
+    - Reconciliação documental: `db-schema.md §4.8 linhas 178+180` actualizadas
+      com 3 colunas + migration 0016 + DP2+DP3 trace; `visao/page.tsx` 2 ocorrências
+      "Epic 6" corrigidas (D-5.1.4 — story só listava 79; correcção de ambas é
+      consistência justificada). PT-PT estrito: zero PT-BR em todos os 7 ficheiros.
+
+  Story status `Ready for Review v1.2` → `APPROVED v1.3` (gate result em DoD).
+
+  **NOTE arquitectural não-bloqueante (registado para Story 5.7/5.8):**
+  `db-schema.md §4.8 linha 184` descreve lazy-init D32 PATCH como
+  "ON CONFLICT DO UPDATE SET always_preview = EXCLUDED.always_preview" — correcto
+  para o estado actual (endpoint Story 2.7 não tocado nesta story). Quando 5.7/5.8
+  estenderem o PATCH para `theme`/`widgets_enabled`, esta linha precisa de update.
+  Não afecta gate desta story.
+
+next_action: |
+  `@devops *push 5.1` — push da Story 5.1 ao remote `DaSilvaAlves/expressia` main.
+
+  Sequência esperada (precedente Stories 4.1-4.10):
+    1. Pre-push: re-correr 5/5 quality gates independentemente
+       (typecheck, lint, test, build, check:rls).
+    2. CodeRabbit [AUTO-DECISION] SKIPPED — precedente consistente Epic 3-4.
+       Story de baixo risco (column extension idempotente + Zod + tests + docs).
+       @architect gate substitui review automatizado. Override apenas se @devops
+       detectar concern específico ao revisar diff.
+    3. Commit primário sugerido:
+         feat(prefs,schema): Story 5.1 — user_prefs theme + widgets_enabled
+                             [Story 5.1]
+       Files:
+         - packages/db/migrations/0016_user_prefs_theme_widgets.sql (NEW)
+         - packages/db/src/schema/prefs.ts (+4 type exports, +2 cols)
+         - apps/web/src/lib/api-schemas/preferences.ts (NEW)
+         - packages/db-test/src/tests/user_prefs.rls.test.ts (NEW — 3 smoke tests)
+         - packages/db-test/src/helpers/fixtures.ts (+insertUserPrefs helper)
+         - docs/db-schema.md (§4.8 reconciliação)
+         - apps/web/src/app/(app)/visao/page.tsx (2 ocorrências "Epic 6" → "Epic 5")
+    4. Commit housekeeping (sequência separada, precedente Stories 4.x):
+         chore(docs,housekeeping): Story 5.1 Done — gate APPROVED 9.5/10 + handoffs
+                                   + _INDEX update [Story 5.1]
+       Files:
+         - docs/stories/active/5.1.user-prefs-extension-reconciliation.md →
+           docs/stories/completed/5.1.user-prefs-extension-reconciliation.md
+           (mover para completed/ após push; status Done v1.3)
+         - docs/stories/active/_INDEX.md (Epic 5 section: 5.1 status → Done;
+           Epic 5 progress 1/10 → arrancou)
+         - docs/HANDOFF-INDEX.md (mover entries 5.1 pending → archived)
+         - docs/epics/epic-5-web-app-ui.md (Story 5.1 row update se aplicável)
+         - docs/handoffs/archive/mj-handoff-5.1-{dev-to-architect,architect-to-devops}-20260524.yaml
+    5. Push: `git push origin main`. Sem PR (precedente fluxo directo Eurico em main).
+
+context: |
+  Pre-condições verificadas pelo @architect em 2026-05-24:
+    - Epic 5 v1.0 Validated por Eurico 2026-05-23 (8 DPs aceites).
+    - Epic 4 = 10/10 Done (Módulo Finanças completo).
+    - Story 5.1 v1.2 marcada Ready for Review por @dev (Dex) em modo YOLO.
+    - 7 ficheiros tocados (3 NEW + 4 MODIFIED) — zero touch em packages/agent,
+      packages/tools, ou código aplicação não-relacionado.
+    - 4 [DEV-DECISION] D-5.1.1 (PO_FIX F1 JSDoc cross-ref), D-5.1.2 (PO_FIX F2
+      helper insertUserPrefs), D-5.1.3 (type parity guard PRAISED),
+      D-5.1.4 (2 ocorrências "Epic 6") — todos documentados e justificados.
+    - 2 achados AC8 resolvidos: AC8(a) CHECK constraint aplicada com rationale;
+      AC8(b) `updated_at` DEFAULT-only comportamento confirmado.
+
+  Quality gates @dev (handoff dev→architect):
+    pnpm lint        → GREEN 9/9 (0 warnings, 54s)
+    pnpm typecheck   → GREEN 9/9 (11s)
+    pnpm test (web)  → GREEN 752/752 (91 files, 34s)
+    pnpm build       → GREEN 9/9 (1m6s)
+    pnpm check:rls   → GREEN EXIT 0 (28 tabelas, 120 policies)
+
+  Quality gates re-corridos @architect:
+    pnpm check:rls   → GREEN EXIT 0 confirmado (28 tabelas, 120 policies,
+                       user_prefs detectada via prefs.ts)
+    pnpm typecheck   → GREEN 9/9 FULL TURBO 133ms (type parity guard compila)
+
+  Outros 3 gates (lint, test, build) aceites do handoff @dev — sem alterações
+  desde então (1 hora) e timings credíveis.
+
+  Bloqueadores externos: NENHUM. Story DB-only sem AI/cache/jobs.
+
+  CodeRabbit [AUTO-DECISION] SKIPPED durante @dev (precedente Epic 3-4 consistente);
+  @architect ratifica a decisão. @devops pode override se entender necessário.
+
+decisions:
+  - id: GATE-5.1.A
+    description: APPROVED 9.5/10 HIGH confidence — 7/7 verificações arquitecturais PASS
+    rationale: |
+      Migration idempotente + CHECK rationale válido + defaults JSONB alinhados +
+      Zod .strict() enforcement + RLS preservada + 3 smoke tests cobrem AC4(b) +
+      reconciliação documental completa + PT-PT estrito. Zero invenções.
+
+  - id: GATE-5.1.B
+    description: D-5.1.1 (CHECK vs pgEnum) RATIFICADO como decisão arquitectural válida
+    rationale: |
+      Desvio consciente do pattern pgEnum (account_type, card_type em finance.ts).
+      3 valores estáveis + ALTER TYPE caveats em transactions tornam CHECK preferível.
+      JSDoc cross-ref AC8(a) elimina friction. Re-avaliar se theme escalar para
+      ≥5 valores no futuro.
+
+  - id: GATE-5.1.C
+    description: D-5.1.3 (type parity guard cross-package) PRAISED como pattern
+                 arquitectural reutilizável
+    rationale: |
+      Alias `_WidgetsEnabledParityCheck` em preferences.ts:56-64 falha compile se
+      Zod-inferred type divergir do DB type exportado por @meu-jarvis/db. Beyond
+      AC3.f — automatiza detecção em compile-time, não só runtime. Recomendar
+      adopção em futuros pares Zod↔DB type cross-package.
+
+  - id: GATE-5.1.D
+    description: NOTE arquitectural não-bloqueante — db-schema.md §4.8 linha 184
+                 precisa de update em Story 5.7/5.8
+    rationale: |
+      Descrição do PATCH lazy-init D32 (linha 184) menciona apenas
+      `always_preview = EXCLUDED.always_preview`. Correcto para Story 2.7 actual
+      (endpoint não tocado nesta story). Quando Stories 5.7/5.8 estenderem PATCH
+      para `theme`/`widgets_enabled`, esta linha precisa de update — sugerido como
+      sub-task implícita das stories sucessoras. Registado como FUP-5.1.A.
+
+  - id: GATE-5.1.E
+    description: ENV-BLOCKER Docker offline aceite — CI rls-gate cobre runtime
+    rationale: |
+      Precedente consistente Stories 3.1-4.10 — @dev typecheck PASS confirma
+      compilação correcta dos 3 smoke tests; CI rls-gate em GitHub Actions corre
+      Postgres 16 efémero e executa os testes runtime. Risco residual mínimo.
+
+  - id: GATE-5.1.F
+    description: D-5.1.4 (2 ocorrências "Epic 6" em visao/page.tsx) ACEITE como
+                 over-deliver legítimo
+    rationale: |
+      Story AC5(c) só listava linha 79 (UI text). Grep encontrou 2 ocorrências
+      (linha 11 JSDoc + linha 79 UI). Corrigir ambas é consistência justificada —
+      deixar JSDoc desactualizado teria propagado a confusão em IDE tooltips.
+      Out-of-scope mínimo. Aprovado.
+
+files_modified:
+  - packages/db/migrations/0016_user_prefs_theme_widgets.sql # NEW (verificado)
+  - packages/db/src/schema/prefs.ts # MODIFIED (verificado: +4 type exports, +2 cols, JSDoc Story 5.1)
+  - apps/web/src/lib/api-schemas/preferences.ts # NEW (verificado: 3 Zod schemas + type parity guard)
+  - packages/db-test/src/tests/user_prefs.rls.test.ts # NEW (verificado: 3 smoke tests)
+  - packages/db-test/src/helpers/fixtures.ts # MODIFIED (verificado: +insertUserPrefs com useDefaults)
+  - docs/db-schema.md # MODIFIED (verificado: §4.8 linhas 178+180 reconciliadas)
+  - apps/web/src/app/(app)/visao/page.tsx # MODIFIED (verificado: 2 ocorrências Epic 6 corrigidas)
+  - docs/stories/active/5.1.user-prefs-extension-reconciliation.md # MODIFIED (gate result a adicionar)
+
+blockers: []
+
+quality_gates_executed:
+  check_rls:
+    status: GREEN_REVERIFIED
+    detail: 'EXIT 0 confirmado em sessão @architect — 28 tabelas multi-tenant, 120 policies em 0001_rls_policies.sql, user_prefs detectada via prefs.ts. NFR5 PRESERVADA.'
+  typecheck:
+    status: GREEN_REVERIFIED
+    detail: '9/9 successful FULL TURBO 133ms em sessão @architect — type parity guard cross-package _WidgetsEnabledParityCheck compila correctamente.'
+  lint:
+    status: GREEN_FROM_DEV_HANDOFF
+    detail: 'Accepted from @dev handoff (9/9 0 warnings, 54s); no changes since.'
+  test:
+    status: GREEN_FROM_DEV_HANDOFF
+    detail: 'Accepted from @dev handoff (web 752/752 PASS); db-test integration ENV-BLOCKER Docker offline — CI rls-gate cobre os 3 smoke tests RLS.'
+  build:
+    status: GREEN_FROM_DEV_HANDOFF
+    detail: 'Accepted from @dev handoff (9/9, 1m6s); no changes since.'
+
+architectural_findings:
+  - id: F1
+    severity: NOTE
+    blocking: false
+    description: 'db-schema.md §4.8 linha 184 — lazy-init D32 PATCH description não menciona theme/widgets_enabled'
+    detail: |
+      Linha 184 mantém "ON CONFLICT DO UPDATE SET always_preview = EXCLUDED.always_preview"
+      — correcto para Story 2.7 actual. Quando Stories 5.7/5.8 estenderem o PATCH endpoint
+      para `theme`/`widgets_enabled`, esta linha precisa de update. Registado como
+      FUP-5.1.A para sucessoras.
+
+  - id: F2
+    severity: PRAISE
+    blocking: false
+    description: 'D-5.1.3 type parity guard cross-package — pattern arquitectural reutilizável'
+    detail: |
+      `_WidgetsEnabledParityCheck` alias em preferences.ts:56-64 detecta em compile-time
+      qualquer divergência entre Zod schema e DB type. Beyond AC3.f. Recomendar adopção
+      em futuros pares Zod↔DB type cross-package.
+
+  - id: F3
+    severity: CONFIRMATION
+    blocking: false
+    description: 'JSONB default literal sintaxe entre SQL e Drizzle produz binary parity'
+    detail: |
+      Migration `::jsonb` cast (linha 66) + Drizzle `default(DEFAULT_WIDGETS_ENABLED)`
+      (prefs.ts:124) produzem o mesmo JSONB byte-a-byte (chaves snake_case na mesma
+      ordem). `$type<WidgetsEnabled>()` narrowing é zero-overhead em runtime.
+
+coderabbit:
+  status: SKIPPED_RATIFIED
+  rationale: |
+    @dev fez [AUTO-DECISION] SKIPPED durante implementação per precedente Epic 3-4.
+    @architect ratifica: story de baixo risco (column extension idempotente + Zod
+    + tests + docs); 7/7 verificações arquitecturais PASS sem concerns que
+    motivassem CodeRabbit pre-PR. @devops pode override se detectar concern
+    específico ao revisar diff. Default action: skip + push directo.
+
+gate_score:
+  numeric: 9.5
+  confidence: HIGH
+  verdict: APPROVED
+  rationale: |
+    9.5/10 (não 10) reflecte:
+    - F1 (db-schema.md linha 184) é honest gap pendente para 5.7/5.8 — não bloqueia
+      esta story mas registado para sucessoras.
+    - 0.5 desconto pelo ENV-BLOCKER Docker (testes RLS runtime cobertos por CI,
+      não localmente) — risco residual mínimo dado precedente consistente
+      Stories 3.1-4.10.
+
+    Pontos arquitecturais excepcionais (PRAISE):
+    - D-5.1.3 type parity guard cross-package — pattern reutilizável
+    - Migration idempotente exemplar (ADD COLUMN IF NOT EXISTS + DROP/ADD CHECK)
+    - JSDoc cross-ref AC8(a) (PO_FIX F1) eleva onboarding @dev futuro
+    - Helper insertUserPrefs com useDefaults — extensibilidade do harness

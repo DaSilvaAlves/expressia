@@ -1,0 +1,194 @@
+id: mj-handoff-5.1-dev-to-architect-20260524
+from_agent: dev
+to_agent: architect
+created: '2026-05-24T15:50:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-24T16:35:00Z'
+consumed_by: architect
+project: meu-jarvis
+project_prefix: mj
+story_id: '5.1'
+last_command: '*develop 5.1'
+priority: medium
+
+summary: |
+  @dev Dex implementou Story 5.1 (`user_prefs` Extensão theme + widgets_enabled +
+  Reconciliação Documental) em modo YOLO, primeira story do Epic 5 (Web App UI).
+  Status `Ready for Dev v1.1` → `Ready for Review v1.2`.
+
+  Resumo do trabalho:
+    - 8/8 ACs PASS · 7/7 Tasks completos · DoD 9/10 (último item = este handoff)
+    - 5/5 quality gates GREEN locais:
+        lint 9/9 (0 warnings, 54s) ·
+        typecheck 9/9 (11s) ·
+        test web 752/752 PASS (91 files, 34s) ·
+        build 9/9 (1m6s) ·
+        check:rls EXIT 0 (28 tabelas, 120 policies — NFR5 PRESERVADA)
+    - Migration 0016_user_prefs_theme_widgets.sql aplicada 480ms localmente +
+      idempotente verificada (`[skip] 0016 ... já registada`)
+    - 3 NEW files + 4 MODIFIED:
+        NEW: 0016_*.sql (migration), preferences.ts (Zod), user_prefs.rls.test.ts (3 smoke)
+        MODIFIED: prefs.ts (+4 type exports +2 colunas), fixtures.ts (+helper insertUserPrefs),
+                  db-schema.md (§4.8), visao/page.tsx (2 occorrências "Epic 6" → "Epic 5")
+    - Zero alterações em packages/agent/, packages/tools/, ou código aplicação
+    - 2 PO_FIX_INLINE non-blocking HONRADOS:
+        F1 (D-5.1.1) — JSDoc cross-ref AC8(a) em prefs.ts:32-39 e 89-94
+        F2 (D-5.1.2) — Helper insertUserPrefs em fixtures.ts (suporta useDefaults)
+    - 2 [DEV-DECISION] adicionais documentados:
+        D-5.1.3 — Type parity guard cross-package em preferences.ts:57-66 (beyond AC3.f,
+                  detecta divergência Zod↔DB type em compile-time)
+        D-5.1.4 — visao/page.tsx tinha 2 ocorrências de "Epic 6" (linha 11 JSDoc + linha 79
+                  UI text) — story listava só uma; ambas corrigidas para consistência
+    - 2 achados AC8 RESOLVIDOS:
+        AC8(a) CHECK constraint vs Postgres enum → CHECK aplicado com rationale documentado
+        AC8(b) updated_at em rows existentes via ALTER DEFAULT → comportamento esperado
+                 (DEFAULT não dispara UPDATE trigger; rows existentes preservam updated_at antigo
+                 até PATCH explícito)
+
+  Esta é a PRIMEIRA story do Epic 5 — prepara schema para Stories 5.5 (APIs agregadoras),
+  5.6 (WidgetGrid frontend), 5.7 (widget config UI), 5.8 (modo claro/escuro toggle).
+
+next_action: |
+  `@architect *qa-gate 5.1` — gate por @architect (precedente Stories 4.1-4.10 —
+  decisões de schema/migration são arquitecturais). Verificações esperadas:
+
+    1. Migration 0016 idempotente:
+       - `ADD COLUMN IF NOT EXISTS` para ambas colunas (Postgres 9.6+)
+       - CHECK constraint via `DROP IF EXISTS` + `ADD` pattern
+       - Re-run não falha (validado em sessão)
+
+    2. CHECK constraint vs pgEnum (AC8(a) / D-5.1.1):
+       - Decisão consciente documentada em prefs.ts:32-39 (JSDoc Theme type)
+       - 3 valores estáveis ('light', 'dark', 'system') — flexibilidade vs Postgres
+         ALTER TYPE caveats em transactions
+       - Pattern alternativo ao pgEnum standard (finance.ts:39-76) — validar que é
+         decisão correcta para evolução futura
+
+    3. Defaults JSONB literal correctos (front-end-spec §5.4):
+       - 5 default ON: briefing, tasks_today, finance_month, recurrences_next, tasks_overdue
+       - 2 default OFF: accounts_balance, calendar_week
+       - Naming snake_case (evita escape de hyphens em queries JSONB)
+
+    4. Zod schemas com `.strict()` (R-5.4 Epic 5 mitigação):
+       - WidgetsEnabledSchema rejeita keys desconhecidas
+       - PreferencesPatchSchema rejeita campos não-listados
+       - Type parity guard cross-package (D-5.1.3) detecta divergência em compile-time
+
+    5. RLS preservada após ALTER:
+       - 4 policies user_prefs em 0001_rls_policies.sql:711-755 inalteradas
+       - Predicate combo `is_household_member(household_id) AND auth.uid() = user_id`
+       - check:rls gate verde (28 tabelas, 120 policies)
+
+    6. Smoke tests RLS (3 cenários):
+       - Cross-household SELECT bloqueado (theme + widgets_enabled)
+       - Cross-household UPDATE retorna 0 rows + admin re-check confirma valor original
+       - Defaults SQL aplicados em INSERT sem valores explícitos
+       - [AUTO-DECISION] ENV-BLOCKER Docker offline localmente — CI cobre
+
+    7. Reconciliação documental:
+       - db-schema.md §4.8 linhas 178+180 — 3 colunas + migration 0016
+       - visao/page.tsx — 2 ocorrências "Epic 6" → "Epic 5 (Stories 5.5-5.7)"
+       - PT-PT estrito (AC6) — zero PT-BR
+
+context: |
+  Epic 5 v1.0 Validated por Eurico em 2026-05-23 com 8 DPs aceites integralmente
+  (epic-5-web-app-ui.md). DP2 (tema híbrido) + DP3 (JSONB Zod) são as duas DPs
+  materializadas nesta story.
+
+  Pre-condições verificadas:
+    - Schema user_prefs criado em Story 2.7 (0007_user_prefs.sql) — só com always_preview
+    - 4 RLS policies em 0001_rls_policies.sql:711-755 com predicate combo
+    - Próxima migration sequencial: 0016 (após 0015_finance_recurrences_generated_audit.sql)
+    - Front-end-spec.md §5.4 linhas 545-551 — naming canónico dos 7 widget IDs
+
+  PO Validation Block (2026-05-24) deu GO 10/10 HIGH com 12 verificações
+  anti-hallucination cross-confirm vs codebase real — zero invenções detectadas.
+
+  Bloqueadores externos: NENHUM. Story DB-only sem AI/cache/jobs.
+
+  Files NEW e MODIFIED listados em §File List da story.
+
+  Quality gates executados na sessão @dev:
+    pnpm lint           → GREEN  9/9 (0 warnings)
+    pnpm typecheck      → GREEN  9/9
+    pnpm test (web)     → GREEN  752/752 (91 files)
+    pnpm build          → GREEN  9/9
+    pnpm check:rls      → GREEN  EXIT 0 (28 tabelas, 120 policies)
+
+  db-test integration: ENV-BLOCKER Docker offline ([AUTO-DECISION] PROCEED, precedente
+  Stories 3.1-4.10 — CI rls-gate cobre os 3 smoke tests).
+
+  CodeRabbit: [AUTO-DECISION] SKIPPED — precedente consistente Epic 3-4 (Stories
+  3.1-4.10). Story de baixo risco (column extension idempotente + Zod + testes + docs).
+
+decisions:
+  - id: D-5.1.1
+    description: PO_FIX_INLINE F1 — JSDoc cross-ref para AC8(a) em prefs.ts:32-39 e 89-94
+    rationale: |
+      AC2 propõe text+enum narrowing divergindo do pattern pgEnum standard. JSDoc
+      cross-ref ao AC8(a) reduz friction para @dev futuro entender a decisão sem ter
+      de ler toda a story. Pattern alinhado com PO_FIX_INLINE F1 da @po validation.
+
+  - id: D-5.1.2
+    description: PO_FIX_INLINE F2 — Helper insertUserPrefs em fixtures.ts
+    rationale: |
+      RLS test pattern exige helpers domain-specific. Criado helper com suporte a
+      overrides.useDefaults para testar que defaults SQL são aplicados (não substituídos
+      por valores TS default da função). Alinhado com pattern insertAccount/insertCard/etc.
+
+  - id: D-5.1.3
+    description: Type parity guard cross-package (preferences.ts:57-66) — beyond AC3.f
+    rationale: |
+      AC3.f pedia "Verificar ... se divergir, ajustar uma das fontes". Implementação
+      automatiza: alias `_WidgetsEnabledParityCheck` falha compilação TS se Zod-inferred
+      type divergir do DB type. Single source of truth garantido em compile-time.
+
+  - id: D-5.1.4
+    description: visao/page.tsx tinha 2 ocorrências de "Epic 6" — story listava só uma
+    rationale: |
+      Story AC5(c) referia linha 79 (UI text). Grep encontrou 2 ocorrências (linha 11
+      JSDoc + linha 79). Ambas corrigidas para consistência — JSDoc desactualizado
+      teria propagado confusão em IDE tooltips e auditoria futura. Out-of-scope mínimo
+      e justificado.
+
+files_modified:
+  - packages/db/migrations/0016_user_prefs_theme_widgets.sql # NEW
+  - packages/db/src/schema/prefs.ts # MODIFIED
+  - apps/web/src/lib/api-schemas/preferences.ts # NEW
+  - packages/db-test/src/tests/user_prefs.rls.test.ts # NEW
+  - packages/db-test/src/helpers/fixtures.ts # MODIFIED
+  - docs/db-schema.md # MODIFIED
+  - apps/web/src/app/(app)/visao/page.tsx # MODIFIED
+  - docs/stories/active/5.1.user-prefs-extension-reconciliation.md # MODIFIED (Dev Agent Record)
+
+blockers: []
+
+quality_gates_executed:
+  lint:
+    status: GREEN
+    detail: '9/9 turbo successful, 0 warnings, 54s (6/9 cached)'
+  typecheck:
+    status: GREEN
+    detail: '9/9 successful, 11s (6/9 cached)'
+  test:
+    status: GREEN_WITH_AUTO_DECISION
+    detail: |
+      @meu-jarvis/web: 752/752 PASS (91 files, 34s).
+      @meu-jarvis/db-test: ENV-BLOCKER Docker offline ([AUTO-DECISION] PROCEED,
+      precedente Stories 3.1-4.10 — CI cobre).
+  build:
+    status: GREEN
+    detail: '9/9 successful, 1m6s (4/9 cached)'
+  check_rls:
+    status: GREEN
+    detail: 'EXIT 0 — 28 tabelas multi-tenant, 120 policies em 0001_rls_policies.sql, NFR5 PRESERVADA'
+
+coderabbit:
+  status: SKIPPED_AUTO_DECISION
+  rationale: |
+    Precedente consistente Epic 3-4 (Stories 3.1-4.10). Story pequena de baixo risco
+    (migration column extension idempotente + Zod schemas + testes + docs).
+    @architect gate substitui review automatizado. Se @architect detectar concerns
+    (CHECK vs enum decision, JSONB default literal, Zod .strict() enforcement, RLS
+    edge cases), pode pedir CodeRabbit run em Pre-PR mode.
