@@ -171,13 +171,13 @@ erDiagram
 |--------|-----|-------|
 | `audit_log` | NFR9 | Imutável (insert-only). 12 meses retenção. Captura `before_state` + `after_state` em json. |
 
-### 4.8 User Prefs (`schema/prefs.ts`) — Story 2.7
+### 4.8 User Prefs (`schema/prefs.ts`) — Story 2.7 + Story 5.1
 
 | Tabela | NFR | Notas |
 |--------|-----|-------|
-| `user_prefs` | FR4, NFR5 | 1:1 user (`user_id` PK FK `auth.users` cascade). `household_id` FK obrigatória para RLS pattern (cross-tenancy isolation). `always_preview boolean default false` controla FR4 override. Cardinalidade D29: multi-household user partilha mesma `always_preview` (edge case adiado como DP futuro). |
+| `user_prefs` | FR4, FR21, FR22, NFR5 | 1:1 user (`user_id` PK FK `auth.users` cascade). `household_id` FK obrigatória para RLS pattern (cross-tenancy isolation). **Colunas de preferência (evolução incremental):** `always_preview boolean default false` (FR4 — Story 2.7); `theme text default 'system' CHECK in (light, dark, system)` (FR22 — Story 5.1, DP2 Epic 5 = C híbrido `user_prefs.theme` + localStorage cache); `widgets_enabled jsonb default {5 ON + 2 OFF}` (FR21 — Story 5.1, DP3 Epic 5 = A, validado por Zod `WidgetsEnabledSchema.strict()`). Cardinalidade D29: multi-household user partilha mesmas preferências (edge case adiado como DP futuro). |
 
-**Migration split (Story 2.7 PO_FIX_INLINE 2):** tabela criada em `0007_user_prefs.sql`; as 4 RLS policies vivem em `0001_rls_policies.sql` via DO block condicional `if exists (select 1 from pg_tables where tablename = 'user_prefs')` — `scripts/check-rls-coverage.ts:33` lê apenas `0001` como fonte de verdade do gate NFR5. Pattern espelhado de `agent_rate_limit_counters` (Story 2.6 D17).
+**Migration split (Story 2.7 + Story 5.1):** tabela criada em `0007_user_prefs.sql` (`always_preview`); estendida em `0016_user_prefs_theme_widgets.sql` (`theme` + `widgets_enabled`); as 4 RLS policies vivem em `0001_rls_policies.sql` via DO block condicional `if exists (select 1 from pg_tables where tablename = 'user_prefs')` — `scripts/check-rls-coverage.ts:33` lê apenas `0001` como fonte de verdade do gate NFR5. Pattern espelhado de `agent_rate_limit_counters` (Story 2.6 D17).
 
 **Predicate RLS:** `public.is_household_member(household_id) AND auth.uid() = user_id` — combina cross-tenancy isolation (precedent Story 2.6) com user-scoped constraint específico desta tabela. Owner do household NÃO consegue ler prefs cognitivas de outros membros (não confundir cardinalidade familiar com partilha de UX preferences).
 

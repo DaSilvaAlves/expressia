@@ -459,6 +459,59 @@ export async function insertFeatureFlag(
   return id;
 }
 
+/**
+ * Insere user_prefs para um utilizador (Story 5.1 T4 — PO_FIX_INLINE F2).
+ * Devolve o user_id da row criada (1:1 user — userId é PK).
+ *
+ * Por defeito grava com `theme='dark'` para tornar evidente em testes
+ * que o valor não é o default (`'system'`). Overrides permitem testar
+ * defaults SQL aplicados pela migration 0016.
+ */
+export async function insertUserPrefs(
+  sql: QuerySql,
+  userId: string,
+  householdId: string,
+  overrides: {
+    alwaysPreview?: boolean;
+    theme?: 'light' | 'dark' | 'system';
+    widgetsEnabled?: Record<string, boolean>;
+    useDefaults?: boolean;
+  } = {},
+): Promise<string> {
+  if (overrides.useDefaults) {
+    // INSERT sem valores explícitos para as colunas opcionais —
+    // testa que defaults SQL (always_preview=false, theme='system',
+    // widgets_enabled=JSONB literal) são aplicados pela migration.
+    await sql`
+      insert into public.user_prefs (user_id, household_id)
+      values (${userId}, ${householdId})
+    `;
+    return userId;
+  }
+  const alwaysPreview = overrides.alwaysPreview ?? false;
+  const theme = overrides.theme ?? 'dark';
+  const widgetsEnabled = overrides.widgetsEnabled ?? {
+    briefing: true,
+    tasks_today: true,
+    finance_month: false,
+    recurrences_next: false,
+    tasks_overdue: false,
+    accounts_balance: true,
+    calendar_week: true,
+  };
+  await sql`
+    insert into public.user_prefs (user_id, household_id, always_preview, theme, widgets_enabled)
+    values (
+      ${userId},
+      ${householdId},
+      ${alwaysPreview},
+      ${theme},
+      ${JSON.stringify(widgetsEnabled)}::jsonb
+    )
+  `;
+  return userId;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers admin-only (alguns testes querem a admin connection directamente)
 // ─────────────────────────────────────────────────────────────────────────────

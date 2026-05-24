@@ -8,7 +8,7 @@ import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
  *   2. Validar que o JWT contém `household_id` (mostra-o na UI para inspecção
  *      manual durante o smoke test do runbook supabase-auth-setup.md §6).
  *
- * UX completa de "Visão" (resumo diário do household) é Epic 6.
+ * UX completa de "Visão" (resumo diário do household) é Epic 5 (Stories 5.5-5.7).
  *
  * Trace: Story 1.5 Task 7 (D13), AC2 (rota protegida funcional).
  */
@@ -76,7 +76,7 @@ export default async function VisaoPage() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Esta página é um placeholder Story 1.5. UX completa de Visão é Epic 6.
+        Esta página é um placeholder Story 1.5. UX completa de Visão é Epic 5 (Stories 5.5-5.7).
       </p>
     </div>
   );
