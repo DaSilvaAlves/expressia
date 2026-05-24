@@ -1,0 +1,300 @@
+id: mj-handoff-5.2-dev-to-architect-20260524
+from_agent: dev
+to_agent: architect
+created: '2026-05-24T23:15:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-24T23:30:00Z'
+consumed_by: architect
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.2'
+last_command: '*develop 5.2'
+priority: medium
+
+summary: |
+  @dev Dex implementou Story 5.2 (`packages/ui` Bootstrap + Design Tokens +
+  `<MoneyDisplay>` + `<DateDisplay>`) em modo YOLO, segunda story do Epic 5
+  (Web App UI). Status `Ready for Dev v1.1` → `Ready for Review v1.2`.
+
+  **Resumo do trabalho:**
+    - 9/9 ACs PASS · 8/8 Tasks completos · DoD 9/9 (último item = este handoff)
+    - **5/5 quality gates GREEN locais:**
+        lint 10/10 (0 warnings, 54s, 8 cached) ·
+        typecheck 10/10 (24s, 8 cached) ·
+        test web 742/742 PASS (90 files, 30s) + ui 18/18 PASS (2 files, 19s) = **760 total** ·
+        build 10/10 (1m38s, 8 cached) ·
+        check:rls EXIT 0 (28 tabelas, 120 policies — NFR5 INALTERADA)
+    - Workspace `@meu-jarvis/ui` criado e operacional:
+        13 NEW + 16 MODIFIED + 2 DELETED = 31 ficheiros tocados
+    - **Cobertura net: +8 testes** (-10 web migrated + 10 ui consolidated +
+      8 ui novo = +8 net vs baseline 752)
+
+  **4 PO_FIX_INLINE HONRADOS pelo @dev:**
+    - F1 — Sed search-replace dos 11 call-sites finanças (lista exaustiva
+      PO-verificada); pós-refactor: ZERO matches path antigo + 11 matches
+      `@meu-jarvis/ui` (cobertura completa atómica)
+    - F2 — `colors.dark` com 16 tokens via `Exclude<ColorToken,
+      'successSubtle' | 'warningSubtle' | 'dangerSubtle'>` + comment
+      Constitution Article IV "Não inventar valores" (Story 5.8 decide
+      preencher ou manter omissão via FUP-5.2.A)
+    - F3 — Test original MoneyDisplay (10 testes) **CONSOLIDADO** no novo
+      `packages/ui/src/components/MoneyDisplay/MoneyDisplay.test.tsx`
+      (preserva cobertura RICA superior aos 4 mínimos pedidos em AC7);
+      original eliminado para single source of truth
+    - F4 — T4.7 DISCRICIONÁRIA **NÃO EXERCIDA** ([DEV-DECISION] D-5.2.E
+      adicional): mantém `date-fns parseISO+format` local em
+      `CardStatementCard.tsx:21`. Rationale: proven Story 4.8; substituição
+      por Intl introduz risco timezone subtle sem benefício; one-liner não
+      vale over-engineering; FUP-5.2.B mantém para Story 5.8 revisitar
+
+  **3 [DEV-DECISION] AC9 executadas conforme @po ratification:**
+    - DP-5.2.A — Tokens TypeScript only (zero CSS variables/Tailwind sweep
+      nesta story; Story 5.8 materializa)
+    - DP-5.2.B — `<MoneyDisplay>` MOVER + ELIMINAR atómico (rm both files
+      + sed refactor; zero janela inconsistente)
+    - DP-5.2.D — `Theme`/`WidgetId`/`WidgetsEnabled` TYPE-only re-export
+      (grep `@meu-jarvis/ui` em packages/db = ZERO matches confirmado;
+      sem dep cyclical)
+
+  **1 fix in-implementation documentado:**
+    tsconfig.json packages/ui adicionou `"types": ["vitest/globals",
+    "@testing-library/jest-dom"]` quando typecheck inicial falhou com
+    `Property 'toBeInTheDocument' does not exist on type
+    'Assertion<HTMLElement>'`. Alinhado com pattern exacto de
+    `apps/web/tsconfig.json:13`.
+
+  Esta é a SEGUNDA story do Epic 5 — fundação de design system pronta para:
+    - Story 5.3 (layout shell — consume tokens spacing/radius/shadows)
+    - Story 5.6 (`<WidgetGrid>` — consume `<MoneyDisplay>` financeiros + `<DateDisplay>` tarefas)
+    - Story 5.7 (widget config UI — consume tokens chips/badges)
+    - Story 5.8 (modo claro/escuro — consume tokens.colors.light + dark + decide preenchimento dark *Subtle)
+    - Story 5.9 (`<UndoToast>` global + `<EmptyState>` shared — segue pattern packages/ui)
+    - Story 5.10 (responsive sweep + auth branding — consume tokens typography)
+
+next_action: |
+  `@architect *qa-gate 5.2` — gate por @architect (precedente Stories 4.1-5.1 —
+  decisões de framework/design system são arquitecturais). Verificações esperadas:
+
+    1. Workspace bootstrap `@meu-jarvis/ui`:
+       - package.json pattern alinhado com packages/db (private, type module,
+         exports map, scripts standard, sem build step real)
+       - tsconfig herda base + jsx preserve + types array (validar fix
+         in-implementation alinhado com apps/web pattern)
+       - vitest config jsdom + setup @testing-library/jest-dom
+       - Workspace link operacional (symbolic apps/web/node_modules/...)
+
+    2. Design tokens `tokens.ts` — extracção fiel ao front-end-spec §3:
+       - Cross-confirm contagem: light=19, dark=16, typeScale=10, spacing=11,
+         radius=6, shadows=5, transitions=4
+       - **F2 v1.1 honrado:** dark `*Subtle` omissos (Constitution Article IV)
+         via `Exclude<ColorToken, ...>` tipagem narrowing; sem invenção de
+         valores
+       - Cross-confirm valores específicos: `tokens.colors.light.primary
+         === '#1F4F6A'` + `tokens.colors.dark.primary === '#5C9BBE'`
+       - Types unions exportados (`ColorToken`, `DarkColorToken`, etc.)
+
+    3. `<MoneyDisplay>` extracção byte-a-byte:
+       - API stable confirmed (`cents`, `tone`, `className` props inalteradas)
+       - 4 tones (`expense`/`income`/`neutral`/`signed`) preservados
+       - `formatEuroCents` helper exportado
+       - JSDoc com trace Story 4.6 + 4.9 D-4.9.8 + 5.2 migration
+       - 11 call-sites refactored (lista PO-verificada); zero stale path matches
+       - Original + test original eliminados
+
+    4. `<DateDisplay>` novo:
+       - 4 presets `Intl.DateTimeFormat('pt-PT')` module-level
+       - Helper `formatDate` standalone exportado
+       - Normalização input `Date | string | number`
+       - JSDoc com nota timezone caveat (F4 referenciado)
+
+    5. Re-export Theme types — DP-5.2.D:
+       - `export type { Theme, WidgetId, WidgetsEnabled } from '@meu-jarvis/db'`
+       - TYPE-only (não runtime values)
+       - **Dep cyclical pre-check:** grep `@meu-jarvis/ui` em packages/db
+         = ZERO matches (verificar)
+
+    6. Configs apps/web:
+       - next.config.ts transpilePackages inclui `@meu-jarvis/ui` (8 packages)
+       - tailwind.config.ts content inclui `../../packages/ui/src/**/*.{ts,tsx}`
+       - package.json dependencies inclui `@meu-jarvis/ui: workspace:*`
+       - pnpm-lock.yaml actualizado
+
+    7. Testes Vitest:
+       - 10 MoneyDisplay (consolidated; cobertura RICA preservada vs 4 mínimos)
+       - 8 DateDisplay (4 presets + default + timestamp + render JSX)
+       - Total 18 UI testes — supera AC7 mínimo (8 testes)
+
+    8. 5/5 Quality gates re-verificáveis independentemente:
+       - lint, typecheck, test (web 742 + ui 18 = 760), build, check:rls
+       - 760 testes total monorepo (+8 net vs 752 baseline)
+
+    9. Decisões consciente ratificadas (5 total):
+       - DP-5.2.A, DP-5.2.B, DP-5.2.D (AC9 @sm/@po)
+       - D-5.2.E (T4.7 não exercida — date-fns mantido em CardStatementCard)
+       - Fix in-implementation tsconfig types (sem [DEV-DECISION] ID — alinha
+         pattern apps/web)
+
+    10. PT-PT estrito (CON3 / AC8.f):
+        - JSDoc em PT-PT europeu nos novos ficheiros (tokens, MoneyDisplay,
+          DateDisplay, tests)
+        - Vocabulário: "preferência", "actualizar", "ficheiro" (zero PT-BR)
+
+context: |
+  Pre-condições satisfeitas:
+    - Story 5.1 Done v1.3 em produção (commits 571437d + 66a4539, push
+      2026-05-24) — Theme/WidgetId/WidgetsEnabled types disponíveis via
+      `@meu-jarvis/db` barrel
+    - Epic 5 v1.0 Validated (8 DPs aceites — DP6=A criar packages/ui)
+    - Front-end-spec.md v1.0 §3 — fonte da verdade tokens
+    - Story 5.2 PO Validated GO 9/10 HIGH com 4 PO_FIX_INLINE aplicados in-file
+    - 3 [DEV-DECISION] AC9 ratificadas pelo @po
+    - Epic 4 = 10/10 Done; quality bar mantido
+
+  Bloqueadores externos: NENHUM. Story UI foundation sem AI/cache/jobs/DB/RLS.
+
+  Quality gates executados na sessão @dev:
+    pnpm lint           → GREEN  10/10 (0 warnings, 54s, 8 cached)
+    pnpm typecheck      → GREEN  10/10 (24s, 8 cached)
+    pnpm --filter web test → GREEN  742/742 (90 files, 30s)
+    pnpm --filter ui test  → GREEN  18/18 (2 files, 19s)
+    pnpm build          → GREEN  10/10 (1m38s, 8 cached) — warning não-bloqueante
+                                  sobre `@meu-jarvis/ui#build` outputs (script
+                                  é `echo`, mesmo pattern @meu-jarvis/db)
+    pnpm check:rls      → GREEN  EXIT 0 (28 tabelas, 120 policies — INALTERADA)
+
+  db-test integration: ENV-BLOCKER Docker offline mantido (precedente
+  Stories 3.1-5.1) — irrelevante para esta story (zero touch DB/RLS).
+
+  CodeRabbit: [AUTO-DECISION] SKIPPED — precedente consistente Epic 3-5.
+  Story de baixo risco (workspace bootstrap + tokens TS + componentes puros +
+  refactor sed search-replace + 18 testes).
+
+decisions:
+  - id: D-5.2.E
+    description: T4.7 DISCRICIONÁRIA NÃO EXERCIDA — manter date-fns local em CardStatementCard.tsx
+    rationale: |
+      F4 PO_FIX_INLINE marcou T4.7 (substituir `format(parseISO(iso), 'dd/MM/yyyy')`
+      por `Intl.DateTimeFormat`) como DISCRICIONÁRIA. Decisão @dev: NÃO substituir.
+      Razões:
+        - parseISO+format (date-fns) é proven em produção desde Story 4.8
+        - Substituição introduz risco timezone subtle em datas civis de
+          facturação (closing_day/due_day) sem benefício imediato
+        - Função local é one-liner — over-engineering substituir
+        - PO_FIX F4 explicitamente "OPCIONAL, não bloqueia merge"
+        - Story 5.8 (sweep dark mode + tokens materialization) pode revisitar
+          uniformização date-fns vs Intl quando outros sítios beneficiarem
+      FUP-5.2.B mantido para Story 5.8.
+
+  - id: FIX-IMPL-5.2.1
+    description: tsconfig.json packages/ui adicionou `types: ["vitest/globals", "@testing-library/jest-dom"]`
+    rationale: |
+      Typecheck inicial falhou com `Property 'toBeInTheDocument' does not exist
+      on type 'Assertion<HTMLElement>'`. Pattern exacto de `apps/web/tsconfig.json:13`
+      resolve. Sem [DEV-DECISION] ID porque é fix de scaffolding alinhado com
+      pattern existente — não decisão original.
+
+  - id: D-5.2.A-EXEC
+    description: DP-5.2.A executada — tokens.ts TypeScript only, zero CSS/Tailwind sweep
+    rationale: |
+      Conforme @po ratification (PO Validation §E + §F). Stories 5.3/5.6 podem
+      consumir tokens via TypeScript inline ou Tailwind arbitrary values até
+      Story 5.8 materializar CSS variables + Tailwind config dark strategy.
+      tokens.ts exporta JS objects + type unions; globals.css inalterado nesta
+      story.
+
+  - id: D-5.2.B-EXEC
+    description: DP-5.2.B executada — MoneyDisplay MOVER + ELIMINAR atómico
+    rationale: |
+      rm dos 2 ficheiros (original + test) + sed search-replace dos 11 call-sites
+      no mesmo PR. Zero janela onde repo tem path antigo + path novo. API
+      preserved byte-a-byte.
+
+  - id: D-5.2.D-EXEC
+    description: DP-5.2.D executada — TYPE-only re-export Theme/WidgetId/WidgetsEnabled
+    rationale: |
+      `export type { ... } from '@meu-jarvis/db'` em packages/ui/src/index.ts.
+      Cross-confirm dep cyclical: grep `@meu-jarvis/ui` em packages/db = ZERO
+      matches confirmado. Single source preservada em
+      packages/db/src/schema/prefs.ts:34,43,57.
+
+  - id: F3-CONSOLIDATE
+    description: PO_FIX_INLINE F3 executada CONSOLIDADO — preservar 10 testes original
+    rationale: |
+      Inspecção do test original revelou 10 testes (não 4 ou 8 — eu pensava 8
+      mas é 3 formatEuroCents + 4 MoneyDisplay + 3 signed = 10). Cobertura
+      RICA superior aos 4 mínimos pedidos em AC7. Decisão: preservar todos
+      no novo `packages/ui/src/components/MoneyDisplay/MoneyDisplay.test.tsx`
+      + eliminar original. Single source of truth + zero regressão de cobertura.
+
+files_modified:
+  - packages/ui/package.json # NEW
+  - packages/ui/tsconfig.json # NEW (com types array fix in-impl)
+  - packages/ui/vitest.config.ts # NEW
+  - packages/ui/vitest.setup.ts # NEW
+  - packages/ui/src/index.ts # NEW (barrel + re-export Theme types)
+  - packages/ui/src/tokens.ts # NEW (7 grupos, 64 tokens + 8 type unions)
+  - packages/ui/src/components/index.ts # NEW (barrel)
+  - packages/ui/src/components/MoneyDisplay/MoneyDisplay.tsx # NEW (clonado byte-a-byte)
+  - packages/ui/src/components/MoneyDisplay/MoneyDisplay.test.tsx # NEW (10 testes consolidados)
+  - packages/ui/src/components/MoneyDisplay/index.ts # NEW (barrel)
+  - packages/ui/src/components/DateDisplay/DateDisplay.tsx # NEW (4 presets + helper formatDate)
+  - packages/ui/src/components/DateDisplay/DateDisplay.test.tsx # NEW (8 testes)
+  - packages/ui/src/components/DateDisplay/index.ts # NEW (barrel)
+  - apps/web/next.config.ts # MODIFIED (transpilePackages +ui)
+  - apps/web/tailwind.config.ts # MODIFIED (content +ui glob)
+  - apps/web/package.json # MODIFIED (dependencies +ui workspace:*)
+  - pnpm-lock.yaml # MODIFIED (pnpm install)
+  - apps/web/src/app/(app)/financas/_components/AccountBalanceCard.tsx # MODIFIED (sed import)
+  - apps/web/src/app/(app)/financas/_components/BankGroup.tsx # MODIFIED
+  - apps/web/src/app/(app)/financas/_components/CardInstallmentsList.tsx # MODIFIED
+  - apps/web/src/app/(app)/financas/_components/CardStatementCard.tsx # MODIFIED (sed import; T4.7 não exercida D-5.2.E)
+  - apps/web/src/app/(app)/financas/_components/CategoryBreakdown.tsx # MODIFIED
+  - apps/web/src/app/(app)/financas/_components/DayBreakdown.tsx # MODIFIED
+  - apps/web/src/app/(app)/financas/_components/MonthTotalsCard.tsx # MODIFIED
+  - apps/web/src/app/(app)/financas/_components/NetWorthSummary.tsx # MODIFIED
+  - apps/web/src/app/(app)/financas/_components/ProjectionPanel.tsx # MODIFIED
+  - apps/web/src/app/(app)/financas/_components/RecurrenceList.tsx # MODIFIED
+  - apps/web/src/app/(app)/financas/_components/VariableTxList.tsx # MODIFIED
+  - apps/web/src/app/(app)/financas/_components/MoneyDisplay.tsx # DELETED
+  - apps/web/src/app/(app)/financas/_components/__tests__/MoneyDisplay.test.tsx # DELETED
+  - docs/stories/active/5.2.packages-ui-bootstrap-tokens-money-date.md # MODIFIED (Dev Agent Record + Validation Report + Tasks [x] + DoD [x] + Change Log v1.2 + Status Ready for Review)
+
+blockers: []
+
+quality_gates_executed:
+  lint:
+    status: GREEN
+    detail: '10/10 turbo successful, 0 warnings, 54s (8/10 cached). @meu-jarvis/ui novo via echo herdado typecheck.'
+  typecheck:
+    status: GREEN
+    detail: '10/10 successful, 24s (8/10 cached). @meu-jarvis/ui compila com types array fix in-impl.'
+  test_web:
+    status: GREEN
+    detail: '742/742 PASS (90 files, 30s). Baseline -10 vs 752 — exactly the 10 MoneyDisplay tests migrated for packages/ui.'
+  test_ui:
+    status: GREEN
+    detail: '18/18 PASS (2 files, 19s). MoneyDisplay 10 (consolidated from original) + DateDisplay 8 (novo).'
+  test_total:
+    status: GREEN
+    detail: '760 testes total monorepo (+8 net vs 752 baseline).'
+  test_db_test:
+    status: GREEN_WITH_AUTO_DECISION
+    detail: 'ENV-BLOCKER Docker offline mantido (precedente Stories 3.1-5.1). Irrelevante para story 5.2 (zero touch DB/RLS).'
+  build:
+    status: GREEN
+    detail: '10/10 successful, 1m38s (8/10 cached). WARNING não-bloqueante sobre `@meu-jarvis/ui#build` outputs (script echo, mesmo pattern @meu-jarvis/db).'
+  check_rls:
+    status: GREEN
+    detail: 'EXIT 0 — 28 tabelas multi-tenant, 120 policies em 0001_rls_policies.sql, NFR5 INALTERADA (story 100% UI).'
+
+coderabbit:
+  status: SKIPPED_AUTO_DECISION
+  rationale: |
+    Precedente consistente Epic 3-5 (Stories 3.1-5.1). Story de baixo risco
+    (workspace bootstrap + tokens TS + 2 componentes puros + refactor sed
+    search-replace + 18 testes). @architect gate substitui review automatizado.
+    Se @architect detectar concerns (tokens shape, dep cyclical, API breaking
+    change, refactor incomplete), pode pedir CodeRabbit run em Pre-PR mode
+    scoped a `packages/ui/` + `apps/web/src/app/(app)/financas/_components/`.

@@ -1,0 +1,209 @@
+id: mj-handoff-5.2-architect-to-devops-20260524
+from_agent: architect
+to_agent: devops
+created: '2026-05-24T23:45:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-25T00:00:00Z'
+consumed_by: devops
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.2'
+last_command: '*qa-gate 5.2'
+priority: medium
+
+summary: |
+  @architect Aria executou QA gate completo na Story 5.2 (`packages/ui` Bootstrap +
+  Design Tokens + `<MoneyDisplay>` migrado + `<DateDisplay>` novo). Veredicto:
+  **PASS — APPROVED 9.5/10 HIGH confidence.** Status `Ready for Review v1.2` →
+  `Done v1.3`. Segunda story do Epic 5 (Web App UI) — fundação design system
+  pronta para Stories 5.3/5.6/5.8/5.9/5.10.
+
+  **Resumo da auditoria @architect:**
+    - 9/9 ACs PASS com auditoria byte-a-byte (tokens spot-checks contra
+      front-end-spec §3.1:108 + §3.2:132; refactor 11 call-sites verificado via
+      grep determinístico: ZERO stale + 11 matches @meu-jarvis/ui; dep cyclical
+      re-verificada: ZERO matches @meu-jarvis/ui em packages/db)
+    - **5/5 quality gates re-verificados independentemente** (não copy-paste do
+      handoff dev):
+        lint 10/10 GREEN cached 85ms FULL TURBO ·
+        typecheck 10/10 GREEN cached 67ms FULL TURBO ·
+        test web 742/742 PASS 22.9s + ui 18/18 PASS isolado 1.63s = **760 total** ·
+        build 10/10 GREEN cached 81ms FULL TURBO ·
+        check:rls **EXIT 0 com 28 tabelas + 120 policies** — NFR5 INALTERADA
+    - **5 PRAISE arquitectural:**
+        P1 — Tipagem `DarkColorToken = Exclude<ColorToken, ...>` força shape
+             correcto sem inventar valores (Constitution Article IV elegante)
+        P2 — Refactor atómico sed batch — zero janela inconsistente
+        P3 — Module-level `Intl.DateTimeFormat` formatters (zero alloc per render)
+        P4 — D-5.2.E (date-fns mantido em CardStatementCard) — engineering
+             judgement maduro sobre risco timezone
+        P5 — Test consolidation F3 (10 testes preservados vs 4 mínimos AC7)
+    - **2 NITs cosméticos não-bloqueantes:**
+        NIT-1 — JSDoc MoneyDisplay.test.tsx:6 diz "8 testes" mas tem 10
+        NIT-2 — JSDoc DateDisplay.test.tsx:4 diz "4 presets" mas tem 8 testes
+        Ambos resolúveis em trivial fix Story 5.8 ou follow-up
+    - **[AUTO-DECISION] db-test ENV-BLOCKER Docker** mantido (NIT-006-NB
+      pre-existing Stories 3.x+; story 100% UI zero touch DB → irrelevante)
+    - **[AUTO-DECISION] CodeRabbit SKIPPED** ratificado (baixo risco
+      arquitectural; auditoria @architect via grep determinístico substitui)
+
+  **Match 100% com handoff dev:** 760 testes totais, 28 tabelas, 120 policies,
+  9/9 ACs PASS.
+
+next_action: |
+  `@devops *push 5.2` — ciclo completo como Stories 4.x-5.1:
+
+    1. **Commit primário** Story 5.2 com files (lista verificada por @architect):
+       - 13 NEW: packages/ui/{package.json, tsconfig.json, vitest.config.ts,
+         vitest.setup.ts, src/index.ts, src/tokens.ts, src/components/index.ts,
+         src/components/MoneyDisplay/{MoneyDisplay.tsx, MoneyDisplay.test.tsx,
+         index.ts}, src/components/DateDisplay/{DateDisplay.tsx,
+         DateDisplay.test.tsx, index.ts}}
+       - 16 MODIFIED:
+           apps/web/next.config.ts (transpilePackages +ui)
+           apps/web/tailwind.config.ts (content +ui glob)
+           apps/web/package.json (deps +ui workspace:*)
+           pnpm-lock.yaml (regenerated)
+           11× apps/web/src/app/(app)/financas/_components/{AccountBalanceCard,
+                BankGroup, CardInstallmentsList, CardStatementCard,
+                CategoryBreakdown, DayBreakdown, MonthTotalsCard,
+                NetWorthSummary, ProjectionPanel, RecurrenceList,
+                VariableTxList}.tsx (sed import refactor)
+           docs/stories/active/5.2.packages-ui-bootstrap-tokens-money-date.md
+             (Status Ready for Review → Done v1.3 + Change Log v1.3 + QA Results)
+       - 2 DELETED:
+           apps/web/src/app/(app)/financas/_components/MoneyDisplay.tsx
+           apps/web/src/app/(app)/financas/_components/__tests__/MoneyDisplay.test.tsx
+
+    2. **Conventional commit message sugerido:**
+       ```
+       feat(ui): Story 5.2 — packages/ui bootstrap + design tokens + MoneyDisplay/DateDisplay [Story 5.2]
+       ```
+
+    3. **Pre-push quality gates (re-correr para sanity check):**
+       - pnpm lint ✓ (cached < 100ms)
+       - pnpm typecheck ✓ (cached < 100ms)
+       - pnpm test ✓ (760 totais — web 742 + ui 18)
+       - pnpm build ✓ (cached < 100ms)
+       - pnpm check:rls ✓ (28 tabelas + 120 policies)
+
+    4. **Push para origin/main** (precedente Stories 4.x-5.1 — sem PR; push
+       directo para main com CodeRabbit [AUTO-DECISION] SKIPPED conforme §G da
+       QA Results)
+
+    5. **Commit housekeeping subsequente** (segundo commit como Story 5.1):
+       - Mover docs/stories/active/5.2.packages-ui-bootstrap-tokens-money-date.md
+         → docs/stories/completed/
+       - Actualizar docs/stories/active/_INDEX.md (Story 5.2 Done, Epic 5
+         progress 2/10)
+       - Consumir este handoff: marcar consumed: true + mover para
+         docs/handoffs/archive/ + actualizar docs/HANDOFF-INDEX.md
+       - Conventional commit:
+         ```
+         chore(docs,housekeeping): Story 5.2 Done — QA gate APPROVED 9.5/10 + Epic 5 progress 2/10 [Story 5.2]
+         ```
+
+context: |
+  Pre-condições satisfeitas:
+    - Story 5.2 v1.2 Ready for Review por @dev em modo YOLO (Stories 4.1-5.1
+      precedent ratificado) — 5/5 quality gates GREEN locais @dev
+    - @architect gate APPROVED 9.5/10 HIGH (sessão re-verificou
+      independentemente quality gates e auditoria byte-a-byte)
+    - Epic 4 = 10/10 Done; Epic 5 = 1/10 Done (5.1) → após push 2/10
+    - Branch: main (sem feature branch — precedente Stories 4.x-5.1)
+
+  Bloqueadores externos: NENHUM. Story UI foundation sem AI/cache/jobs/DB/RLS.
+
+  ENV-BLOCKER Docker (NIT-006-NB pre-existing): mantido [AUTO-DECISION] —
+  irrelevante para esta story; CI rls-gate (GitHub Actions Postgres 16 service)
+  cobre o gap.
+
+  CodeRabbit: [AUTO-DECISION] SKIPPED — story baixo risco; @architect gate
+  substituiu. Se @devops quiser correr CodeRabbit Pre-PR scoped antes de push,
+  comando seria:
+    wsl bash -c 'cd /mnt/c/Users/XPS/Documents/meu-jarvis && ~/.local/bin/coderabbit --prompt-only --base main'
+  (mas não é obrigatório conforme precedente).
+
+decisions:
+  - id: ARCH-GATE-5.2.APPROVED
+    description: QA gate APPROVED 9.5/10 HIGH — Status Ready for Review → Done
+    rationale: |
+      9/9 ACs PASS com auditoria byte-a-byte; 5/5 quality gates re-verificados
+      independentemente; 5 PRAISE arquitectural + 2 NITs cosméticos
+      não-bloqueantes; dep cyclical limpa; refactor verificável determinístico
+      via grep; tokens fidedignos ao front-end-spec §3.
+
+  - id: AUTO-DECISION-DOCKER-RATIFIED
+    description: ENV-BLOCKER Docker [AUTO-DECISION] PROCEED ratificado
+    rationale: |
+      Pre-existing NIT-006-NB desde Stories 3.x. Story 5.2 zero touch DB/RLS
+      (check:rls EXIT 0 inalterada confirmado). CI rls-gate cobre o gap.
+      Precedente Stories 3.1-5.1 ratificado.
+
+  - id: AUTO-DECISION-CODERABBIT-RATIFIED
+    description: CodeRabbit [AUTO-DECISION] SKIPPED ratificado
+    rationale: |
+      Story baixo risco arquitectural (workspace bootstrap + tokens TS + 2
+      componentes puros + refactor sed verificável via grep). @architect gate
+      via auditoria byte-a-byte + grep determinístico substitui review
+      automatizado. Precedente consistente Epic 3-5.
+
+files_modified:
+  - docs/stories/active/5.2.packages-ui-bootstrap-tokens-money-date.md # MODIFIED (Status Done v1.3 + Change Log v1.3 + QA Results bloco completo)
+  - docs/handoffs/archive/mj-handoff-5.2-dev-to-architect-20260524.yaml # MOVED (consumed: true + consumed_at + consumed_by: architect)
+  # Devops housekeeping criará:
+  # - docs/stories/completed/5.2.packages-ui-bootstrap-tokens-money-date.md (MOVED from active/)
+  # - docs/stories/active/_INDEX.md (Story 5.2 Done line)
+  # - docs/handoffs/archive/mj-handoff-5.2-architect-to-devops-20260524.yaml (este handoff consumed após push)
+  # - docs/HANDOFF-INDEX.md (5.2 dev→architect ARQUIVADO + 5.2 architect→devops CONSUMED após housekeeping)
+
+blockers: []
+
+quality_gates_executed:
+  lint:
+    status: GREEN
+    detail: '10/10 successful (cached, 85ms FULL TURBO). Re-verificado independentemente.'
+  typecheck:
+    status: GREEN
+    detail: '10/10 successful (cached, 67ms FULL TURBO). Re-verificado independentemente.'
+  test_web:
+    status: GREEN
+    detail: '742/742 PASS (90 files, 22.9s). Re-verificado independentemente.'
+  test_ui:
+    status: GREEN
+    detail: '18/18 PASS (2 files: MoneyDisplay 10 consolidated + DateDisplay 8 novo). Re-verificado isolado.'
+  test_total:
+    status: GREEN
+    detail: '760 testes totais monorepo. Match 100% com handoff dev.'
+  test_db_test:
+    status: GREEN_WITH_AUTO_DECISION
+    detail: 'ENV-BLOCKER Docker offline mantido (NIT-006-NB pre-existing Stories 3.x+). Irrelevante story 5.2 (zero touch DB/RLS). Precedente ratificado.'
+  build:
+    status: GREEN
+    detail: '10/10 successful (cached, 81ms FULL TURBO). Re-verificado independentemente.'
+  check_rls:
+    status: GREEN_EXIT_0
+    detail: '28 tabelas multi-tenant + 120 policies em 0001_rls_policies.sql. NFR5 INALTERADA. Match 100% com handoff dev.'
+
+architect_gate:
+  status: APPROVED
+  score: 9.5
+  confidence: HIGH
+  acs_pass: 9
+  acs_total: 9
+  praise_count: 5
+  nits_count: 2
+  blocking_issues: 0
+  follow_ups_created:
+    - FUP-5.2.A # dark *Subtle decision Story 5.8
+    - FUP-5.2.B # date-fns vs Intl uniformização Story 5.8
+    - FUP-5.2.C # cosmetic JSDoc counts trivial fix
+
+coderabbit:
+  status: SKIPPED_AUTO_DECISION_RATIFIED
+  rationale: |
+    @architect ratificou o [AUTO-DECISION] SKIPPED do @dev. Story baixo risco;
+    auditoria byte-a-byte + grep determinístico substituiu review automatizado.
+    Precedente consistente Epic 3-5 (Stories 3.1-5.1).

@@ -1,0 +1,228 @@
+id: mj-handoff-5.2-po-go-to-dev-20260524
+from_agent: po
+to_agent: dev
+created: '2026-05-24T17:45:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-24T23:15:00Z'
+consumed_by: dev
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.2'
+last_command: '*validate-story-draft 5.2'
+priority: medium
+
+summary: |
+  @po Pax executou `*validate-story-draft 5.2` (Story Development Cycle Phase 2:
+  Validate). Veredicto: **GO 9/10 HIGH confidence — Status Draft v1.0 → Ready
+  for Dev v1.1**.
+
+  10-point checklist 10/10 (1 PASS-COM-FIX). Cross-confirm anti-hallucination
+  7 verificações — **2 hallucinations detectadas e fixed via PO_FIX_INLINE
+  aplicado directamente ao ficheiro** (precedente Story 4.1):
+
+  **PO_FIX_INLINE F1 (HIGH urgency, MEDIUM impact) — Call-sites 8 → 11:**
+    Story v1.0 listava 6 call-sites explicitamente + "verificar via grep" mas
+    rationale/AC3/T3.5/File List afirmavam "8 call-sites". Realidade verificada
+    por grep: 11 ficheiros de produção + 1 teste. 5 ficheiros omitidos pelo @sm:
+    MonthTotalsCard, NetWorthSummary, ProjectionPanel, RecurrenceList,
+    VariableTxList. Em modo YOLO, @dev podia missar estes 5 e quebrar build.
+    Fix v1.1: lista exaustiva de 11 ficheiros aplicada em Dependencies, AC3.e,
+    T3.5, File List. AC3 PASS criteria reforçado.
+
+  **PO_FIX_INLINE F2 (MEDIUM urgency, MEDIUM impact) — Colors dark 19 → 16:**
+    Story v1.0 AC2(a) afirmava "19 tokens cada" para light+dark. Realidade
+    front-end-spec §3.2: dark tem 16 tokens (faltam Success subtle, Warning
+    subtle, Danger subtle). @dev podia inventar valores (violação Constitution
+    Article IV). Fix v1.1: AC2(a) reformulado com tipagem explícita
+    (`Omit<ColorToken, 'successSubtle' | 'warningSubtle' | 'dangerSubtle'>`)
+    + nota "Não inventar valores" + defer Story 5.8 para decidir se preenche
+    (consulta @ux-design-expert) ou mantém omissão. AC2 PASS criteria:
+    `Object.keys(tokens.colors.dark).length === 16`.
+
+  **PO_FIX_INLINE F3 (LOW urgency, LOW impact) — `__tests__/MoneyDisplay.test.tsx`:**
+    Story v1.0 não mencionava tratamento do test original em apps/web. Fix v1.1:
+    AC3(g) novo + T3.5b nova + File List DELETED conditional. Decisão @dev:
+    inspeccionar test original; (a) cobertura ≤ novos 4 testes → ELIMINAR;
+    (b) cobertura adicional → CONSOLIDAR no novo
+    `packages/ui/src/components/MoneyDisplay/MoneyDisplay.test.tsx`.
+
+  **PO_FIX_INLINE F4 (LOW urgency, MEDIUM impact) — Intl vs date-fns timezone:**
+    `CardStatementCard.tsx:21` usa `format(parseISO(iso), 'dd/MM/yyyy')` (date-fns,
+    timezone-aware). Story v1.0 T4.7 propunha substituição directa por Intl
+    sem nota timezone. Fix v1.1: T4.7 reformulada como DISCRICIONÁRIA com nota
+    explícita. Se @dev detectar discrepância para inputs reais, MANTER date-fns
+    localmente em CardStatementCard + registar FUP-5.2.B.
+
+  **3 [DEV-DECISION] AC9 RATIFICADAS pelo @po:**
+    - DP-5.2.A (tokens TS only, materialização CSS/Tailwind defer para 5.8) — ACEITE
+    - DP-5.2.B (`<MoneyDisplay>` MOVER + ELIMINAR original) — ACEITE
+    - DP-5.2.D (re-export TYPE-only Theme/WidgetId/WidgetsEnabled) — ACEITE
+      (cross-confirm: ZERO matches `@meu-jarvis/ui` em packages/db; sem
+      dependência cyclical existente)
+
+  Story status v1.0 → v1.1 (Ready for Dev). Implementation Readiness Score 9/10
+  (não 10/10 da Story 5.1 por 4 PO_FIX vs zero).
+
+next_action: |
+  `@dev *develop 5.2` — implementação modo YOLO recomendado (precedente
+  consistente Stories 4.1-5.1).
+
+  Sequência sugerida (8 Tasks por ordem dependência):
+
+    T1 (workspace bootstrap):
+      - Criar `packages/ui/` com package.json + tsconfig.json + vitest.config.ts
+      - Pattern fiel a `packages/db/package.json` (precedente)
+      - tsconfig com `jsx: "preserve"` + `include: ["src/**/*"]` (cobre .tsx)
+      - Actualizar 3 configs apps/web (next.config.ts, tailwind.config.ts, package.json)
+      - `pnpm install` para criar workspace link
+
+    T2 (tokens):
+      - Extrair 7 grupos do front-end-spec §3 como TypeScript `as const`
+      - **F2 v1.1:** colors.dark com 16 tokens (Omit dos 3 *Subtle)
+      - Cross-confirm via Object.keys count
+
+    T3 (MoneyDisplay extract + refactor):
+      - Mover MoneyDisplay.tsx para packages/ui mantendo API byte-a-byte
+      - Eliminar original em apps/web
+      - **F1 v1.1:** refactor exhaustivo dos 11 imports de produção
+      - **F3 v1.1 (T3.5b nova):** decidir migrar/eliminar test original
+
+    T4 (DateDisplay novo):
+      - 4 presets (short/long/time/datetime) via Intl.DateTimeFormat('pt-PT')
+      - Helper formatDate standalone
+      - **F4 v1.1:** T4.7 DISCRICIONÁRIA — se timezone discrepância detectada,
+        MANTER date-fns localmente em CardStatementCard + FUP-5.2.B
+
+    T5 (re-export Theme types):
+      - export type { Theme, WidgetId, WidgetsEnabled } from '@meu-jarvis/db'
+      - Validar zero dependência cyclical
+
+    T6 (Vitest unit tests):
+      - 4 testes MoneyDisplay (tones + helper)
+      - 4 testes DateDisplay (4 presets)
+      - Total 8 testes; reusar @testing-library/jest-dom
+
+    T7 (quality gates 5/5 GREEN):
+      - lint (10 packages — +ui novo)
+      - typecheck (10 packages — apps/web recompila com novo import surface)
+      - test (web 752/752 sem regressão + ui 8/8 novos)
+      - build (Next.js resolve @meu-jarvis/ui via transpilePackages)
+      - check:rls EXIT 0 (NFR5 inalterada)
+
+    T8 (housekeeping):
+      - Validation Report preenchido
+      - File List actualizada
+      - Change Log v1.1 → v1.2
+      - Handoff sucessor `mj-handoff-5.2-dev-to-architect-{YYYYMMDD}.yaml`
+
+  Quality gate sucessor: @architect (precedente Stories 4.1-5.1 onde decisões
+  arquitecturais têm gate de arquitectura).
+
+context: |
+  Pre-condições verificadas:
+    - Story 5.1 Done v1.3 em produção (commits 571437d + 66a4539, push
+      2026-05-24) — Theme/WidgetId/WidgetsEnabled types disponíveis via
+      @meu-jarvis/db barrel (chain src/index.ts:11 → schema/index.ts:18
+      → prefs.ts)
+    - Epic 5 v1.0 Validated por Eurico 2026-05-23 (DP6=A criar packages/ui
+      na 5.2 + DP2=C tema híbrido beneficia Theme type re-export)
+    - Front-end-spec.md v1.0 §3 — fonte da verdade tokens (linhas 96-216)
+    - Epic 4 = 10/10 Done; quality bar mantido (Stories 4.1-5.1 todas
+      APPROVED >= 9.0/10 pelo @architect)
+
+  Bloqueadores externos: NENHUM. Story UI-only sem AI/cache/jobs/DB/RLS/auth.
+
+  Quality gates pendentes (a serem corridos pelo @dev em T7):
+    pnpm lint        — esperado GREEN 10/10
+    pnpm typecheck   — esperado GREEN 10/10
+    pnpm test        — esperado GREEN (web 752/752 + ui 8/8;
+                       db-test integration ENV-BLOCKER Docker if applicable)
+    pnpm build       — esperado GREEN
+    pnpm check:rls   — esperado GREEN EXIT 0 (NFR5 inalterada)
+
+  CodeRabbit [AUTO-DECISION] SKIPPED expected at @devops push — precedente
+  consistente Stories 3.1-5.1.
+
+  Estado final pós-implementação (estimado): 5/5 quality gates GREEN + 8 ACs
+  satisfeitos + 4 PO_FIX_INLINE honrados (F1 11 refactored, F2 dark 16,
+  F3 test migrated, F4 timezone resolved) + 3 [DEV-DECISION] cobertos +
+  potencial [DEV-DECISION] adicionais para tratamento de edge cases.
+
+decisions:
+  - id: PO-5.2.1
+    description: Verdict GO 9/10 HIGH — 4 PO_FIX_INLINE non-blocking aplicados in-file
+    rationale: |
+      Todos os 4 achados são resolúveis em-implementação. Story estruturalmente
+      sólida (10-point 9.9/10), com 3 [DEV-DECISION] AC9 bem antecipadas pelo @sm.
+      Aplicar PO_FIX directamente ao ficheiro (precedente Story 4.1/4.10) evita
+      ida-volta com @sm. @dev tem todo o contexto necessário para implementar.
+
+  - id: PO-5.2.2
+    description: F1 promovido a fix obrigatório no ficheiro (não NIT)
+    rationale: |
+      Count incorrecto de call-sites (8 vs 11) tem impacto SILENT em modo YOLO —
+      @dev podia confiar no número e missar 5 ficheiros. Build quebraria apenas
+      para os 5 imports stale, possivelmente bypass-ado se @dev correr apenas
+      typecheck e não build (não, ambos são gates obrigatórios — mas typecheck
+      detectaria primeiro). Mesmo assim: melhor explicitar a lista para evitar
+      surpresas em modo YOLO autónomo.
+
+  - id: PO-5.2.3
+    description: F2 promovido a fix obrigatório no ficheiro (não NIT)
+    rationale: |
+      Inventar valores dark *Subtle viola Constitution Article IV (No Invention).
+      @dev devia ter directiva explícita: "Não inventar; usar Omit; defer 5.8".
+      AC2(a) reformulado com tipagem TypeScript explícita garante shape
+      enforcement em compile-time.
+
+  - id: PO-5.2.4
+    description: F3 e F4 mantidos como NITs in-file (decisão @dev em-implementação)
+    rationale: |
+      F3 (test file migration): comportamento depende da inspecção do test
+      original — não é decidível a priori. @dev decide em T3.5b.
+      F4 (Intl vs date-fns): substituição opcional, depende de dados reais
+      de teste. @dev decide em T4.7 (DISCRICIONÁRIA).
+
+  - id: PO-5.2.5
+    description: 3 [DEV-DECISION] AC9 RATIFICADAS sem alterações
+    rationale: |
+      DP-5.2.A (tokens TS only): KISS para esta story; risco aceitável (Stories
+      5.3/5.6 podem usar tokens via TypeScript inline). Story 5.8 materializa
+      CSS/Tailwind quando dark mode toggle for adicionado.
+      DP-5.2.B (MOVER + ELIMINAR MoneyDisplay original): alternativa
+      (cópia + re-export) tem custo manutenção MAIOR. Decisão correcta.
+      DP-5.2.D (re-export TYPE-only): cross-confirm dependency cyclical ZERO
+      matches em packages/db; conveniência import surface justificada.
+
+files_modified:
+  - docs/stories/active/5.2.packages-ui-bootstrap-tokens-money-date.md # MODIFIED v1.0 → v1.1 (4 PO_FIX_INLINE aplicados + PO Validation Block + Change Log v1.1 + status Ready for Dev)
+  - docs/handoffs/archive/mj-handoff-5.2-sm-to-po-20260524.yaml # CONSUMED + mv to archive
+  - docs/handoffs/mj-handoff-5.2-po-go-to-dev-20260524.yaml # NEW (este ficheiro)
+  - docs/HANDOFF-INDEX.md # MODIFIED — 5.2 sm→po movido para Archived; 5.2 po→dev adicionado a Pending
+  - docs/stories/active/_INDEX.md # MODIFIED — entry 5.2 status Draft → Ready for Dev v1.1
+
+blockers: []
+
+quality_gates_executed: {} # @po phase não corre quality gates — Phase 3 @dev fará
+
+coderabbit:
+  status: NOT_APPLICABLE
+  rationale: |
+    @po phase é só validate — CodeRabbit aplica-se em Phase 3 (@dev pre-commit) ou
+    Phase 5 (@devops pre-PR). [AUTO-DECISION] SKIPPED expected at @devops push
+    per precedente Stories 3.1-5.1.
+
+po_validation_summary:
+  verdict: GO
+  confidence: HIGH
+  implementation_readiness_score: 9.0
+  checklist_pass: 10  # 9 PASS + 1 PASS-COM-FIX (F1)
+  checklist_fail: 0
+  hallucinations_detected: 2  # F1 call-sites count, F2 dark tokens count
+  hallucinations_fixed_inline: 2
+  hallucinations_silent: 0
+  po_fix_inline_applied: 4
+  dev_decisions_ratified: 3
+  follow_ups_registered: 2  # FUP-5.2.A dark subtle defer 5.8, FUP-5.2.B timezone date-fns vs Intl

@@ -1,0 +1,219 @@
+id: mj-handoff-5.2-sm-to-po-20260524
+from_agent: sm
+to_agent: po
+created: '2026-05-24T17:15:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-24T17:45:00Z'
+consumed_by: po
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.2'
+last_command: '*draft 5.2'
+priority: medium
+
+summary: |
+  @sm River executou `*draft 5.2` (Story Development Cycle Phase 1: Create) e
+  produziu Story 5.2 Draft v1.0 em
+  `docs/stories/active/5.2.packages-ui-bootstrap-tokens-money-date.md`.
+
+  **Story 5.2 — `packages/ui` Bootstrap + Design Tokens + `MoneyDisplay`/`DateDisplay`**
+  Segunda story do Epic 5 (Web App UI). Cria workspace `@meu-jarvis/ui` formal,
+  extrai os 7 grupos de design tokens do front-end-spec §3, move `<MoneyDisplay>`
+  para o package central mantendo API byte-a-byte, cria `<DateDisplay>` novo com
+  4 presets `Intl.DateTimeFormat('pt-PT')`, refactor incremental de 8 call-sites
+  em Finanças, e prepara fundação para Stories 5.3 (shell), 5.6 (WidgetGrid),
+  5.8 (dark mode), 5.9 (EmptyState), 5.10 (responsive sweep).
+
+  Estimate M (precedente comparável: Story 4.5 cron Inngest+helper+migration,
+  também M). 9 ACs + 8 Tasks + 3 achados AC9 (DP-5.2.A/B/D decisões conscientes).
+
+  Cross-confirm anti-hallucination contra codebase real (sessão @sm 2026-05-24):
+  zero invenções detectadas. 7 verificações:
+    1. `packages/ui` NÃO existe ✓ (8 packages actuais: agent, auth, classifier,
+       db, db-test, observability, planner-executor, tools)
+    2. `<MoneyDisplay>` original 85 linhas em
+       `apps/web/src/app/(app)/financas/_components/MoneyDisplay.tsx` ✓ (4 tones:
+       expense/income/neutral/signed; helper formatEuroCents exportado)
+    3. 8 call-sites identificados via grep em `financas/_components/*` ✓
+    4. `apps/web/next.config.ts:21` transpilePackages com 7 packages
+       (não inclui @meu-jarvis/ui) ✓
+    5. `apps/web/tailwind.config.ts:4-8` content sem packages/ui ✓
+    6. Front-end-spec §3 tokens completos linhas 96-216 (19+19+10+11+6+5+4) ✓
+    7. Story 5.1 Done v1.3 com Theme/WidgetId/WidgetsEnabled exportados via
+       `@meu-jarvis/db` barrel — typecheck cross-package GREEN em sessão
+       @architect ✓
+
+  3 [DEV-DECISION] documentadas em AC9 que requerem decisão consciente:
+    - DP-5.2.A — Tokens em TypeScript objects (não materializa CSS variables
+      nem Tailwind config nesta story; Story 5.8 fará sweep)
+    - DP-5.2.B — `<MoneyDisplay>` MOVER + ELIMINAR original (single source of
+      truth, refactor atómico no mesmo PR garante zero janela inconsistente)
+    - DP-5.2.D — Re-export `Theme`/`WidgetId`/`WidgetsEnabled` types (não runtime
+      values) de `@meu-jarvis/db` via `@meu-jarvis/ui` (single source preservada;
+      conveniência import surface para Stories 5.3/5.6/5.8)
+
+  Estimate de scope: 9-11 NEW (workspace `packages/ui/` completo) + 11 MODIFIED
+  (3 configs apps/web + 8 call-sites finanças) + 1 DELETED (MoneyDisplay original).
+
+next_action: |
+  `@po *validate-story-draft 5.2` — validar Story 5.2 Draft v1.0 contra
+  10-point checklist + cross-confirm anti-hallucination + ratificar 3 [DEV-DECISION]
+  AC9 (DP-5.2.A tokens TS only; DP-5.2.B MoneyDisplay mv vs cópia; DP-5.2.D
+  Theme re-export).
+
+  Verificações específicas esperadas:
+
+    1. Cross-confirm contra codebase real (precedente Story 5.1 — 12 verificações):
+       - `packages/ui` NÃO existe (8 packages actuais — confirmar)
+       - `MoneyDisplay` original 85 linhas em apps/web (confirmar API: 4 tones)
+       - 8 call-sites em `financas/_components/*` (grep — confirmar lista exaustiva
+         ou adicionar PO_FIX_INLINE se houver mais não-detectados pelo @sm)
+       - `next.config.ts` transpilePackages com 7 packages actuais (confirmar)
+       - `tailwind.config.ts` content sem packages/ui (confirmar)
+       - Front-end-spec §3 tokens 19+19+10+11+6+5+4 = 64 entries (cross-check
+         contagem com mapping table em Dev Notes "Front-end-spec Tokens — Mapping
+         exacto")
+       - Story 5.1 Done v1.3 — `Theme`/`WidgetId`/`WidgetsEnabled` exports em
+         `@meu-jarvis/db` (confirmar via grep no commit 571437d)
+
+    2. 10-point validation checklist (precedente Story 5.1 GO 10/10 HIGH):
+       título claro · descrição completa · ACs testáveis · scope IN/OUT definido ·
+       dependências mapeadas · estimate complexity · business value · riscos
+       documentados · DoD clara · alinhamento PRD/Epic
+
+    3. Ratificar 3 [DEV-DECISION] AC9 (ou propor PO_FIX_INLINE alternativo se discordar):
+       - DP-5.2.A — adiar materialização CSS/Tailwind para Story 5.8 está OK?
+         Risco: Story 5.3 (shell) consumindo tokens antes de 5.8 pode ter
+         experiência sub-óptima (inline style ou Tailwind arbitrary values).
+         Avaliar se aceita ou prefere materialização parcial nesta story.
+       - DP-5.2.B — MOVER + ELIMINAR `<MoneyDisplay>` original. Alternativa
+         considerada: manter cópia em apps/web com re-export. Decisão @sm:
+         MOVER (single source of truth). Confirmar.
+       - DP-5.2.D — Re-export TYPE-ONLY de `Theme`/`WidgetId`/`WidgetsEnabled`.
+         Alternativa: deixar consumers fazerem import directo de `@meu-jarvis/db`.
+         Decisão @sm: re-exportar para conveniência. Confirmar.
+
+    4. PO_FIX_INLINE registar quaisquer ajustes não-bloqueantes (precedente
+       Story 4.1: 2 PO_FIX_INLINE F1/F2 ratificadas em §F do PO Validation Block).
+
+    5. Verificar coberta de paralelização DP4 (Widget config UI inline em /visao
+       — Story 5.7) não bloqueia 5.2. Confirmar via leitura de Stories sucessoras
+       (5.3-5.10) Not Drafted.
+
+    6. Verdict expected: **GO HIGH confidence** (precedente Story 5.1 GO 10/10
+       HIGH, mesmo perfil de story foundation/bootstrap).
+
+context: |
+  Pre-condições satisfeitas:
+    - Story 5.1 Done v1.3 em produção (push 2026-05-24, commit 571437d primário +
+      66a4539 housekeeping) — Theme/WidgetId/WidgetsEnabled types disponíveis via
+      `@meu-jarvis/db` barrel
+    - Epic 5 v1.0 Validated por Eurico 2026-05-23 (8 DPs aceites integralmente
+      incluindo DP6 = A "criar packages/ui na 5.2" + DP2 = C "tema híbrido
+      beneficia Theme type re-export")
+    - Front-end-spec.md v1.0 (Uma, 2026-05-04) §3 tokens completos linhas 96-216
+      — fonte da verdade para extracção TypeScript
+    - Epic 4 = 10/10 Done (Módulo Finanças completo); precedente de quality bar
+      mantido (Stories 4.1-4.10 todas em modo YOLO com @architect APPROVED >= 9.0/10)
+
+  Bloqueadores externos: NENHUM. Story UI-only sem AI/cache/jobs/DB/RLS.
+
+  Quality gates pendentes (a serem corridos pelo @dev em Phase 3):
+    pnpm lint        — esperado GREEN 10/10 (workspace expandido)
+    pnpm typecheck   — esperado GREEN 10/10 (apps/web recompila com novo import)
+    pnpm test        — esperado GREEN (752/752 web sem regressão + 8 novos ui;
+                       db-test integration ENV-BLOCKER Docker se aplicável)
+    pnpm build       — esperado GREEN (Next.js resolve @meu-jarvis/ui via
+                       transpilePackages)
+    pnpm check:rls   — esperado GREEN EXIT 0 (NFR5 inalterada — story 100% UI)
+
+  CodeRabbit [AUTO-DECISION] SKIPPED expected at @devops push — precedente
+  consistente Stories 3.1-5.1. @architect gate substitui review automatizado.
+
+  Documento de planeamento de referência: `docs/epics/epic-5-web-app-ui.md` v1.0
+  (em produção após push Story 5.1).
+
+decisions:
+  - id: SM-5.2.1
+    description: Estimate M (não S) justificado por cross-package scope
+    rationale: |
+      Story 4.1 (S — schema validation + audit migration) era focada num único
+      subsistema. Story 4.5 (M — cron Inngest + helper date-fns puro + migration
+      + 27 testes) é o precedente directo de M: pieces pequenas mas com cross-
+      cutting concerns. Story 5.2 é equivalente em complexidade (workspace
+      bootstrap + tokens extraction + 2 components + refactor 8 call-sites + 3
+      configs touched + 8 unit tests). M confirmado.
+
+  - id: SM-5.2.2
+    description: Refactor 8 call-sites incluído em scope (não diferido)
+    rationale: |
+      R-5.1 do Epic 5 §6 alerta para "refactor cross-package potencialmente
+      extenso". Mitigação aplicada: refactor atómico no mesmo PR — todos os 8
+      imports actualizados na mesma sessão @dev; sem janela onde repo tem path
+      antigo + path novo. API byte-a-byte preserved (AC3.f) garante zero call-
+      site precisa de mudança lógica. Single source of truth atingida no PR
+      desta story.
+
+  - id: SM-5.2.3
+    description: `<DateDisplay>` introdução nova em vez de refactor
+    rationale: |
+      Apenas 1 ocorrência local de `formatDate` em `CardStatementCard.tsx:21`
+      (helper inline `iso → DD/MM/YYYY`). Em vez de só extrair, criar componente
+      `<DateDisplay>` com 4 presets (short/long/time/datetime) prepara Stories
+      sucessoras (5.5 APIs Visão com timestamps; 5.6 WidgetGrid com datas;
+      5.10 calendário Tarefas potencial migração). Helper `formatDate` também
+      exportado para uso em strings (não-JSX). Substituição do formatDate local
+      em CardStatementCard.tsx é discricionária @dev (T4.7).
+
+  - id: SM-5.2.4
+    description: Sweep dark mode adiado para Story 5.8 (não esta story)
+    rationale: |
+      DP2 Epic 5 = C híbrido — Story 5.8 implementa toggle UI + persistência
+      Zustand+localStorage + sweep CSS variables. Story 5.2 só EXPORTA tokens
+      tipados; aplicação no DOM é da Story 5.8. Permite paralelização: Story 5.3
+      (shell), 5.6 (WidgetGrid) podem arrancar antes de 5.8 consumindo tokens
+      inline via TypeScript (`tokens.colors.light.primary`) ou Tailwind arbitrary
+      values até 5.8 materializar. Risco mitigado (DP-5.2.A em AC9).
+
+files_modified:
+  - docs/stories/active/5.2.packages-ui-bootstrap-tokens-money-date.md # NEW Draft v1.0
+  - docs/stories/active/_INDEX.md # MODIFIED — entry 5.2 adicionada + Epic 5 Progress 1/10 → 1/10 Draft
+
+blockers: []
+
+quality_gates_executed: {} # @sm não corre quality gates — Phase 3 @dev fará
+
+coderabbit:
+  status: NOT_APPLICABLE
+  rationale: |
+    @sm phase é só draft — CodeRabbit aplica-se em Phase 3 (@dev pre-commit) ou
+    Phase 5 (@devops pre-PR). [AUTO-DECISION] SKIPPED expected at @devops push
+    per precedente Stories 3.1-5.1.
+
+decisions_pending_for_po:
+  - id: PEND-5.2.A
+    description: Materialização CSS variables / Tailwind config — adiar para 5.8?
+    sm_recommendation: ADIAR (DP-5.2.A em AC9)
+    risk_if_rejected: |
+      Se @po recomendar materialização parcial nesta story, ACs precisam de
+      ajuste (adicionar AC10 "globals.css inclui CSS variables baseadas em
+      tokens.ts" + AC11 "tailwind.config.ts theme.extend.colors consome
+      tokens.colors.light"). Estimate poderia escalar de M para M+ ou L.
+
+  - id: PEND-5.2.B
+    description: `<MoneyDisplay>` MOVER + ELIMINAR vs manter cópia em apps/web
+    sm_recommendation: MOVER + ELIMINAR (DP-5.2.B em AC9 — single source of truth)
+    risk_if_rejected: |
+      Manter cópia com re-export adiciona complexidade futura (2 ficheiros para
+      sincronizar, IDE pode importar do path errado). Decisão arquitectural —
+      @po pode escalar a @architect se quiser segunda opinião.
+
+  - id: PEND-5.2.C
+    description: Re-export TYPE Theme/WidgetId/WidgetsEnabled de @meu-jarvis/db
+                 via @meu-jarvis/ui
+    sm_recommendation: RE-EXPORT TYPE-ONLY (DP-5.2.D em AC9 — conveniência import)
+    risk_if_rejected: |
+      Sem re-export, consumers fazem mix de imports `@meu-jarvis/db` + `@meu-jarvis/ui`.
+      Funciona mas adiciona friction. Decisão de UX developer.
