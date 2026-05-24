@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import type { AccountBalance, AccountType } from '@/lib/finance/account-balances';
 
-import { MoneyDisplay } from '@/app/(app)/financas/_components/MoneyDisplay';
+import { MoneyDisplay } from '@meu-jarvis/ui';
 
 /**
  * `<AccountBalanceCard>` — cartão por conta na vista Património

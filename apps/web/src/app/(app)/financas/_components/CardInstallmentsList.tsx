@@ -1,6 +1,6 @@
 import type { CardInstallment } from '@/lib/finance/list-card-statements';
 
-import { MoneyDisplay } from '@/app/(app)/financas/_components/MoneyDisplay';
+import { MoneyDisplay } from '@meu-jarvis/ui';
 
 /**
  * `<CardInstallmentsList>` — compras parceladas associadas a um cartão

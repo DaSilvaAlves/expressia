@@ -1,6 +1,6 @@
 import type { CategoryBreakdownRow } from '@/lib/finance/month-summary';
 
-import { MoneyDisplay } from '@/app/(app)/financas/_components/MoneyDisplay';
+import { MoneyDisplay } from '@meu-jarvis/ui';
 
 /**
  * `<CategoryBreakdown>` — divisão das transacções do mês por categoria

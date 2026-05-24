@@ -4,7 +4,7 @@ import { format, parseISO } from 'date-fns';
 import type { VariableTxRow } from '@/lib/finance/list-variable-transactions';
 
 import { DeleteRowButton } from '@/app/(app)/financas/_components/DeleteRowButton';
-import { MoneyDisplay } from '@/app/(app)/financas/_components/MoneyDisplay';
+import { MoneyDisplay } from '@meu-jarvis/ui';
 
 /**
  * `<VariableTxList>` — lista de transacções variáveis (Story 4.7 AC3).

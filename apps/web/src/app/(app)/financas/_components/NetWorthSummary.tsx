@@ -1,4 +1,4 @@
-import { MoneyDisplay } from '@/app/(app)/financas/_components/MoneyDisplay';
+import { MoneyDisplay } from '@meu-jarvis/ui';
 
 /**
  * `<NetWorthSummary>` — cartão de destaque com o património total e o número

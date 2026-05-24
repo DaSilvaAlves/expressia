@@ -3,7 +3,7 @@ import { format, parseISO } from 'date-fns';
 import type { CardStatementData } from '@/lib/finance/list-card-statements';
 
 import { CardInstallmentsList } from '@/app/(app)/financas/_components/CardInstallmentsList';
-import { MoneyDisplay } from '@/app/(app)/financas/_components/MoneyDisplay';
+import { MoneyDisplay } from '@meu-jarvis/ui';
 
 /**
  * `<CardStatementCard>` — cartão de Finanças com a fatura corrente e a

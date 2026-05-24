@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
     // está preservado pela default behaviour do Next 15.
   },
   // Permitir importar dos workspace packages sem transpile boilerplate.
-  transpilePackages: ['@meu-jarvis/db', '@meu-jarvis/auth', '@meu-jarvis/observability', '@meu-jarvis/agent', '@meu-jarvis/tools', '@meu-jarvis/classifier', '@meu-jarvis/planner-executor'],
+  transpilePackages: ['@meu-jarvis/db', '@meu-jarvis/auth', '@meu-jarvis/observability', '@meu-jarvis/agent', '@meu-jarvis/tools', '@meu-jarvis/classifier', '@meu-jarvis/planner-executor', '@meu-jarvis/ui'],
   // i18n PT-PT: desactivado o sistema legacy do Next; usaremos middleware/route segments quando aplicável.
 };
 

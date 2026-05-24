@@ -3,7 +3,7 @@ import { pt } from 'date-fns/locale';
 
 import type { MonthProjection } from '@/lib/finance/month-projection';
 
-import { MoneyDisplay } from '@/app/(app)/financas/_components/MoneyDisplay';
+import { MoneyDisplay } from '@meu-jarvis/ui';
 
 /**
  * `<ProjectionPanel>` — projecção dos próximos 30 dias (Story 4.6 AC4, AC6).

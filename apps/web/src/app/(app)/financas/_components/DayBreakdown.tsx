@@ -3,7 +3,7 @@ import { pt } from 'date-fns/locale';
 
 import type { DayBreakdownRow } from '@/lib/finance/month-summary';
 
-import { MoneyDisplay } from '@/app/(app)/financas/_components/MoneyDisplay';
+import { MoneyDisplay } from '@meu-jarvis/ui';
 
 /**
  * `<DayBreakdown>` — movimento dia-a-dia do mês (Story 4.6 AC6).

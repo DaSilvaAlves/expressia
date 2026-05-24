@@ -1,14 +1,18 @@
 /**
- * Tests — `<MoneyDisplay>` + `formatEuroCents` (Story 4.6 AC9, AC2).
+ * Tests — `<MoneyDisplay>` + `formatEuroCents`.
+ *
+ * Origem: Story 4.6 AC9, AC2 (em `apps/web/.../__tests__/MoneyDisplay.test.tsx`).
+ * Consolidado em Story 5.2 AC7 + PO_FIX_INLINE F3 v1.1 — **preservar 8 testes
+ * do original** (cobertura mais rica que os 4 mínimos pedidos em AC7).
  *
  * Formatação PT-PT: símbolo `€` à esquerda, vírgula decimal (D-4.6.9).
  * Os casos sem milhares (`€123,45`, `€0,00`) evitam ambiguidade do separador
  * de grupo entre versões de ICU.
  */
-import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 
-import { MoneyDisplay, formatEuroCents } from '@/app/(app)/financas/_components/MoneyDisplay';
+import { MoneyDisplay, formatEuroCents } from './MoneyDisplay';
 
 describe('formatEuroCents', () => {
   it('formata cêntimos como €X,XX PT-PT', () => {

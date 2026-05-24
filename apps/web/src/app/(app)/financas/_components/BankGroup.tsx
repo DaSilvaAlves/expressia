@@ -5,7 +5,7 @@ import { useState } from 'react';
 import type { BankGroupBalance } from '@/lib/finance/account-balances';
 
 import { AccountBalanceCard } from '@/app/(app)/financas/_components/AccountBalanceCard';
-import { MoneyDisplay } from '@/app/(app)/financas/_components/MoneyDisplay';
+import { MoneyDisplay } from '@meu-jarvis/ui';
 
 /**
  * `<BankGroup>` — grupo colapsável de contas de um banco

@@ -1,6 +1,6 @@
 import type { MonthSummary } from '@/lib/finance/month-summary';
 
-import { MoneyDisplay } from '@/app/(app)/financas/_components/MoneyDisplay';
+import { MoneyDisplay } from '@meu-jarvis/ui';
 
 /**
  * `<MonthTotalsCard>` — cartão com os 3 totais do mês: entrou / saiu / saldo

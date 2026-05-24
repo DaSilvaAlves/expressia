@@ -3,7 +3,7 @@ import { format, parseISO } from 'date-fns';
 import type { RecurrenceListRow } from '@/lib/finance/list-recurrences';
 
 import { DeleteRowButton } from '@/app/(app)/financas/_components/DeleteRowButton';
-import { MoneyDisplay } from '@/app/(app)/financas/_components/MoneyDisplay';
+import { MoneyDisplay } from '@meu-jarvis/ui';
 import { frequencyLabel } from '@/app/(app)/financas/_components/RecurrenceFrequencyLabel';
 
 /**

@@ -1,9 +1,15 @@
 /**
- * `<MoneyDisplay>` — formatação monetária PT-PT centralizada (Story 4.6 AC2,
- * D-4.6.1, D-4.6.9).
+ * `<MoneyDisplay>` — formatação monetária PT-PT centralizada.
  *
- * Ponto ÚNICO de formatação de valores em euros nas vistas de Finanças
- * (reutilizado por 4.6-4.9). Nunca formatar moeda inline (CON3/CON9).
+ * **Origem:** Story 4.6 AC2, D-4.6.1, D-4.6.9 (criado em
+ * `apps/web/src/app/(app)/financas/_components/MoneyDisplay.tsx`).
+ * **Extensão:** Story 4.9 D-4.9.8 (tone `signed` para saldos com sinal real).
+ * **Migração para `@meu-jarvis/ui`:** Story 5.2 AC3 (DP-5.2.B — single source
+ * of truth; refactor atómico dos 11 call-sites de produção no mesmo PR).
+ *
+ * Ponto ÚNICO de formatação de valores em euros em todo o monorepo
+ * (consumido por vistas Finanças 4.6-4.9 e futuras Stories 5.5/5.6 dos
+ * widgets financeiros). Nunca formatar moeda inline (CON3/CON9).
  *
  * D-4.6.9 — porquê não `Intl.NumberFormat` com `style: 'currency'`: o estilo
  * `currency` em `pt-PT` emite o símbolo à direita (`1.234,56 €`), o que
@@ -21,6 +27,7 @@
  * `cents >= 0` — nunca `+`) e a cor é vermelha quando negativo, neutra
  * quando >= 0. Os tones existentes (`expense`/`income`/`neutral`) NÃO mudam.
  */
+import type * as React from 'react';
 
 /** Formatador de magnitude — separadores PT-PT (`,` decimal). */
 const numberFormatter = new Intl.NumberFormat('pt-PT', {
