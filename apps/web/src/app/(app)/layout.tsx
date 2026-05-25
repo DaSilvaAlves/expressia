@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 
-import { logoutAction } from '@/app/(app)/logout-action';
+import { AppShell } from '@/components/shell/AppShell';
 
 export const metadata: Metadata = {
   title: 'Expressia',
@@ -10,50 +9,22 @@ export const metadata: Metadata = {
 /**
  * Layout do route group `(app)/` — rotas autenticadas.
  *
- * O auth gate é feito no middleware (`apps/web/src/middleware.ts`) — se a
- * sessão for inválida, o utilizador é redireccionado para `/entrar` ANTES
- * de este layout renderizar. Logo, podemos assumir aqui que o user existe.
+ * Story 5.3 substitui o placeholder Story 1.5 (header horizontal de 59 linhas)
+ * pelo `<AppShell>` 3-zonas (sidebar fixa 240px + main + chat panel slot).
+ * O layout fica fino — apenas declara `metadata` + delega ao `AppShell` que
+ * orquestra Sidebar, TopBar (com avatar + logoutAction), main e ChatPanelSlot.
  *
- * Trace: Story 1.5 Task 7 (D13), Architecture §8.1 (route group app).
+ * Contracts preservados:
+ *   - `export default AppLayout({ children })` (Next.js App Router exige)
+ *   - `export const metadata` byte-a-byte
+ *   - Server Component (sem `'use client'`)
+ *   - `logoutAction` Server Action invocada via `<form action={logoutAction}>`
+ *     dentro do `TopBar` (Story 1.5 D15 inalterado)
+ *   - `apps/web/src/middleware.ts` NÃO tocado (auth gate intacto;
+ *     DP-5.3.E carry-over folded em Story 5.10)
+ *
+ * Trace: Story 5.3 AC1; Story 1.5 Task 7 (D13/D15); Architecture §8.1.
  */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b border-black/10 dark:border-white/10">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-6">
-            <Link href="/visao" className="text-lg font-semibold">
-              Expressia
-            </Link>
-            <nav className="flex items-center gap-4 text-sm">
-              <Link href="/visao" className="hover:underline">
-                Visão
-              </Link>
-              <Link href="/jarvis" className="hover:underline">
-                Jarvis
-              </Link>
-              <Link href="/tarefas" className="hover:underline">
-                Tarefas
-              </Link>
-              <Link href="/financas/este-mes" className="hover:underline">
-                Finanças
-              </Link>
-              <Link href="/conta/preferencias" className="hover:underline">
-                Conta
-              </Link>
-            </nav>
-          </div>
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              className="rounded-md border border-black/15 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:border-white/15 dark:hover:bg-neutral-800"
-            >
-              Sair
-            </button>
-          </form>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>
-    </div>
-  );
+  return <AppShell>{children}</AppShell>;
 }
