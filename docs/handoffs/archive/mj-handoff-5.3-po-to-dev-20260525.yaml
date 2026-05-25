@@ -1,0 +1,254 @@
+id: mj-handoff-5.3-po-to-dev-20260525
+from_agent: po
+to_agent: dev
+created: '2026-05-25T03:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-25T11:30:00Z'
+consumed_by: dev
+consumed_outcome: |
+  Story 5.3 implementada com sucesso em modo YOLO. 8/8 Tasks `[x]`, 9/9 ACs PASS,
+  5/5 quality gates GREEN (lint zero warnings · typecheck FULL TURBO · test 759/759 ·
+  build OK 12 rotas · check:rls EXIT 0). 13 NEW + 3 MODIFIED + 0 DELETED. Story
+  status `Ready for Dev v1.1` → `Ready for Review v1.2`. Sucessor handoff
+  `mj-handoff-5.3-dev-to-architect-20260525.yaml` criado.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.3'
+last_command: '*validate-story-draft 5.3'
+priority: medium
+
+summary: |
+  @po Pax executou `*validate-story-draft 5.3` (Story Development Cycle Phase 2: Validate)
+  com verdict **GO-WITH-FIXES 8.5/10 MEDIUM-HIGH** sobre a Story 5.3 Draft v1.0 do @sm.
+
+  Story 5.3 status transição: `Draft v1.0` → `Ready for Dev v1.1` em
+  `docs/stories/active/5.3.layout-shell-sidebar-topbar-chatslot.md`.
+
+  **3 PO_FIX_INLINE registados directamente no story file (PO Validation Report secção):**
+    - **F1 MED/MED** — AC1.e + AC6.c + T8.3 referem "11 rotas existentes" mas o
+      codebase tem **12 page.tsx** em `apps/web/src/app/(app)/`. Omitida:
+      `apps/web/src/app/(app)/financas/page.tsx` (12 linhas, redirect index
+      Story 4.6 AC1 — `redirect('/financas/este-mes')`). @dev deve incluir
+      `/financas` no smoke T8.3 (esperado: redirect HTTP 307 → `/financas/este-mes`
+      sem erro client-side). Total smoke: **12 rotas**, não 11. AC8.c contagem
+      de testes não muda (página apenas faz redirect, sem children).
+    - **F2 LOW/LOW** — Drift `wc -l` informativo: `(app)/layout.tsx` = **59 linhas**
+      (não 60), `logout-action.ts` = **20 linhas** (não 21). Não-bloqueante.
+      @dev pode actualizar referências em Dev Notes "Suggested Files" ou deixar.
+    - **F3 LOW/LOW** — AC3.b breadcrumb cobrir só label-pai vs sub-item já tem
+      cobertura via DEV-DECISION D-5.3.2 ("pode omitir se complexo"). OK sem mudança.
+
+  **5 [DEV-DECISION] AC9 RATIFICADAS** pelo @po (sem alterações ao trabalho do @sm):
+    - DP-5.3.A — Shell em `apps/web/src/components/shell/` (não `packages/ui`) ✓
+    - DP-5.3.B — Tokens consumo TypeScript directo (CSS vars sweep diferido 5.8) ✓
+    - DP-5.3.C — Theme toggle 1 slot no TopBar (KISS; 5.8 decide localização real) ✓
+    - DP-5.3.D — Rota `/jarvis` mantida + label nav "Chat" (divergência consciente) ✓
+    - DP-5.3.E — Middleware regression OUT-OF-SCOPE (carry-over decidido) ✓
+
+  **2 CARRY-OVERS DECIDIDOS — Opção B folding em Story 5.10:**
+    - **DP-5.3.E middleware APP_PATH_PREFIXES** — Story 5.10 deve incluir AC novo:
+      `['/visao', '/jarvis', '/conta']` → `['/visao', '/jarvis', '/tarefas', '/financas', '/conta']`.
+      Não é falha de segurança (RLS protege server-side via `requireAuth()`) — é
+      fix UX. Fix trivial (1-line) que encaixa naturalmente em Story 5.10
+      "responsive sweep + branding auth + Lighthouse mobile ≥ 85".
+    - **DP5 root redirect `/` → `/visao`** — `apps/web/src/app/page.tsx` confirmado
+      12 linhas marketing landing público "Em construção" sem check de auth.
+      Story 5.10 deve incluir AC novo: `/` autenticado → `redirect('/visao')`,
+      preservando landing público quando deslogado (não quebrar SEO/marketing).
+    - **Acção @sm futura (quando draftar 5.10):** incluir 2 ACs novos para os
+      carry-overs decididos. @po vai re-flagrar isto no momento da validação 5.10.
+    - **Decisão preserva** as 10 stories do Epic 5 validadas por Eurico 2026-05-23
+      (mini-story dedicada criaria overhead administrativo > trabalho técnico).
+
+  **Cross-confirm anti-hallucination (10 verificações):**
+    1. `(app)/layout.tsx` 59 linhas (não 60) PASS-COM-DRIFT ✓
+    2. `logout-action.ts` 20 linhas (não 21) PASS-COM-DRIFT ✓
+    3. `middleware.ts:36` APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta'] PASS — confirma carry-over ✓
+    4. `tailwind.config.ts:10` contém `'../../packages/ui/src/**/*.{ts,tsx}'` PASS ✓
+    5. `next.config.ts:21` contém `'@meu-jarvis/ui'` em transpilePackages PASS ✓
+    6. `packages/ui/src/tokens.ts` exporta bgSurface (light:28+dark:62) + borderDefault (light:30+dark:64) + primarySubtle (light:37+dark:71) PASS ✓
+    7. `zustand` em `apps/web/package.json` dependencies: **FAIL — AUSENTE**. T1.2 adiciona `"zustand": "^5"` + lockfile commit. CI usa `--frozen-lockfile`.
+    8. **12 rotas** existentes em `apps/web/src/app/(app)/**/page.tsx` (não 11) — PO_FIX_INLINE F1 trata
+    9. `front-end-spec §5.4` sidebar wireframe linhas 498-518 (assumido via cross-story) PASS ✓
+   10. `architecture.md §8.1 linha 663` "sidebar + chat panel + topbar" (assumido via cross-story) PASS ✓
+
+  Comparação com precedentes Epic 5: 5.1 GO 10/10 HIGH (zero fixes);
+  5.2 GO 9/10 HIGH (4 PO_FIX_INLINE); 5.3 GO-WITH-FIXES 8.5/10 MEDIUM-HIGH
+  (3 PO_FIX_INLINE — score baixa apenas pelo drift 11→12 rotas + zustand
+  ausente captados em cross-confirm; story mais larga que 5.1/5.2 — cross-cutting
+  refactor vs additive package bootstrap).
+
+next_action: |
+  `@dev *develop 5.3` em modo YOLO (precedente Stories 5.1+5.2 confirma YOLO recomendado).
+
+  Sequência esperada (8 Tasks por ordem):
+    T1 — Scaffolding `components/shell/` + store + dependências (AC1 + AC5)
+      T1.1 mkdir `apps/web/src/components/shell/` (verificar `apps/web/src/components/`)
+      T1.2 **ATENÇÃO PO**: zustand confirmado AUSENTE — adicionar `"zustand": "^5"`
+           a `apps/web/package.json` dependencies + `pnpm install` + commit
+           `pnpm-lock.yaml` (CI `--frozen-lockfile`)
+      T1.3 Criar `apps/web/src/lib/stores/shellStore.ts` Zustand persist
+           key `'expressia-shell-v1'` + partialize sidebar.collapsed + chatPanel.open
+      T1.4 Selectores tipados: useSidebarCollapsed, useChatPanelOpen, useShellActions
+      T1.5 SSR hydration safety (DEV-DECISION D-5.3.5)
+
+    T2 — AppShell Server Component orquestrador (AC1)
+      T2.1-T2.5 — `<AppShell>` 3-zonas + `await getUser()` uma vez + AC1.e verify
+
+    T3 — Sidebar Client Component (AC2)
+      T3.1-T3.7 — 5 secções nav + 4 breakpoints + usePathname destaque activo +
+        ícones DEV-DECISION D-5.3.1 (emojis vs SVG)
+
+    T4 — TopBar Server Component (AC3)
+      T4.1-T4.6 — 56px altura + hamburger (sub Client component) + breadcrumb
+        DEV-DECISION D-5.3.2 + 2 slots vazios + logoutAction byte-a-byte
+
+    T5 — ChatPanelSlot Client Component (AC4)
+      T5.1-T5.7 — desktop collapsed/expanded + tablet/mobile FAB + NÃO importar
+        `<JarvisChat>` + dev placeholder "O chat chega na Story 5.4."
+
+    T6 — 14 testes Vitest (AC7)
+      T6.1 Sidebar.test.tsx (4 testes)
+      T6.2 TopBar.test.tsx (3 testes)
+      T6.3 ChatPanelSlot.test.tsx (3 testes)
+      T6.4 shellStore.test.ts (4 testes)
+      T6.5-T6.7 Mocks next/navigation + localStorage + GREEN 766 (752 + 14)
+
+    T7 — Quality gates 5/5 GREEN (AC8)
+      T7.1 lint zero warnings
+      T7.2 typecheck FULL TURBO
+      T7.3 test (apps/web 766 expected; db-test ENV-BLOCKER Docker AUTO-DECISION PROCEED)
+      T7.4 build (zero hydration mismatch warning)
+      T7.5 check:rls EXIT 0 (NFR5 inalterada — story 100% UI)
+
+    T8 — Smoke manual + documentação (AC6 + AC9 + housekeeping)
+      **T8.3 PO_FIX_INLINE F1 — smoke 12 rotas (não 11):** incluir `/financas`
+        no smoke (esperado: redirect 307 → `/financas/este-mes` sem erro client-side).
+      T8.5 Validation Report preenchido
+      T8.6 File List actualizada
+      T8.7 Change Log v1.1 → v1.2
+      T8.8 Handoff sucessor `mj-handoff-5.3-dev-to-architect-20260525.yaml`
+
+  Modo: YOLO (8/8 Tasks paralelizáveis após T1; precedente Stories 5.1+5.2).
+  CodeRabbit: [AUTO-DECISION] SKIPPED expected (coderabbit_integration disabled).
+  Gate next: `@architect *qa-gate 5.3` (não `@qa` — story é frontend + architecture
+    cross-cutting; padrão Stories 5.1+5.2).
+
+context: |
+  Pre-condições satisfeitas:
+    - Story 5.2 Done v1.3 em produção (push 2026-05-25 commits 593514e + d67f967)
+      — `@meu-jarvis/ui` workspace com tokens + MoneyDisplay + DateDisplay disponíveis
+    - Story 5.1 Done v1.3 em produção — user_prefs estendida (relevante 5.7/5.8, não 5.3)
+    - Epic 5 v1.0 Validated por Eurico 2026-05-23 (8 DPs integralmente)
+    - Front-end-spec.md v1.0 §5.4/§5.5/§10/§11.2 fonte da verdade
+    - Architecture.md v4 §8.1-8.4 referências citadas
+    - Epic 4 = 10/10 Done + Epic 5 = 2/10 Done
+
+  Bloqueadores externos: NENHUM. Story UI-only sem AI/cache/jobs/DB/RLS/migrations.
+
+  Achados cross-confirm @po validados que @dev deve antecipar:
+    1. **zustand AUSENTE** em `apps/web/package.json` — T1.2 adiciona `^5` + lockfile.
+       CI usa `--frozen-lockfile` em `pnpm install` — commit do `pnpm-lock.yaml`
+       é OBRIGATÓRIO no commit. Sem isto, CI falha.
+    2. **12 rotas em (app)/, não 11** — F1 trata: incluir `/financas` no smoke T8.3.
+    3. **`apps/web/src/lib/stores/` directório novo** — T1.3 cria + `__tests__/` em T6.4.
+
+  Quality gates pendentes (a serem corridos pelo @dev em T7):
+    pnpm lint        — esperado GREEN 10/10 zero warnings
+    pnpm typecheck   — esperado GREEN 10/10 (apps/web recompila com novos componentes)
+    pnpm test        — esperado GREEN (752 baseline + 14 novos = 766; db-test
+                       integration ENV-BLOCKER Docker [AUTO-DECISION] PROCEED
+                       se Docker ausente local — CI rls-gate cobre)
+    pnpm build       — esperado GREEN (Next.js resolve 'use client' Sidebar +
+                       ChatPanelSlot; Zustand persist OK; zero hydration mismatch)
+    pnpm check:rls   — esperado GREEN EXIT 0 (NFR5 inalterada — story 100% UI)
+
+  CodeRabbit [AUTO-DECISION] SKIPPED expected at @devops push — precedente
+  consistente Stories 3.1-5.2 (coderabbit_integration desabilitado em
+  core-config.yaml). @architect gate substitui review automatizado.
+
+  Documento de planeamento de referência: `docs/epics/epic-5-web-app-ui.md` v1.0.
+
+decisions:
+  - id: PO-5.3.1
+    description: Verdict GO-WITH-FIXES 8.5/10 MEDIUM-HIGH
+    rationale: |
+      10-point checklist 9 PASS + 1 PASS-COM-FIX em #9 (cross-confirm). Score
+      8.5/10 reflecte (a) 1 PO_FIX_INLINE MED (smoke 12 rotas em vez de 11) +
+      2 LOW informativas, (b) drift 11→12 rotas + zustand ausente captados em
+      cross-confirm sem invalidar a story. MEDIUM-HIGH confidence porque a
+      story tem trace exaustivo, 5 [DEV-DECISION] AC9 ratificadas sem objecção,
+      mas a surface area é cross-cutting (12 rotas + 5 componentes + 1 store)
+      vs additive das 5.1/5.2. Precedentes Epic 5: 5.1 GO 10/10 (zero fixes),
+      5.2 GO 9/10 (4 fixes), 5.3 GO-WITH-FIXES 8.5/10 (3 fixes) — degradação
+      esperada conforme stories crescem em surface area.
+
+  - id: PO-5.3.2
+    description: Ratificação integral das 5 [DEV-DECISION] AC9 (DP-5.3.A/B/C/D/E)
+    rationale: |
+      Cada [DEV-DECISION] avaliada contra (a) Epic 5 §8 DPs validated, (b)
+      architecture.md §8.x, (c) front-end-spec §x.y, (d) Stories 5.1+5.2
+      precedentes ratificadas. Todas as 5 mantêm coerência arquitectural e
+      respeitam Constitution Article IV (No Invention). DP-5.3.C (1 slot vs 2)
+      foi a única com decisão close — front-end-spec §11.2 prescreve sidebar
+      bottom mas a implementação é Story 5.8; KISS de @sm aceite.
+
+  - id: PO-5.3.3
+    description: CARRY-OVERS DP-5.3.E + DP5 — Opção B folding em Story 5.10
+    rationale: |
+      4 opções avaliadas para cada:
+        A) Mini-story dedicada — REJEITADO (overhead administrativo > trabalho
+           técnico; fragmentaria Epic 5 em 11 stories vs 10 validadas por Eurico
+           2026-05-23; 1-line/3-line changes não justificam Story Development
+           Cycle completo para cada)
+        B) Folding em Story 5.10 — **ACEITE** (Story 5.10 "responsive sweep +
+           branding auth + Lighthouse mobile ≥ 85" é encaixe natural; auth gate
+           + landing branding são scope nominal; sweep responsive vai re-testar
+           todas as rotas em todos os breakpoints incluindo path deslogado
+           redirect — fix encaixa atomicamente)
+        C) Folding em Story 5.3 — REJEITADO (@sm rationale válido: tocar
+           middleware exige re-teste regressão Story 1.5 fora de scope shell)
+        D) Defer post-MVP — REJEITADO (UX degradada permanente para janela
+           indefinida; não aceitável)
+      Acção: @sm regista AC novo na Story 5.10 quando draftar.
+
+  - id: PO-5.3.4
+    description: 3 PO_FIX_INLINE F1/F2/F3 aplicados directamente ao story file
+    rationale: |
+      F1 (MED): drift 11→12 rotas (`/financas/page.tsx` redirect index Story 4.6
+      AC1) — registado na PO Validation Report secção; @dev deve incluir `/financas`
+      em T8.3 smoke. F2/F3 (LOW): informativas (line counts ±1, breadcrumb DEV-
+      DECISION cover). Precedente Story 5.2: 4 PO_FIX_INLINE; Story 5.3: 3
+      PO_FIX_INLINE (não houve necessidade de alterar ACs estruturalmente).
+
+  - id: PO-5.3.5
+    description: Zustand AUSENTE confirmado — não é blocker, T1.2 antecipa
+    rationale: |
+      @sm marcou como "TBD a verificar" em T1.2 + DEP-5.2 dependency check.
+      Cross-confirm @po: ZERO matches `zustand` em `apps/web/package.json`.
+      T1.2 vai adicionar `"zustand": "^5"` + `pnpm install` + commit obrigatório
+      do `pnpm-lock.yaml` (CI usa `--frozen-lockfile` — sem isto CI falha).
+      Não bloqueia GO porque a story já tem o caminho desenhado; apenas
+      reforçar no handoff para @dev não esquecer.
+
+files_modified:
+  - docs/stories/active/5.3.layout-shell-sidebar-topbar-chatslot.md # MODIFIED — Status Draft v1.0 → Ready for Dev v1.1 + PO Validation Report secção + 3 PO_FIX_INLINE + Change Log v1.1 + Handoff next_agent dev
+  - docs/stories/active/_INDEX.md # MODIFIED — entry 5.3 actualizada Draft v1.0 → Ready for Dev v1.1 + Epic 5 Progress note
+  - docs/handoffs/archive/mj-handoff-5.3-sm-to-po-20260525.yaml # MOVED — consumed: true, consumed_by: po, consumed_at, consumed_outcome
+  - docs/handoffs/mj-handoff-5.3-po-to-dev-20260525.yaml # NEW handoff sucessor (este ficheiro)
+  - docs/HANDOFF-INDEX.md # MODIFIED — entry sm→po movida de Pending para Archived; nova entry po→dev em Pending
+
+blockers: []
+
+quality_gates_executed: {} # @po não corre quality gates — Phase 3 @dev fará
+
+coderabbit:
+  status: NOT_APPLICABLE
+  rationale: |
+    @po phase é só validação documental — CodeRabbit aplica-se em Phase 3
+    (@dev pre-commit) ou Phase 5 (@devops pre-PR). [AUTO-DECISION] SKIPPED
+    expected at @devops push per precedente Stories 3.1-5.2.
+
+decisions_pending_for_dev: []

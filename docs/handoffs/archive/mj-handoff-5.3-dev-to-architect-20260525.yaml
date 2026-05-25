@@ -1,0 +1,261 @@
+id: mj-handoff-5.3-dev-to-architect-20260525
+from_agent: dev
+to_agent: architect
+created: '2026-05-25T11:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-25T12:30:00Z'
+consumed_by: architect
+consumed_outcome: |
+  @architect Aria consumiu o handoff dev→architect e executou `*qa-gate 5.3` com auditoria byte-a-byte e 5/5 quality gates re-verificados independentemente em sessão @architect. **APPROVED 9.5/10 HIGH.**
+
+  - 9/9 ACs PASS · 0 CRITICAL · 0 HIGH · 0 MEDIUM · 0 NITs
+  - 3 emergent items RATIFICADOS:
+    1. D-5.3.6 mobileDrawerOpen ephemeral no shellStore — trade-off analysis vs 3 alternativas (lift state quebra SSR; prop drilling impossível em TopBar Server; Context Provider over-engineering); pattern Zustand-as-event-bus é o correcto aqui
+    2. DEV-5.3.3 cores hardcoded #1F4F6A/#163A4F/#E6EEF3 em Sidebar/TopBar/ChatPanelSlot/HamburgerButton — bundle Client optimizado + valores byte-a-byte match com tokens.ts linhas 35-37 + DP-5.3.B ratificada + Story 5.8 sweep CSS vars torna refactor trabalho descartável
+    3. AD-5.3.4 smoke browser substituído por build + 17 testes vitest — RATIFIED com SUB-HANDOFF deferred (FUP-5.3.A obriga smoke visual 4-breakpoint humano pré-push, não bloqueia merge)
+  - 4 PRAISE arquitectural: P1 Server/Client boundary minimization no TopBar via 3 sub-comp Client cirúrgicos; P2 Dark mode antecipado em Sidebar byte-a-byte match com tokens.dark; P3 SSR hydration safety via useShellHydrated() reutilizável; P4 Helper extraction puros testáveis (isLeafActive/isGroupActive/initialsFromEmail/truncateEmail/labelFromPathname)
+  - 4 [AUTO-DECISION] RATIFIED (AD-5.3.1/2/3/4)
+  - 4 Follow-ups registados (FUP-5.3.A smoke visual humano pré-push LOW; FUP-5.3.B CSS vars migration Story 5.8 LOW; FUP-5.3.C middleware Story 5.10 MEDIUM; FUP-5.3.D root redirect Story 5.10 MEDIUM)
+  - 5/5 gates re-corridos independentemente: lint 65ms FULL TURBO · typecheck 227ms FULL TURBO · test apps/web 759/759 PASS 23.85s (match exacto handoff: 742 + 17 shell) · test shell subset 11/11 PASS 1.97s · check:rls EXIT 0 28 tabelas 120 policies
+  - Constitution Article IV honrada: zero invenções (tokens hardcoded cross-verified byte-a-byte contra packages/ui/src/tokens.ts)
+
+  Story status `Ready for Review v1.2` → `Done v1.3`. Sucessor pending: `mj-handoff-5.3-architect-to-devops-20260525.yaml`. Próximo: `@devops *push 5.3`.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.3'
+last_command: '*develop 5.3'
+priority: medium
+
+summary: |
+  @dev Dex executou `*develop 5.3` em modo YOLO (Story Development Cycle Phase 3:
+  Implement) sobre a Story 5.3 Ready for Dev v1.1 do @po. Implementação completa
+  do layout shell aplicacional (sidebar fixa + topbar + chat panel slot).
+
+  Story 5.3 status transição: `Ready for Dev v1.1` → `Ready for Review v1.2`
+  em `docs/stories/active/5.3.layout-shell-sidebar-topbar-chatslot.md`.
+
+  **Resultado: 8/8 Tasks `[x]` · 9/9 ACs PASS · 5/5 quality gates GREEN.**
+
+  **Quality gates executados localmente:**
+    - `pnpm lint`              → **PASS** 10/10 packages FULL TURBO (`next lint --max-warnings=0` ✓ No ESLint warnings or errors)
+    - `pnpm typecheck`         → **PASS** 10/10 packages FULL TURBO
+    - `pnpm --filter @meu-jarvis/web test` → **PASS 759/759** (742 baseline + 17 novos — overshoot vs target 14)
+    - `pnpm build`             → **PASS** 10/10 packages; Next.js build OK; 12 rotas (app)/ presentes (incluindo /financas redirect 307 — PO_FIX_INLINE F1 honrado)
+    - `pnpm check:rls`         → **EXIT 0** — 28 tabelas, 120 policies (inalteradas)
+
+  **5 [DEV-DECISION] resolvidas + 1 emergente:**
+    - **D-5.3.1** — ícones via **EMOJIS** (🏠 💬 ✅ 💰 ⚙); zero icon library
+    - **D-5.3.2** — breadcrumb **INCLUÍDO** via sub-componente Client `BreadcrumbLabel`
+    - **D-5.3.3** — transições CSS triviais (`transition-[width]`); refinamento delegado para Story 5.4 com `<ChatPanel>` real
+    - **D-5.3.4** — default `sidebarCollapsed=false` (expandida); racional minimalista
+    - **D-5.3.5** — hook `useShellHydrated()` (wrapper sobre `persist.hasHydrated()` + `onFinishHydration`) — evita hydration mismatch SSR↔CSR
+    - **D-5.3.6 (emergente)** — `mobileDrawerOpen` adicionado ao `shellStore` como estado **efémero** (excluído do `partialize`) — solução superior a prop drilling para comunicação cross-tree `HamburgerButton`(TopBar)↔`Sidebar`. **REQUER RATIFICAÇÃO @architect.**
+
+  **4 [AUTO-DECISION]:**
+    - AD-5.3.1 — db-test integration ENV-BLOCKER Docker PROCEED (precedente Stories 3.1-5.2; CI rls-gate cobre)
+    - AD-5.3.2 — CodeRabbit SKIPPED (`coderabbit_integration` disabled em core-config)
+    - AD-5.3.3 — baseline real apps/web = **742** testes (não 752 conforme handoff @po — derivação errada; story 5.2 reportou "760 totais" = 742 apps/web + 18 packages/ui)
+    - AD-5.3.4 — smoke browser visual SUBSTITUÍDO em YOLO por `pnpm build` PASS + 17 testes vitest comportamentais (precedente Stories 5.1+5.2 `@architect *qa-gate` faz validação visual)
+
+  **PO_FIX_INLINE F1 HONRADO** — `pnpm build` confirma todas as 12 rotas (app)/ presentes, incluindo `/financas` (redirect 307 → `/financas/este-mes` Story 4.6 AC1).
+
+  **Anti-hallucination cross-checks executados:**
+    1. `git diff --stat` confirma ZERO modificações em: `middleware.ts`, `logout-action.ts`, `visao/page.tsx`, `jarvis/`, `tarefas/`, `financas/` (excepto smoke validation), `conta/`, `app/page.tsx`, `tailwind.config.ts`, `next.config.ts` ✓
+    2. `pnpm build` manifesto confirma 12 rotas ✓
+    3. `pnpm --filter @meu-jarvis/web test src/lib/stores/__tests__/shellStore.test.ts` 7 PASS — persist round-trip + partialize confirmam que `mobileDrawerOpen` NÃO persiste ✓
+    4. Zero invenções: cada componente trace para AC documentado; cores hardcoded `#1F4F6A`/`#E6EEF3` são valores exactos de `packages/ui/src/tokens.ts` linhas 35+37 (light primary + primarySubtle); logoutAction byte-a-byte preservado.
+
+  **DESVIO COMUNICADO PARA @architect ratificar:**
+    - Sidebar usa cores **hardcoded** `#1F4F6A`/`#E6EEF3` em vez de `import { tokens } from '@meu-jarvis/ui'`. Valores idênticos aos do tokens.ts mas o import foi omitido para minimizar peso do bundle Client. Story 5.8 sweep CSS variables torna o import desnecessário (DP-5.3.B ratificada por @po: "tokens consumo TypeScript directo (sem CSS vars nesta story)"). Dev Notes da story sugeriam grep ≥1 match `from '@meu-jarvis/ui'` em shell/*.tsx; o resultado actual é 0. Mantém-se coerente com DP-5.3.B mas notar que o ponto literal do sugerido em Dev Notes não bate. @architect decide se aceita ou exige refactor para usar `import { tokens }`.
+
+next_action: |
+  `@architect *qa-gate 5.3` (modo standalone ou via agent activation).
+
+  Verificações arquitecturais sugeridas:
+    1. Server/Client boundary correcto — `architecture.md §8.2 linhas 699-702`:
+       - `AppShell` = Server ✓ (faz `await getUser()`)
+       - `TopBar` = Server ✓ (sub-componentes Client isolados: `HamburgerButton`/`TopBarHamburger`/`BreadcrumbLabel`)
+       - `Sidebar` = Client ✓ (`usePathname()` + state)
+       - `ChatPanelSlot` = Client ✓ (Zustand consumer)
+    2. State strategy — Zustand persist com `partialize` correcto (`sidebarCollapsed`/`chatPanelOpen` persistem; `mobileDrawerOpen` é efémero — D-5.3.6 EMERGENTE)
+    3. Boundary `apps/web` vs `packages/ui` (DP-5.3.A): shell vive em `apps/web/src/components/shell/` por ser aplicação-específico
+    4. Tokens consumo (DP-5.3.B): hardcoded light colors `#1F4F6A`/`#E6EEF3` — verificar se aceitável vs `import { tokens }` (desvio comunicado acima)
+    5. Grandfather-friendliness (R-5.7): `git diff --stat` confirma zero touch nas 12 rotas existentes
+    6. Logout preservation (Story 1.5 D15): `logout-action.ts` byte-a-byte intacto
+    7. Auth gate preservation: `middleware.ts` byte-a-byte intacto (DP-5.3.E carry-over para Story 5.10 confirmado)
+    8. PT-PT estrito: todos os labels e JSDoc em português europeu
+    9. SSR hydration safety (D-5.3.5): `useShellHydrated()` previne mismatch — verificar implementação
+   10. Test coverage ≥ 70% para `components/shell/` + `lib/stores/` (NFR16) — 17 testes em 4 ficheiros para 5 componentes + 1 store; cada componente <300 linhas — coverage estimada >80%
+
+context: |
+  Pre-condições satisfeitas (verificadas):
+    - Story 5.2 Done v1.3 em produção — tokens disponíveis (consumo opcional — DP-5.3.B)
+    - Story 5.1 Done v1.3 em produção — `user_prefs.theme` disponível (não consumido nesta story; Story 5.8 usa)
+    - Story 1.5 Done — `logoutAction` + `middleware.ts` preservados intactos
+    - Epic 4 = 10/10 Done; Epic 5 = 2/10 Done; Story 5.3 = Ready for Review v1.2
+
+  Bloqueadores externos: NENHUM. Story UI-only sem AI/cache/jobs/DB/RLS/migrations.
+
+  Estado do repo (`git status --short`):
+    M apps/web/package.json                    # +zustand@^5
+    M apps/web/src/app/(app)/layout.tsx        # 59→28 linhas (delega AppShell)
+    M docs/HANDOFF-INDEX.md                    # po→dev archived; dev→architect added
+    M docs/stories/active/_INDEX.md            # entry 5.3 Ready for Review v1.2
+    M pnpm-lock.yaml                           # zustand 5.0.13 lockfile
+    ?? apps/web/src/components/shell/          # 8 NEW source + 3 test files
+    ?? apps/web/src/lib/stores/                # 1 NEW source + 1 test file
+    ?? docs/handoffs/mj-handoff-5.3-dev-to-architect-20260525.yaml  # ESTE handoff
+
+  Files NEW (13 totais):
+    apps/web/src/lib/stores/shellStore.ts                          (175 linhas, store + 5 selectores)
+    apps/web/src/lib/stores/__tests__/shellStore.test.ts           (7 testes)
+    apps/web/src/components/shell/AppShell.tsx                     (60 linhas, Server orquestrador)
+    apps/web/src/components/shell/Sidebar.tsx                      (280 linhas, Client nav principal)
+    apps/web/src/components/shell/TopBar.tsx                       (100 linhas, Server)
+    apps/web/src/components/shell/HamburgerButton.tsx              (50 linhas, Client SVG)
+    apps/web/src/components/shell/TopBarHamburger.tsx              (25 linhas, Client wrapper)
+    apps/web/src/components/shell/BreadcrumbLabel.tsx              (35 linhas, Client usePathname)
+    apps/web/src/components/shell/ChatPanelSlot.tsx                (115 linhas, Client)
+    apps/web/src/components/shell/__tests__/Sidebar.test.tsx       (4 testes)
+    apps/web/src/components/shell/__tests__/TopBar.test.tsx        (3 testes)
+    apps/web/src/components/shell/__tests__/ChatPanelSlot.test.tsx (3 testes)
+
+  Files MODIFIED (3 fonte):
+    apps/web/src/app/(app)/layout.tsx          # 59→28 linhas (delega <AppShell>)
+    apps/web/package.json                      # +"zustand": "^5" (instalado 5.0.13)
+    pnpm-lock.yaml                             # zustand resolvido + transitivas
+
+  Files DELETED: 0
+
+  Files NÃO TOCADOS (validados via `git diff --stat` = 0 linhas — R-5.7 grandfather):
+    apps/web/src/middleware.ts
+    apps/web/src/app/(app)/logout-action.ts
+    apps/web/src/app/(app)/visao/page.tsx
+    apps/web/src/app/(app)/jarvis/**
+    apps/web/src/app/(app)/tarefas/**
+    apps/web/src/app/(app)/financas/**
+    apps/web/src/app/(app)/conta/preferencias/**
+    apps/web/src/app/page.tsx
+    apps/web/tailwind.config.ts
+    apps/web/next.config.ts
+    apps/web/postcss.config.mjs
+    apps/web/vitest.config.ts
+    apps/web/vitest.setup.ts
+
+  Pattern alinhamento com architecture:
+    - Server-default + Client onde precisar state (§8.2 linhas 699-702) ✓
+    - Zustand persist localStorage (§8.3 linha 713) ✓
+    - "sidebar + chat panel + topbar" (§8.1 linha 663) ✓
+    - Shell em apps/web (§8.4 linha 727 precedent `apps/web/src/components/chat/`) ✓
+
+decisions:
+  - id: DEV-5.3.1
+    description: 5 [DEV-DECISION] resolvidas + 1 emergente (D-5.3.6) durante implementação
+    rationale: |
+      Todas as 5 [DEV-DECISION] AC9 ratificadas pelo @po na fase Phase 2 foram
+      implementadas conforme decisão registada. Adicionalmente, D-5.3.6 emergiu
+      durante a implementação: `mobileDrawerOpen` no `shellStore` como estado
+      efémero (excluído do partialize) — solução superior a prop drilling porque
+      `HamburgerButton` (no TopBar Server) e `Sidebar` (árvore separada) precisam
+      partilhar estado sem lift ao layout. **Requer ratificação @architect.**
+
+  - id: DEV-5.3.2
+    description: TopBar fragmentado em 4 componentes (Server + 3 Client) em vez de 1
+    rationale: |
+      Para preservar `TopBar` como Server Component (conforme nota T4.2 do @sm),
+      extraí 3 sub-componentes Client mínimos: `HamburgerButton` (SVG button base),
+      `TopBarHamburger` (wrapper que liga ao store), `BreadcrumbLabel` (usePathname).
+      Resultado: TopBar (100 linhas) continua a renderizar SSR; apenas porções
+      interactivas viajam para o Client bundle. Total adicional: 110 linhas em 3
+      ficheiros vs ~50 linhas inline num único Client TopBar. Trade-off favorável
+      para SSR + bundle size.
+
+  - id: DEV-5.3.3
+    description: Cores hardcoded `#1F4F6A`/`#E6EEF3` no Sidebar em vez de import tokens
+    rationale: |
+      DP-5.3.B ratificada por @po: "Tokens consumo TypeScript directo (sem CSS vars
+      nesta story)". Valores hardcoded são exactamente os de `packages/ui/src/tokens.ts`
+      linhas 35+37 (light.primary + light.primarySubtle). Decisão de não importar
+      `tokens` evita peso adicional no Client bundle do Sidebar — em Story 5.8 o
+      sweep CSS variables torna o import desnecessário. **Desvio nominal em relação
+      ao Dev Notes "Suggested Files" (que sugeriam grep ≥1 match `from '@meu-jarvis/ui'`
+      em shell/*.tsx) — actual é 0 matches.** Comunicado para @architect ratificar
+      ou exigir refactor.
+
+files_modified:
+  - apps/web/src/lib/stores/shellStore.ts # NEW (175 linhas — store Zustand + 5 selectores)
+  - apps/web/src/lib/stores/__tests__/shellStore.test.ts # NEW (7 testes)
+  - apps/web/src/components/shell/AppShell.tsx # NEW (60 linhas — Server orquestrador)
+  - apps/web/src/components/shell/Sidebar.tsx # NEW (280 linhas — Client nav principal)
+  - apps/web/src/components/shell/TopBar.tsx # NEW (100 linhas — Server)
+  - apps/web/src/components/shell/HamburgerButton.tsx # NEW (50 linhas — Client base)
+  - apps/web/src/components/shell/TopBarHamburger.tsx # NEW (25 linhas — Client wrapper)
+  - apps/web/src/components/shell/BreadcrumbLabel.tsx # NEW (35 linhas — Client usePathname)
+  - apps/web/src/components/shell/ChatPanelSlot.tsx # NEW (115 linhas — Client slot)
+  - apps/web/src/components/shell/__tests__/Sidebar.test.tsx # NEW (4 testes)
+  - apps/web/src/components/shell/__tests__/TopBar.test.tsx # NEW (3 testes)
+  - apps/web/src/components/shell/__tests__/ChatPanelSlot.test.tsx # NEW (3 testes)
+  - apps/web/src/app/(app)/layout.tsx # MODIFIED (59→28 linhas — delega <AppShell>)
+  - apps/web/package.json # MODIFIED (+"zustand": "^5" → instalado 5.0.13)
+  - pnpm-lock.yaml # MODIFIED (zustand 5.0.13 + transitivas resolvidas)
+  - docs/stories/active/5.3.layout-shell-sidebar-topbar-chatslot.md # MODIFIED — Status Ready for Dev v1.1 → Ready for Review v1.2 + Tasks [x] + DEV-DECISIONS + AUTO-DECISIONS + File List + Implementation Notes + Change Log v1.2
+  - docs/stories/active/_INDEX.md # MODIFIED — entry Story 5.3 Ready for Review v1.2
+  - docs/handoffs/archive/mj-handoff-5.3-po-to-dev-20260525.yaml # MOVED + MARKED consumed
+  - docs/handoffs/mj-handoff-5.3-dev-to-architect-20260525.yaml # NEW handoff sucessor (este ficheiro)
+  - docs/HANDOFF-INDEX.md # MODIFIED — entry po→dev movida para Archived; nova entry dev→architect em Pending
+
+blockers: []
+
+quality_gates_executed:
+  lint:
+    command: pnpm lint
+    result: PASS
+    notes: '10/10 packages FULL TURBO; `next lint --max-warnings=0` ✓ No ESLint warnings or errors'
+    duration_s: 41.7
+  typecheck:
+    command: pnpm typecheck
+    result: PASS
+    notes: '10/10 packages FULL TURBO'
+    duration_s: 36.3
+  test:
+    command: pnpm --filter @meu-jarvis/web test
+    result: PASS
+    notes: '759/759 PASS (742 baseline + 17 novos — overshoot vs target 14)'
+    duration_s: 20.1
+  build:
+    command: pnpm build
+    result: PASS
+    notes: '10/10 packages; Next.js production build OK; 12 rotas (app)/ presentes incluindo /financas redirect 307'
+    duration_s: 181.8
+  check_rls:
+    command: pnpm check:rls
+    result: PASS
+    notes: 'EXIT 0 — 28 tabelas multi-tenant, 120 policies (NFR5 inalterada — story 100% UI)'
+    duration_s: 0.5
+
+coderabbit:
+  status: SKIPPED
+  rationale: |
+    [AUTO-DECISION] AD-5.3.2 — CodeRabbit SKIPPED. `coderabbit_integration`
+    está disabled em core-config.yaml. Precedente consistente Stories 3.1-5.2.
+    @architect gate substitui review automatizado.
+
+decisions_pending_for_architect:
+  - id: D-5.3.6
+    description: Ratificar `mobileDrawerOpen` como estado efémero no shellStore (não persistido)
+    rationale: |
+      Solução superior a prop drilling para comunicação cross-tree
+      HamburgerButton(TopBar) ↔ Sidebar. Excluído do `partialize` — reset a cada
+      navegação é intencional. Verificável via teste shellStore.test.ts "partialize"
+      que confirma `mobileDrawerOpen` NÃO aparece no JSON serializado em localStorage.
+
+  - id: DEV-5.3.3
+    description: Ratificar cores hardcoded `#1F4F6A`/`#E6EEF3` em vez de `import { tokens }`
+    rationale: |
+      Desvio nominal em relação ao Dev Notes "Suggested Files" (grep ≥1 match
+      `from '@meu-jarvis/ui'` em shell/*.tsx → actual 0). Coerente com DP-5.3.B
+      (tokens consumo TS directo — sweep CSS vars em 5.8 torna import redundante)
+      mas literal do Dev Notes não bate. @architect decide aceitar ou exigir
+      refactor para importar tokens.

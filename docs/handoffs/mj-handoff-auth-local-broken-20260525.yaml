@@ -1,0 +1,139 @@
+id: mj-handoff-auth-local-broken-20260525
+from_agent: devops
+to_agent: dev
+created: '2026-05-25T21:45:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: 'CROSS-CUTTING (Epic 5 blocker)'
+last_command: '*push 5.3 (devops descobriu durante prep do smoke visual)'
+priority: HIGH
+
+summary: |
+  Ambiente de desenvolvimento local Expressia tem auth/registo COMPLETAMENTE
+  quebrado — bloqueia smoke visual humano em todas as Stories 5.x autenticadas
+  (incluindo `/visao`, `/jarvis`, `/tarefas`, `/financas`, `/conta`) até resolução.
+
+  **Descoberto durante prep do `*push 5.3`** quando @devops tentou executar
+  FUP-5.3.A (smoke visual 4-breakpoint humano). Eurico autorizou skipar o smoke
+  para Story 5.3 baseado em precedente Stories 5.1+5.2 + validação automática
+  completa (5/5 gates + 17 testes shell + R-5.7 grandfather). MAS o problema
+  fica registado aqui porque vai bloquear smoke visual de TODAS as próximas
+  Stories 5.x (5.4 ChatPanel real, 5.5/5.6 Visão, 5.7 dashboard, etc) se não
+  for resolvido.
+
+  **NÃO está relacionado com Story 5.3** (que foi push aprovado em main com
+  5/5 gates GREEN). É bug de infraestrutura local.
+
+context: |
+  Sintomas observados durante prep do smoke:
+
+  1. **`/registar`** — UI renderiza correctamente (form completo PT-PT, ToS,
+     password complexity meter). Ao submeter com email novo + password válida:
+     - Erro retornado: **"Não foi possível concluir o registo. Tenta novamente."**
+     - Erro genérico — sem detalhes para o utilizador
+     - Sem indicação se foi falha de email confirmation, RLS, trigger DB ou
+       env vars Supabase
+
+  2. **`/entrar`** — UI renderiza correctamente (Story 1.5 D15 confirmado).
+     Ao submeter com credenciais (mesmo correctas):
+     - Erro: **"Email ou palavra-passe incorrectos."**
+     - Não há forma de criar conta válida que depois autentique → impossível
+       chegar ao `/visao` autenticado
+
+  3. **Landing `/`** renderiza correctamente em PT-PT (Story 5.0 OK).
+
+  4. Build production GREEN. Typecheck/lint/test/RLS GREEN. Problema é runtime/auth.
+
+hypotheses:
+  - id: H1
+    severity: HIGH
+    description: |
+      Trigger `handle_new_user` da Story 1.5 (B2 blocker no _INDEX.md original)
+      pode nunca ter sido instalada na Supabase local. Verificar:
+        - `select * from pg_trigger where tgname = 'on_auth_user_created';`
+        - Se ausente, criar via migration: `select handle_new_user()` Story 1.5
+        - Sem trigger, `auth.users` insert succeed mas `public.users` row não
+          é criada → cascade falha em `households`/`household_members`
+
+  - id: H2
+    severity: MEDIUM
+    description: |
+      Supabase Auth email confirmation activo a falhar entrega (sem SMTP local
+      configurado, link de confirmação nunca chega ao utilizador). Verificar:
+        - Dashboard Supabase → Auth → Settings → "Enable email confirmations"
+        - Se activo em local mas SMTP não configurado → desabilitar em dev local
+          (manter activo em prod) ou usar Mailpit/MailHog para captura
+
+  - id: H3
+    severity: MEDIUM
+    description: |
+      `.env.local` em `apps/web/` desconfigurado:
+        - `NEXT_PUBLIC_SUPABASE_URL` errada (apontar a prod em vez de local)
+        - `NEXT_PUBLIC_SUPABASE_ANON_KEY` errada/expirada
+        - `SUPABASE_SERVICE_ROLE_KEY` ausente (necessária para Server Actions
+          como signUp/signIn em rotas Server)
+        - Verificar: `cat apps/web/.env.local` (não commitar)
+
+  - id: H4
+    severity: LOW
+    description: |
+      RLS policies em `households`/`household_members`/`users` bloqueiam o
+      insert inicial. Improvável — trigger `handle_new_user` deveria usar
+      `service_role` ou `security definer`. Mas vale a pena verificar:
+        - `select polname, polpermissive, polqual::text from pg_policy
+           where polrelid::regclass = 'public.users'::regclass;`
+
+next_action: |
+  Investigação sequencial (parar quando encontrar a causa):
+
+  1. **Verificar `.env.local`** em `apps/web/`:
+     - Existe? Tem todas as 3+ vars Supabase?
+     - URLs apontam para o projecto Supabase certo (local-dev vs prod)?
+
+  2. **Executar `pnpm dev` e tentar registo** com terminal aberto:
+     - Capturar logs do dev server (qualquer erro Server Action)
+     - Capturar logs do Supabase (Dashboard → Logs → Auth + Postgres)
+
+  3. **Conectar à Supabase via psql ou Studio** e verificar:
+     - Trigger `handle_new_user` existe? (`select * from pg_trigger where
+       tgname like 'on_auth_user_created%';`)
+     - Tabela `public.users` tem rows pós tentativas de registo?
+     - Tabela `public.households` tem rows pós tentativas de registo?
+
+  4. **Se trigger ausente**: investigar a migration da Story 1.5 — pode ter
+     ficado num `handle_new_user.sql` à parte do `0000_initial_schema.sql`
+     que nunca foi aplicado. Aplicar via `pnpm --filter @meu-jarvis/db db:migrate`
+     e re-testar.
+
+  5. **Se trigger presente mas falha**: ler logs Postgres para entender
+     constraint/RLS/permission violation. Ajustar trigger.
+
+  6. **Após fix**: testar fluxo completo (registo → confirma email se aplicável
+     → login → chega a `/visao`) e fechar este handoff.
+
+  7. **Bonus**: criar um runbook `docs/runbooks/auth-local-troubleshoot.md`
+     com os passos acima para futuros incidentes similares.
+
+priority_justification: |
+  HIGH porque bloqueia smoke visual humano em TODAS as Stories 5.x autenticadas
+  futuras (5.4 ChatPanel, 5.5/5.6 Visão, 5.7 dashboard, 5.8 themes/CSS vars,
+  5.9 widgets, 5.10 navegação completa). Quanto mais tempo passar, mais stories
+  ficam aprovadas sem smoke visual humano (precedente já aceito Stories 5.1+5.2+5.3
+  mas há limites — Eurico não autorizará indefinidamente para stories complexas
+  com interactividade real do utilizador).
+
+blockers_downstream:
+  - FUP-5.3.A smoke visual humano Story 5.3 (já deferred com autorização Eurico)
+  - Smoke visual humano Story 5.4 ChatPanel real (será impossível sem auth funcional)
+  - Smoke visual humano Stories 5.5/5.6/5.7/5.8/5.9/5.10 (mesmo)
+  - QA E2E manual de novas features para o Eurico (sem login, sem testes manuais)
+
+estimated_effort: 1-3 horas (depending on root cause — H1 trigger ausente é o cenário mais provável e mais rápido de fixar)
+
+related_stories:
+  - 1.5 (auth original com trigger handle_new_user)
+  - 1.7 (post-deploy infrastructure setup, B2/B3/B4 blockers)
+  - Any future Story 5.x requiring authenticated smoke visual

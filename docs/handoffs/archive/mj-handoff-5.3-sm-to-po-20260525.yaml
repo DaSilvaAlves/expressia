@@ -1,0 +1,312 @@
+id: mj-handoff-5.3-sm-to-po-20260525
+from_agent: sm
+to_agent: po
+created: '2026-05-25T01:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-25T03:00:00Z'
+consumed_by: po
+consumed_outcome: |
+  @po Pax executou `*validate-story-draft 5.3` em modo local.
+  GO-WITH-FIXES 8.5/10 MEDIUM-HIGH.
+  10-point checklist: 9 PASS + 1 PASS-COM-FIX em #9 (anti-hallucination).
+  Cross-confirm: 8 PASS + 2 PASS-COM-DRIFT trivial (line counts ±1) +
+    1 PASS-CONFIRMA carry-over real (DP-5.3.E middleware) +
+    1 FAIL gestionável (zustand ausente — T1.2 cobre).
+  3 PO_FIX_INLINE registados directamente no ficheiro (F1 MED 11→12 rotas; F2/F3 LOW).
+  5 [DEV-DECISION] AC9 RATIFICADAS (DP-5.3.A/B/C/D/E).
+  2 CARRY-OVERS DECIDIDOS — Opção B folding em Story 5.10:
+    - DP-5.3.E middleware APP_PATH_PREFIXES adicionar `/tarefas` + `/financas`
+    - DP5 root redirect `/` → `/visao` autenticado preservando landing público se deslogado
+  Story status `Draft v1.0` → `Ready for Dev v1.1`.
+  Sucessor handoff: `mj-handoff-5.3-po-to-dev-20260525.yaml`.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.3'
+last_command: '*draft 5.3'
+priority: medium
+
+summary: |
+  @sm River executou `*draft 5.3` (Story Development Cycle Phase 1: Create) e
+  produziu Story 5.3 Draft v1.0 em
+  `docs/stories/active/5.3.layout-shell-sidebar-topbar-chatslot.md`.
+
+  **Story 5.3 — Layout shell (sidebar fixa + topbar + chat panel slot)**
+  Terceira story do Epic 5 (Web App UI). Substitui o `(app)/layout.tsx` (60 linhas
+  placeholder Story 1.5) por um shell 3-zonas: `Sidebar` 240px fixa em desktop
+  (collapsible icon-only 64px em tablet, hamburger drawer 280px em mobile) +
+  `main` central com children preservados + `ChatPanelSlot` à direita (slot vazio
+  fechado por default — a `<ChatPanel>` real chega na Story 5.4). `TopBar` 56px
+  com avatar+logout (`logoutAction` Story 1.5 D15 preservado byte-a-byte) +
+  hamburger button + 2 slots vazios (`theme-toggle` para 5.8, `household-switcher`
+  para Epic 6). Store Zustand `shellStore` com persist localStorage (`sidebar.collapsed`
+  + `chatPanel.open`). Refactor **zero-tocando** as 11 rotas existentes (visão,
+  jarvis, 3 tarefas, 5 finanças, conta/preferencias) — grandfather-friendliness é
+  feature do design (R-5.7 mitigado).
+
+  Estimate M (precedente directo: Story 5.2 M cross-package; Story 4.6 M
+  componentes coesos). 9 ACs + 8 Tasks + 5 achados AC9 incluindo **2 carry-overs
+  para @po decidir** (DP-5.3.E middleware regression pre-existente; DP5 root
+  redirect — ambos fora de scope desta story).
+
+  Cross-confirm anti-hallucination contra codebase real (sessão @sm 2026-05-25):
+  zero invenções detectadas. 10 verificações documentadas em "Validation Report":
+    1. `(app)/layout.tsx` 60 linhas placeholder Story 1.5 ✓ (lido directamente)
+    2. `logout-action.ts` 21 linhas Story 1.5 D15 ✓
+    3. `middleware.ts` APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta'] ✓
+       (`/tarefas` + `/financas` faltam — DP-5.3.E carry-over)
+    4. `tailwind.config.ts` já contém packages/ui glob (Story 5.2 AC6b) ✓
+    5. `next.config.ts` já contém '@meu-jarvis/ui' em transpilePackages ✓
+    6. `packages/ui/src/tokens.ts` 193+ linhas exporta colors light (19) + dark
+       (16 via Exclude<>) + typography + spacing + radius + shadows + transitions ✓
+    7. Verificar `zustand` em apps/web/package.json — TBD no T1.2 (DEV)
+    8. 11 rotas existentes confirmadas via Glob (visão, jarvis, tarefas + 2 sub,
+       financas + 5 sub, conta/preferencias) ✓
+    9. `front-end-spec §5.4` sidebar wireframe linhas 498-518 lidas ✓
+   10. `architecture.md §8.1 linha 663` "sidebar + chat panel + topbar" lido ✓
+
+  5 [DEV-DECISION] AC9 que requerem ratificação consciente:
+    - DP-5.3.A — Shell em apps/web/src/components/shell/ (NÃO em packages/ui)
+    - DP-5.3.B — Tokens consumo directo TypeScript (CSS variables sweep é 5.8)
+    - DP-5.3.C — Theme toggle slot no TopBar (front-end-spec §11.2 sugere sidebar
+      bottom; criar 1 slot e 5.8 decide localização final)
+    - DP-5.3.D — Rota `/jarvis` mantida (DP8 validated) + label do nav "Chat"
+      (front-end-spec §5.4 wireframe linha 500) — divergência consciente label vs URL
+    - DP-5.3.E — Middleware APP_PATH_PREFIXES regression pre-existente
+      (`/tarefas` + `/financas` em falta) — **CARRY-OVER fora de scope, requer
+      decisão @po sobre destino: mini-story dedicada ou folding em 5.10**
+
+  Estimate de scope: 8 NEW (5 componentes shell + 1 store + 4 ficheiros teste +
+  1 directório __tests__) + 2 MODIFIED ((app)/layout.tsx + package.json se zustand
+  novo) + 0 DELETED. Zero touch em DB/RLS/middleware/rotas existentes.
+
+next_action: |
+  `@po *validate-story-draft 5.3` — validar Story 5.3 Draft v1.0 contra
+  10-point checklist + cross-confirm anti-hallucination + ratificar 5
+  [DEV-DECISION] AC9 (incluindo decisão sobre os 2 CARRY-OVERS DP-5.3.E e DP5).
+
+  Verificações específicas esperadas:
+
+    1. Cross-confirm contra codebase real (precedente Stories 5.1 + 5.2 — exhaustive):
+       - `(app)/layout.tsx` 60 linhas (confirmar via `wc -l`)
+       - `logout-action.ts` 21 linhas D15 (confirmar — esta story preserva byte-a-byte)
+       - `middleware.ts` APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta']
+         (CONFIRMAR e decidir destino DP-5.3.E)
+       - `tailwind.config.ts:10` contém `'../../packages/ui/src/**/*.{ts,tsx}'`
+       - `next.config.ts:21` contém `'@meu-jarvis/ui'` em transpilePackages
+       - `packages/ui/src/tokens.ts` exporta `colors.light.bgSurface`
+       - `apps/web/package.json` — verificar se `zustand` já está em dependencies
+         (CRÍTICO — afecta T1.2; se já existir, NÃO duplicar/upgrade sem DEV-DECISION)
+       - `apps/web/src/components/shell/` NÃO existe (confirmar — directório novo)
+       - 11 rotas existentes confirmadas em `(app)/`
+       - `architecture.md §8.1-8.4` lidas
+       - `front-end-spec §5.4 + §5.5 + §10 + §11.2` lidas
+
+    2. 10-point validation checklist (precedente Story 5.1 GO 10/10 HIGH;
+       Story 5.2 GO 9/10 HIGH com 4 PO_FIX_INLINE):
+       título claro · descrição completa · ACs testáveis · scope IN/OUT
+       (especial atenção: AC1.e enumera "Sem alterações em" para garantir
+       grandfather-friendliness R-5.7) · dependências mapeadas (DEP-5.2
+       crítico) · estimate complexity (M justificado — comparar com 5.2) ·
+       business value (R-5.7 mitigado é o valor: zero regressão) · riscos
+       documentados (DP-5.3.E é o risco principal — carry-over) · DoD clara
+       (AC8 quality gates) · alinhamento Epic 5 (DP1+DP6+DP8 honrados; DP2/DP5
+       parciais como esperado)
+
+    3. Ratificar 5 [DEV-DECISION] AC9 (ou propor PO_FIX_INLINE alternativo):
+       - DP-5.3.A — Shell em apps/web (não packages/ui). Coerente com
+         architecture §8.4 linha 727. Confirmar.
+       - DP-5.3.B — Tokens TypeScript directo (sem materialização CSS/Tailwind
+         nesta story — 5.8 fará). Consistente com DP-5.2.A ratificada. Confirmar.
+       - DP-5.3.C — Theme toggle slot no TopBar. Front-end-spec §11.2 linha 1420
+         prescreve "atalho rápido no menu do avatar (canto inferior sidebar)".
+         @sm decidiu TopBar para KISS (1 slot vs 2). Avaliar se @po quer 2 slots.
+       - DP-5.3.D — Label "Chat" + URL `/jarvis` divergência consciente.
+         Aceitável per front-end-spec wireframe + DP8. Confirmar.
+       - DP-5.3.E — Middleware regression CARRY-OVER. **Decisão @po:**
+         (a) mini-story dedicada 5.X.middleware-fix (S, 1-line change),
+         (b) folding em Story 5.10 (responsive sweep + branding auth),
+         (c) deferir indefinidamente (NÃO recomendado).
+       - DP5 root redirect CARRY-OVER (mesma decisão): mini-story ou 5.10.
+
+    4. PO_FIX_INLINE registar quaisquer ajustes não-bloqueantes (precedente
+       Story 5.2: 4 PO_FIX_INLINE F1/F2/F3/F4 aplicadas inline).
+
+    5. Verificar coverage dos ACs vs Epic 5 §3 IN bullet 1 (layout shell completo):
+       - sidebar fixa ✓ (AC2)
+       - chat panel persistente (collapsible) ✓ (AC4 — slot vazio nesta story; real em 5.4)
+       - topbar com avatar/household switcher ✓ (AC3 — household switcher é Epic 6, slot vazio)
+       - substitui nav horizontal Story 1.5 ✓ (AC1)
+       - responsive: hamburger menu < 768px ✓ (AC2.c — confirmar breakpoint 640px vs 768px;
+         front-end-spec §10.2 usa Mobile <640px, Tablet 640-1023px — @sm seguiu §10.2;
+         Epic 5 §5 row "Responsive: hamburger menu < 768px" tem discrepância — @po decide)
+
+    6. Verdict expected: **GO MEDIUM-HIGH confidence** — story bem-formada com
+       trace exhaustivo, mas DP-5.3.E carry-over é um achado real que exige
+       decisão @po antes de avançar para 5.4 (que dependeria do shell estar
+       limpo de regressões pendentes).
+
+context: |
+  Pre-condições satisfeitas:
+    - Story 5.2 Done v1.3 em produção (push 2026-05-25 commits 593514e + d67f967
+      per HANDOFF-INDEX archive) — @meu-jarvis/ui workspace com tokens +
+      MoneyDisplay + DateDisplay disponíveis; tailwind.config.ts já contém
+      packages/ui glob; next.config.ts já contém '@meu-jarvis/ui' transpilePackages
+    - Story 5.1 Done v1.3 em produção (push 2026-05-24 commit 571437d) —
+      user_prefs estendida; Theme/WidgetId/WidgetsEnabled exports disponíveis
+      via @meu-jarvis/db (relevante para Stories 5.7/5.8, não 5.3 directo)
+    - Epic 5 v1.0 Validated por Eurico 2026-05-23 (8 DPs aceites integralmente
+      incluindo DP1 sidebar fixa 240px, DP6 packages/ui criar na 5.2 já cumprido,
+      DP8 chat panel collapsible + /jarvis mantida)
+    - Front-end-spec.md v1.0 (Uma, 2026-05-04) §5.4 sidebar wireframe + §5.5 chat
+      panel + §10 responsive + §11.2 theme toggle — fonte da verdade exaustiva
+    - Architecture.md v4 §8.1 (route group app shell sidebar+chat+topbar),
+      §8.2 (Server vs Client), §8.3 (Zustand UI ephemeral), §8.4 (packages/ui
+      design system)
+    - Epic 4 = 10/10 Done + Epic 5 = 2/10 Done (5.1, 5.2 ambas Done v1.3)
+
+  Bloqueadores externos: NENHUM. Story UI-only sem AI/cache/jobs/DB/RLS/migrations.
+
+  Quality gates pendentes (a serem corridos pelo @dev em Phase 3):
+    pnpm lint        — esperado GREEN 10/10 zero warnings
+    pnpm typecheck   — esperado GREEN 10/10 (apps/web recompila com novos componentes)
+    pnpm test        — esperado GREEN (752 + 14 novos = 766 — ajustar se mock
+                       setup alterar contagem; db-test integration ENV-BLOCKER
+                       Docker [AUTO-DECISION] PROCEED se aplicável)
+    pnpm build       — esperado GREEN (Next.js resolve 'use client' Sidebar +
+                       ChatPanelSlot; Zustand persist OK; zero hydration mismatch)
+    pnpm check:rls   — esperado GREEN EXIT 0 (NFR5 inalterada — story 100% UI)
+
+  CodeRabbit [AUTO-DECISION] SKIPPED expected at @devops push — precedente
+  consistente Stories 3.1-5.2 (coderabbit_integration desabilitado em
+  core-config.yaml). @architect gate substitui review automatizado.
+
+  Documento de planeamento de referência: `docs/epics/epic-5-web-app-ui.md` v1.0
+  (em produção desde push Story 5.1).
+
+decisions:
+  - id: SM-5.3.1
+    description: Estimate M (não L) — chat panel é APENAS slot vazio nesta story
+    rationale: |
+      Story 5.2 (M) precedente directo: workspace bootstrap + 2 componentes +
+      refactor 11 imports — pieces pequenas bem definidas. Story 5.3 é
+      equivalente: shell 3-zonas com 5 componentes UI puros + 1 store Zustand +
+      responsive breakpoints. Não é L porque (a) chat panel é APENAS slot vazio
+      (a `<ChatPanel>` real é Story 5.4 com 267+ linhas extraídas de jarvis-chat),
+      (b) zero endpoints novos, (c) zero schema/migration, (d) zero refactor de
+      rotas existentes (grandfather-friendly R-5.7 mitigação é feature). M
+      confirmado.
+
+  - id: SM-5.3.2
+    description: Shell em apps/web (não packages/ui) — DP-5.3.A
+    rationale: |
+      Shell é aplicação-específico: consome `logoutAction` de apps/web,
+      `usePathname` de Next.js, store Zustand local, nav items definidos pela
+      árvore de rotas concreta do apps/web. packages/ui é design system genérico
+      (MoneyDisplay/DateDisplay/tokens). Alinhado com architecture.md §8.4
+      linha 727 que prevê `apps/web/src/components/chat/` (precedente). Se em
+      Fase 2 houver segunda app, promover é trivial — zero lock-in.
+
+  - id: SM-5.3.3
+    description: Refactor zero-toque em rotas existentes (preservar grandfather)
+    rationale: |
+      R-5.7 do Epic 5 §6 alerta para "Layout shell quebra rotas existentes".
+      Mitigação aplicada: shell apenas REFORMATA o chrome à volta; `children`
+      continuam a render no `<main>` exactamente como antes. Validation
+      smoke obrigatória (T8.3) em todas as 11 rotas. AC1.e enumera ficheiros
+      "Sem alterações em" para tornar regressão impossível.
+
+  - id: SM-5.3.4
+    description: Carry-over DP-5.3.E middleware regression NÃO incluído em scope
+    rationale: |
+      `middleware.ts:36` actual APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta']
+      — faltam `/tarefas` + `/financas`. Regressão pre-existente das Stories
+      3.3-3.5 + 4.6-4.9 (adicionaram rotas mas não actualizaram middleware).
+      Mitigação actual: `requireAuth()` nas páginas aborta server-side (UX
+      degradada, não falha segurança). **Tocar middleware nesta story exige
+      re-teste regressão completo Story 1.5 — fora de scope**. Recomendar a @po
+      mini-story dedicada ou folding em Story 5.10.
+
+  - id: SM-5.3.5
+    description: DP5 root redirect também CARRY-OVER (não incluído)
+    rationale: |
+      `apps/web/src/app/page.tsx` actual é marketing landing público. DP5
+      Epic 5 §8 = A: utilizador autenticado em `/` → redirect `/visao`.
+      Implementação trivial (1 server check + redirect) mas ortogonal ao
+      shell. Folding aqui criaria scope creep. Mesma decisão que DP-5.3.E:
+      mini-story ou Story 5.10.
+
+  - id: SM-5.3.6
+    description: Zustand persist key versionado `expressia-shell-v1`
+    rationale: |
+      Permite invalidar estado em mudanças de schema futura sem código de
+      migração (Zustand re-cria estado default se chave não existe). v1 reflecte
+      shape inicial (sidebar.collapsed + chatPanel.open). Story 5.8 adicionará
+      theme persist em chave separada (`expressia-theme-v1`) ou herdada — DP2
+      decide. Não bloquear.
+
+files_modified:
+  - docs/stories/active/5.3.layout-shell-sidebar-topbar-chatslot.md # NEW Draft v1.0
+  - docs/stories/active/_INDEX.md # MODIFIED — entry 5.3 actualizada de _TBD_ para Draft v1.0 + Epic 5 Progress note
+  - docs/handoffs/mj-handoff-5.3-sm-to-po-20260525.yaml # NEW handoff sucessor
+  - docs/HANDOFF-INDEX.md # MODIFIED — entry 5.3-sm-to-po adicionada em Pending
+
+blockers: []
+
+quality_gates_executed: {} # @sm não corre quality gates — Phase 3 @dev fará
+
+coderabbit:
+  status: NOT_APPLICABLE
+  rationale: |
+    @sm phase é só draft — CodeRabbit aplica-se em Phase 3 (@dev pre-commit) ou
+    Phase 5 (@devops pre-PR). [AUTO-DECISION] SKIPPED expected at @devops push
+    per precedente Stories 3.1-5.2 (coderabbit_integration desabilitado em
+    core-config.yaml).
+
+decisions_pending_for_po:
+  - id: PEND-5.3.A
+    description: DP-5.3.A — Shell em apps/web/src/components/shell/ (não packages/ui)
+    sm_recommendation: APP/WEB (alinhado com architecture §8.4 linha 727)
+    risk_if_rejected: |
+      Se @po recomendar packages/ui, ACs precisam de ajuste (shell precisa de
+      abstrair logoutAction injectado via prop, nav items configurable via prop)
+      — escalada de scope, estimate sobe para M+ ou L. Não recomendado.
+
+  - id: PEND-5.3.B
+    description: DP-5.3.B — Tokens consumo TypeScript directo (sem CSS vars)
+    sm_recommendation: TS DIRECT (DP-5.3.B em AC9 — adiar materialização para 5.8)
+    risk_if_rejected: |
+      Se @po recomendar materialização parcial aqui (CSS vars subset),
+      ACs precisam de AC10 adicional + risk de divergência com Story 5.8
+      que faria o sweep completo. Consistente com DP-5.2.A ratificada
+      manter consistência.
+
+  - id: PEND-5.3.C
+    description: DP-5.3.C — Theme toggle slot no TopBar (1 slot vs 2 slots)
+    sm_recommendation: 1 SLOT NO TOPBAR (KISS; 5.8 decide localização real)
+    risk_if_rejected: |
+      Front-end-spec §11.2 linha 1420 prescreve sidebar bottom. Se @po insistir
+      em sidebar bottom já nesta story, adicionar slot adicional em Sidebar.tsx
+      AC2.a (avatar+nome área). Trivial; não impacta estimate.
+
+  - id: PEND-5.3.D
+    description: DP-5.3.D — Label "Chat" + URL `/jarvis` divergência
+    sm_recommendation: ACEITAR (front-end-spec wireframe + DP8 validated)
+    risk_if_rejected: |
+      Renomear URL para `/chat` exige (a) middleware APP_PATH_PREFIXES update
+      (relacionado com DP-5.3.E mas distinto), (b) redirect `/jarvis → /chat`
+      para retro-compat, (c) actualização de testes Jarvis (jarvis-chat.test.tsx
+      etc.). Fora de scope desta story.
+
+  - id: PEND-5.3.E
+    description: DP-5.3.E + DP5 — CARRY-OVERS middleware + root redirect
+    sm_recommendation: |
+      Mini-story dedicada (S) `5.X.middleware-app-paths-and-root-redirect` ou
+      folding em Story 5.10 (responsive sweep + branding auth — natural fit).
+      Decisão @po sobre destino.
+    risk_if_rejected: |
+      Deferir indefinidamente = aceitar UX degradada permanente para utilizadores
+      deslogados que aterrem em `/tarefas` ou `/financas` (vêem erro server-side
+      em vez de redirect a `/entrar`). Não é falha de segurança (RLS preserved),
+      é falha UX. NÃO RECOMENDADO.
