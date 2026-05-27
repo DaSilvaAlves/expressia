@@ -1,0 +1,323 @@
+id: mj-handoff-auth-local-fixed-20260526-dev-to-devops
+from_agent: dev
+to_agent: devops
+created: '2026-05-27T00:50:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: 'CROSS-CUTTING (TASK-1 auth-fix local)'
+last_command: 'TASK-1 closure — production fix + smoke validado em localhost:3001'
+priority: HIGH
+
+summary: |
+  TASK-1 (auth-fix local) FECHADA. Root cause confirmado, production fix
+  aplicada, smoke HTTP 5/5 rotas GREEN em localhost:3001, 4/4 quality gates
+  GREEN (+1 ENV-BLOCKER Docker conhecido, não-regressão). Pronto para commit
+  + push para main.
+
+  Sessão prévia (Dex 2026-05-25 → 26) chegou ao session limit a meio. Esta
+  sessão (Dex 2026-05-26 → 27) reconstruiu contexto via diffs/scripts,
+  completou o trabalho remanescente (cleanup dos 5 diag-* scripts +
+  documentação prevenção no runbook + smoke HTTP end-to-end), e validou
+  4/4 quality gates.
+
+root_cause_confirmed: |
+  Hipótese vencedora: **H2 (Supabase Auth email confirmation activo + SMTP
+  default rate-limited)**, com agravante crítico de UX que mascarava o
+  problema.
+
+  Trajetória probatória (sessão anterior produziu 7 evidências em sequência):
+    1. `diag-auth-signup.ts` — signUp directo via anon key devolveu
+       OK mas user SEM sessão (data.user existe, data.session = null) →
+       primeiro sinal de email confirmation ON.
+    2. `diag-auth-domains.ts` — testou .test/example.com/expressia.pt/gmail.com.
+       Provou que erros `email_address_invalid` em domínios RFC reserved
+       eram um falso positivo isolado: gmail.com e expressia.pt funcionam.
+    3. `diag-auth-config.ts` — `select email_confirmed_at from auth.users` —
+       todos os utilizadores criados via UI tinham `email_confirmed_at: NULL`,
+       evidenciando que o Confirm email estava ON e que os emails de
+       confirmação nunca chegavam (SMTP default rate-limited).
+    4. `error-messages.ts` + 12 testes — helper criado para expor codes
+       GoTrue accionáveis (`email_not_confirmed`, `over_email_send_rate_limit`,
+       `email_address_invalid`, `weak_password`, `email_exists`) que estavam
+       a ser mascarados pelo fallback genérico "Não foi possível concluir o
+       registo. Tenta novamente." (escondendo o root cause durante dias).
+    5. `dev-create-user.ts` — helper admin que cria user com
+       `email_confirm: true`, bypassa confirmação para smoke local.
+    6. `diag-auth-proof.ts` — **prova canónica**: criar via admin API +
+       signInWithPassword via anon + verificar trigger 0003 +
+       cleanup. PASSOU integralmente → trigger 0003 está perfeito, RLS
+       sã, JWT custom claim household_id presente. ÚNICO bloqueio era
+       o flag Dashboard.
+    7. `diag-auth-e2e.ts` — replicou exactamente o caminho do Server
+       Action via `@supabase/ssr/createServerClient` + cookieJar →
+       PASSOU. Confirma que o Server Action funcionará logo que o
+       utilizador exista confirmado.
+
+  Conclusão integrada: a UX mascarava H2. O fix é DOIS níveis:
+    - **Production code:** helper de mensagens expõe codes específicos
+      em vez do fallback genérico → utilizador SABE o que correu mal.
+    - **Runbook + dev helper:** documenta como recuperar (Dashboard toggle
+      ou admin API via `dev-create-user.ts`).
+
+  H1 (trigger ausente) **REFUTADA** — trigger 0003 funciona perfeitamente
+  (provado em `diag-auth-proof.ts`).
+  H3 (.env.local desconfigurado) **REFUTADA** — URLs + keys corretos
+  (provado por signUp via anon devolver OK com user criado em auth.users).
+  H4 (RLS bloqueia insert) **REFUTADA** — trigger 0003 é SECURITY DEFINER,
+  bypassa RLS no insert inicial; cleanup do diag-proof confirmou todas as
+  4 tabelas (households, household_members, subscriptions, audit_log)
+  populadas correctamente.
+
+files_touched:
+  production_code:
+    - 'apps/web/src/app/(auth)/actions.ts (MODIFIED)'
+    - 'apps/web/src/app/(auth)/registar/page.tsx (MODIFIED)'
+    - 'apps/web/src/app/(auth)/_lib/error-messages.ts (NEW)'
+    - 'apps/web/src/app/(auth)/_lib/__tests__/error-messages.test.ts (NEW, 12 testes)'
+  dev_tooling:
+    - 'packages/db/src/scripts/dev-create-user.ts (NEW — production-grade dev helper, documentado no runbook)'
+  documentation:
+    - 'docs/runbooks/supabase-auth-setup.md (MODIFIED — secção TASK-1 troubleshooting + prevenção)'
+    - 'docs/HANDOFF-INDEX.md (MODIFIED pela sessão anterior — secção archived com handoff session-pause)'
+  deletions_decision:
+    - 'packages/db/src/scripts/diag-auth-signup.ts (DELETED — first spike, redundante com proof)'
+    - 'packages/db/src/scripts/diag-auth-domains.ts (DELETED — insight extraído para runbook)'
+    - 'packages/db/src/scripts/diag-auth-config.ts (DELETED — one-shot inspection)'
+    - 'packages/db/src/scripts/diag-auth-proof.ts (DELETED — prova canónica concluída)'
+    - 'packages/db/src/scripts/diag-auth-e2e.ts (DELETED — também tipo-quebrava typecheck por dep @supabase/ssr não declarada em packages/db)'
+
+deletion_justification: |
+  Os 5 scripts diag-auth-* eram exploração ad-hoc cuja missão (provar root
+  cause) estava concluída. Mantê-los acrescentava ruído sem valor reutilizável:
+    - Nenhum era idempotente nem cobria caminho de teste real do CI.
+    - `diag-auth-proof.ts` era cara (admin createUser + cleanup) — má
+      escolha para integration test.
+    - `diag-auth-e2e.ts` causava typecheck FAIL: importa `@supabase/ssr`
+      mas essa dep só está declarada em `apps/web/package.json`, não em
+      `packages/db/package.json`. Mover a dep seria piorar a hierarquia.
+  Insights relevantes ficam preservados em:
+    - `docs/runbooks/supabase-auth-setup.md` (secção troubleshooting +
+       prevenção updated nesta sessão)
+    - `apps/web/src/app/(auth)/_lib/error-messages.ts` (codes mapeados
+       que apareceram durante diagnóstico)
+  `dev-create-user.ts` SOBREVIVE — é reutilizável e documentado no runbook
+  como ferramenta operacional para futuros smoke quando Confirm email ON.
+
+quality_gates:
+  - gate: lint
+    result: GREEN
+    detail: '10/10 tasks; turbo cached 9/10; apps/web fresh re-run 0 warnings'
+    timing: '579ms (cached) / 1.6s (apps/web fresh)'
+  - gate: typecheck
+    result: GREEN
+    detail: '10/10 tasks; tsc --noEmit em todos os packages'
+    timing: '2.5s (cached 9/10)'
+  - gate: test apps/web
+    result: GREEN
+    detail: '95/95 files; 771/771 tests PASS (baseline Story 5.3 era 759 + 12 novos do error-messages.test.ts)'
+    timing: '37.7s'
+  - gate: test db-test
+    result: ENV-BLOCKER (Docker not running, Testcontainers gate)
+    detail: 'NÃO-REGRESSÃO — precedente AD-5.3.1 aceito desde Story 5.1. Para correr: ligar Docker Desktop e re-run.'
+  - gate: check:rls (NFR5)
+    result: GREEN
+    detail: '28 tabelas × 4 RLS policies cobertas; EXIT 0'
+    timing: '<1s'
+  - gate: build
+    result: GREEN
+    detail: '10/10 tasks; production bundle compila; middleware 94.5kB inalterado'
+    timing: '91s'
+  - gate: smoke HTTP em localhost:3001
+    result: GREEN
+    detail: |
+      / → 200, /entrar → 200, /registar → 200,
+      /visao → 307 redirect /entrar?next=%2Fvisao (middleware OK),
+      /conta → 307 redirect /entrar?next=%2Fconta (middleware OK)
+    timing: '<1s'
+
+production_fix_summary: |
+  **actions.ts:**
+    - `signInAction`: erro genérico → `mapSignInError(error)` (expõe
+      `email_not_confirmed` accionável; restantes códigos colapsam em
+      "Email ou palavra-passe incorrectos" anti-enumeration).
+    - `signUpAction`: detecta `data.user && !data.session` (signal de
+      Confirm email ON) → devolve `{ info: 'Conta criada. Verifica o
+      teu email...' }` em vez de redireccionar silenciosamente para
+      `/visao` (que o middleware bloquearia).
+    - Type `AuthFormState` ganha campo opcional `info` distinto de `error`
+      para a UI distinguir tom positivo vs negativo.
+
+  **registar/page.tsx:**
+    - Renderiza bloco `<p role="status">` com `state.info` em verde
+      (`bg-emerald-50 / dark:bg-emerald-950`) quando presente —
+      distinto visualmente do bloco vermelho `state.error`.
+
+  **error-messages.ts (novo helper isolado):**
+    - 6 códigos GoTrue mapeados para PT-PT accionável:
+      `email_address_invalid`, `email_exists`, `weak_password`,
+      `over_email_send_rate_limit`, `over_request_rate_limit`,
+      `signup_disabled`, `email_provider_disabled`, `user_banned`.
+    - Fallbacks anti-enumeration mantidos para signIn.
+    - 12 testes (PASS isolado 4ms) cobrem mapping, fallback e
+      defensive handling de null/undefined/non-object.
+
+  **dev-create-user.ts:**
+    - Helper CLI dev-only: `pnpm --filter @meu-jarvis/db exec tsx
+      src/scripts/dev-create-user.ts --email=x --password=y` cria user
+      via admin API com `email_confirm: true`, trigger 0003 dispara
+      automaticamente, devolve credenciais prontas.
+
+  **runbook supabase-auth-setup.md:**
+    - Secção "Signup mostra mensagem genérica e login falha (TASK-1)"
+      documenta sintomas + root cause + fix Dashboard + fix alternativo
+      via dev-create-user.ts.
+    - Secção "Prevenção" documenta o helper `error-messages.ts` e o
+      branch `if (data.user && !data.session)` em `signUpAction`,
+      indicando para revisitar quando Resend integrar.
+
+dev_decisions:
+  - id: 'D-TASK1-1'
+    decision: 'Eliminar 5 diag-auth-* scripts após root cause provado'
+    options_considered:
+      - 'Manter todos como integration tests futuros (rejeitado: caros, não-CI-friendly)'
+      - 'Promover diag-auth-proof.ts a teste permanente (rejeitado: usa admin createUser + cleanup, side-effects em CI shared DB inaceitáveis)'
+      - 'Eliminar todos, preservar insights no runbook + production helper (ESCOLHIDO)'
+    justification: 'IDS CREATE-then-DELETE pattern. Os scripts cumpriram a missão exploratória. Insights ficam: (a) error-messages.ts (production), (b) dev-create-user.ts (operational), (c) runbook (knowledge). Cumulativamente cobrem 100% do valor exploratório com 0% do ruído.'
+    artifacts_preserved: 'dev-create-user.ts (5.5kB) + error-messages.ts (4kB) + 12 testes + runbook update'
+
+  - id: 'D-TASK1-2'
+    decision: 'Adiar fix-real do Dashboard Confirm email ON (mantém ON, app trata graciosamente)'
+    options_considered:
+      - 'Toggle Confirm email OFF no Dashboard (rejeitado: D8 original previa OFF mas em produção, com Resend, queremos ON — fix tem de viver no Dashboard prod-side)'
+      - 'Helper PT-PT + UI graceful + runbook (ESCOLHIDO)'
+    justification: 'Cumpre Constitution Article IV (No Invention): trace claro a `data.user && !data.session` documentado nas Supabase docs. A app fica robusta a qualquer toggle futuro sem requerer redeploy.'
+    follow_up: 'Quando Resend integrar (Epic 6+), revisitar UI: substituir mensagem inline por página `/registo-confirma` dedicada, com botão "Reenviar email".'
+
+  - id: 'D-TASK1-3'
+    decision: 'Sender handoff a @devops (não @architect)'
+    options_considered:
+      - '@architect (se a fix tocou em schema/RLS/SQL — NÃO TOCOU)'
+      - '@devops (se foi código de aplicação + config local — É O CASO)'
+    justification: 'Zero migrations criadas, RLS coverage inalterada (28 tabelas × 4 policies), helper SQL handle_new_user inalterado. Fix vive 100% em código de aplicação + dev tooling + docs. Não há gate arquitectural por satisfazer.'
+
+next_action: |
+  @devops Gage, executa `*push TASK-1` com este handoff:
+
+    1. Revê o diff completo:
+       - git diff (4 modified)
+       - git status (1 deleted dir not yet — esperar, os diag-* foram unlink directos sem git rm; precisas `git add -u packages/db/src/scripts/` ou `git rm` explícito)
+       - git status -s deve mostrar:
+           M apps/web/src/app/(auth)/actions.ts
+           M apps/web/src/app/(auth)/registar/page.tsx
+           M docs/HANDOFF-INDEX.md (sessão anterior)
+           M docs/runbooks/supabase-auth-setup.md
+           ?? apps/web/src/app/(auth)/_lib/
+           ?? packages/db/src/scripts/dev-create-user.ts
+           D  packages/db/src/scripts/diag-auth-signup.ts
+           D  packages/db/src/scripts/diag-auth-domains.ts
+           D  packages/db/src/scripts/diag-auth-config.ts
+           D  packages/db/src/scripts/diag-auth-proof.ts
+           D  packages/db/src/scripts/diag-auth-e2e.ts
+
+    2. Re-corre 4 quality gates (este handoff já os passou — mas devops
+       sempre re-verifica):
+         pnpm lint
+         pnpm typecheck
+         pnpm test --filter @meu-jarvis/web   # 771/771 PASS
+         pnpm check:rls
+       (test db-test: ENV-BLOCKER aceito, ou ligar Docker antes)
+
+    3. Smoke HTTP em localhost:3001 (server provavelmente ainda activo
+       desta sessão; senão arranca `pnpm exec next dev -p 3001` em
+       apps/web):
+         curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001/entrar
+         # esperado: 200
+         curl -s -I http://localhost:3001/visao | grep -i location
+         # esperado: location: /entrar?next=%2Fvisao
+
+    4. CodeRabbit (precedente Stories 3.1-5.3 SKIPPED — manter precedente
+       ou rodar pre-commit a critério @devops).
+
+    5. Commits (sugestão — 1 commit primário + 1 housekeeping):
+
+       commit primário:
+         feat(auth): TASK-1 — mensagens GoTrue accionáveis + handling Confirm email ON
+
+         Helper `apps/web/src/app/(auth)/_lib/error-messages.ts` mapeia 6 códigos
+         GoTrue para PT-PT accionável, expondo `email_not_confirmed`,
+         `over_email_send_rate_limit` e outros que estavam escondidos pelo
+         fallback genérico. `signUpAction` trata `data.user && !data.session`
+         devolvendo `{ info: ... }` em vez de redirect silencioso bloqueado
+         pelo middleware. `signInAction` usa o helper preservando anti-enumeration.
+
+         `dev-create-user.ts`: helper CLI dev-only para criar utilizadores
+         com `email_confirm: true`, destravar smoke local quando Confirm
+         email ON sem SMTP configurado.
+
+         Eliminados 5 scripts exploratórios diag-auth-*; insights preservados
+         em error-messages.ts + dev-create-user.ts + runbook §7
+         supabase-auth-setup.md.
+
+         Quality gates 4/4 GREEN (lint, typecheck, test apps/web 771/771,
+         check:rls EXIT 0). Smoke HTTP 5/5 rotas GREEN em localhost:3001.
+
+         Constraint: D8 original (Confirm email OFF) reversível no Dashboard sem redeploy
+         Constraint: anti-enumeration em signIn fallback mantido
+         Confidence: high
+         Scope-risk: narrow (apenas auth Server Actions + UI registar)
+         Directive: quando Resend integrar (Epic 6+), substituir bloco info inline por página /registo-confirma dedicada
+         Not-tested: smoke real de Server Action via browser (curl não cobre $ACTION_REF React 19 encoding) — diag-auth-e2e.ts provou o caminho equivalente antes de ser eliminado
+
+       commit housekeeping:
+         chore(docs,housekeeping): TASK-1 fechada — handoff dev→devops + runbook §7 prevenção
+
+         - docs/handoffs/mj-handoff-auth-local-fixed-20260526-dev-to-devops.yaml (novo)
+         - docs/HANDOFF-INDEX.md actualizado: archived `auth-local-broken`,
+           pending `auth-local-fixed`
+         - docs/runbooks/supabase-auth-setup.md: secção §7 troubleshooting +
+           prevenção do bug class
+
+       Co-Authored-By: Dex (aiox-dev YOLO) + sessão prévia 2026-05-25
+
+    6. `git push origin main` (autoridade exclusiva @devops).
+
+    7. Após push: arquivar este handoff (`consumed: true` + mv para
+       docs/handoffs/archive/) e marcar archived no INDEX.
+
+post_task_status:
+  blockers_resolved:
+    - 'FUP-5.3.A smoke visual humano (auth funcional agora)'
+    - 'Smoke visual humano todas Stories 5.4-5.10 futuras'
+    - 'QA E2E manual Eurico (login funciona com `dev-create-user.ts` + Dashboard fix)'
+  epic_5_progress: '3/10 Done (inalterado — TASK-1 não é story, é cross-cutting)'
+  next_story_unblocked: 'Story 5.4 ChatPanel real (TASK-2 do handoff Eurico session-pause)'
+
+constitution_compliance:
+  - article: 'IV (No Invention)'
+    status: 'COMPLIANT'
+    evidence: |
+      Production fix trace claro:
+        - `mapSignUpError`/`mapSignInError`: codes GoTrue oficiais (link
+          em comment: github.com/supabase/auth/blob/master/internal/api/errors.go)
+        - `data.user && !data.session` branch: documentado em
+          supabase-js docs (signUp returns user without session when
+          email confirmation pending)
+        - error message strings: PT-PT escritos manualmente, não inventados
+          contra spec inexistente
+
+  - article: 'I (CLI First — NON-NEGOTIABLE)'
+    status: 'COMPLIANT'
+    evidence: 'Toda validação via CLI (lint/typecheck/test/check:rls/build/curl/dev-create-user). Zero dependência de UI/dashboard para verificar correctness.'
+
+  - article: 'VI (Absolute Imports)'
+    status: 'COMPLIANT'
+    evidence: |
+      Imports em files novos:
+        - `error-messages.ts`: sem imports relativos
+        - `error-messages.test.ts`: `import from '@/app/(auth)/_lib/error-messages'`
+        - `actions.ts`: `import from '@/app/(auth)/_lib/error-messages'`
+
+estimated_devops_effort: 20 minutos (re-run gates 5min + smoke 1min + 2 commits 5min + push 1min + handoff archival 3min + buffer 5min)

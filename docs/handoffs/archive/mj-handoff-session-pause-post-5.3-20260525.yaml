@@ -1,0 +1,232 @@
+id: mj-handoff-session-pause-post-5.3-20260525
+from_agent: claude (session orchestrator)
+to_agent: any
+created: '2026-05-25T22:15:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-25T22:35:00Z'
+consumed_by: aiox-master (Orion)
+consumed_outcome: |
+  Apresentação do estado feita a Eurico em sessão @aiox-master (Orion).
+  Decisões tomadas:
+  - DEC-1 RESPONDIDA → TASK-1 primeiro (auth-fix local)
+    Próximo agente: @dev consume `mj-handoff-auth-local-broken-20260525.yaml`
+  - DEC-2 ADIADA → continua pending (não bloqueante; ratificar em próxima sessão)
+  - DEC-3 ADIADA → continua pending (não bloqueante; 10º push consecutivo a excluir)
+  TASK-2 e TASK-3 mantêm-se pending — ambas dependem indirectamente
+  do desbloqueio do auth local (TASK-1) para smoke visual humano.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: 'SESSION PAUSE — pós Story 5.3 Done'
+last_command: '*push 5.3 (CI GREEN d15b88d) — sessão terminada por Eurico'
+priority: MEDIUM
+
+summary: |
+  Sessão de 25 Maio 2026 fechou com sucesso Story 5.3 (Layout Shell) em main:
+  cycle completo @sm → @po → @dev → @architect → @devops com CI 3/3 GREEN.
+  Epic 5 Progress: 3/10 Done.
+
+  Eurico pediu pausa cross-terminal para retomar tarefas pendentes noutro
+  terminal. Este handoff master sumariza estado actual + 3 tarefas em
+  pending priorizadas + 2 decisões à espera de input do Eurico.
+
+  Cross-terminal ready: qualquer agente que abra o repo na próxima sessão
+  encontra aqui o contexto completo sem ter de reconstruir da conversa.
+
+context: |
+  ## Estado pós Story 5.3
+
+  Branch `main` actualizada: `d15b88d` (chore docs) sobre `0123995` (feat shell).
+  CI run [26419059347](https://github.com/DaSilvaAlves/expressia/actions/runs/26419059347)
+  GREEN em ~4min (RLS Gate 1m16s · Quality 2m10s · Build 1m51s).
+
+  **Epic 5 Progress: 3/10 Done** — 5.1 (`user_prefs`) · 5.2 (`packages/ui` bootstrap) · 5.3 (Layout Shell).
+
+  **Pipeline da sessão:**
+  ```
+  @sm draft v1.0
+    → @po GO-WITH-FIXES 8.5/10 MEDIUM-HIGH (3 PO_FIX_INLINE inline)
+    → @dev YOLO 8/8 Tasks v1.2 (5/5 gates GREEN + 17 testes novos)
+    → @architect APPROVED 9.5/10 HIGH (3 emergent items RATIFICADOS + 4 PRAISES)
+    → @devops push 2 commits + CI GREEN
+  ```
+
+  **3 emergent items ratificados pelo @architect:**
+  1. D-5.3.6 `mobileDrawerOpen` ephemeral no shellStore (Zustand-as-event-bus
+     pattern justificado vs 3 alternativas)
+  2. DEV-5.3.3 cores hardcoded `#1F4F6A`/`#163A4F`/`#E6EEF3` em Sidebar (match
+     byte-a-byte com tokens; Story 5.8 vai migrar para CSS vars)
+  3. AD-5.3.4 smoke visual humano deferred via FUP-5.3.A (autorização explícita
+     Eurico baseada em precedente Stories 5.1+5.2 + bloqueio auth local)
+
+  **Smoke parcial visual confirmou (esta sessão):**
+  - Landing `/` PT-PT OK (`http://localhost:3001/`)
+  - `/registar` form renderizado correctamente PT-PT
+  - `/entrar` form renderizado correctamente PT-PT (Story 1.5 D15 byte-a-byte
+    preservado conforme @architect confirmou)
+
+  **Smoke autenticado IMPOSSÍVEL** — auth/registo local quebrado (ver tarefa #1
+  abaixo). Foi este o gatilho que levou o @devops a criar o handoff dedicado
+  `mj-handoff-auth-local-broken-20260525.yaml`.
+
+  ## Outras descobertas da sessão
+
+  - Servidor dev estava a correr na **porta 3001** (3000 ocupada por outra app
+    do Eurico chamada "IA Estúdio"). Eurico autorizou explicitamente não matar
+    o processo da outra app; usar 3001 é o caminho válido para futuras sessões
+    de dev local.
+  - O comando correcto é: `pnpm --filter @meu-jarvis/web dev --port 3001`
+  - Rotas auth são PT-PT: `/entrar` `/registar` `/recuperar` (NÃO `/auth/login`
+    nem `/auth/register` — confusão minha resolvida durante a sessão).
+
+pending_tasks:
+  - id: TASK-1
+    priority: HIGH
+    title: 'Auth-fix local — desbloquear smoke visual humano'
+    handoff_ref: 'mj-handoff-auth-local-broken-20260525.yaml'
+    estimated_effort: '1-3 horas'
+    why_priority_high: |
+      Bloqueia smoke visual humano para TODAS as Stories 5.4-5.10 (autenticadas).
+      Recomendação @devops: tratar primeiro antes de avançar Epic 5 senão acumulam
+      stories sem validação visual e cresce o risco de regressão visual emergir
+      só em produção.
+    next_action: '@dev consume handoff mj-handoff-auth-local-broken-20260525.yaml'
+    hypotheses_summary: |
+      H1 HIGH — trigger handle_new_user da Story 1.5 (B2 blocker) provavelmente
+                nunca foi instalada localmente
+      H2 MED  — Supabase email confirmation activo sem SMTP local
+      H3 MED  — .env.local em apps/web/ desconfigurado
+      H4 LOW  — RLS policies bloqueiam insert inicial
+
+  - id: TASK-2
+    priority: MEDIUM
+    title: 'Story 5.4 — extrair ChatPanel real e montar no slot vazio'
+    handoff_ref: 'a criar quando @sm draftar'
+    estimated_effort: '~4-6 horas (story M)'
+    why_priority_medium: |
+      Próximo passo natural Epic 5. Slot vazio criado pela Story 5.3 está pronto
+      (3 estados desktop collapsed/expanded + mobile FAB documentados).
+      Depende de auth-fix (TASK-1) para validação visual humana — pode ser
+      drafted + implementado sem auth, mas smoke visual ficaria deferred outra
+      vez se TASK-1 não estiver resolvida.
+    next_action: '@sm *draft 5.4 (após decisão Eurico sobre ordem TASK-1 vs TASK-2)'
+
+  - id: TASK-3
+    priority: LOW
+    title: '2 warnings Next.js 15 — housekeeping config'
+    handoff_ref: 'sem handoff próprio — registado aqui'
+    estimated_effort: '~15 minutos'
+    why_priority_low: |
+      Warnings benignos detectados durante prep do smoke da Story 5.3. Não
+      bloqueiam build nem dev. Podem ser tratados como mini-story housekeeping
+      ou folded em Story 5.10 (Polish/Performance final do Epic 5).
+    items:
+      - id: FUP-WARN-1
+        description: 'next.config.ts → renomear `experimental.typedRoutes` para `typedRoutes` (Next 15 stable)'
+        evidence: 'Warning visível na primeira linha do output `pnpm --filter @meu-jarvis/web dev`'
+      - id: FUP-WARN-2
+        description: |
+          next.config.ts → adicionar `outputFileTracingRoot: __dirname` para silenciar
+          warning de lockfile collision com `C:\Users\XPS\package-lock.json` (orphan
+          npm lockfile no home directory do Eurico — não relacionado com o repo).
+        evidence: |
+          Warning visível:
+          "Next.js inferred your workspace root, but it may not be correct.
+           We detected multiple lockfiles and selected the directory of
+           C:\Users\XPS\package-lock.json as the root directory."
+    next_action: |
+      Opção A: mini-story dedicada (S, 15min) — @sm *draft 5.10.5 housekeeping warnings
+      Opção B: folding em Story 5.10 (Polish/Performance) — @sm inclui ACs específicos
+      Opção C: defer indefinidamente (warnings benignos, sem impacto funcional)
+
+pending_decisions_eurico:
+  - id: DEC-1
+    question: 'Qual a ordem de execução: TASK-1 (auth-fix) ou TASK-2 (Story 5.4)?'
+    recommendation_devops: 'TASK-1 primeiro — desbloqueia smoke visual humano de TODAS Stories 5.x'
+    impact: |
+      Se TASK-1 primeiro: 1-3h de investigação, smoke autenticado fica funcional,
+      próximas stories podem ser smoke-validadas humanamente sem autorização
+      caso-a-caso.
+
+      Se TASK-2 primeiro: Story 5.4 avança Epic 5 (4/10 Done), mas smoke visual
+      humano fica deferred outra vez (necessita autorização Eurico). Acumula
+      "dívida de smoke" para próximas stories.
+
+  - id: DEC-2
+    question: 'Como tratar os 2 warnings Next.js (TASK-3)?'
+    options:
+      - 'A — mini-story dedicada 5.10.5 (S, 15min) agora'
+      - 'B — folding em Story 5.10 (Polish/Performance final Epic 5)'
+      - 'C — defer indefinidamente (warnings benignos)'
+    recommendation: 'B (folding em 5.10) — consistente com decisão prévia carry-overs DP-5.3.E + DP5 root redirect também folded em 5.10'
+
+  - id: DEC-3
+    question: 'docs/marketing/edit/ untracked desde Story 4.1 — manter excluído ou tratar?'
+    history: |
+      Esta directory está untracked desde 2026-05-23 e foi excluída de todos os
+      pushes desde Story 4.1 (4.6, 4.7, 4.8, 4.9, 4.10, 5.1, 5.2, 5.3) com nota
+      "decisão Eurico pendente". 9 pushes consecutivos a excluir o mesmo path
+      sem decisão final.
+    options:
+      - 'A — eliminar a directory (`git clean -fd docs/marketing/edit/`)'
+      - 'B — commitar como marketing assets (decidir scope)'
+      - 'C — adicionar a .gitignore (manter local, nunca commitar)'
+      - 'D — manter status quo (untracked, decisão adiada novamente)'
+    recommendation: 'Eurico tem de inspeccionar o conteúdo da directory primeiro para decidir'
+
+session_environment:
+  dev_server_port: 3001
+  reason_not_3000: 'Porta 3000 ocupada por outra app do Eurico ("IA Estúdio")'
+  command_to_start: 'pnpm --filter @meu-jarvis/web dev --port 3001'
+  auth_routes_pt_pt:
+    - /entrar (login)
+    - /registar (register)
+    - /recuperar (recover password)
+  auth_routes_inexistentes:
+    - /auth/login (NÃO existe — usar /entrar)
+    - /auth/register (NÃO existe — usar /registar)
+
+recommended_resume_sequence: |
+  Para o próximo agente que abrir o repo:
+
+  1. Ler `docs/HANDOFF-INDEX.md` (este handoff aparece em Pending)
+  2. Ler este YAML completo
+  3. Apresentar o estado ao Eurico:
+     - Story 5.3 Done em main (CI GREEN)
+     - Epic 5 Progress: 3/10 Done
+     - 3 tarefas pendentes (TASK-1 HIGH, TASK-2 MED, TASK-3 LOW)
+     - 3 decisões à espera de input (DEC-1, DEC-2, DEC-3)
+  4. Perguntar ao Eurico qual decisão tomar primeiro (DEC-1 é a mais bloqueante)
+  5. Consumir este handoff (status: consumed + mv para archive) quando Eurico
+     responder à DEC-1 e o agente certo for invocado
+
+  Não tentar adivinhar a ordem — Eurico autorizou pausa para descansar e decidir
+  depois. Respeitar o tempo dele.
+
+blockers_downstream:
+  - 'Smoke visual humano de todas Stories 5.4-5.10 está bloqueado por TASK-1'
+  - 'Decisão DEC-1 bloqueia início do próximo trabalho (auth-fix ou 5.4)'
+  - 'DEC-3 (marketing/edit) continua adiada — 9 pushes sem decisão'
+
+related_handoffs_still_pending:
+  - id: mj-handoff-auth-local-broken-20260525
+    note: 'Handoff dedicado para TASK-1 — criado pelo @devops nesta sessão. NÃO foi consumido. Próximo @dev/agente deve abrir este YAML em paralelo com o presente.'
+  - id: mj-handoff-5.1-architect-to-devops-20260524
+    note: 'Drift pré-existente da Story 5.1 — handoff arquitect→devops nunca foi formalmente consumed apesar de Story 5.1 estar Done há 1 dia. Pode ser fechado em housekeeping da próxima sessão (não-bloqueante).'
+  - id: mj-handoff-1.7-post-deploy-ui-tasks-20260508
+    note: 'Acções UI manuais Grafana/Sentry/Vercel Analytics — non-blocking LOW desde 2026-05-08. 25-35 min UI quando Eurico decidir.'
+
+related_stories:
+  - 5.3 (acabada de fazer push — Done v1.3)
+  - 5.4 (próxima natural — ChatPanel real no slot vazio)
+  - 5.10 (Polish/Performance — candidate para folding dos 2 warnings + middleware fix + root redirect)
+  - 1.5 (origem do bug auth — trigger handle_new_user)
+
+estimated_total_pending_effort: |
+  - TASK-1: 1-3 horas (HIGH)
+  - TASK-2: 4-6 horas (MED)
+  - TASK-3: 15 min (LOW)
+  - DEC-1/2/3: input Eurico (síncrono, ~5 min)
+
+  Total: ~6-10 horas de trabalho de agentes + decisões Eurico.

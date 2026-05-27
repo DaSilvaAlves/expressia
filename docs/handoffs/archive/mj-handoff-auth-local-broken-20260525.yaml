@@ -2,8 +2,17 @@ id: mj-handoff-auth-local-broken-20260525
 from_agent: devops
 to_agent: dev
 created: '2026-05-25T21:45:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-05-27T00:55:00Z'
+consumed_by: 'aiox-dev (Dex) — 2 sessões (2026-05-25 → 26 inicial + 2026-05-26 → 27 closure)'
+consumed_outcome: |
+  Root cause confirmado: H2 (Confirm email ON no Dashboard sem SMTP custom).
+  Production fix aplicada (helper error-messages.ts + handling data.user/!data.session
+  + UI info block). 5 diag scripts eliminados após missão concluída.
+  dev-create-user.ts mantido como helper operacional. Quality gates 4/4 GREEN.
+  Smoke HTTP 5/5 rotas GREEN em localhost:3001. Sucessor:
+  mj-handoff-auth-local-fixed-20260526-dev-to-devops.yaml.
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
