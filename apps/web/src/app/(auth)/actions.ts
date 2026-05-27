@@ -16,14 +16,27 @@
  * Erros: devolvem objecto `{ error: string }` em PT-PT que a página
  * cliente renderiza. Nunca lançam para o consumidor — UX > stack trace.
  *
+ * TASK-1 (Dex 2026-05-26): mensagens específicas via helper
+ *   `apps/web/src/app/(auth)/_lib/error-messages.ts` em vez de fallback
+ *   genérico — anteriormente escondia codes accionáveis como
+ *   `email_address_invalid` ou `over_email_send_rate_limit`, mascarando o
+ *   root cause durante dias.
+ *
  * Trace: Story 1.5 Task 5.4, Architecture §5.1, §7.1, AC2.
  */
 import { redirect } from 'next/navigation';
 
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 
+import { mapSignInError, mapSignUpError } from '@/app/(auth)/_lib/error-messages';
+
 export interface AuthFormState {
   readonly error?: string;
+  /**
+   * Mensagem positiva PT-PT (ex: "Verifica o teu email para confirmar a conta").
+   * Distinta de `error` para a UI poder distinguir tom (info vs erro).
+   */
+  readonly info?: string;
 }
 
 /**
@@ -48,8 +61,9 @@ export async function signInAction(
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    // Não expor detalhes internos — risco de enumeration.
-    return { error: 'Email ou palavra-passe incorrectos.' };
+    // Helper expõe explicitamente `email_not_confirmed` (acionável); restantes
+    // colapsam em "Email ou palavra-passe incorrectos" (anti-enumeration).
+    return { error: mapSignInError(error) };
   }
 
   redirect('/visao');
@@ -68,6 +82,11 @@ export async function signInAction(
  * D8 (decidido): email confirmation OFF para MVP — o utilizador entra
  * directamente após signup. Documentado em runbook supabase-auth-setup.md
  * como follow-up quando Resend integrar.
+ *
+ * TASK-1 (2026-05-26): tratamento defensivo para o caso de `Confirm email`
+ * estar ON (D8 revertido no Dashboard): se `signUp` devolve user sem sessão,
+ * mostramos mensagem PT-PT a pedir verificação de email em vez de
+ * redirecionar para `/visao` (que falharia silenciosamente no middleware).
  */
 export async function signUpAction(
   _prevState: AuthFormState,
@@ -88,13 +107,23 @@ export async function signUpAction(
   }
 
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({ email, password });
 
   if (error) {
-    return { error: 'Não foi possível concluir o registo. Tenta novamente.' };
+    return { error: mapSignUpError(error) };
   }
 
-  // D8: sem email confirmation, o utilizador entra directamente após signUp.
+  // Detecta `Confirm email` ON no Dashboard: signUp devolve user sem sessão
+  // → não podemos redirecionar para `/visao`, o middleware bloqueia.
+  // Mostramos mensagem PT-PT pedindo confirmação para que o utilizador
+  // saiba o que falta fazer.
+  if (data.user && !data.session) {
+    return {
+      info: 'Conta criada. Verifica o teu email para confirmar e depois entra.',
+    };
+  }
+
+  // D8 caminho default: sem email confirmation, sessão activa imediata → /visao.
   redirect('/visao');
 }
 

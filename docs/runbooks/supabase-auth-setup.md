@@ -319,10 +319,77 @@ segurança (não usar `**` solto).
 
 - Verificar que `apps/web/src/middleware.ts` está activo no path da rota
   (matcher inclui `/(app)/:path*` + `/api/((?!billing|cron).*)`).
-- Em Server Components (não Server Actions / Route Handlers / middleware),
+- Em Server Components (não Server Actions / Server Routes / middleware),
   `setAll` falha silenciosamente — comportamento esperado, mas o
   middleware tem de cobrir o request seguinte para refresh token.
 - Verificar HTTPS em Production (cookies `Secure` flag).
+
+### Signup mostra mensagem genérica e login falha (TASK-1, 2026-05-26)
+
+**Sintoma:**
+
+- `/registar` mostra "Não foi possível concluir o registo. Tenta novamente."
+  ou "Conta criada. Verifica o teu email para confirmar e depois entra."
+  e o utilizador nunca recebe o email.
+- `/entrar` falha com "Tens de confirmar o teu email antes de entrar."
+
+**Root cause:**
+
+`Confirm email` foi reactivado no Dashboard (Authentication → Sign In / Up →
+Email), revertendo a decisão D8 da Story 1.5. Sem SMTP custom configurado
+(Resend ainda não integrado), o Supabase usa o serviço default partilhado,
+que tem rate limit baixo (4 emails/hora) e bloqueia muitos domínios.
+Resultado: utilizadores ficam em `auth.users` com `email_confirmed_at = NULL`
+e não conseguem entrar.
+
+**Verificar a configuração actual** (via API pública GoTrue settings):
+
+```bash
+curl -s "https://<project-ref>.supabase.co/auth/v1/settings" \
+  -H "apikey: <NEXT_PUBLIC_SUPABASE_ANON_KEY>" | jq '.mailer_autoconfirm'
+```
+
+- `true`  → confirmation OFF (D8 honorado). OK.
+- `false` → confirmation ON. Fix abaixo.
+
+**Fix recomendado (Dashboard):**
+
+1. **Dashboard → Authentication → Sign In / Up → Email** → desligar `Confirm email`.
+2. Recarregar a config no curl acima — `.mailer_autoconfirm` passa a `true`.
+3. Testar registo em `/registar` com email novo — deve cair em `/visao` directo.
+
+**Fix alternativo (sem mexer Dashboard) — criar utilizador via admin API:**
+
+Útil para smoke visual quando não se quer/pode mexer no Dashboard:
+
+```bash
+pnpm --filter @meu-jarvis/db exec tsx src/scripts/dev-create-user.ts \
+  --email=dex+smoke1@expressia.pt \
+  --password=Smoke12345!
+```
+
+O script:
+
+- Usa `SUPABASE_SERVICE_ROLE_KEY` para criar o utilizador com
+  `email_confirm: true` (bypassa confirmação).
+- Trigger 0003 corre normalmente (household + membership + subscription + audit).
+- Devolve credenciais imediatamente prontas para `/entrar`.
+
+Apenas para uso em desenvolvimento — nunca em produção.
+
+**Prevenção:**
+
+O helper `apps/web/src/app/(auth)/_lib/error-messages.ts` (TASK-1, 2026-05-26)
+mapeia explicitamente os códigos GoTrue mais comuns (`email_not_confirmed`,
+`email_address_invalid`, `over_email_send_rate_limit`, `weak_password`,
+`email_exists`, `user_banned`) para mensagens PT-PT accionáveis. Mantém este
+helper actualizado sempre que aparecer um novo `code` real em produção —
+mensagens genéricas escondem root causes e custam dias de debug.
+
+Quando o `Confirm email` voltar a ser activado intencionalmente (Resend
+integrado), revisitar o branch `if (data.user && !data.session)` em
+`signUpAction` que actualmente mostra "Verifica o teu email" — pode passar
+a redireccionar para uma página `/registo-confirma` dedicada.
 
 ---
 

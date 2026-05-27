@@ -78,6 +78,12 @@ export default function RegistarPage() {
           </p>
         ) : null}
 
+        {state.info ? (
+          <p role="status" className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+            {state.info}
+          </p>
+        ) : null}
+
         <button
           type="submit"
           disabled={isPending}
