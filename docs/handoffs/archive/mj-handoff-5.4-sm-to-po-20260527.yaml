@@ -1,0 +1,379 @@
+id: mj-handoff-5.4-sm-to-po-20260527
+from_agent: sm
+to_agent: po
+created: '2026-05-27T03:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-27T03:45:00Z'
+consumed_by: po
+consumed_note: |
+  @po Pax consumiu o handoff sm→po e executou `*validate-story-draft 5.4` —
+  **GO-WITH-FIXES 9.5/10 HIGH**. 10-point checklist 9 PASS + 1 N/A. Cross-confirm
+  anti-hallucination 8 verificações: 4 PASS EXACT + 2 PASS-COM-DRIFT trivial (±1)
+  + 2 PO_FIX_INLINE aplicados directamente ao ficheiro + 1 GO-CONFIRM positivo.
+  **F1** correcção aritmética AC7 PASS criteria (baseline 759→764, não 770-775;
+  net change real +5 não +10-15 — grep revela 13 `it(` em jarvis-chat.test.tsx).
+  **F2** workflow safety crítico em DP-5.4.B + reformulação Task 2 com two-step
+  rename obrigatório (Windows MINGW64 core.ignorecase=true confirmado). **F3
+  GO-CONFIRM** imports unidireccional ratificado (zero cyclical) + T2.9 nova.
+  7 DPs RATIFICADAS (A-G). 2 carry-overs confirmados não-bloqueantes (Vercel AI
+  SDK useChat divergência + middleware APP_PATH_PREFIXES folding 5.10). Story
+  status `Draft v1.0` → `Ready for Dev v1.1`. Sucessor pending:
+  `mj-handoff-5.4-po-to-dev-20260527.yaml`.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.4'
+last_command: '*draft 5.4'
+priority: medium
+
+summary: |
+  @sm River executou `*draft 5.4` em modo cirúrgico — refactor de extracção
+  + migração path + 1 novo store Zustand. Story 5.4 cria `<ChatPanel>` agnóstico
+  de rota em `apps/web/src/components/chat/` (architecture §8.4 linha 727
+  prescreve EXACTAMENTE este path) extraindo a lógica de `<JarvisChat>` Story 2.7
+  (267 linhas) sem alterar o contract de `POST /api/agent/prompt`. Prop
+  `mode: 'panel' | 'fullscreen'` controla styling adaptativo (DP-5.4.D — KISS).
+  4 sub-componentes (`ChatInput`, `PreviewCard`, `ResultMessage`, `error-messages`)
+  movidos via `git mv` de `jarvis/_components/` para `components/chat/` —
+  history preservada, casing PascalCase para tsx (DP-5.4.B precedente Stories
+  5.2+5.3). `chatStore` Zustand sem `persist` (DP-5.4.F — mensagens in-memory,
+  privacy-safe, sem lock-in localStorage) mitiga R-5.6 do epic (duplicação
+  estado panel↔fullscreen). Refactor `jarvis/page.tsx` substitui `<JarvisChat />`
+  por `<ChatPanel mode="fullscreen" />`. Refactor `ChatPanelSlot.tsx` Story 5.3
+  monta `<ChatPanel mode="panel" />` em ambos slots `data-slot="chat-panel"`
+  + `data-slot="chat-panel-mobile"` removendo dev placeholder *"O chat chega
+  na Story 5.4."*.
+
+  Drafted seguindo precedente Stories 5.1, 5.2, 5.3 — formato fiel ao projecto
+  meu-jarvis (executor @dev + quality_gate @architect; 9 ACs com PASS criteria
+  explícitos; 9 Tasks; 7 DPs documentadas com racional + carry-overs).
+
+  Story-draft-checklist auto-corrido por River: **5/6 PASS + 1 N/A** (CodeRabbit
+  Integration disabled per precedente Stories 5.1-5.3 — @architect gate substitui).
+
+  9 ACs:
+    AC1: <ChatPanel> em apps/web/src/components/chat/ com prop mode
+    AC2: chatStore Zustand sem persist (selectores tipados + actions bundle)
+    AC3: /jarvis/page.tsx render <ChatPanel mode="fullscreen">
+    AC4: ChatPanelSlot.tsx Story 5.3 monta <ChatPanel mode="panel"> em ambos slots
+    AC5: Migração 4 sub-componentes + 4 testes via git mv (PascalCase tsx)
+    AC6: Smoke test cross-route + cross-mode (12 steps manual + integration vitest)
+    AC7: 22+ testes (4 movidos + 8 ChatPanel + 8 chatStore + 2 integration); baseline 759
+    AC8: 5/5 quality gates GREEN + PT-PT estrito (CON3)
+    AC9: 7 DPs documentados (Constitution Article IV — No Invention)
+
+  9 Tasks:
+    T1: Scaffolding components/chat/ + chatStore (selectores tipados)
+    T2: Migrar 4 sub-componentes via git mv (PascalCase casing)
+    T3: Criar ChatPanel.tsx com prop mode (extracção byte-a-byte de jarvis-chat)
+    T4: Refactor /jarvis/page.tsx
+    T5: Eliminar jarvis-chat.tsx + test
+    T6: Refactor ChatPanelSlot.tsx (Story 5.3) montar ChatPanel
+    T7: Testes vitest (migrados + criados + ajustados)
+    T8: Smoke manual + quality gates 5/5
+    T9: Validation Report (7 DPs + counts + carry-overs)
+
+  7 DPs preliminares:
+    DP-5.4.A localização apps/web/src/components/chat/ (NÃO packages/ui)
+            — trace architecture §8.4 linha 727
+    DP-5.4.B casing PascalCase para tsx (ChatInput/PreviewCard/ResultMessage)
+            + kebab-case para utility (error-messages) — precedente 5.2+5.3
+    DP-5.4.C Zustand chatStore vs prop drilling/URL params/TanStack Query
+            — Zustand wins (architecture §8.3 + pattern shellStore Story 5.3)
+    DP-5.4.D prop mode vs 2 componentes irmãos — prop wins KISS (95% lógica
+            idêntica entre modes)
+    DP-5.4.E sem useChatHydrated análogo (chatStore não persiste — sem
+            hydration assíncrona)
+    DP-5.4.F sem persist localStorage (privacy + sem benefício até existir
+            chat_history table — Story 2.7 também não persiste actualmente)
+    DP-5.4.G label "Chat" + URL /jarvis carry-over Story 5.3 DP-5.3.D
+            — divergência consciente entre nome interno e função user-facing
+
+  Estimate: M ratificado por surface area equivalente Story 5.3 (M = 13 NEW
+  + 3 MODIFIED + 17 testes novos). Story 5.4 = 5 NEW + 8 MOVED + 3 MODIFIED
+  + 2 DELETED (~280 linhas novo ChatPanel + 180 chatStore + 4 sub-comp + testes).
+
+  Files preliminares (registar real em File List @dev):
+    NEW (5):
+      apps/web/src/components/chat/ChatPanel.tsx  (~280 linhas)
+      apps/web/src/lib/stores/chatStore.ts        (~180 linhas)
+      apps/web/src/components/chat/__tests__/ChatPanel.test.tsx                (~8 testes)
+      apps/web/src/lib/stores/__tests__/chatStore.test.ts                      (~8 testes)
+      apps/web/src/components/chat/__tests__/ChatPanel.integration.test.tsx    (~2 testes)
+    MOVED via git mv (4 source + 4 testes):
+      jarvis/_components/chat-input.tsx     → components/chat/ChatInput.tsx
+      jarvis/_components/preview-card.tsx   → components/chat/PreviewCard.tsx
+      jarvis/_components/result-message.tsx → components/chat/ResultMessage.tsx
+      jarvis/_components/error-messages.ts  → components/chat/error-messages.ts
+      jarvis/_components/__tests__/*.test.* → components/chat/__tests__/*.test.*
+    MODIFIED (3):
+      apps/web/src/app/(app)/jarvis/page.tsx               (~33 linhas, substitui import)
+      apps/web/src/components/shell/ChatPanelSlot.tsx     (~134 linhas, remove dev placeholder)
+      apps/web/src/components/shell/__tests__/ChatPanelSlot.test.tsx (~ajustes mock)
+    DELETED (2):
+      jarvis/_components/jarvis-chat.tsx           (267 linhas — substituído por ChatPanel)
+      jarvis/_components/__tests__/jarvis-chat.test.tsx  (consolidado em ChatPanel.test.tsx)
+    DIRECTORIA OPCIONAL ELIMINADA:
+      apps/web/src/app/(app)/jarvis/_components/ (se ficar vazia após T5)
+
+next_action: |
+  `@po *validate-story-draft 5.4` — validação da story Draft v1.0 pelo Product Owner
+  (Pax) seguindo o 10-point checklist + cross-confirm anti-hallucination + ratificar
+  os 7 DPs (DP-5.4.A a DP-5.4.G) + cross-verificar contagem testes baseline 759
+  + verificar contract preservation do POST /api/agent/prompt (Story 2.7).
+
+  Verificações específicas sugeridas (PO_FIX_INLINE potenciais):
+    1. **Counts pre-existentes via grep** — confirmar contagem real de testes em
+       `jarvis-chat.test.tsx` (eliminação) — se @sm assumiu N e o real é M, ajustar
+       net change na AC7 PASS criteria. Comando: `grep -c "it\(" apps/web/src/app/(app)/jarvis/_components/__tests__/jarvis-chat.test.tsx`.
+    2. **Cross-verify DP-5.4.A** contra architecture §8.4 linha 727 (já citado
+       directamente no story, mas confirmar leitura).
+    3. **Cross-verify imports cyclical** — `<ChatPanel>` consome 4 sub-componentes
+       movidos; verificar que NÃO há import circular (ChatPanel ↔ PreviewCard ↔
+       ChatPanel etc.). Grep `grep -rE "from '@/components/chat" apps/web/src/components/chat/` deve mostrar imports unidireccionais.
+    4. **Verificar PascalCase decision (DP-5.4.B)** — `apps/web/src/components/shell/`
+       Story 5.3 confirma o pattern (Sidebar.tsx, TopBar.tsx, ChatPanelSlot.tsx).
+       Story 5.2 confirma (MoneyDisplay.tsx, DateDisplay.tsx). Decisão sólida.
+    5. **Casing-insensitive filesystem risk (DP-5.4.B subnote)** — Windows/macOS
+       case-insensitive: se algum import existia como `'./chat-input'` (lowercase)
+       e o ficheiro renomeia para `'./ChatInput'`, pode haver duplicação ghost.
+       @dev deve executar `git config core.ignorecase` durante implementação e
+       resolver se houver conflito. **PO_FIX_INLINE candidato:** adicionar nota
+       em DP-5.4.B sobre verificação `git config` pre-`git mv`.
+
+  Pipeline esperado pós-validação:
+    @po GO → status Draft v1.0 → Ready for Dev v1.1
+    @dev *develop 5.4 (modo YOLO recomendado per precedente 5.2 + 5.3)
+    @architect *qa-gate 5.4 (precedente 5.1 + 5.2 + 5.3)
+    @devops *push 5.4 (ciclo completo precedente 4.10/5.1/5.2/5.3)
+
+context: |
+  Pre-condições verificadas pelo @sm em 2026-05-27:
+    - Epic 5 v1.0 Validated por Eurico 2026-05-23 (8 DPs aceites — DP8 directamente
+      consumida nesta story: panel collapsible em todas rotas + /jarvis fullscreen).
+    - Story 5.3 Done v1.3 (push 2026-05-25 commits 0123995 + d15b88d) — `ChatPanelSlot`
+      criado com 3 estados visuais (desktop expanded data-slot="chat-panel", desktop
+      collapsed botão vertical, mobile FAB+overlay data-slot="chat-panel-mobile");
+      `shellStore` Zustand com chatPanelOpen + actions openChatPanel/closeChatPanel.
+    - Story 5.2 Done v1.3 (push 2026-05-25 commits 593514e + d67f967) — `@meu-jarvis/ui`
+      package operacional (não consumido directamente nesta story — DP-5.4.A).
+    - Story 5.1 Done v1.3 (push 2026-05-24) — user_prefs estendida (não consumida
+      directamente nesta story).
+    - Story 2.7 Done — `<JarvisChat>` 267 linhas + 4 sub-componentes + endpoint
+      /api/agent/prompt preservado byte-a-byte.
+    - Story 2.8 Done — undo backend (undo_url + undo_expires_at na response)
+      preservado byte-a-byte via prop drilling para <ResultMessage>.
+    - Auth fix local TASK-1 closed 2026-05-27 (push 47fbc8c + 68723f4) — smoke
+      visual em production confirmado pelo Eurico via screenshot expressia-black.vercel.app/tarefas
+      (sidebar + chat panel slot vazio visíveis e funcionais).
+
+  Story-draft-checklist execução (River self-validated):
+    1. Goal & Context Clarity:       PASS — goal explícito (extracção + montagem),
+                                     business value claro (chat-first em todas rotas),
+                                     deps mapeadas (5.3 slot, 2.7 source, 2.8 undo)
+    2. Technical Implementation:     PASS — files identificados (source tree completo),
+                                     tecnologias listadas (Zustand, React 19, fetch),
+                                     APIs documentadas (POST /api/agent/prompt
+                                     contract preservado byte-a-byte)
+    3. Reference Effectiveness:      PASS — refs específicas (architecture.md §8.4
+                                     linha 727, §8.3 linha 711-712, §8.2 linhas 699-702;
+                                     front-end-spec §5.5 linhas 561-643), info crítica
+                                     resumida no story
+    4. Self-Containment:             PASS — core requirements no story, domain terms
+                                     explicados (panel/fullscreen modes), assumptions
+                                     stated (sem useChat, sem persist), edge cases
+                                     (401 redirect, 5xx Sentry, network failure)
+    5. Testing Guidance:             PASS — Vitest + Testing Library, mocks especificados
+                                     (next/navigation, @sentry/nextjs, global.fetch),
+                                     22+ testes detalhados com test names
+    6. CodeRabbit Integration:       N/A — coderabbit_integration disabled em meu-jarvis
+                                     core-config.yaml; precedente Stories 5.1-5.3 ratificado
+
+    Clarity score: 9/10
+    Final assessment: READY for @po validation
+
+  Quality gates pré-existentes (Story 5.3 final state):
+    pnpm lint        → GREEN (zero warnings)
+    pnpm typecheck   → GREEN (FULL TURBO)
+    pnpm test        → GREEN 759 PASS (apps/web baseline)
+    pnpm build       → GREEN (12 rotas em manifest)
+    pnpm check:rls   → GREEN EXIT 0 (28 tabelas, 120 policies NFR5)
+
+  Bloqueadores externos: NENHUM. Story 100% UI refactor sem AI/cache/jobs/migrations/keys.
+
+  [AUTO-DECISION] previstas para @dev em implementação (precedente Stories 5.1-5.3):
+    - db-test ENV-BLOCKER Docker [AUTO-DECISION] PROCEED — story zero touch DB,
+      CI rls-gate cobre se eventuais regressões cross-package
+    - CodeRabbit [AUTO-DECISION] SKIPPED — precedente Stories 3.1-5.3 consistente,
+      @architect gate substitui review automatizado
+
+decisions:
+  - id: DRAFT-5.4.A
+    description: |
+      Story 5.4 drafted seguindo formato canónico das Stories 5.x meu-jarvis
+      (executor @dev + quality_gate @architect; 9 ACs com PASS criteria;
+      9 Tasks com checkboxes [ ]; 7 DPs documentadas no AC9; Dev Notes com
+      Previous Story Insights + Source Tree + Architecture Trace + Testing
+      Standards + Known Issues/Carry-overs).
+    rationale: |
+      Formato custom do projecto meu-jarvis bate certo com precedente Stories
+      5.1, 5.2, 5.3 (todas executor @dev + quality_gate @architect, ACs
+      numerados com PASS criteria explícitos). Story template AIOX padrão
+      (`product/templates/story-tmpl.yaml`) é mais minimal e não capta as
+      convenções desenvolvidas pelo projecto — adoptado o pattern do precedente
+      consistente (3 stories Done em sequência).
+
+  - id: DRAFT-5.4.B
+    description: |
+      DP-5.4.A: <ChatPanel> em apps/web/src/components/chat/ (NÃO packages/ui)
+    rationale: |
+      architecture.md §8.4 linha 727 prescreve EXACTAMENTE:
+      "apps/web/src/components/chat/ # ChatPanel, MessageList, PreviewCard,
+      UndoToast". Chat é app-específico — consome next/navigation,
+      @sentry/nextjs, endpoint /api/agent/prompt. packages/ui é design
+      system genérico. Promoção para packages/ui/chat/ é trivial se houver
+      segunda app — zero lock-in. Alinhado com Story 5.3 DP-5.3.A (shell em
+      apps/web também).
+
+  - id: DRAFT-5.4.C
+    description: |
+      DP-5.4.B: PascalCase para tsx (ChatInput.tsx, PreviewCard.tsx,
+      ResultMessage.tsx) + kebab-case para utility (error-messages.ts)
+    rationale: |
+      Precedente Stories 5.2 (MoneyDisplay.tsx, DateDisplay.tsx) + 5.3
+      (Sidebar.tsx, TopBar.tsx, ChatPanelSlot.tsx, AppShell.tsx,
+      SidebarNav.tsx, BreadcrumbLabel.tsx, HamburgerButton.tsx,
+      TopBarHamburger.tsx). Story 2.7 (mais antiga) usou kebab-case por
+      convenção anterior; Story 5.4 alinha com pattern consolidado. Risco
+      identificado: case-insensitive filesystems (Windows/macOS default) —
+      @dev deve verificar `git config core.ignorecase` pre-`git mv` para
+      evitar duplicação ghost.
+
+  - id: DRAFT-5.4.D
+    description: |
+      DP-5.4.C: chatStore Zustand vs alternativas — Zustand wins
+    rationale: |
+      (i) architecture.md §8.3 linha 711-712 prescreve Zustand para "UI
+      ephemeral"; (ii) prop drilling exigiria <ChatPanel> em layout root =
+      coupling pesado; (iii) URL params não cabem para arrays de mensagens;
+      (iv) TanStack Query é para server data, chat é client state puro.
+      Pattern alinhado com shellStore Story 5.3 (precedente testado).
+
+  - id: DRAFT-5.4.E
+    description: |
+      DP-5.4.D: prop mode vs 2 componentes irmãos — prop wins KISS
+    rationale: |
+      95% da lógica é idêntica entre panel e fullscreen (mesmo state,
+      mesmo endpoint, mesmo branching). Duplicar em 2 componentes seria
+      over-engineering. Re-avaliar Fase 2 se modes divergirem (ex: fullscreen
+      ganhar right rail de histórico per wireframe §5.5).
+
+  - id: DRAFT-5.4.F
+    description: |
+      DP-5.4.F: chatStore NÃO persiste mensagens em localStorage
+    rationale: |
+      (i) Story 2.7 actual não persiste (re-load reinicia); (ii) privacy
+      concern (prompts plaintext no browser sem encryption); (iii) histórico
+      cross-session é dado server-side futuro — quando existir schema
+      chat_history em DB, fetch via RSC no mount; (iv) sem benefício real
+      até existir esse backend. Re-avaliar Fase 2.
+
+  - id: DRAFT-5.4.G
+    description: |
+      DP-5.4.G: label "Chat" + URL /jarvis carry-over Story 5.3 DP-5.3.D
+    rationale: |
+      "Jarvis" é nome próprio do agente AI internamente (PRD §3.1); "Chat"
+      é função user-facing per front-end-spec §5.4 linha 500. Mudar URL
+      para /chat exigiria refactor middleware + redirects retro-compatibilidade
+      — out-of-scope. metadata.title preservado "Jarvis — Expressia". Carry-over
+      consciente assumido em Story 5.3 e mantido aqui.
+
+  - id: DRAFT-5.4.H
+    description: |
+      Carry-over Vercel AI SDK useChat divergência (architecture §8.3 linha 711)
+      preservado SEM mudança nesta story
+    rationale: |
+      Story 2.7 não adoptou useChat apesar de architecture §8.3 prescrever —
+      esta story preserva fetch directo a /api/agent/prompt byte-a-byte.
+      Refactor para useChat é story dedicada futura (provavelmente Fase 2)
+      se houver real streaming SSE — fora-de-scope refactor cirúrgico desta
+      story.
+
+  - id: DRAFT-5.4.I
+    description: |
+      Carry-over middleware APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta']
+      preservado SEM mudança nesta story
+    rationale: |
+      `/tarefas` e `/financas` cobertos por requireAuth() server-side mas não
+      pelo middleware (Story 5.3 DP-5.3.E identificou). NÃO é falha de
+      segurança (RLS Postgres protege; requireAuth no server route). UX
+      degradada apenas: utilizador deslogado vê erro em vez de redirect
+      directo. Folding decidido em Story 5.10 (sweep responsive + branding
+      auth). Esta story (5.4) NÃO toca middleware.
+
+files_modified:
+  - docs/stories/active/5.4.chatpanel-extracted-mounted-in-shell.md  # NEW (drafted by @sm — 888+ linhas seguindo precedente Story 5.3)
+  - docs/stories/active/_INDEX.md                                     # MODIFIED (linha 254 Story 5.4 row: "Not Drafted" → "Draft v1.0")
+
+blockers: []
+
+story_draft_checklist:
+  goal_context_clarity:
+    status: PASS
+    notes: Goal explícito, business value claro (chat-first em todas rotas), deps mapeadas (5.3+2.7+2.8)
+  technical_implementation_guidance:
+    status: PASS
+    notes: Files identificados (source tree completo), tecnologias listadas (Zustand+React 19+fetch), APIs preservadas byte-a-byte
+  reference_effectiveness:
+    status: PASS
+    notes: Refs específicas (architecture §8.4 linha 727, §8.3 linha 711-712; front-end-spec §5.5), info crítica resumida no story
+  self_containment:
+    status: PASS
+    notes: Core requirements no story, domain terms explicados, edge cases endereçados (401/4xx/5xx/network)
+  testing_guidance:
+    status: PASS
+    notes: Vitest + Testing Library, mocks especificados, 22+ testes detalhados com test names
+  coderabbit_integration:
+    status: N/A
+    notes: coderabbit_integration disabled em meu-jarvis core-config; precedente Stories 5.1-5.3 ratificado
+
+  overall:
+    status: READY
+    clarity_score: 9
+    blocking_issues: []
+    final_assessment: |
+      Story sólida e pronta para validação @po. Único item que beneficia de cross-confirm
+      independente do @po: contagem real de testes em jarvis-chat.test.tsx (eliminação)
+      para precisar net change da baseline 759. PO_FIX_INLINE candidato sugerido em
+      next_action item 5 (DP-5.4.B casing-insensitive filesystem risk — pode beneficiar
+      de nota explícita).
+
+coderabbit:
+  status: SKIPPED_PLANNED
+  rationale: |
+    Precedente Stories 3.1-5.3 [AUTO-DECISION] consistente. Story refactor cirúrgico
+    + migração path; complexidade baixa-média; @architect gate substitui review
+    automatizado. @dev pode override durante implementação se detectar concern
+    específico (ex: cross-package import circular suspect).
+
+handoff_quality:
+  numeric: 9.0
+  confidence: HIGH
+  verdict: READY_FOR_PO
+  rationale: |
+    9.0/10 reflecte:
+    - Story drafted seguindo precedente sólido (Stories 5.1+5.2+5.3)
+    - Self-validated checklist 5/6 PASS + 1 N/A
+    - 9 ACs com PASS criteria explícitos
+    - 7 DPs documentadas com racional + carry-overs
+    - Source tree completo (5 NEW + 8 MOVED + 3 MODIFIED + 2 DELETED)
+    - Dependências mapeadas (5.3 slot, 2.7 source, 2.8 undo)
+    - Trace arquitectural directo (architecture §8.4 linha 727, §8.3, §8.2)
+    - PT-PT estrito preservado byte-a-byte de Story 2.7
+
+    1.0 desconto pelos itens que beneficiam de cross-confirm @po independente:
+    - Contagem real de testes em jarvis-chat.test.tsx (assumido por @sm,
+      não medido) — @po deve grep `it\(` para precisar net change
+    - DP-5.4.B casing-insensitive filesystem risk pode beneficiar de nota
+      explícita sobre `git config core.ignorecase` (PO_FIX_INLINE candidato)

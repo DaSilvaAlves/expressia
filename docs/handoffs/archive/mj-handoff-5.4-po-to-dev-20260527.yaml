@@ -1,0 +1,325 @@
+id: mj-handoff-5.4-po-to-dev-20260527
+from_agent: po
+to_agent: dev
+created: '2026-05-27T03:45:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-27T17:50:00Z'
+consumed_by: dev
+consumed_note: |
+  @dev Dex consumiu o handoff po→dev e executou `*develop 5.4` em modo YOLO
+  autónomo (~50 min). Story status `Ready for Dev v1.1` → `Ready for Review v1.2`.
+  **5/5 quality gates GREEN** re-corridos: lint zero warnings · typecheck FULL
+  TURBO 9.763s · test apps/web **779/779 PASS** (97 files; net change real +20
+  vs baseline 759 — D-5.4.4 documentado em Dev Agent Record) · build 10/10
+  tasks 1m12s · check:rls EXIT 0 28 tabelas 120 policies NFR5 INALTERADO.
+  9/9 Tasks `[x]` completos. **4 [DEV-DECISION]** registadas (D-5.4.1 tipos
+  location chatStore+ChatPanel split; D-5.4.2 makeMessageId em chatStore;
+  D-5.4.3 two-step rename PO_FIX_INLINE F2 EXECUTADO COM SUCESSO — `git config
+  core.ignorecase=true` confirmado MINGW64; D-5.4.4 net change +20 vs F1 +5 —
+  testes adicionais não-bloqueantes para coverage). **2 [AUTO-DECISION]
+  RATIFIED** (db-test ENV-BLOCKER PROCEED; CodeRabbit SKIPPED). **7 DPs
+  RATIFICADAS na implementação**. **F3 GO-CONFIRM verificado pós-migração**
+  — imports unidireccional preservado em `apps/web/src/components/chat/`.
+  Files: 5 NEW + 8 MOVED via git mv (history preservada) + 3 MODIFIED + 2
+  DELETED + 1 DIR auto-removida = 19 file system operations. Zero stuck
+  conditions, zero rollbacks. Sucessor pending: `mj-handoff-5.4-dev-to-architect-
+  20260527.yaml`.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.4'
+last_command: '*validate-story-draft 5.4'
+priority: medium
+
+summary: |
+  @po Pax executou `*validate-story-draft 5.4` em modo local — veredicto
+  **GO-WITH-FIXES 9.5/10 HIGH**. Story `<ChatPanel>` extraído + montado no shell
+  validada e refinada. Status `Draft v1.0` → `Ready for Dev v1.1`. Pronta para
+  `@dev *develop 5.4`.
+
+  **10-point checklist:** 9 PASS + 1 N/A (CodeRabbit Integration disabled per
+  precedente Stories 5.1-5.3). Implementation Readiness Score 9.5/10 HIGH.
+
+  **Cross-confirm anti-hallucination 8 verificações:**
+    - PASS EXACT (4): architecture §8.4 linha 727 (`chat/ # ChatPanel,
+      MessageList, PreviewCard, UndoToast`) + jarvis-chat.tsx 267 linhas +
+      jarvis/page.tsx 33 linhas + 5 ficheiros em jarvis/_components/
+    - PASS-COM-DRIFT trivial ±1 (2): ChatPanelSlot.tsx 134→133; shellStore.ts
+      217→216 — não-bloqueantes, precedente Story 5.3 teve drift análogo
+    - PO_FIX_INLINE F1 (1): correcção aritmética AC7 PASS criteria
+    - PO_FIX_INLINE F2 (1): workflow safety Task 2 + DP-5.4.B
+    - GO-CONFIRM F3 (1): imports unidireccional ratificado (T2.9 nova)
+
+  **2 PO_FIX_INLINE aplicados directamente ao ficheiro** (precedente Stories
+  4.1, 5.2, 5.3):
+
+  **F1 — Correcção aritmética AC7 PASS criteria (MED/HIGH-impact):**
+  Grep real `grep -c "it(\|test(" .../jarvis-chat.test.tsx` retorna 13 patterns.
+  Net change calculado: −13 + 8 + 8 + 2 + 0 + 0 = **+5 testes**. Expected
+  baseline pré-story 759 → **764 PASS** (não 770-775 como @sm estimou). @dev
+  registar contagem real em File List + Completion Notes; se diferir de 764,
+  documentar como [DEV-DECISION] D-5.4.X com racional.
+
+  **F2 — Workflow safety crítico DP-5.4.B + Task 2 reformulada (HIGH-impact):**
+  Confirmado `git config --get core.ignorecase = true` em MINGW64 Windows.
+  Procedimento OBRIGATÓRIO para os 3 ficheiros tsx que mudam casing
+  (kebab→PascalCase): **two-step rename via tempfile**:
+
+    git mv chat-input.tsx _tmp-chat-input.tsx
+    git mv _tmp-chat-input.tsx ChatInput.tsx
+
+  Repetir para preview-card.tsx → PreviewCard.tsx e result-message.tsx →
+  ResultMessage.tsx. Para `error-messages.ts` → `error-messages.ts` (kebab→kebab,
+  sem casing change) single-step `git mv` directo OK.
+
+  Alternativa permitida: temporariamente `git config core.ignorecase false`
+  antes do rename, depois restaurar `true`. Documentar escolha em
+  [DEV-DECISION] D-5.4.X.
+
+  **Validação pós-rename obrigatória:** `git status -s | grep -E "(chat-input|
+  preview-card|result-message|error-messages)"` deve mostrar 8 entries todas
+  `R` ou `RM` (rename). Se aparecer `??` + `D` para mesmo nome em casings
+  diferentes, ABORTAR e refazer (bug case-insensitive silent).
+
+  **F3 — GO-CONFIRM imports unidireccional (positivo, não fix):**
+  Grep `grep -rE "from '@/app/(app)/jarvis/_components/'" apps/web/src/app/
+  (app)/jarvis/_components/` revelou ZERO matches cíclicos no estado actual.
+  Pattern unidireccional `jarvis-chat → 4 sub-comp; cada test → component
+  testado`. T2.9 nova adicionada para garantir que estrutura unidireccional
+  sobrevive à migração (grep equivalente em apps/web/src/components/chat/).
+
+  **7 DPs RATIFICADAS** (DP-5.4.A localização apps/web/src/components/chat/
+  via architecture §8.4 linha 727 EXACT match; DP-5.4.B casing PascalCase tsx
+  + kebab utility — precedente 5.2+5.3 + F2 safety; DP-5.4.C Zustand chatStore
+  — pattern shellStore Story 5.3 testado; DP-5.4.D prop mode KISS — 95%
+  lógica idêntica; DP-5.4.E sem useChatHydrated — chatStore não persiste;
+  DP-5.4.F sem persist localStorage — privacy + chat_history table inexistente
+  confirmado via grep packages/db/src/schema/; DP-5.4.G label "Chat" + URL
+  /jarvis carry-over Story 5.3 DP-5.3.D).
+
+  **2 Carry-overs confirmados não-bloqueantes:**
+    - CO-1: Vercel AI SDK useChat divergência (architecture §8.3 prescreve mas
+      Story 2.7 fetch directo) — esta story preserva byte-a-byte; re-avaliação
+      Fase 2
+    - CO-2: middleware APP_PATH_PREFIXES `['/visao', '/jarvis', '/conta']` —
+      folding 5.10 (carry-over Story 5.3 DP-5.3.E)
+
+next_action: |
+  `@dev *develop 5.4` — implementação YOLO autorizada per precedente Stories
+  5.2 (YOLO autónomo completo) + 5.3 (YOLO autónomo completo). Story sólida
+  9.5/10 HIGH, F2 reduz risco workflow significativamente.
+
+  Sequência sugerida (T1-T9 da story — refactor cirúrgico):
+    T1: Scaffolding components/chat/ + chatStore (selectores tipados pattern
+        shellStore Story 5.3)
+    T2: **Two-step rename** dos 4 sub-componentes (T2.0-T2.9 — validar
+        git status pós-rename antes de continuar)
+    T3: Criar ChatPanel.tsx por extracção byte-a-byte de jarvis-chat.tsx
+        com prop mode 'panel' | 'fullscreen'
+    T4: Refactor /jarvis/page.tsx substituir import + componente
+    T5: Eliminar jarvis-chat.tsx + jarvis-chat.test.tsx
+    T6: Refactor ChatPanelSlot.tsx (Story 5.3) montar <ChatPanel mode="panel">
+        em ambos slots; remover DEV_PLACEHOLDER + isDev const
+    T7: Testes (4 movidos + 8 ChatPanel + 8 chatStore + 2 integration +
+        ajustes ChatPanelSlot.test.tsx)
+    T8: Smoke test manual @dev 12 steps cross-route + 5/5 quality gates
+    T9: Validation Report (7 DPs + counts + carry-overs)
+
+  Expected gates pós-implementação 5/5 GREEN (precedente Stories 5.1+5.2+5.3):
+    pnpm lint        → GREEN (zero warnings — --max-warnings=0)
+    pnpm typecheck   → GREEN (FULL TURBO)
+    pnpm test (web)  → GREEN 759 → **764 PASS** (F1 expectation)
+    pnpm build       → GREEN (Next.js build, 12 rotas no manifest)
+    pnpm check:rls   → GREEN EXIT 0 (28 tabelas, 120 policies — NFR5 INALTERADO)
+
+  [AUTO-DECISION] previstas em implementação (ratificar em handoff dev→architect):
+    - db-test ENV-BLOCKER Docker PROCEED — story zero touch DB, CI rls-gate
+      cobre
+    - CodeRabbit SKIPPED — precedente Stories 3.1-5.3 consistente, @architect
+      gate substitui
+
+  Pipeline esperado pós-impl:
+    @dev YOLO → status Ready for Dev v1.1 → Ready for Review v1.2
+    @architect *qa-gate 5.4 → status Ready for Review v1.2 → Done v1.3
+    @devops *push 5.4 → ciclo completo precedente Stories 4.10/5.1/5.2/5.3
+
+context: |
+  Pre-condições verificadas pelo @po em 2026-05-27 03:45:
+    - Story 5.4 Draft v1.0 criada pelo @sm River em 2026-05-27 03:00 — 657 linhas
+      seguindo formato canónico Stories 5.x meu-jarvis
+    - Handoff sm→po consumido por @po Pax em 03:45 — movido para archive
+    - PO_FIX_INLINE F1 + F2 aplicados directamente ao ficheiro pelo @po
+    - PO_FIX_INLINE F3 GO-CONFIRM ratificado em T2.9 nova
+    - 7 DPs RATIFICADAS pelo @po (DP-5.4.A a DP-5.4.G)
+    - 2 carry-overs confirmados não-bloqueantes (CO-1 Vercel AI SDK; CO-2
+      middleware folding 5.10)
+    - Story status updated `Draft v1.0` → `Ready for Dev v1.1`
+    - Change Log entry v1.1 com narrativa @po completa adicionada
+    - Validation Report section nova adicionada à story (após Change Log)
+    - Epic 5 = 3/10 Done; esta story é a 4ª do epic (5.4)
+    - Branch main; working tree contem story modified + handoff novo
+
+  Estado actual do projecto em production (smoke visual Eurico confirmado
+  2026-05-27 via screenshot expressia-black.vercel.app/tarefas):
+    - Auth funcional (TASK-1 closed 2026-05-27)
+    - Sidebar Story 5.3 visível com 5 secções (Visão, Chat, Tarefas, Finanças,
+      Conta)
+    - Chat panel slot vazio à direita (ChatPanelSlot.tsx com DEV_PLACEHOLDER
+      "O chat chega na Story 5.4." renderizado em dev only — em production
+      mostra slot vazio sem placeholder)
+    - Esta story (5.4) preenche o slot com <ChatPanel mode="panel">
+
+  Story-draft-checklist final (@po validated):
+    Template Completeness:        PASS (9 sections + 1 N/A CodeRabbit)
+    Executor Assignment:          PASS (@dev + @architect, types match)
+    File Structure:               PASS (source tree completo)
+    UI/Frontend Completeness:     PASS (prop mode styling adaptativo)
+    AC Satisfaction:              PASS (9 ACs mapeadas para 9 Tasks)
+    Testing:                      PASS-COM-FIX F1 (corrigido)
+    Security:                     PASS (auth preservada, RLS inalterada)
+    Task Sequence:                PASS (T1-T9 lógicas, sem blocking)
+    CodeRabbit Integration:       N/A (disabled per precedente)
+    Anti-Hallucination:           PASS-COM-FIX F1+F2 + PASS-CONFIRMA F3
+    Dev Agent Readiness:          PASS (self-contained, actionable)
+
+  Quality gates pré-existentes (Story 5.3 final state, baseline 5.4):
+    pnpm lint        → GREEN
+    pnpm typecheck   → GREEN
+    pnpm test        → GREEN 759 PASS (baseline apps/web)
+    pnpm build       → GREEN
+    pnpm check:rls   → GREEN EXIT 0 (28 tabelas, 120 policies — NFR5)
+
+  Bloqueadores externos: NENHUM.
+
+decisions:
+  - id: PO-5.4.A
+    description: GO-WITH-FIXES 9.5/10 HIGH — story sólida, 2 PO_FIX_INLINE corrigem
+                 itens reais não-críticos
+    rationale: |
+      10-point checklist 9/10 PASS + 1 N/A. Cross-confirm 8 verificações: 4 PASS
+      EXACT + 2 PASS-COM-DRIFT trivial + 2 PO_FIX_INLINE + 1 GO-CONFIRM.
+      Implementation Readiness Score 9.5/10 com 0.5 desconto pelos 2 fixes
+      aplicados (não falhas críticas) + 2 drifts triviais (±1 linha).
+
+  - id: PO-5.4.B
+    description: F1 PO_FIX_INLINE aplicado — net change real +5 (não +10-15);
+                 expected baseline 759→764 PASS
+    rationale: |
+      Grep `grep -c "it(\|test(" apps/web/src/app/(app)/jarvis/_components/__tests__/
+      jarvis-chat.test.tsx` retornou 13 patterns. Cálculo aritmético:
+      eliminação -13 + ChatPanel +8 + chatStore +8 + integration +2 + 4
+      moved (0) + ChatPanelSlot ajustes (0) = +5 net. @dev mantém liberdade de
+      registar [DEV-DECISION] D-5.4.X se contagem real diferir.
+
+  - id: PO-5.4.C
+    description: F2 PO_FIX_INLINE aplicado — two-step rename obrigatório para
+                 3 renames tsx kebab→PascalCase em Windows MINGW64
+    rationale: |
+      `git config --get core.ignorecase = true` confirmado em ambiente local
+      do Eurico (MINGW64_NT-10.0-26200 Windows 11 Pro). Renomeação directa em
+      filesystem case-insensitive PODE falhar silenciosamente (ficheiro
+      renamed mas git ainda vê só uma versão) ou criar duplicado ghost. Two-step
+      rename via tempfile elimina o risco. Validação pós-rename obrigatória
+      via `git status -s | grep` para detectar bug silencioso. Alternativa
+      permitida temporariamente desactivar core.ignorecase=false. @dev escolhe
+      e documenta em [DEV-DECISION].
+
+  - id: PO-5.4.D
+    description: F3 GO-CONFIRM positivo — imports unidireccional ratificado
+                 (não-fix); T2.9 nova garante preservação pós-migração
+    rationale: |
+      Grep `grep -rE "from '@/app/(app)/jarvis/_components/'" apps/web/src/app/
+      (app)/jarvis/_components/` retornou ZERO matches cíclicos. Pattern actual:
+      jarvis-chat.tsx importa 4 sub-comp; cada test importa component testado.
+      ZERO imports A↔B entre sub-componentes. T2.9 adicionada para @dev verificar
+      pós-migração que estrutura unidireccional sobreviveu.
+
+  - id: PO-5.4.E
+    description: 7 DPs RATIFICADAS (DP-5.4.A a DP-5.4.G)
+    rationale: |
+      DP-5.4.A confirmada via grep architecture §8.4 linha 727 EXACT match.
+      DP-5.4.B confirmada via precedente Stories 5.2+5.3 + F2 safety adicional.
+      DP-5.4.C confirmada via architecture §8.3 + pattern shellStore Story 5.3.
+      DP-5.4.D KISS aceite (95% lógica idêntica).
+      DP-5.4.E racional sólido (chatStore não persiste).
+      DP-5.4.F privacy + grep packages/db/src/schema/ zero matches chat_history.
+      DP-5.4.G carry-over consciente Story 5.3 DP-5.3.D consistente.
+
+  - id: PO-5.4.F
+    description: 2 PASS-COM-DRIFT trivial aceites (line counts ±1)
+    rationale: |
+      ChatPanelSlot.tsx claim 134 vs real 133 — ±1 não-bloqueante.
+      shellStore.ts claim 217 vs real 216 — ±1 não-bloqueante.
+      Precedente Story 5.3 teve drifts análogos aceites pelo @po (layout.tsx
+      59 vs 60; logout-action.ts 20 vs 21) — pattern consistente.
+
+  - id: PO-5.4.G
+    description: 2 carry-overs confirmados não-bloqueantes
+    rationale: |
+      CO-1 (Vercel AI SDK useChat divergência) — esta story preserva fetch
+      directo de Story 2.7 byte-a-byte; refactor para useChat é story dedicada
+      futura.
+      CO-2 (middleware APP_PATH_PREFIXES) — folding Story 5.10 já decidido pelo
+      @po na Story 5.3 (DP-5.3.E). Esta story NÃO toca middleware.
+
+files_modified:
+  - docs/stories/active/5.4.chatpanel-extracted-mounted-in-shell.md  # MODIFIED
+    # (PO_FIX_INLINE F1 aplicado em AC7 PASS criteria; F2 aplicado em DP-5.4.B
+    # + Task 2 reformulada T2.0-T2.9 com two-step rename; F3 GO-CONFIRM em T2.9;
+    # Status Draft v1.0 → Ready for Dev v1.1; Change Log v1.1 entry;
+    # Validation Report section nova)
+  - docs/handoffs/mj-handoff-5.4-sm-to-po-20260527.yaml  # CONSUMED + ARCHIVED
+    # (status consumed, consumed_at, consumed_by, consumed_note; mv archive/)
+  - docs/handoffs/mj-handoff-5.4-po-to-dev-20260527.yaml  # NEW (este handoff)
+
+blockers: []
+
+quality_gates_executed:
+  ten_point_checklist:
+    template_compliance:               PASS
+    executor_assignment:               PASS
+    file_structure_source_tree:        PASS
+    ui_frontend_completeness:          PASS
+    ac_satisfaction:                   PASS
+    testing:                           PASS_WITH_FIX_F1
+    security:                          PASS
+    task_sequence:                     PASS
+    coderabbit_integration:            NA
+    anti_hallucination:                PASS_WITH_FIX_F1_F2_GOCONFIRM_F3
+    dev_agent_readiness:               PASS
+  cross_confirm_anti_hallucination:
+    arch_8_4_line_727:                 PASS_EXACT
+    jarvis_chat_267_lines:             PASS_EXACT
+    chatpanelslot_134_real_133:        PASS_DRIFT_TRIVIAL
+    jarvis_page_33_lines:              PASS_EXACT
+    shellstore_217_real_216:           PASS_DRIFT_TRIVIAL
+    test_count_jarvis_chat:            F1_PO_FIX_INLINE (13 patterns)
+    git_ignorecase_windows:            F2_PO_FIX_INLINE (true MINGW64)
+    imports_cyclical_check:            F3_GO_CONFIRM (zero matches)
+
+coderabbit:
+  status: SKIPPED_PLANNED
+  rationale: |
+    Precedente Stories 3.1-5.3 [AUTO-DECISION] consistente. Story refactor
+    cirúrgico + migração path; @architect gate substitui review automatizado.
+    @dev pode override durante implementação se detectar concern específico.
+
+validation_score:
+  numeric: 9.5
+  confidence: HIGH
+  verdict: GO_WITH_FIXES
+  rationale: |
+    9.5/10 reflecte story sólida com 2 PO_FIX_INLINE aplicados (correcções
+    genuínas não-críticas) + 2 PASS-COM-DRIFT triviais (±1 linha — pattern
+    consistente Story 5.3). Fundação arquitectural directa (architecture §8.4
+    EXACT trace); pattern Zustand precedente (shellStore Story 5.3 testado);
+    workflow safety reforçada via F2 (two-step rename) que previne bug silencioso
+    em Windows case-insensitive filesystem. Implementation readiness HIGH.
+
+    0.5 desconto pelos 2 PO_FIX_INLINE aplicados — não são falhas críticas,
+    são correcções de precisão (F1 aritmética) e workflow safety (F2 Windows
+    risk). Story 9.0+ é o esperado para drafts iniciais de Stories 5.x com 7
+    DPs — pattern consistente Stories 5.1 (10/10 inicial mas teve PO_FIX_INLINE
+    em iterações) + 5.2 (9/10 com 4 PO_FIX_INLINE) + 5.3 (8.5/10 com 3
+    PO_FIX_INLINE).
