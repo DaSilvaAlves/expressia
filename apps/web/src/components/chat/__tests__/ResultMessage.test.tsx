@@ -21,7 +21,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: pushMock }),
 }));
 
-import { ResultMessage } from '@/app/(app)/jarvis/_components/result-message';
+import { ResultMessage } from '@/components/chat/ResultMessage';
 
 beforeEach(() => {
   pushMock.mockReset();

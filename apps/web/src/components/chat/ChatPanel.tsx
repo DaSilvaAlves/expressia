@@ -1,51 +1,68 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+/**
+ * `ChatPanel` — chat AI multi-intent agnóstico de rota (Story 5.4 AC1).
+ *
+ * Extracção de `<JarvisChat>` Story 2.7 (267 linhas) — lógica preservada
+ * byte-a-byte, estado migrado de `useState` local para `chatStore` Zustand
+ * partilhado (`apps/web/src/lib/stores/chatStore.ts`). R-5.6 do Epic 5
+ * mitigado: enviar prompt no panel da `/visao`, navegar para `/jarvis`,
+ * ver mensagem em ambos os modes — mesmo store.
+ *
+ * **Prop `mode: 'panel' | 'fullscreen'`** (DP-5.4.D — KISS vs 2 componentes
+ * irmãos; 95% lógica idêntica):
+ *   - **`fullscreen`**: rota dedicada `/jarvis`. Outer `space-y-4`. Sem
+ *     scrollable container interno (assume container pai dá o frame).
+ *   - **`panel`**: collapsible 400px em desktop, overlay full-screen em
+ *     tablet/mobile (montado em `ChatPanelSlot.tsx` Story 5.3 nos dois
+ *     `data-slot` divs). Outer `h-full` + scrollable interno via
+ *     `overflow-y-auto` para fitting em 400px width.
+ *
+ * **DP-5.4.G:** label sidebar mostra "Chat" mas URL é `/jarvis` —
+ * divergência consciente (carry-over Story 5.3 DP-5.3.D); `metadata.title`
+ * em `jarvis/page.tsx` mantém "Jarvis — Expressia".
+ *
+ * **Endpoint inalterado** (Story 2.7 contract preservado): `POST
+ * /api/agent/prompt` com `{ prompt }` body. Branching `mode: 'executed' |
+ * 'preview'` + error handling 401 redirect / 4xx PT-PT via `errorMessageFor`
+ * / 5xx Sentry capture preservados byte-a-byte.
+ *
+ * **Vercel AI SDK `useChat` carry-over (CO-1):** architecture.md §8.3 linha
+ * 711 prescreve `useChat` para chat streaming; Story 2.7 não adoptou (fetch
+ * directo). Esta story preserva o pattern fetch directo intencionalmente
+ * (refactor cirúrgico). Re-avaliação Fase 2 em story dedicada se houver
+ * real streaming SSE.
+ *
+ * Tom PT-PT estrito (CON3): nunca PT-BR.
+ *
+ * Trace: Epic 5 §3 IN bullet 5 (chat panel persistente) + §8 DP8;
+ * architecture.md §8.4 linha 727; front-end-spec §5.5; Story 5.3 D-5.3.4 +
+ * DP-5.3.D (precedentes).
+ */
+import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { captureException } from '@sentry/nextjs';
 
-import { ChatInput } from '@/app/(app)/jarvis/_components/chat-input';
+import { ChatInput } from '@/components/chat/ChatInput';
 import {
   errorMessageFor,
   type ErrorDetails,
-} from '@/app/(app)/jarvis/_components/error-messages';
-import { PreviewCard, type ConfirmPayload } from '@/app/(app)/jarvis/_components/preview-card';
-import { ResultMessage } from '@/app/(app)/jarvis/_components/result-message';
+} from '@/components/chat/error-messages';
+import { PreviewCard, type ConfirmPayload } from '@/components/chat/PreviewCard';
+import { ResultMessage } from '@/components/chat/ResultMessage';
+import {
+  makeMessageId,
+  useChatActions,
+  useChatLoading,
+  useChatMessages,
+  useChatPreview,
+} from '@/lib/stores/chatStore';
 
-interface UserMessage {
-  readonly kind: 'user';
-  readonly id: string;
-  readonly text: string;
-}
-
-interface AgentResultMessage {
-  readonly kind: 'result';
-  readonly id: string;
-  readonly runId: string;
-  readonly summary: string;
-  readonly results?: { success?: boolean; results?: unknown[] };
-  /** Story 2.8 — URL do endpoint undo. */
-  readonly undoUrl?: string;
-  /** Story 2.8 — ISO 8601 da expiração undo (30s após exec). */
-  readonly undoExpiresAt?: string;
-}
-
-interface AgentErrorMessage {
-  readonly kind: 'error';
-  readonly id: string;
-  readonly text: string;
-}
-
-type ChatMessage = UserMessage | AgentResultMessage | AgentErrorMessage;
-
-interface PreviewState {
-  readonly runId: string;
-  readonly planSummary: string[];
-  readonly confidence: number;
-  readonly expiresAt: string;
-}
-
+/**
+ * Resposta `executed` do endpoint `/api/agent/prompt`. Preservada byte-a-byte
+ * de `jarvis-chat.tsx:49-58`.
+ */
 interface PromptResponseExecuted {
   readonly mode: 'executed';
   readonly run_id: string;
@@ -57,6 +74,10 @@ interface PromptResponseExecuted {
   readonly undo_expires_at: string;
 }
 
+/**
+ * Resposta `preview` do endpoint `/api/agent/prompt`. Preservada byte-a-byte
+ * de `jarvis-chat.tsx:60-66`.
+ */
 interface PromptResponsePreview {
   readonly mode: 'preview';
   readonly run_id: string;
@@ -67,40 +88,27 @@ interface PromptResponsePreview {
 
 type PromptResponse = PromptResponseExecuted | PromptResponsePreview;
 
-function makeId(): string {
-  // Determinístico-suficiente para keys; não criptográfico.
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+/**
+ * Props públicas do `<ChatPanel>`.
+ */
+export interface ChatPanelProps {
+  /** Variante de styling: `panel` (collapsible 400px) ou `fullscreen` (rota `/jarvis`). */
+  readonly mode: 'panel' | 'fullscreen';
 }
 
-/**
- * `JarvisChat` — orquestrador do chat /jarvis (Story 2.7 AC6-AC9).
- *
- * Responsabilidades:
- *   - Mantém histórico `messages` (user prompts + agent results/errors).
- *   - Submete `POST /api/agent/prompt` e despacha branching `mode`:
- *     'executed' → ResultMessage; 'preview' → PreviewCard.
- *   - Trata erros HTTP: 401 → redirect /entrar; 429 → mensagem PT-PT
- *     com retry; 5xx → mensagem genérica + Sentry capture client-side.
- *   - PreviewCard chama `handleConfirmResult` quando user confirma; recebe
- *     `outcome.results` da response do confirm e renderiza ResultMessage.
- *
- * Tom PT-PT estrito: nunca PT-BR.
- */
-export function JarvisChat(): React.ReactElement {
+export function ChatPanel({ mode }: ChatPanelProps): React.ReactElement {
   const router = useRouter();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [preview, setPreview] = useState<PreviewState | null>(null);
-
-  const appendMessage = useCallback((msg: ChatMessage) => {
-    setMessages((prev) => [...prev, msg]);
-  }, []);
+  const messages = useChatMessages();
+  const preview = useChatPreview();
+  const loading = useChatLoading();
+  const { appendMessage, setPreview, setLoading } = useChatActions();
 
   const handleSubmit = useCallback(
     async (prompt: string): Promise<void> => {
       // Limpa preview anterior se existir (UX: novo prompt = novo contexto).
+      // Preservado byte-a-byte de jarvis-chat.tsx:102.
       setPreview(null);
-      appendMessage({ kind: 'user', id: makeId(), text: prompt });
+      appendMessage({ kind: 'user', id: makeMessageId(), text: prompt });
       setLoading(true);
 
       try {
@@ -112,7 +120,8 @@ export function JarvisChat(): React.ReactElement {
 
         if (res.status === 401) {
           // Redirect para login (Story 1.5 pattern — middleware faria isto
-          // num server-side request; em client após render há que redirect manual).
+          // num server-side request; em client após render há que redirect
+          // manual).
           router.push('/entrar');
           return;
         }
@@ -137,7 +146,7 @@ export function JarvisChat(): React.ReactElement {
           }
           appendMessage({
             kind: 'error',
-            id: makeId(),
+            id: makeMessageId(),
             text: errorMessageFor(body.error?.code, body.error?.details),
           });
           return;
@@ -155,7 +164,7 @@ export function JarvisChat(): React.ReactElement {
         } else {
           appendMessage({
             kind: 'result',
-            id: makeId(),
+            id: makeMessageId(),
             runId: data.run_id,
             summary: data.summary,
             results: data.results,
@@ -166,14 +175,14 @@ export function JarvisChat(): React.ReactElement {
       } catch {
         appendMessage({
           kind: 'error',
-          id: makeId(),
+          id: makeMessageId(),
           text: 'Erro temporário. Tenta de novo.',
         });
       } finally {
         setLoading(false);
       }
     },
-    [appendMessage, router],
+    [appendMessage, router, setLoading, setPreview],
   );
 
   const handleConfirmResult = useCallback(
@@ -189,7 +198,7 @@ export function JarvisChat(): React.ReactElement {
           : 'Pedido confirmado.';
       appendMessage({
         kind: 'result',
-        id: makeId(),
+        id: makeMessageId(),
         runId: preview.runId,
         summary,
         results: typed,
@@ -198,16 +207,27 @@ export function JarvisChat(): React.ReactElement {
       });
       setPreview(null);
     },
-    [appendMessage, preview],
+    [appendMessage, preview, setPreview],
   );
 
   const handleCancelPreview = useCallback(() => {
     setPreview(null);
-  }, []);
+  }, [setPreview]);
+
+  // Styling adaptativo por mode (DP-5.4.D).
+  // - fullscreen: outer space-y-4 (pattern original Story 2.7)
+  // - panel: outer h-full overflow-y-auto + space-y-3 (scrollable em 400px)
+  const outerClassName =
+    mode === 'fullscreen'
+      ? 'space-y-4'
+      : 'flex h-full flex-col space-y-3 overflow-y-auto';
+
+  const messagesContainerClassName =
+    mode === 'fullscreen' ? 'space-y-3' : 'space-y-2';
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-3" aria-live="polite">
+    <div className={outerClassName}>
+      <div className={messagesContainerClassName} aria-live="polite">
         {messages.map((m) => {
           if (m.kind === 'user') {
             return (

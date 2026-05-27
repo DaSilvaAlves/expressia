@@ -11,7 +11,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { errorMessageFor } from '@/app/(app)/jarvis/_components/error-messages';
+import { errorMessageFor } from '@/components/chat/error-messages';
 
 describe('errorMessageFor — códigos mapeados (tabela §3)', () => {
   it('HOUSEHOLD_NOT_FOUND → fala de "agregado", nunca "Household"', () => {

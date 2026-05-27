@@ -7,7 +7,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-import { ChatInput } from '@/app/(app)/jarvis/_components/chat-input';
+import { ChatInput } from '@/components/chat/ChatInput';
 
 describe('<ChatInput />', () => {
   it('renderiza textarea + botão Enviar + counter', () => {

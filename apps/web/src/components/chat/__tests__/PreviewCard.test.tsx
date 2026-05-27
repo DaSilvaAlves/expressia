@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
-import { PreviewCard } from '@/app/(app)/jarvis/_components/preview-card';
+import { PreviewCard } from '@/components/chat/PreviewCard';
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });

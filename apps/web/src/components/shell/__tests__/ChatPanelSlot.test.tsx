@@ -1,17 +1,30 @@
 /**
- * Tests — `<ChatPanelSlot>` (Story 5.3 AC7.c).
+ * Tests — `<ChatPanelSlot>` (Story 5.3 AC7.c + Story 5.4 update).
  *
  * Cobertura:
  *   1. Default state (chatPanelOpen=false) renderiza botão vertical "Abrir chat"
  *      (desktop collapsed) + FAB mobile.
  *   2. Após `openChatPanel()` renderiza aside com `data-slot="chat-panel"`.
  *   3. Estado de toggle (close) volta a colapsado.
+ *
+ * **Story 5.4 update:** ChatPanelSlot agora monta `<ChatPanel mode="panel">` em
+ * ambos slots. ChatPanel chama `useRouter()` (next/navigation) + `captureException`
+ * (@sentry/nextjs). Mocks adicionados para isolar testes do slot.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+vi.mock('@sentry/nextjs', () => ({
+  captureException: vi.fn(),
+}));
 
 import { ChatPanelSlot } from '@/components/shell/ChatPanelSlot';
 import { useShellStore } from '@/lib/stores/shellStore';
+import { useChatStore } from '@/lib/stores/chatStore';
 
 const PERSIST_KEY = 'expressia-shell-v1';
 
@@ -20,6 +33,12 @@ function resetStore() {
     sidebarCollapsed: false,
     chatPanelOpen: false,
     mobileDrawerOpen: false,
+  });
+  // Story 5.4: limpar também chatStore (ChatPanel consome via useChatMessages/etc).
+  useChatStore.setState({
+    messages: [],
+    preview: null,
+    loading: false,
   });
   localStorage.removeItem(PERSIST_KEY);
 }
