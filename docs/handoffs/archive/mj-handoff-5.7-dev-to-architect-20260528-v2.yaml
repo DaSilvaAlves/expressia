@@ -2,8 +2,21 @@ id: mj-handoff-5.7-dev-to-architect-20260528-v2
 from_agent: dev
 to_agent: architect
 created: '2026-05-28T21:45:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-05-28T22:10:00Z'
+consumed_by: architect
+consumed_note: |
+  @architect Aria consumiu e executou `*qa-gate 5.7` (re-gate). **PASS 9.5/10 HIGH
+  → Done v1.4-ARCH-APPROVED.** FIX-1 verificado: `WidgetConfigHydrator` em
+  `useEffect` client-only → effects não correm no SSR → store nunca mutado no
+  servidor → cross-request leak eliminado; D-5.7.4 agora correcta. Escopo do fix
+  confirmado por `git diff f2fc467 HEAD` = 1 único ficheiro (Hydrator) →
+  ratificações do gate v1.3 transitam intactas. 5/5 quality gates re-corridos
+  independentemente GREEN (typecheck exit 0 · lint exit 0 · test 879/879 116
+  files · build exit 0 `/visao` 2.69 kB · check:rls EXIT 0 28 tabelas). 1
+  follow-up LOW (OBS-1 slot headerActions órfão → backlog). Sucessor pending:
+  mj-handoff-5.7-architect-to-devops-20260528.yaml.
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

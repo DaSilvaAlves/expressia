@@ -1,0 +1,84 @@
+id: mj-handoff-5.7-architect-to-devops-20260528
+from_agent: architect
+to_agent: devops
+created: '2026-05-28T22:10:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.7'
+last_command: '*qa-gate 5.7'
+priority: medium
+
+summary: |
+  @architect Aria fechou o gate da Story 5.7 (Widget config UI inline +
+  persistência) — **PASS 9.5/10 HIGH, Done v1.4-ARCH-APPROVED** (após 1 ciclo
+  FAIL→FIX-1→PASS). Pronta para `@devops *push 5.7`.
+
+next_action: |
+  **`@devops *push 5.7`** — push do ciclo completo. Pré-push:
+    1. Re-correr os 5 quality gates independentemente em sessão @devops
+       (lint · typecheck · test · build · check:rls) — devem todos passar GREEN.
+    2. Housekeeping: mover story `active/` → `completed/`; actualizar `_INDEX.md`
+       (header Epic 5 → 7/10 Done); arquivar este handoff + o dev→architect-v2.
+    3. CodeRabbit SKIPPED (precedente Stories 3.1-5.6).
+    4. Commits locais já existem (7 à frente de origin) — ver nota abaixo.
+
+context: |
+  **Story:** docs/stories/active/5.7.widget-config-ui-persistence.story.md
+  (Done v1.4-ARCH-APPROVED — QA Results gate v1.3 + re-gate v1.4 completos).
+
+  **Resultado do gate (PASS 9.5/10 HIGH):**
+    - 5/5 quality gates re-corridos independentemente pelo @architect GREEN:
+      typecheck exit 0 · lint exit 0 (sem warnings) · test apps/web **879/879**
+      (116 files; baseline 850/113 → **net +29**) · build exit 0 `/visao` 2.69 kB
+      + `/api/conta/preferencias` 427 B no manifest · check:rls EXIT 0 **28
+      tabelas** (NFR5 INALTERADA — story zero touch DB).
+    - Segurança gate-verificada: RLS `getDb()` only (zero `getServiceDb`),
+      REQ-INLINE-1 (só `import type`), `sql.raw` seguro (whitelist), `.strict()`,
+      PO-FIX-1 (AC6).
+    - 4/5 DPs ratificadas + D-5.7.4 corrigida pelo FIX-1.
+
+  **Ciclo de gate (para o registo):**
+    - v1.3 gate FAIL — 1 blocker HIGH (WidgetConfigHydrator hidratava no corpo do
+      render → SSR cross-request leak).
+    - v1.4 FIX-1 (@dev) — Hydrator migrado para `useEffect` client-only.
+    - v1.4 re-gate (@architect) — PASS; escopo do fix confirmado por
+      `git diff f2fc467 HEAD` = 1 único ficheiro.
+
+  **Commits locais à frente de origin (7) — caminho até à 5.7:**
+    - `bb90355` chore(gitignore): docs/marketing/edit/
+    - `398d255` chore(docs,handoff): consumir session-pause pós 5.6
+    - `90b7b78` docs(story): 5.7 Draft v1.0 (@sm)
+    - `30a5e8a` docs(story): 5.7 Ready for Dev v1.1 (@po)
+    - `9385fe8` feat(visao): Story 5.7 — Widget config UI inline + persistência (@dev)
+    - `f2fc467` docs(qa): 5.7 qa-gate FAIL (@architect)
+    - `0856b59` fix(visao): 5.7 FIX-1 — Hydrator em useEffect (@dev)
+    - (+ commit de housekeeping do re-gate v1.4 a criar antes do push)
+    O @devops decide o agrupamento/squash conforme convenção do projecto. A
+    decisão de `docs/marketing/edit/` JÁ FOI RESOLVIDA nesta sessão (→ .gitignore,
+    commit bb90355) — não há mais exclusão manual.
+
+  **File List da story (impl 5.7):** 8 novos (widgetConfigStore +
+  WidgetConfigHydrator + WidgetSlot + AddWidgetMenu + WidgetConfigStatus + 3
+  testes) + 6 modificados (widgets.ts + route.ts + WidgetGrid.tsx + page.tsx +
+  2 testes). Ver Dev Agent Record na story.
+
+  **Follow-ups abertos (não-bloqueantes):**
+    - OBS-1 [LOW]: slot `WidgetCard.headerActions` órfão (overlay escolhido) →
+      backlog, futura iteração.
+    - FUP-5.6.A (perf double-query `isVisaoEmpty`) → Story 5.10.
+    - FUP-5.5.B (predicado RLS redundante) → opcional.
+
+  **Epic 5 Progress após push: 7/10 Done** (5.1+5.2+5.3+5.4+5.5+5.6+5.7).
+  Próximas candidatas: 5.8 (Modo claro/escuro) ‖ 5.9 (UndoToast + EmptyState
+  shared) ‖ 5.10 (Responsive sweep + Lighthouse — absorve FUP-5.6.A).
+
+  **Smoke visual humano:** auth local resolvido (`dev-create-user.ts`); a 5.7 é
+  100% frontend + endpoint — gated por testes estruturais (precedente 5.5/5.6).
+
+files_modified:
+  - docs/stories/active/5.7.widget-config-ui-persistence.story.md  # MOD — Done v1.4-ARCH-APPROVED + QA Results re-gate
+
+blockers: []
