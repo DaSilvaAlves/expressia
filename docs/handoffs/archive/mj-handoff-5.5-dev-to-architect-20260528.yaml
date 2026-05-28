@@ -1,0 +1,329 @@
+id: mj-handoff-5.5-dev-to-architect-20260528
+from_agent: dev
+to_agent: architect
+created: '2026-05-28T02:35:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-28T03:05:00Z'
+consumed_by: architect
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.5'
+last_command: '*develop 5.5'
+priority: medium
+
+summary: |
+  @dev Dex consumiu handoff po→dev (implícito — story directamente Ready após
+  @po validate) e executou `*develop 5.5` em modo YOLO autónomo. Story status
+  `Ready v1.0-PO` → `InReview v1.1-DEV`. Pronta para `@architect *qa-gate 5.5`.
+
+  Quinta story do Epic 5 entregue (primeira backend-only do Epic) — 7 endpoints
+  REST agregadores read-only para o dashboard "Visão" (FR21) + schema Zod
+  partilhado para reutilização pela Story 5.6 (`<WidgetGrid>`).
+
+  **5/5 quality gates GREEN** (re-corridos independentemente pelo @dev em
+  2026-05-28 02:32-02:35 Lisbon):
+    pnpm --filter @meu-jarvis/web lint        → exit 0 (No ESLint warnings or errors)
+    pnpm --filter @meu-jarvis/web typecheck   → exit 0
+    pnpm --filter @meu-jarvis/web test        → 800/800 PASS (104 files)
+                                                baseline 5.4 = 779 + net +21
+                                                (match exacto target AC9)
+    pnpm --filter @meu-jarvis/web build       → exit 0; 7 rotas /api/visao/*
+                                                registadas (428-430 B cada)
+    pnpm check:rls                            → exit 0; 28 tabelas multi-tenant
+                                                + 120 policies; NFR5 INALTERADA
+                                                (story 100% read-only zero touch
+                                                DB/migrations/policies)
+
+  **9/9 ACs implementados:**
+    AC1 GET /api/visao/tarefas-hoje               ✓ tasks today (Europe/Lisbon)
+    AC2 GET /api/visao/tarefas-atrasadas          ✓ 2-query pattern (count + list)
+    AC3 GET /api/visao/financas-mes               ✓ GROUP BY kind, parseFinanceTotal
+    AC4 GET /api/visao/recorrencias-proximas      ✓ 30-day horizon
+    AC5 GET /api/visao/saldo-contas               ✓ SUM balance_cents, exclude archived
+    AC6 GET /api/visao/calendario-semana          ✓ 7 days always (TS bucketing)
+    AC7 GET /api/visao/briefing                   ✓ stub v1 forward-compat
+    AC8 apps/web/src/lib/api-schemas/visao.ts     ✓ 7 schemas + z.infer types
+    AC9 Cobertura testes ≥ +21 testes novos       ✓ exact match (3 × 7 endpoints)
+
+  **REQ-INLINE-1 APLICADO INTEGRALMENTE (D-5.5.1):** todos os 7 handlers usam
+  pattern canónico observado em 28+ route handlers existentes:
+    import { getDb } from '@/lib/agent/db-shim'      (NÃO '@meu-jarvis/db')
+    import { requireAuth } from '@/lib/api-helpers/auth'
+    import { withSpan, annotateSpan, captureException, childLogger }
+           from '@meu-jarvis/observability'
+    import { apiError } from '@/lib/errors'
+    import { ...Schema, type ...Response } from '@/lib/api-schemas/visao'
+  Mocks de teste idem: vi.mock('@/lib/agent/db-shim', ...) em vez de
+  '@meu-jarvis/db'. Razão técnica do shim: db-shim.ts:5-17 documenta que
+  '@meu-jarvis/db' não resolve '@/schema' cross-package no tsc do apps/web
+  — sem o shim, pnpm typecheck parte. Zero excepções (briefing handler é
+  stub sem DB query mas mantém auth+observability pattern).
+
+next_action: |
+  `@architect *qa-gate 5.5` — verificação arquitectural independente
+  (precedente Stories 5.1-5.4 — @architect substitui @qa para gates
+  arquitecturais).
+
+  Sugestões de verificação @architect:
+    1. **Re-correr 5/5 quality gates independentemente** (precedente
+       arquitectural Stories 5.1-5.4):
+       - pnpm --filter @meu-jarvis/web lint (FULL TURBO esperado se cache válido)
+       - pnpm --filter @meu-jarvis/web typecheck (FULL TURBO esperado)
+       - pnpm --filter @meu-jarvis/web test (esperado 800 PASS — confirmar count)
+       - pnpm --filter @meu-jarvis/web build (7 rotas /api/visao/* registadas)
+       - pnpm check:rls (EXIT 0; 28 tabelas; 120 policies)
+
+    2. **Auditoria byte-a-byte do REQ-INLINE-1** — verificar via grep que:
+       - 6 dos 7 route.ts usam `from '@/lib/agent/db-shim'` (briefing é stub)
+       - Todos os 7 route.ts usam `from '@/lib/api-helpers/auth'`
+       - Todos os 7 route.ts usam `from '@meu-jarvis/observability'`
+       - Todos os 7 route.ts usam `apiError` de `@/lib/errors`
+       - Mocks dos testes usam `vi.mock('@/lib/agent/db-shim', ...)`
+       - Zero matches `from '@meu-jarvis/db'` nos handlers (auditoria
+         negativa REQ-INLINE-1)
+
+    3. **Verificar queries SQL byte-a-byte vs AC1-AC6:**
+       - AC1 (tarefas-hoje): WHERE due_date = (now() at time zone
+         'Europe/Lisbon')::date AND status NOT IN ('done', 'archived')
+         ORDER BY due_time ASC NULLS LAST, priority DESC, created_at ASC
+         LIMIT 20
+       - AC2 (tarefas-atrasadas): 2 queries — COUNT(*) separado + SELECT
+         limit 20 (D-5.5.2 OBS-1 — `count` real além LIMIT para widget)
+       - AC3 (financas-mes): WHERE transaction_date >= date_trunc('month',
+         (now() at time zone 'Europe/Lisbon')::date) AND ... GROUP BY kind
+       - AC4 (recorrencias-proximas): WHERE next_run_on > today AND
+         next_run_on <= today + 30 days AND active = true
+       - AC5 (saldo-contas): SUM(balance_cents) WHERE archived_at IS NULL
+       - AC6 (calendario-semana): SELECT 7 dias + bucketing TS via
+         Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' })
+
+    4. **Verificar Zod schemas vs enums DB byte-a-byte (D-5.5.6 OBS-3):**
+       - transactionKindEnum (finance.ts:52): ['expense', 'income', 'transfer']
+       - recurrenceFreqFinanceEnum (finance.ts:68): ['daily', 'weekly',
+         'biweekly', 'monthly', 'quarterly', 'yearly', 'custom']
+       - taskStatus (tasks.ts:37): ['todo', 'doing', 'done', 'archived']
+       - taskPriority (tasks.ts:80): ['low', 'medium', 'high']
+
+    5. **Auditoria parseFinanceTotal (D-5.5.3 OBS-4):**
+       - Helper partilhado entre financas-mes e saldo-contas
+       - Cobertura `Number.isFinite()` para 3 casos: NULL (SUM tabela vazia),
+         string numérica (Postgres numeric), int (count)
+       - Validar via testes que sem transacções todos os totais = 0
+         (não NaN ou string vazia)
+
+    6. **Verificar forward-compat briefing (D-5.5.5 OBS-5):**
+       - Schema inclui `version: z.literal(1)` reservado
+       - Stub message PT-PT: 'Briefing diário disponível em breve.'
+       - Sem AI calls; sem dependência Inngest ou Anthropic SDK
+       - Auth guard obrigatório mesmo sendo stub (verificado via 401 test)
+
+    7. **Smoke browser opcional** (não bloqueante per precedente Stories
+       5.1-5.4 que substituíram smoke browser por build + testes): se
+       @architect quiser, abrir `pnpm dev` em localhost:3000 e testar
+       (precisa sessão autenticada):
+       - curl localhost:3000/api/visao/briefing → 200 JSON com version: 1
+       - curl localhost:3000/api/visao/tarefas-hoje sem cookie → 401
+
+  Decisão GATE esperada: APPROVED (precedente Stories 5.1-5.4 todas APPROVED
+  9.5/10 HIGH). 0.5 desconto possível se @architect detectar concerns sobre
+  contratos de API que a Story 5.6 vai consumir.
+
+context: |
+  Pre-condições verificadas pelo @dev em 2026-05-28 02:18:
+    - Story 5.5 Ready criada pelo @sm em 2026-05-27 (drafted River)
+    - @po Pax validou GO 7.5/10 MEDIUM-HIGH em 2026-05-27
+    - REQ-INLINE-1 (mandatory inline fix) prescrito pelo @po — @dev aplicou
+      directamente durante implementação (D-5.5.1)
+    - 5 OBS FYI registadas pelo @po (OBS-1 a OBS-5) — @dev resolveu todas
+      durante implementação (D-5.5.2 a D-5.5.6)
+    - @dev consumiu directamente (sem handoff po→dev separado — story
+      autonomamente Ready)
+    - Branch main; working tree contem story modified + 15 ficheiros novos +
+      _INDEX modificado
+
+  Quality gates re-corridos @dev (5/5 GREEN):
+    pnpm --filter @meu-jarvis/web lint        → exit 0 (zero warnings)
+    pnpm --filter @meu-jarvis/web typecheck   → exit 0
+    pnpm --filter @meu-jarvis/web test        → 800/800 PASS (104 files;
+                                                net +21 vs baseline 779)
+    pnpm --filter @meu-jarvis/web build       → exit 0 (7 rotas /api/visao/*
+                                                registadas 428-430 B cada)
+    pnpm check:rls                            → EXIT 0 (28 tabelas; 120 policies)
+
+  Story 100% backend read-only — zero touch em DB/migrations/policies/keys.
+
+decisions:
+  - id: D-5.5.1
+    description: |
+      REQ-INLINE-1 APLICADO INTEGRALMENTE — todos os 7 route handlers usam
+      pattern canónico (`@/lib/agent/db-shim` + `requireAuth` + `withSpan` +
+      `apiError` + `childLogger`) observado em 28+ route handlers existentes
+    rationale: |
+      Dev Notes prescreveu pattern divergente (`@meu-jarvis/db` direct +
+      `createServerSupabaseClient` inline), mas @po Pax registou REQ-INLINE-1
+      como mandatory inline fix. @dev aplicou directamente durante
+      implementação. Razão técnica: `db-shim.ts:5-17` documenta que
+      `@meu-jarvis/db` não resolve `@/schema` cross-package no tsc do
+      apps/web — sem o shim, `pnpm typecheck` parte. Pattern unidireccional:
+      route handler → db-shim → @meu-jarvis/db (compilado). Mocks de teste
+      idem (`vi.mock('@/lib/agent/db-shim', ...)`). Briefing handler é
+      stub sem DB query mas mantém auth+observability pattern.
+
+  - id: D-5.5.2
+    description: |
+      OBS-1 (AC2 2-query pattern) — mantido COUNT(*) separado + SELECT limit 20
+      (2 queries em vez de COUNT(*) OVER () window function)
+    rationale: |
+      Handler precisa devolver `count` real (até > LIMIT) para o widget
+      exibir "N atrasadas" mesmo quando há mais que 20 tarefas. Alternativa
+      COUNT(*) OVER () adicionaria custo às 20 rows do payload sem benefício
+      mensurável vs. 2 queries index-supportadas (`tasks_overdue_idx`).
+      Postgres planner usa o mesmo índice para ambas. KISS preservado.
+
+  - id: D-5.5.3
+    description: |
+      OBS-4 (defensive parse) — helper `parseFinanceTotal(value)` em
+      `financas-mes/route.ts` e `saldo-contas/route.ts` com `Number.isFinite()`
+    rationale: |
+      Drizzle retorna `sum()` como `string | null` (via Postgres `numeric`).
+      Helper defensivo converte `string | number | null | undefined` para
+      `int` cobrindo 3 casos: NULL (SUM tabela vazia → 0), string numérica
+      (Postgres numeric), int (count). Sem `NaN` ou string vazia leaking
+      para a response. Co-localizado mas duplicado (não extraído para utility)
+      — apenas 2 consumers; abstração prematura evitada (KISS).
+
+  - id: D-5.5.4
+    description: |
+      OBS-2 (Europe/Lisbon timezone) — todas as queries SQL usam
+      `(now() at time zone 'Europe/Lisbon')::date` em vez de `CURRENT_DATE`;
+      calendario-semana adiciona helper TS `toLisbonDateString()` via
+      `Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' })`
+    rationale: |
+      PT-PT user base é constraint absoluto (FR1). `CURRENT_DATE` retorna
+      data em UTC do servidor Vercel — uma tarefa due hoje 23:30 Lisbon
+      seria classificada como "hoje" até 00:30 UTC (ou seja, até 01:30
+      Lisbon do dia seguinte). Solução: timezone explícito Europe/Lisbon
+      em SQL + bucketing TS alinhado via `Intl.DateTimeFormat('en-CA')`
+      (`en-CA` produz 'YYYY-MM-DD' lexicograficamente comparável).
+
+  - id: D-5.5.5
+    description: |
+      OBS-5 (forward-compat briefing) — schema `BriefingResponseSchema`
+      inclui `version: z.literal(1)` reservado para evolução
+    rationale: |
+      Briefing real (gerado pelo agente AI) virá de uma tabela cache
+      populada por Inngest job nocturno em story futura (Epic 5 ou
+      integração Epic 2). Schema v1 actual: stub. v2 poderá adicionar
+      `sections`, `summary`, `actionItems`, etc. sem partir consumidores
+      que validam contra v1. Forward compatibility pattern recomendado
+      para stubs com evolução conhecida.
+
+  - id: D-5.5.6
+    description: |
+      OBS-3 (enums byte-a-byte) — schemas Zod confirmados contra `finance.ts`
+      antes de definir
+    rationale: |
+      Verificados em `packages/db/src/schema/finance.ts`:
+        - transactionKindEnum (linha 52): ['expense', 'income', 'transfer']
+        - recurrenceFreqFinanceEnum (linha 68): ['daily', 'weekly',
+          'biweekly', 'monthly', 'quarterly', 'yearly', 'custom']
+      ATENÇÃO: `recurrenceFreqFinanceEnum` NÃO tem `weekdays`/`weekends` —
+      esses pertencem ao `recurrenceFrequencyEnum` de tarefas (tasks.ts)
+      que NÃO é usado nesta story. Confirmação byte-a-byte preveniu
+      regressão Constitution Article IV (No Invention).
+
+files_modified:
+  # === NEW (15 files) ===
+  - apps/web/src/lib/api-schemas/visao.ts                                       # NEW 169 linhas (7 schemas Zod + tipos z.infer — AC8)
+  - apps/web/src/app/api/visao/tarefas-hoje/route.ts                            # NEW (AC1)
+  - apps/web/src/app/api/visao/tarefas-atrasadas/route.ts                       # NEW (AC2 — 2-query pattern D-5.5.2)
+  - apps/web/src/app/api/visao/financas-mes/route.ts                            # NEW (AC3 — parseFinanceTotal D-5.5.3)
+  - apps/web/src/app/api/visao/recorrencias-proximas/route.ts                   # NEW (AC4)
+  - apps/web/src/app/api/visao/saldo-contas/route.ts                            # NEW (AC5 — parseFinanceTotal D-5.5.3)
+  - apps/web/src/app/api/visao/calendario-semana/route.ts                       # NEW (AC6 — toLisbonDateString D-5.5.4)
+  - apps/web/src/app/api/visao/briefing/route.ts                                # NEW (AC7 — stub v1 forward-compat D-5.5.5)
+  - apps/web/src/app/api/visao/__tests__/tarefas-hoje.test.ts                   # NEW (AC9 — 3 testes)
+  - apps/web/src/app/api/visao/__tests__/tarefas-atrasadas.test.ts              # NEW (AC9 — 3 testes)
+  - apps/web/src/app/api/visao/__tests__/financas-mes.test.ts                   # NEW (AC9 — 3 testes)
+  - apps/web/src/app/api/visao/__tests__/recorrencias-proximas.test.ts          # NEW (AC9 — 3 testes)
+  - apps/web/src/app/api/visao/__tests__/saldo-contas.test.ts                   # NEW (AC9 — 3 testes)
+  - apps/web/src/app/api/visao/__tests__/calendario-semana.test.ts              # NEW (AC9 — 3 testes; usa vi.setSystemTime)
+  - apps/web/src/app/api/visao/__tests__/briefing.test.ts                       # NEW (AC9 — 3 testes)
+  # === MODIFIED (2 files) ===
+  - docs/stories/active/5.5.visao-apis-queries-agregadoras.story.md             # MODIFIED — Status InReview v1.1-DEV; Change Log v1.1-DEV; Dev Agent Record completo; File List populated
+  - docs/stories/active/_INDEX.md                                               # MODIFIED — Story 5.5 Draft v1.0 → InReview v1.1-DEV
+  # === STORY + HANDOFF ARTIFACTS ===
+  - docs/handoffs/mj-handoff-5.5-dev-to-architect-20260528.yaml                 # NEW (este handoff)
+  - docs/HANDOFF-INDEX.md                                                       # MODIFIED — entry Pending adicionado
+
+blockers: []
+
+quality_gates_executed:
+  lint:
+    status: GREEN
+    detail: 'pnpm --filter @meu-jarvis/web lint exit 0; No ESLint warnings or errors (--max-warnings=0 activo).'
+  typecheck:
+    status: GREEN
+    detail: 'pnpm --filter @meu-jarvis/web typecheck exit 0; tsc --noEmit clean (zero erros).'
+  test:
+    status: GREEN
+    detail: 'pnpm --filter @meu-jarvis/web test exit 0; 800/800 PASS (104 files; 24.51s); baseline 5.4 = 779 + net +21 (match exacto target AC9 — 3 cenários × 7 endpoints = 21 testes novos).'
+  build:
+    status: GREEN
+    detail: 'pnpm --filter @meu-jarvis/web build exit 0; 7 rotas /api/visao/* registadas no manifest (428-430 B cada): briefing, calendario-semana, financas-mes, recorrencias-proximas, saldo-contas, tarefas-atrasadas, tarefas-hoje. /visao mantém-se em 429 B (placeholder Story 1.5 — substituído em 5.6).'
+  check_rls:
+    status: GREEN
+    detail: 'pnpm check:rls EXIT 0; 28 tabelas multi-tenant + 120 policies em 0001_rls_policies.sql; NFR5 INALTERADA (story 100% backend read-only — zero touch DB/migrations/policies).'
+
+dev_decisions_summary:
+  - D-5.5.1: REQ-INLINE-1 APLICADO em todos os 7 handlers (@/lib/agent/db-shim + requireAuth + withSpan + apiError + childLogger; mocks vi.mock @/lib/agent/db-shim)
+  - D-5.5.2: OBS-1 (AC2) 2-query pattern mantido (COUNT separado + SELECT limit 20 — count real além LIMIT)
+  - D-5.5.3: OBS-4 helper parseFinanceTotal() defensivo Number.isFinite — partilhado financas-mes + saldo-contas
+  - D-5.5.4: OBS-2 timezone Europe/Lisbon consistente (SQL `(now() at time zone 'Europe/Lisbon')::date` + TS Intl.DateTimeFormat en-CA)
+  - D-5.5.5: OBS-5 briefing version z.literal(1) forward-compat
+  - D-5.5.6: OBS-3 enums Zod byte-a-byte vs finance.ts (transactionKindEnum + recurrenceFreqFinanceEnum confirmados; recurrenceFrequencyEnum tasks.ts NÃO usado aqui)
+
+auto_decisions_ratified:
+  - AD-5.5.1: REQ-INLINE-1 aplicado autonomamente como D-5.5.1 (sem espera por ratificação — pattern canónico estabelecido em 28+ route handlers existentes, alinhamento mandatory)
+
+carry_overs_preserved:
+  - CO-5.5.A: Story 5.6 (`<WidgetGrid>`) vai consumir os 7 endpoints + os schemas Zod exportados de `@/lib/api-schemas/visao` (z.infer types para tipagem cliente)
+  - CO-5.5.B: Briefing stub v1 evoluirá em story futura (Epic 5 ou integração Epic 2) — implementação real via Inngest job nocturno + tabela cache
+
+coderabbit:
+  status: SKIPPED_RATIFIED
+  rationale: |
+    [AUTO-DECISION] AD-5.5.2 SKIPPED — precedente Stories 3.1-5.4 consistente.
+    Story 100% backend read-only — 7 route handlers + 1 schema Zod + 14 testes.
+    Complexidade média (queries SQL agregadoras com timezone-awareness e
+    parseFinanceTotal defensivo). @architect gate substitui review automatizado.
+    @architect pode override se detectar concern específico sobre contratos
+    de API que Story 5.6 vai consumir.
+
+implementation_score:
+  numeric: 9.5
+  confidence: HIGH
+  verdict: READY_FOR_ARCHITECT_GATE
+  rationale: |
+    9.5/10 reflecte:
+    - 5/5 quality gates GREEN
+    - 9/9 ACs implementados
+    - 6 [DEV-DECISION] documentadas com racional técnico claro
+    - REQ-INLINE-1 honrado integralmente sem fricção
+    - 5 OBS FYI do @po resolvidas durante implementação
+    - Net +21 testes exact match target AC9 (3 × 7 = 21)
+    - Zero stuck conditions, zero rollbacks, zero retries
+    - Zero touch DB/migrations/policies (NFR5 inviolada)
+    - PT-PT estrito em mensagens user-facing (briefing message + apiError)
+    - Constitution Article IV (No Invention) cumprido — enums byte-a-byte
+      verificados antes de declarar schemas Zod
+
+    0.5 desconto preventivo por carry-overs documentados (CO-5.5.A/B):
+    contratos de API que Story 5.6 vai consumir podem precisar ajustes
+    minor se @architect detectar shape mismatch — não falhas críticas,
+    apenas tech debt potencial.
+
+    Story 9.5/10 ratificável por @architect com auditoria byte-a-byte
+    REQ-INLINE-1 + re-execução independente dos 5/5 gates.

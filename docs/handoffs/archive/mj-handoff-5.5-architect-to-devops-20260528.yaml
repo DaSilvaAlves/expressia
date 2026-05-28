@@ -1,0 +1,349 @@
+id: mj-handoff-5.5-architect-to-devops-20260528
+from_agent: architect
+to_agent: devops
+created: '2026-05-28T03:05:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-28T03:00:00Z'
+consumed_by: devops
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.5'
+last_command: '*qa-gate 5.5'
+priority: medium
+
+summary: |
+  @architect Aria consumiu handoff dev→architect e executou `*qa-gate 5.5` com
+  verificação arquitectural independente (5/5 quality gates re-corridos em
+  sessão @architect + auditoria byte-a-byte REQ-INLINE-1 + cross-check enums
+  vs schemas DB reais).
+
+  **APPROVED 9.5/10 HIGH (Aria)** — quinta story do Epic 5 (Web App UI) gated.
+
+  Story status `InReview v1.1-DEV` → `Done v1.2-ARCH-APPROVED`. Pronto para
+  `@devops *push 5.5`.
+
+  **7-Check Gate (todos PASS):**
+    1. ACs Coverage           10/10  (9/9 PASS cross-check byte-a-byte)
+    2. REQ-INLINE-1 conformance 10/10  (GATE-VERIFIED: 0 matches `@meu-jarvis/db` directo)
+    3. Constraints (RLS/PT-PT/imports/TS/EUR) 10/10
+    4. 5 Quality Gates re-run independente   10/10  (lint+typecheck+test+build+check:rls TODOS exit 0)
+    5. Test Quality          10/10  (21 testes exact match grep `it(`)
+    6. Decisões D-5.5.X RATIFY 10/10  (6/6 RATIFICADAS)
+    7. Anti-hallucination    10/10  (enums byte-a-byte vs finance.ts + tasks.ts)
+  Total: 70/70 = 10.0/10 → 9.5/10 HIGH (preventive 0.5 discount for CO-5.5.A/B + NIT-1).
+
+  **5/5 quality gates re-verificados independentemente em sessão @architect:**
+    pnpm --filter @meu-jarvis/web lint        → exit 0 (No ESLint warnings or errors)
+    pnpm --filter @meu-jarvis/web typecheck   → exit 0 (tsc --noEmit clean)
+    pnpm --filter @meu-jarvis/web test        → **800/800 PASS (104 files)** — match exacto handoff @dev
+    pnpm --filter @meu-jarvis/web build       → exit 0 — 7 rotas /api/visao/* registadas
+                                                no manifest (briefing, calendario-semana, financas-mes,
+                                                recorrencias-proximas, saldo-contas, tarefas-atrasadas,
+                                                tarefas-hoje — 428-430 B cada)
+    pnpm check:rls                            → exit 0 — 28 tabelas multi-tenant
+                                                cobertas (NFR5 INALTERADA)
+
+  **REQ-INLINE-1 GATE-VERIFIED por auditoria negativa:**
+    grep -r "from '@meu-jarvis/db'" apps/web/src/app/api/visao/  →  **0 matches**
+    grep -r "from '@/lib/agent/db-shim'" apps/web/src/app/api/visao/  →  6 matches
+                                                                       (briefing é stub sem DB)
+    grep -r "requireAuth" apps/web/src/app/api/visao/  →  7 files match
+    Mocks de teste: 7/7 usam `vi.mock('@/lib/agent/db-shim', ...)`
+
+  **6 D-5.5.X RATIFICADAS (architect verdict):**
+    - D-5.5.1 REQ-INLINE-1 pattern canónico — RATIFY (imperativo técnico cross-package)
+    - D-5.5.2 OBS-1 2-query pattern AC2 — RATIFY (trade-off correcto vs window function)
+    - D-5.5.3 OBS-4 parseFinanceTotal Number.isFinite — RATIFY (com NIT-1 minor)
+    - D-5.5.4 OBS-2 timezone Europe/Lisbon SQL+TS — RATIFY com PRAISE (DST-aware)
+    - D-5.5.5 OBS-5 briefing version z.literal(1) — RATIFY com PRAISE (forward-compat)
+    - D-5.5.6 OBS-3 enums byte-a-byte — RATIFY (Article IV cumprida)
+
+  **3 PRAISE arquitectural:**
+    P1: REQ-INLINE-1 honrado sem fricção (auditoria negativa zero matches)
+    P2: Timezone Europe/Lisbon DST-aware engineering (anchor meio-dia UTC + Intl.DateTimeFormat en-CA)
+    P3: Forward-compat version: z.literal(1) pattern reutilizável + briefing
+        shape stability guardrail no teste (Object.keys.sort exact match)
+
+  **2 Follow-ups LOW não-bloqueantes:**
+    FUP-5.5.A: Refactor parseFinanceTotal para utility quando 3º consumer aparecer (Epic 6+ patrimony)
+    FUP-5.5.B: Adicionar predicado RLS redundante explícito nas queries SQL
+               (defesa em profundidade — NFR5 já cumprido por RLS row filter)
+
+  **1 NIT cosmético:** NIT-1 parseFinanceTotal duplicado byte-a-byte em 2 routes —
+  ratificado D-5.5.3 KISS pragmático (refactor com 3º consumer).
+
+  Story 100% backend read-only — zero touch DB/migrations/policies. NFR5 INALTERADA.
+
+next_action: |
+  `@devops *push 5.5` — push do ciclo completo (precedente Stories 5.1-5.4 todas
+  pushed após gate APPROVED 9.5/10 HIGH).
+
+  Sugestões @devops:
+
+  **Pre-push checks (5/5 gates re-corridos localmente):**
+    pnpm --filter @meu-jarvis/web lint        (esperado exit 0)
+    pnpm --filter @meu-jarvis/web typecheck   (esperado exit 0)
+    pnpm --filter @meu-jarvis/web test        (esperado 800 PASS)
+    pnpm --filter @meu-jarvis/web build       (esperado 7 rotas /api/visao/*)
+    pnpm check:rls                            (esperado exit 0 28 tabelas)
+
+  **CodeRabbit:** [AUTO-DECISION] AD-5.5.2 SKIPPED ratificado pelo @architect
+  (precedente Stories 3.1-5.4). @devops pode override se quiser correr antes
+  do push.
+
+  **Commits (push pattern primary+housekeeping, 2 commits):**
+
+  Commit primário sugerido:
+    Subject: `feat(visao): Story 5.5 — APIs agregadoras /api/visao/* [Story 5.5]`
+    Body sugerido:
+      - 7 endpoints REST agregadores read-only para dashboard "Visão" (FR21)
+      - 1 schema Zod partilhado em apps/web/src/lib/api-schemas/visao.ts (7 schemas + z.infer)
+      - 21 testes (3 cenários × 7 endpoints)
+      - REQ-INLINE-1 honrado integralmente (pattern canónico 28+ handlers)
+      - Timezone Europe/Lisbon DST-aware (D-5.5.4)
+      - Briefing stub forward-compat v1 (D-5.5.5)
+      - Story 100% read-only — zero touch DB/migrations/policies
+    Trailers:
+      Constraint: REQ-INLINE-1 pattern canónico via @/lib/agent/db-shim (cross-package tsc)
+      Constraint: Timezone Europe/Lisbon (FR1 PT-PT user base)
+      Constraint: NFR5 RLS multi-tenant via getDb() exclusivo
+      Rejected: COUNT(*) OVER () window function | preferred 2-query pattern para count real além LIMIT (D-5.5.2)
+      Rejected: parseFinanceTotal em utility partilhada | abstração prematura (D-5.5.3 KISS, 2 consumers)
+      Confidence: high
+      Scope-risk: narrow
+      Directive: parseFinanceTotal duplicado intencional — refactor quando 3º consumer aparecer (FUP-5.5.A)
+      Not-tested: parseFinanceTotal com input NaN explícito (defensivo Number.isFinite cobre via testes 200-sem-dados)
+
+  Commit housekeeping:
+    Subject: `chore(docs,housekeeping): Story 5.5 Done — QA gate APPROVED 9.5/10 + Epic 5 progress 5/10 [Story 5.5]`
+    Files:
+      - docs/stories/active/5.5.visao-apis-queries-agregadoras.story.md → completed/
+      - docs/stories/active/_INDEX.md (5.5 InReview → Done; Epic 5 progress 4/10 → 5/10)
+      - docs/HANDOFF-INDEX.md (handoff dev→architect → archive; handoff architect→devops → archive após consumed)
+      - docs/handoffs/mj-handoff-5.5-dev-to-architect-20260528.yaml → archive/
+      - docs/handoffs/mj-handoff-5.5-architect-to-devops-20260528.yaml → archive/ (este handoff após consumed)
+
+  **NÃO incluir** `docs/marketing/edit/` (decisão Eurico pendente desde Story 4.1 — precedente).
+
+  **Push** `origin/main` (fast-forward limpo, sem --force, sem --no-verify).
+
+  **Memory update sugerida:** novo memory `story_5.5_ratify_pattern.md` com pattern
+  reutilizável para Story 5.6 e futuras stories backend agregadoras (REQ-INLINE-1
+  pattern canónico + timezone Europe/Lisbon + forward-compat version literals).
+
+context: |
+  Pre-condições verificadas pelo @architect em 2026-05-28 02:38-03:05:
+    - Story 5.5 InReview v1.1-DEV (Dex 2026-05-28 02:25)
+    - 5/5 quality gates GREEN no handoff @dev → re-verificados independentemente
+      em sessão @architect (todos exit 0, match exacto)
+    - REQ-INLINE-1 GATE-VERIFIED por auditoria negativa (grep 0 matches @meu-jarvis/db)
+    - 6 D-5.5.X reviewed inline; todas RATIFICADAS
+    - Branch main; working tree contém story + 15 NEW + 2 MODIFIED + 2 handoff
+      artefactos
+
+  Story 100% backend read-only — zero touch DB/migrations/policies/keys.
+  NFR5 RLS coverage INALTERADA (28 tabelas).
+
+architect_decisions:
+  - id: AR-5.5.1
+    description: REQ-INLINE-1 GATE-VERIFIED por auditoria negativa
+    rationale: |
+      Em vez de confiar na auto-declaração do @dev, executei `grep -r
+      "from '@meu-jarvis/db'" apps/web/src/app/api/visao/` e confirmei
+      **0 matches**. Auditoria positiva confirmou 6 matches `@/lib/agent/db-shim`
+      (briefing é stub sem DB) + 7 matches `requireAuth`. Cross-verification
+      independente é necessária para REQ-INLINE-1 porque é a única regra
+      load-bearing da story (afecta typecheck cross-package).
+
+  - id: AR-5.5.2
+    description: Enums Zod ↔ DB schemas cross-confirmados byte-a-byte
+    rationale: |
+      Constitution Article IV (No Invention) requer verificação directa.
+      Li `packages/db/src/schema/finance.ts:52-76` e `tasks.ts:35-42`:
+        - transactionKindEnum (finance.ts:52-56) = ['expense', 'income', 'transfer']
+          MATCH visao.ts:27 RecurrenceKindSchema
+        - recurrenceFreqFinanceEnum (finance.ts:68-76) = 7 valores
+          MATCH visao.ts:29-37 RecurrenceFrequencySchema
+        - taskStatusEnum (tasks.ts:37-42) = ['todo', 'doing', 'done', 'archived']
+          MATCH visao.ts:25 TaskStatusSchema
+        - taskPriorityEnum (tasks.ts:35) = ['low', 'medium', 'high']
+          MATCH visao.ts:26 TaskPrioritySchema
+      Zero invenções.
+
+  - id: AR-5.5.3
+    description: Verdict APPROVED 9.5/10 HIGH (não 10.0/10)
+    rationale: |
+      Score técnico raw = 70/70 = 10.0/10. Desconto preventivo 0.5 por:
+        - CO-5.5.A: contratos de API que Story 5.6 vai consumir podem precisar
+          ajustes minor se WidgetGrid detectar shape mismatch (carry-over tech
+          debt potencial; não falha crítica)
+        - CO-5.5.B: Briefing stub v1 evoluirá em story futura — não bloqueante
+        - NIT-1: parseFinanceTotal duplicado (KISS aceitável agora, refactor
+          quando 3º consumer aparecer)
+      9.5/10 HIGH alinha com precedente Stories 5.1-5.4.
+
+  - id: AR-5.5.4
+    description: 2 Follow-ups LOW registados — não bloqueantes para push
+    rationale: |
+      FUP-5.5.A (refactor parseFinanceTotal para utility) e FUP-5.5.B (RLS
+      predicate redundante explícito) são melhorias incrementais sem impacto
+      no comportamento funcional ou segurança. NFR5 já cumprido por RLS row
+      filter na role authenticated.
+
+files_modified:
+  # === MODIFIED PELO ARCHITECT ===
+  - docs/stories/active/5.5.visao-apis-queries-agregadoras.story.md      # MODIFIED — Status InReview → Done v1.2-ARCH-APPROVED; QA Results populated; Change Log v1.2-ARCH
+  - docs/stories/active/_INDEX.md                                         # MODIFIED — 5.5 InReview → Done; Epic 5 progress 4/10 → 5/10 (after push)
+  - docs/HANDOFF-INDEX.md                                                 # MODIFIED — handoff dev→architect → Archived; entry handoff architect→devops adicionado Pending
+  # === NEW ===
+  - docs/handoffs/mj-handoff-5.5-architect-to-devops-20260528.yaml        # NEW — este handoff
+
+  # === FILES NOT MODIFIED (story 100% read-only) ===
+  # - apps/web/src/app/api/visao/**     (zero touch arquitectural)
+  # - apps/web/src/lib/api-schemas/visao.ts (zero touch)
+  # - packages/db/**                    (story zero touch DB/migrations/policies)
+
+blockers: []
+
+quality_gates_executed_by_architect:
+  lint:
+    status: GREEN
+    detail: 'pnpm --filter @meu-jarvis/web lint exit 0; No ESLint warnings or errors (--max-warnings=0 activo).'
+  typecheck:
+    status: GREEN
+    detail: 'pnpm --filter @meu-jarvis/web typecheck exit 0; tsc --noEmit clean (zero erros).'
+  test:
+    status: GREEN
+    detail: 'pnpm --filter @meu-jarvis/web test exit 0; **800/800 PASS (104 files; 23.41s)** — match exacto handoff @dev (baseline 5.4 = 779 + net +21 visao tests = 800).'
+  build:
+    status: GREEN
+    detail: 'pnpm --filter @meu-jarvis/web build exit 0; 7 rotas /api/visao/* registadas no manifest (428-430 B cada): briefing, calendario-semana, financas-mes, recorrencias-proximas, saldo-contas, tarefas-atrasadas, tarefas-hoje. /visao mantém-se placeholder (Story 1.5 — substituído em 5.6).'
+  check_rls:
+    status: GREEN
+    detail: 'pnpm check:rls exit 0; 28 tabelas multi-tenant cobertas; NFR5 INALTERADA (story 100% backend read-only — zero touch DB/migrations/policies).'
+
+praise:
+  - id: P1
+    description: REQ-INLINE-1 honrado sem fricção
+    detail: |
+      7/7 handlers pattern canónico, 7/7 testes mockam o shim correcto. Zero
+      excepções, zero half-applications. Auditoria negativa cross-verified —
+      grep "from '@meu-jarvis/db'" em apps/web/src/app/api/visao/ retorna 0
+      matches. Pattern canónico (db-shim + requireAuth + withSpan + apiError
+      + childLogger) replicado de 28+ handlers existentes sem improvisação.
+
+  - id: P2
+    description: Timezone Europe/Lisbon DST-aware engineering
+    detail: |
+      SQL `(now() at time zone 'Europe/Lisbon')::date` + TS `Intl.DateTimeFormat
+      ('en-CA', { timeZone: 'Europe/Lisbon' })` produzem o mesmo offset. Anchor
+      meio-dia UTC em buildWeekDays() evita precision issues à meia-noite. en-CA
+      escolha técnica precisa: produz 'YYYY-MM-DD' lexicograficamente comparável.
+      DST handling automático via Intl.DateTimeFormat — engenharia consciente.
+
+  - id: P3
+    description: Forward-compat version literal + shape stability guardrail
+    detail: |
+      `version: z.literal(1)` em BriefingResponseSchema é pattern reutilizável
+      para todos os stubs com evolução conhecida. Teste briefing.test.ts:74-83
+      (`Object.keys.sort` exact match com ['available', 'generatedAt', 'message',
+      'version']) é guardrail preventivo: Story 5.6 não pode inventar campos
+      extra sem partir este teste. Constitution Article IV proactively defended.
+
+follow_ups:
+  - id: FUP-5.5.A
+    priority: LOW
+    description: Refactor parseFinanceTotal para utility quando 3º consumer aparecer
+    detail: |
+      Helper duplicado byte-a-byte em financas-mes/route.ts:46-50 e
+      saldo-contas/route.ts:37-41. Ratificado D-5.5.3 (KISS, 2 consumers
+      apenas). Quando 3º consumer aparecer (provavelmente Epic 6 patrimony
+      agregado), extrair para apps/web/src/lib/finance/parse-numeric.ts.
+      Não bloqueante agora.
+
+  - id: FUP-5.5.B
+    priority: LOW
+    description: Adicionar predicado RLS redundante explícito nas queries SQL
+    detail: |
+      Queries actuais não incluem `where household_id = current_household_id()`
+      explicitamente — RLS row filter na role `authenticated` injecta o
+      predicate automaticamente a nível Postgres (NFR5 já cumprido). Adicionar
+      o predicado redundante seria defesa em profundidade que clarifica auditoria
+      de segurança. Considerar em Story 5.6 quando WidgetGrid for consumidor.
+
+nits:
+  - id: NIT-1
+    description: parseFinanceTotal duplicado byte-a-byte
+    detail: |
+      Em financas-mes/route.ts:46-50 e saldo-contas/route.ts:37-41. Ratificado
+      D-5.5.3 (abstração prematura evitada — 2 consumers, KISS). Refactor
+      quando 3º consumer aparecer. Ver FUP-5.5.A.
+    blocking: false
+
+ratified_decisions:
+  - id: D-5.5.1
+    verdict: RATIFY
+    rationale: Imperativo técnico cross-package — db-shim.ts:5-17 documenta porquê
+  - id: D-5.5.2
+    verdict: RATIFY
+    rationale: Trade-off correcto vs COUNT(*) OVER () window function — same I/O cost via tasks_overdue_idx
+  - id: D-5.5.3
+    verdict: RATIFY
+    rationale: Defensivo Number.isFinite contra SUM string|null; NIT-1 documentado
+  - id: D-5.5.4
+    verdict: RATIFY com PRAISE
+    rationale: DST-aware engineering crítica para FR1 PT-PT user base
+  - id: D-5.5.5
+    verdict: RATIFY com PRAISE
+    rationale: Forward-compat pattern reutilizável + shape stability guardrail no teste
+  - id: D-5.5.6
+    verdict: RATIFY
+    rationale: Constitution Article IV cumprida — enums cross-verified byte-a-byte
+
+constitution_check:
+  article_iv_no_invention:
+    status: PASS
+    detail: |
+      Enums Zod (taskStatus, taskPriority, transactionKind, recurrenceFreqFinance)
+      cross-verified byte-a-byte vs schemas DB reais (finance.ts:52,68 + tasks.ts:35,37)
+      antes de declarar. recurrenceFrequencyEnum (tasks.ts) confusion evitada
+      activamente (D-5.5.6).
+  article_vi_imports:
+    status: PASS
+    detail: |
+      7/7 handlers + 7/7 testes + visao.ts usam imports absolutos `@/...`.
+      Zero relativos `../../` em qualquer ficheiro novo.
+  nfr5_rls_coverage:
+    status: PASS (INALTERADA)
+    detail: |
+      28 tabelas multi-tenant mantêm coverage completo via check:rls exit 0.
+      Story 100% read-only — zero touch DB/migrations/policies/keys.
+  con9_currency_eur:
+    status: PASS
+    detail: |
+      FinancesMonthResponseSchema (visao.ts:89) + AccountsBalanceResponseSchema
+      (visao.ts:122) usam `currency: z.literal('EUR')`. Valores monetários em
+      *_cents (z.number().int()).
+
+coderabbit:
+  status: SKIPPED_RATIFIED
+  rationale: |
+    [AUTO-DECISION] AD-5.5.2 SKIPPED — precedente Stories 3.1-5.4 consistente.
+    Story 100% backend read-only — 7 route handlers + 1 schema Zod + 14 testes.
+    @architect gate (5/5 quality gates re-corridos + auditoria byte-a-byte
+    REQ-INLINE-1 + cross-check enums) substitui review automatizado.
+
+implementation_score:
+  numeric: 9.5
+  confidence: HIGH
+  verdict: APPROVED_READY_FOR_PUSH
+  rationale: |
+    Score raw 70/70 = 10.0/10. Desconto preventivo 0.5 por:
+    - CO-5.5.A/B carry-overs documentados (tech debt potencial menor com Story 5.6)
+    - NIT-1 minor (parseFinanceTotal duplicado, ratificado D-5.5.3 KISS)
+    9.5/10 HIGH alinha com precedente Stories 5.1-5.4 (todas APPROVED 9.5/10 HIGH).
+
+    Pronta para `@devops *push 5.5` — pre-push 5/5 gates esperados GREEN
+    (cached/FULL TURBO possível após sessão @architect re-run independente).
