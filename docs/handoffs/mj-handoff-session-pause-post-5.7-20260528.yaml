@@ -1,0 +1,95 @@
+id: mj-handoff-session-pause-post-5.7-20260528
+from_agent: devops
+to_agent: any
+created: '2026-05-28T22:45:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.7'
+last_command: '*push 5.7'
+priority: medium
+
+summary: |
+  SESSION PAUSE cross-terminal pós Story 5.7 Done + pushed. Epic 5 = **7/10 Done**.
+  Pipeline completo @sm→@po→@dev→@architect→@devops executado e fechado para a 5.7
+  (config UI de widgets inline na `/visao`), incluindo um ciclo de gate
+  **FAIL→FIX-1→PASS** (SSR Hydrator leak corrigido). Nada em progresso — o
+  próximo terminal escolhe a próxima story do Epic 5 e arranca novo ciclo. Sem
+  blockers funcionais; sem decisões pendentes (a do `docs/marketing/edit/` foi
+  resolvida nesta sessão → `.gitignore`).
+
+next_action: |
+  **1. Verificar CI primeiro (rápido):**
+     `gh run list --branch main --limit 3` — confirmar `completed/success` para
+     os commits da 5.7 (~4 min, precedente Stories 5.4/5.5/5.6).
+
+  **2. Escolher a próxima story do Epic 5 e arrancar o ciclo:**
+     `@sm *draft {N}` → `@po *validate-story-draft {N}` → `@dev *develop {N}`
+     → `@architect *qa-gate {N}` → `@devops *push {N}`.
+
+     Candidatas (Eurico decide a ordem):
+       - **5.8 — Modo claro/escuro** (tokens sweep + toggle + persistência via
+         `user_prefs.theme` — DP2=C híbrido; o endpoint `/api/conta/preferencias`
+         **já aceita `theme`** via `PreferencesPatchSchema`, preparado na 5.7).
+         Absorve FUP-5.3.B (CSS vars migration).
+       - **5.9 — UndoToast global + `<EmptyState>` shared** (consolida o
+         `VisaoEmptyState` local em `packages/ui`; absorve OBS-1 da 5.7 se quiser
+         repensar o slot `headerActions`).
+       - **5.10 — Responsive sweep + branding auth + Lighthouse mobile ≥ 85**
+         (absorve **FUP-5.6.A** perf double-query + carry-overs middleware/root
+         redirect das Stories 5.3). Normalmente deixado para o fim do epic.
+
+context: |
+  **Estado do repo no momento do pause:**
+    - Branch `main`, sincronizado com origin (push dos commits da 5.7).
+    - Working tree limpo. `docs/marketing/edit/` agora ignorado (`.gitignore`,
+      commit `bb90355`) — já NÃO aparece como untracked.
+    - Vercel auto-deploy fra1 dispara no push (não verificado neste pause).
+
+  **Story 5.7 — o que ficou em produção:**
+    - Config UI de widgets **inline** na `/visao` (DP4=B): `×` remover por widget
+      (overlay Client `<WidgetSlot>` no `WidgetGrid` — NÃO toca os 7 widgets RSC)
+      + `[+ Adicionar widget]` (popover, re-activa widgets OFF via
+      `router.refresh()`) + persistência **debounced** via `widgetConfigStore`
+      (Zustand sem persist, hidratado em `useEffect` client-only).
+    - Endpoint `/api/conta/preferencias` estendido para `widgets_enabled`
+      (`PreferencesPatchSchema` + UPSERT parcial 1-statement `excluded.*` — não
+      zera campos ausentes, 1 call DB retrocompat 2.7; GET devolve
+      `{ always_preview, widgets_enabled }`). **`theme` também já é aceite** no
+      PATCH (preparado para a 5.8).
+    - `WIDGET_LABELS` single source PT-PT em `_lib/widgets.ts`.
+    - **FIX-1 (lição):** hidratar Zustand stores de módulo SEMPRE em `useEffect`,
+      nunca no corpo do render — Client Components renderizam no SSR e mutariam o
+      singleton no servidor (cross-request leak). Gate apanhou; corrigido.
+
+  **Follow-ups abertos (carry-over Epic 5, não-bloqueantes):**
+    - **OBS-1 [LOW]:** slot `WidgetCard.headerActions` (reservado pela 5.6) ficou
+      órfão — a 5.7 usou overlay no `WidgetGrid`. Decidir numa futura iteração:
+      usar o slot OU remover o `headerActions?`. Candidato à 5.9.
+    - **FUP-5.6.A [MEDIUM → 5.10]:** `isVisaoEmpty()` corre agregados 1× para o
+      empty-state + widgets re-correm nos `<Suspense>` → até ~2× queries/page-load.
+    - **FUP-5.5.B [LOW]:** predicado RLS redundante explícito → opcional.
+    - Carry-overs das Stories 5.3 → 5.10: FUP-5.3.C (middleware APP_PATH_PREFIXES)
+      + FUP-5.3.D (root redirect) — MEDIUM.
+
+  **Pipeline / processo confirmado (replicável):**
+    - Fluxo: `@sm *draft` → `@po *validate-story-draft` → `@dev *develop` (YOLO) →
+      `@architect *qa-gate` → `@devops *push`. Apenas @devops faz push.
+    - 5 quality gates obrigatórios (project root): `pnpm lint` · `pnpm typecheck` ·
+      `pnpm --filter @meu-jarvis/web test` · `pnpm build` · `pnpm check:rls`.
+    - **CodeRabbit SKIPPED** consistente (Stories 3.1-5.7).
+    - **Handoffs cross-terminal:** ler `docs/HANDOFF-INDEX.md` SEMPRE na activação.
+      Baseline de testes corrente: **879 passed / 116 files** (apps/web).
+    - O gate @architect é real — apanhou e devolveu 1 blocker HIGH na 5.7
+      (FAIL→FIX→PASS). Esperado e saudável.
+
+  **Auth local:** RESOLVIDO (handoff auth-local-fixed). Helper `dev-create-user.ts`
+  em apps/web para smoke local autenticado, se a próxima story precisar.
+
+files_modified:
+  # Nenhum ficheiro de código alterado por este pause — handoff informativo.
+  # Estado da 5.7 já em produção (commits do ciclo + housekeeping).
+
+blockers: []
