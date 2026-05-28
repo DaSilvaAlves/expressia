@@ -242,3 +242,111 @@ describe('PATCH /api/conta/preferencias', () => {
     // getDb usa role authenticated).
   });
 });
+
+// ───────────────────────────────────────────────────────────────────────────
+// Story 5.7 — widgets_enabled (AC1)
+// ───────────────────────────────────────────────────────────────────────────
+
+const VALID_WIDGETS = {
+  briefing: true,
+  tasks_today: true,
+  finance_month: true,
+  recurrences_next: true,
+  tasks_overdue: false,
+  accounts_balance: true,
+  calendar_week: false,
+};
+
+describe('Story 5.7 — GET devolve widgets_enabled (AC1.b)', () => {
+  it('retorna widgets_enabled válido lido da DB', async () => {
+    let call = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      call++;
+      if (call === 1) return []; // INSERT ON CONFLICT
+      if (call === 2) return [{ always_preview: true, widgets_enabled: VALID_WIDGETS }];
+      return [];
+    });
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      always_preview: boolean;
+      widgets_enabled: Record<string, boolean>;
+    };
+    expect(body.always_preview).toBe(true);
+    expect(body.widgets_enabled).toEqual(VALID_WIDGETS);
+  });
+
+  it('fallback para DEFAULT_WIDGETS_ENABLED quando o JSONB é inválido', async () => {
+    let call = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      call++;
+      if (call === 1) return [];
+      if (call === 2) return [{ always_preview: false, widgets_enabled: { bad: 'shape' } }];
+      return [];
+    });
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { widgets_enabled: Record<string, boolean> };
+    // 5 ON / 2 OFF default (prefs.ts:69).
+    expect(body.widgets_enabled).toEqual({
+      briefing: true,
+      tasks_today: true,
+      finance_month: true,
+      recurrences_next: true,
+      tasks_overdue: true,
+      accounts_balance: false,
+      calendar_week: false,
+    });
+  });
+});
+
+describe('Story 5.7 — PATCH widgets_enabled (AC1.a)', () => {
+  beforeEach(() => {
+    mocks.dbExecuteMock.mockResolvedValue([]);
+  });
+
+  it('golden path — PATCH widgets_enabled válido → 200 + 1 call DB', async () => {
+    const res = await PATCH(makePatch({ widgets_enabled: VALID_WIDGETS }) as never);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { widgets_enabled: Record<string, boolean> };
+    expect(body.widgets_enabled).toEqual(VALID_WIDGETS);
+    // UPSERT parcial = 1 statement (sem SELECT extra — retrocompat Story 2.7).
+    expect(mocks.dbExecuteMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('400 quando widgets_enabled tem chave a menos (strict + 7 obrigatórias)', async () => {
+    const res = await PATCH(makePatch({ widgets_enabled: { briefing: true } }) as never);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('400 quando widgets_enabled tem chave desconhecida (.strict())', async () => {
+    const res = await PATCH(
+      makePatch({ widgets_enabled: { ...VALID_WIDGETS, ghost: true } }) as never,
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('400 quando body é vazio (nenhum campo)', async () => {
+    const res = await PATCH(makePatch({}) as never);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('PATCH só widgets_enabled NÃO devolve always_preview (UPSERT parcial)', async () => {
+    const res = await PATCH(makePatch({ widgets_enabled: VALID_WIDGETS }) as never);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).not.toHaveProperty('always_preview');
+    expect(body).toHaveProperty('widgets_enabled');
+  });
+
+  it('legacy — PATCH só always_preview continua a funcionar (retrocompat 2.7)', async () => {
+    const res = await PATCH(makePatch({ always_preview: true }) as never);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { always_preview: boolean };
+    expect(body.always_preview).toBe(true);
+    expect(mocks.dbExecuteMock).toHaveBeenCalledTimes(1);
+  });
+});

@@ -63,3 +63,39 @@ export const WIDGET_ORDER: readonly WidgetId[] = [
   'accounts_balance',
   'calendar_week',
 ] as const;
+
+/**
+ * Labels PT-PT canónicas dos widgets (Story 5.7 AC5 / DP-5.7.F).
+ *
+ * **Single source of truth** dos rótulos legíveis — consumido pelos controlos
+ * de configuração (`×` `aria-label`, menu `[+ Adicionar widget]`). Os valores
+ * são **byte-a-byte iguais** aos títulos hardcoded nos cards dos 7 widgets
+ * (`BriefingWidget` "Briefing diário", `TasksTodayWidget` "Tarefas hoje", …) —
+ * fonte: front-end-spec §5.4.
+ *
+ * O refactor dos widgets para consumirem este mapa em vez do título hardcoded é
+ * opcional/incremental (Story 5.7 T1.2) — o parity guard abaixo + o teste
+ * `widgets.test.ts` garantem que não há drift.
+ */
+export const WIDGET_LABELS: Record<WidgetId, string> = {
+  briefing: 'Briefing diário',
+  tasks_today: 'Tarefas hoje',
+  finance_month: 'Gastos do mês',
+  recurrences_next: 'Próximas recorrências',
+  tasks_overdue: 'Tarefas atrasadas',
+  accounts_balance: 'Saldo por conta',
+  calendar_week: 'Calendário da semana',
+};
+
+/**
+ * Parity guard (compile-time) — falha o `typecheck` se `WIDGET_LABELS` divergir
+ * das chaves de `WidgetId` (chave a mais/a menos). Precedente:
+ * `_DefaultWidgetsParity` acima.
+ */
+type _WidgetLabelsParity = keyof typeof WIDGET_LABELS extends WidgetId
+  ? WidgetId extends keyof typeof WIDGET_LABELS
+    ? true
+    : false
+  : false;
+const _widgetLabelsParity: _WidgetLabelsParity = true;
+void _widgetLabelsParity;

@@ -1,0 +1,92 @@
+id: mj-handoff-5.7-dev-to-architect-20260528
+from_agent: dev
+to_agent: architect
+created: '2026-05-28T20:30:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.7'
+last_command: '*develop 5.7'
+priority: medium
+
+summary: |
+  @dev Dex completou `*develop 5.7` (Widget config UI inline + persistência) em
+  modo YOLO. **8/8 ACs · 5/5 quality gates GREEN · net testes +29.** Story em
+  `Ready for Review v1.2`. Pronta para `@architect *qa-gate 5.7`.
+
+next_action: |
+  **`@architect *qa-gate 5.7`** — auditoria + 5/5 quality gates re-corridos
+  independentemente + ratificar as 5 [DEV-DECISION]. Pontos de foco abaixo.
+  Se PASS: status → Done v1.x-ARCH-APPROVED + handoff architect→devops.
+
+context: |
+  **Story:** docs/stories/active/5.7.widget-config-ui-persistence.story.md
+  (Ready for Review v1.2 — Dev Agent Record completo com File List + 5 D-5.7.X).
+
+  **Quality gates (re-correr independentemente):**
+    - lint exit 0 (No ESLint warnings or errors, --max-warnings=0)
+    - typecheck exit 0 (sem `any`; parity guards `_WidgetLabelsParity`)
+    - test apps/web **879/879** (116 files) — baseline 850/113 → **net +29**
+    - build exit 0 — `/visao` 2.7 kB + `/api/conta/preferencias` 427 B no manifest
+    - check:rls **EXIT 0 — 28 tabelas** INALTERADO (story zero touch DB)
+
+  **5 [DEV-DECISION] a ratificar:**
+    - **D-5.7.1** (DP-5.7.A/B): `×` injectado via wrapper `<WidgetSlot>` Client no
+      `WidgetGrid` em **overlay** (`absolute`) — NÃO toca os 7 widgets RSC nem o
+      `WidgetCard`. Seguiu a nota orientadora do @po. `data-widget`/`orderClass`
+      migraram para o `WidgetSlot` (WidgetGrid.test.tsx passa inalterado).
+      O slot reservado `WidgetCard.headerActions` (5.6) não foi usado — verificar
+      se o @architect prefere o slot vs overlay.
+    - **D-5.7.2** (AC1.a): UPSERT parcial de **1 statement** dinâmico
+      (`insertCols`/`insertVals`/`updateSets` + `excluded.*`; nomes de coluna via
+      `sql.raw` de **whitelist do código**, não do body → seguro de injection).
+      Mantém 1 call DB (retrocompat testes de contagem Story 2.7). Guard body
+      vazio → 400. **Verificar:** segurança do `sql.raw` (input não-utilizador) +
+      que PATCH parcial não zera campos ausentes.
+    - **D-5.7.3** (DP-5.7.A=A): remover = optimistic (store esconde, sem refresh);
+      adicionar = `flushNow()` + `router.refresh()`.
+    - **D-5.7.4** (SSR-safety): `widgetConfigStore` init `widgetsEnabled=null`,
+      nunca muta no server; `useWidgetEnabled(null)→true` (coincide com RSC que só
+      renderiza ON) → zero hydration mismatch. **Verificar** ausência de leak SSR
+      do Zustand singleton.
+    - **D-5.7.5**: `route.ts` importa `DEFAULT_WIDGETS_ENABLED` de
+      `@/app/(app)/visao/_lib/widgets` (espelho local apps/web — REQ-INLINE-1).
+
+  **Segurança / invariantes a gate-verificar:**
+    - RLS NFR5: PATCH/GET via `getDb()` only — grep negativo `getServiceDb` na
+      árvore tocada (route.ts + visao/).
+    - REQ-INLINE-1: em apps/web só `import type` de `@meu-jarvis/db` (`WidgetId`,
+      `WidgetsEnabled`); valores de `_lib/widgets.ts` local.
+    - `.strict()` do `WidgetsEnabledSchema` (7 chaves) + `PreferencesPatchSchema`
+      (rejeita chave desconhecida + body vazio guard).
+    - PO-FIX-1 (AC6): "todos OFF" → hint server-side + `<AddWidgetMenu>` sempre
+      acessível; NÃO reutiliza `VisaoEmptyState`.
+
+  **File List:** 8 novos (widgetConfigStore + WidgetConfigHydrator + WidgetSlot +
+  AddWidgetMenu + WidgetConfigStatus + 3 testes) + 6 modificados (widgets.ts +
+  route.ts + WidgetGrid.tsx + page.tsx + 2 testes). Ver story Dev Agent Record.
+
+  **Estado git:** commits locais à frente de origin (gitignore + 3× housekeeping
+  pipeline 5.7 + impl). Push delegado a @devops no fim do ciclo.
+  **CodeRabbit:** SKIPPED (precedente 3.1-5.6).
+
+files_modified:
+  - apps/web/src/lib/stores/widgetConfigStore.ts  # NEW
+  - apps/web/src/app/(app)/visao/_components/WidgetConfigHydrator.tsx  # NEW
+  - apps/web/src/app/(app)/visao/_components/WidgetSlot.tsx  # NEW
+  - apps/web/src/app/(app)/visao/_components/AddWidgetMenu.tsx  # NEW
+  - apps/web/src/app/(app)/visao/_components/WidgetConfigStatus.tsx  # NEW
+  - apps/web/src/lib/stores/__tests__/widgetConfigStore.test.ts  # NEW
+  - apps/web/src/app/(app)/visao/_components/__tests__/WidgetSlot.test.tsx  # NEW
+  - apps/web/src/app/(app)/visao/_components/__tests__/AddWidgetMenu.test.tsx  # NEW
+  - apps/web/src/app/(app)/visao/_lib/widgets.ts  # MOD — WIDGET_LABELS
+  - apps/web/src/app/api/conta/preferencias/route.ts  # MOD — PreferencesPatchSchema + UPSERT parcial + GET widgets_enabled
+  - apps/web/src/app/(app)/visao/_components/WidgetGrid.tsx  # MOD — usa WidgetSlot
+  - apps/web/src/app/(app)/visao/page.tsx  # MOD — Hydrator + AddWidgetMenu + Status + hint allOff
+  - apps/web/src/app/(app)/visao/_lib/__tests__/widgets.test.ts  # MOD — testes WIDGET_LABELS
+  - apps/web/src/app/api/conta/preferencias/__tests__/route.test.ts  # MOD — testes widgets_enabled
+  - docs/stories/active/5.7.widget-config-ui-persistence.story.md  # MOD — Ready for Review v1.2
+
+blockers: []

@@ -1,23 +1,32 @@
 /**
- * GET / PATCH /api/conta/preferencias — Story 2.7 FR4 toggle `always_preview`.
+ * GET / PATCH /api/conta/preferencias — preferências do utilizador.
+ *
+ * Story 2.7 (FR4) introduziu o toggle `always_preview`. **Story 5.7 (FR21)**
+ * estende este endpoint para `widgets_enabled` (config de widgets da Visão),
+ * reutilizando `PreferencesPatchSchema` (Story 5.1 — campos opcionais).
  *
  * GET:
  *   - Lazy-init UPSERT (D32): `INSERT ... ON CONFLICT (user_id) DO NOTHING`
  *     resolve household via `household_members` (primeiro household do user);
  *     depois SELECT. Idempotente — concurrent GETs não duplicam rows.
- *   - Retorna `{ always_preview: boolean }`. 401 se sem auth.
+ *   - Retorna `{ always_preview, widgets_enabled }`. `widgets_enabled` validado
+ *     com `WidgetsEnabledSchema.safeParse` + fallback `DEFAULT_WIDGETS_ENABLED`.
+ *     401 se sem auth.
  *
  * PATCH:
- *   - Body: Zod `{ always_preview: boolean }`.
- *   - UPSERT com `ON CONFLICT (user_id) DO UPDATE SET always_preview =
- *     EXCLUDED.always_preview, updated_at = now()`.
- *   - Retorna `{ always_preview }` actualizado. 401 sem auth, 400 body inválido.
+ *   - Body: `PreferencesPatchSchema` (`always_preview?`, `theme?`,
+ *     `widgets_enabled?`, todos opcionais, `.strict()`). 400 se body vazio.
+ *   - **UPSERT parcial de 1 statement** — só os campos presentes entram no
+ *     INSERT e no `DO UPDATE SET ... = excluded.*` (não sobrescreve os ausentes;
+ *     ex.: PATCH de `widgets_enabled` não zera `always_preview`). Os nomes de
+ *     coluna vêm de uma whitelist do código (não do body) — seguro de injection.
+ *   - Retorna os campos enviados (do body) + `updated_at = now()`.
  *   - Audit log entry (NFR16) — action `user_prefs.updated`.
  *
  * RLS: usa `getDb()` (role authenticated, RLS via JWT) — NUNCA `getServiceDb()`.
- * Trace: Story 2.7 AC4 + AC5 + D32, NFR5/NFR13/NFR16.
+ * Trace: Story 2.7 AC4+AC5+D32; Story 5.7 AC1; NFR5/NFR13/NFR16.
  */
-import { sql } from 'drizzle-orm';
+import { sql, type SQL } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 
@@ -32,13 +41,16 @@ import {
 
 import { apiError } from '@/lib/errors';
 import { getDb } from '@/lib/agent/db-shim';
+import {
+  PreferencesPatchSchema,
+  WidgetsEnabledSchema,
+} from '@/lib/api-schemas/preferences';
+// `DEFAULT_WIDGETS_ENABLED` é o espelho local apps/web (Story 5.6 PO-FIX-2 —
+// importar o valor de `@meu-jarvis/db` quebraria a resolução `@/schema`,
+// REQ-INLINE-1). Fonte canónica apps/web-side dos defaults de widgets.
+import { DEFAULT_WIDGETS_ENABLED } from '@/app/(app)/visao/_lib/widgets';
 
 const ROUTE = '/api/conta/preferencias';
-
-/** Body PATCH schema — apenas always_preview boolean. */
-const PatchBodySchema = z.object({
-  always_preview: z.boolean(),
-});
 
 /**
  * Resolve `household_id` activo do user (primeiro household do membership).
@@ -115,13 +127,22 @@ export async function GET(): Promise<NextResponse> {
           on conflict (user_id) do nothing
         `);
 
-        const rows = await db.execute<{ always_preview: boolean }>(sql`
-          select always_preview from public.user_prefs
+        const rows = await db.execute<{
+          always_preview: boolean;
+          widgets_enabled: unknown;
+        }>(sql`
+          select always_preview, widgets_enabled from public.user_prefs
           where user_id = ${user.id}::uuid
           limit 1
         `);
 
         const alwaysPreview = rows[0]?.always_preview ?? false;
+        // Valida o JSONB lido — tolera shape drift / row recém-criada;
+        // fallback ao default (Story 5.7 AC1.b; precedente `visao/page.tsx`).
+        const widgetsParsed = WidgetsEnabledSchema.safeParse(rows[0]?.widgets_enabled);
+        const widgetsEnabled = widgetsParsed.success
+          ? widgetsParsed.data
+          : DEFAULT_WIDGETS_ENABLED;
 
         annotateSpan(span, { statusCode: 200 });
         log.info(
@@ -129,7 +150,7 @@ export async function GET(): Promise<NextResponse> {
           'GET /api/conta/preferencias OK',
         );
 
-        return NextResponse.json({ always_preview: alwaysPreview });
+        return NextResponse.json({ always_preview: alwaysPreview, widgets_enabled: widgetsEnabled });
       } catch (err) {
         annotateSpan(span, { statusCode: 500 });
         log.error({ err }, 'GET /api/conta/preferencias falhou');
@@ -194,16 +215,16 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 
       annotateSpan(span, { householdId });
 
-      let body: { always_preview: boolean };
+      let body: { always_preview?: boolean; theme?: 'light' | 'dark' | 'system'; widgets_enabled?: Record<string, boolean> };
       try {
         const raw = await req.json();
-        body = PatchBodySchema.parse(raw);
+        body = PreferencesPatchSchema.parse(raw);
       } catch (err) {
         annotateSpan(span, { statusCode: 400 });
         if (err instanceof z.ZodError) {
           return apiError(
             'VALIDATION_ERROR',
-            'Body inválido — campo `always_preview` (boolean) obrigatório.',
+            'Body inválido — campos permitidos: `always_preview` (boolean), `theme` (light|dark|system), `widgets_enabled` (7 widgets boolean).',
             400,
             { issues: err.issues.map((i: z.ZodIssue) => ({ path: i.path, message: i.message })) },
           );
@@ -211,35 +232,83 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
         return apiError('VALIDATION_ERROR', 'Body inválido — JSON malformado.', 400);
       }
 
+      // Pelo menos um campo tem de estar presente (Story 5.7 AC1).
+      const hasAlwaysPreview = body.always_preview !== undefined;
+      const hasTheme = body.theme !== undefined;
+      const hasWidgets = body.widgets_enabled !== undefined;
+      if (!hasAlwaysPreview && !hasTheme && !hasWidgets) {
+        annotateSpan(span, { statusCode: 400 });
+        return apiError(
+          'VALIDATION_ERROR',
+          'Body inválido — pelo menos um campo (`always_preview`, `theme` ou `widgets_enabled`) é obrigatório.',
+          400,
+        );
+      }
+
       try {
         const db = getDb();
 
-        // UPSERT — lazy-init OR update existente.
+        // UPSERT parcial de 1 statement — só os campos presentes entram no
+        // INSERT e no DO UPDATE SET = excluded.* (os ausentes mantêm o valor
+        // actual / default da coluna). Nomes de coluna vêm de whitelist do
+        // código (não do body) → seguro de SQL injection.
+        const insertCols: string[] = ['user_id', 'household_id'];
+        const insertVals: SQL[] = [sql`${user.id}::uuid`, sql`${householdId}::uuid`];
+        const updateSets: SQL[] = [];
+        if (hasAlwaysPreview) {
+          insertCols.push('always_preview');
+          insertVals.push(sql`${body.always_preview}`);
+          updateSets.push(sql`always_preview = excluded.always_preview`);
+        }
+        if (hasTheme) {
+          insertCols.push('theme');
+          insertVals.push(sql`${body.theme}`);
+          updateSets.push(sql`theme = excluded.theme`);
+        }
+        if (hasWidgets) {
+          insertCols.push('widgets_enabled');
+          insertVals.push(sql`${JSON.stringify(body.widgets_enabled)}::jsonb`);
+          updateSets.push(sql`widgets_enabled = excluded.widgets_enabled`);
+        }
+        updateSets.push(sql`updated_at = now()`);
+
         await db.execute(sql`
-          insert into public.user_prefs (user_id, household_id, always_preview)
-          values (${user.id}::uuid, ${householdId}::uuid, ${body.always_preview})
+          insert into public.user_prefs (${sql.raw(insertCols.join(', '))})
+          values (${sql.join(insertVals, sql`, `)})
           on conflict (user_id) do update
-            set always_preview = excluded.always_preview,
-                updated_at = now()
+            set ${sql.join(updateSets, sql`, `)}
         `);
 
         // Audit log: [DEV-FIX-INLINE D36] enum `audit_action` actual não tem
         // `user_prefs.updated`. Adicionar enum value requer migration nova
         // (fora do scope desta story). NFR16 satisfeito via Pino structured
-        // logger abaixo (action="user_prefs.updated" + always_preview flag).
+        // logger abaixo (action="user_prefs.updated" + campos tocados).
         // Story 2.8 ou follow-up adicionará `user_prefs_updated` ao enum.
+
+        // Retorna apenas os campos enviados (Story 5.7 AC1.a) — sem SELECT extra
+        // (mantém 1 call DB, retrocompat com testes Story 2.7). O `prefs-toggle`
+        // legacy não lê a resposta success, mas mantemos `always_preview` quando
+        // tocado para compatibilidade.
+        const updated: {
+          always_preview?: boolean;
+          theme?: 'light' | 'dark' | 'system';
+          widgets_enabled?: Record<string, boolean>;
+        } = {};
+        if (hasAlwaysPreview) updated.always_preview = body.always_preview;
+        if (hasTheme) updated.theme = body.theme;
+        if (hasWidgets) updated.widgets_enabled = body.widgets_enabled;
 
         annotateSpan(span, { statusCode: 200 });
         log.info(
           {
             user_hash: hashForCorrelation(user.id),
             action: 'user_prefs.updated',
-            always_preview: body.always_preview,
+            fields: Object.keys(updated),
           },
           'PATCH /api/conta/preferencias OK',
         );
 
-        return NextResponse.json({ always_preview: body.always_preview });
+        return NextResponse.json(updated);
       } catch (err) {
         annotateSpan(span, { statusCode: 500 });
         log.error({ err }, 'PATCH /api/conta/preferencias falhou');

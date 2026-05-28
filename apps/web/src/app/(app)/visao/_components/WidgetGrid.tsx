@@ -5,6 +5,7 @@ import type { WidgetId, WidgetsEnabled } from '@meu-jarvis/db';
 
 import { WIDGET_ORDER } from '@/app/(app)/visao/_lib/widgets';
 import { WidgetSkeleton } from '@/app/(app)/visao/_components/WidgetSkeleton';
+import { WidgetSlot } from '@/app/(app)/visao/_components/WidgetSlot';
 import { BriefingWidget } from '@/app/(app)/visao/_components/widgets/BriefingWidget';
 import { TasksTodayWidget } from '@/app/(app)/visao/_components/widgets/TasksTodayWidget';
 import { FinanceMonthWidget } from '@/app/(app)/visao/_components/widgets/FinanceMonthWidget';
@@ -60,12 +61,14 @@ export function WidgetGrid({ widgetsEnabled }: WidgetGridProps): React.ReactElem
         const Widget = WIDGET_COMPONENTS[id];
         // DP-5.6.F — `tasks_today` flutua para o topo só em mobile (1 coluna).
         const orderClass = id === 'tasks_today' ? 'order-first md:order-none' : '';
+        // Story 5.7 — `<WidgetSlot>` (Client) injecta o `×` (remover) e esconde
+        // optimisticamente; mantém `data-widget` + `orderClass` da Story 5.6.
         return (
-          <div key={id} className={orderClass} data-widget={id}>
+          <WidgetSlot key={id} widgetId={id} orderClass={orderClass}>
             <Suspense fallback={<WidgetSkeleton />}>
               <Widget />
             </Suspense>
-          </div>
+          </WidgetSlot>
         );
       })}
     </div>

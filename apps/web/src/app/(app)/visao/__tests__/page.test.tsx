@@ -55,6 +55,17 @@ vi.mock('@/app/(app)/visao/_components/WidgetGrid', () => ({
 vi.mock('@/app/(app)/visao/_components/VisaoEmptyState', () => ({
   VisaoEmptyState: () => '<VisaoEmptyState>',
 }));
+// Story 5.7 — Client Components de config mockados (o teste RSC invoca os
+// componentes-função; estes usam hooks que não existem nesse contexto).
+vi.mock('@/app/(app)/visao/_components/WidgetConfigHydrator', () => ({
+  WidgetConfigHydrator: () => null,
+}));
+vi.mock('@/app/(app)/visao/_components/AddWidgetMenu', () => ({
+  AddWidgetMenu: () => '<AddWidgetMenu>',
+}));
+vi.mock('@/app/(app)/visao/_components/WidgetConfigStatus', () => ({
+  WidgetConfigStatus: () => null,
+}));
 
 const { default: VisaoPage } = await import('@/app/(app)/visao/page');
 

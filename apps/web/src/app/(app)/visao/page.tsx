@@ -17,9 +17,12 @@ import {
   getTasksToday,
 } from '@/lib/visao/queries';
 import { formatGreetingDate, getGreeting, resolveDisplayName } from '@/app/(app)/visao/_lib/greeting';
-import { DEFAULT_WIDGETS_ENABLED } from '@/app/(app)/visao/_lib/widgets';
+import { DEFAULT_WIDGETS_ENABLED, WIDGET_ORDER } from '@/app/(app)/visao/_lib/widgets';
 import { WidgetGrid } from '@/app/(app)/visao/_components/WidgetGrid';
 import { VisaoEmptyState } from '@/app/(app)/visao/_components/VisaoEmptyState';
+import { WidgetConfigHydrator } from '@/app/(app)/visao/_components/WidgetConfigHydrator';
+import { AddWidgetMenu } from '@/app/(app)/visao/_components/AddWidgetMenu';
+import { WidgetConfigStatus } from '@/app/(app)/visao/_components/WidgetConfigStatus';
 
 export const metadata: Metadata = {
   title: 'Visão — Expressia',
@@ -35,8 +38,10 @@ interface PrefsRow {
  * - Valida o JSONB com `WidgetsEnabledSchema` (tolera JSONB legacy / shape drift).
  * - Fallback `DEFAULT_WIDGETS_ENABLED` (const local — PO-FIX-2) quando a row não
  *   existe (lazy-init de prefs ainda não correu) OU o JSONB é inválido.
- * - NÃO estende `GET /api/conta/preferencias` (só devolve `always_preview` —
- *   Story 5.7 fá-lo-á se precisar).
+ * - Este valor é também injectado no `widgetConfigStore` (Story 5.7) via
+ *   `<WidgetConfigHydrator>` como estado inicial dos controlos de config.
+ *   (O `GET /api/conta/preferencias` passou a devolver `widgets_enabled` na
+ *   Story 5.7, mas a `/visao` continua a ler RSC-direct — DP-5.6.B.)
  */
 async function readWidgetsEnabled(userId: string): Promise<WidgetsEnabled> {
   try {
@@ -146,6 +151,9 @@ export default async function VisaoPage(): Promise<React.ReactElement> {
 
   const widgetsEnabled = await readWidgetsEnabled(user.id);
   const empty = await isVisaoEmpty(widgetsEnabled);
+  // "Vazio por config" — utilizador removeu todos os widgets (distinto de
+  // "vazio por dados" = `empty`). Story 5.7 AC6.
+  const allOff = WIDGET_ORDER.every((id) => !widgetsEnabled[id]);
 
   return (
     <div className="space-y-6">
@@ -158,7 +166,25 @@ export default async function VisaoPage(): Promise<React.ReactElement> {
         </p>
       </header>
 
-      {empty ? <VisaoEmptyState /> : <WidgetGrid widgetsEnabled={widgetsEnabled} />}
+      {/* Story 5.7 — hidrata o widgetConfigStore com o estado lido RSC-direct. */}
+      <WidgetConfigHydrator initial={widgetsEnabled} />
+
+      {allOff ? (
+        <p className="rounded-lg border border-dashed border-black/10 px-4 py-8 text-center text-sm text-neutral-500 dark:border-white/10">
+          O teu painel está vazio. Adiciona widgets abaixo.
+        </p>
+      ) : empty ? (
+        <VisaoEmptyState />
+      ) : (
+        <WidgetGrid widgetsEnabled={widgetsEnabled} />
+      )}
+
+      {/* Story 5.7 — controlos de config inline (DP4 = B). Sempre acessíveis,
+          incluindo no estado "todos OFF" (AC6). */}
+      <div className="flex flex-col items-start gap-2">
+        <AddWidgetMenu initial={widgetsEnabled} />
+        <WidgetConfigStatus />
+      </div>
     </div>
   );
 }
