@@ -8,8 +8,10 @@
  *
  * `SUM` Drizzle/Postgres devolve string para `numeric` — usa `parseFinanceTotal`
  * defensivo idêntico ao `/financas-mes` (D-5.5.3 / OBS-4).
+ *
+ * Story 5.6 DP-5.6.A=B: SQL extraído para `@/lib/visao/queries.ts`
+ * (`getAccountsBalance`); handler é wrapper fino (mesmo Zod parse → contrato 1:1).
  */
-import { sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 import {
@@ -22,23 +24,13 @@ import {
 import { apiError } from '@/lib/errors';
 import { getDb } from '@/lib/agent/db-shim';
 import { requireAuth } from '@/lib/api-helpers/auth';
+import { getAccountsBalance } from '@/lib/visao/queries';
 import {
   AccountsBalanceResponseSchema,
   type AccountsBalanceResponse,
 } from '@/lib/api-schemas/visao';
 
 const ROUTE = '/api/visao/saldo-contas';
-
-interface AggRow {
-  account_count: string | number;
-  total_balance_cents: string | null;
-}
-
-function parseFinanceTotal(value: string | number | null | undefined): number {
-  if (value === null || value === undefined) return 0;
-  const parsed = typeof value === 'number' ? value : parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
 
 export async function GET(): Promise<NextResponse> {
   return withSpan(
@@ -50,21 +42,7 @@ export async function GET(): Promise<NextResponse> {
       if (auth instanceof NextResponse) return auth;
 
       try {
-        const db = getDb();
-        const rows = await db.execute<AggRow>(sql`
-          select
-            count(*)::int as account_count,
-            sum(balance_cents)::text as total_balance_cents
-          from public.accounts
-          where archived_at is null
-        `);
-
-        const row = rows[0];
-        const body: AccountsBalanceResponse = {
-          totalBalanceCents: parseFinanceTotal(row?.total_balance_cents ?? null),
-          accountCount: parseFinanceTotal(row?.account_count ?? 0),
-          currency: 'EUR',
-        };
+        const body = await getAccountsBalance(getDb());
 
         const validated = AccountsBalanceResponseSchema.parse(body);
         annotateSpan(span, { statusCode: 200 });

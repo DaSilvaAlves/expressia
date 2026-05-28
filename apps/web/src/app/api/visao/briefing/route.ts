@@ -9,6 +9,9 @@
  * poderá adicionar campos sem partir consumidores que validem contra v1.
  *
  * Auth: obrigatório (401 sem sessão).
+ *
+ * Story 5.6 DP-5.6.A=B: stub extraído para `@/lib/visao/queries.ts` (`getBriefing`);
+ * handler é wrapper fino (mesmo Zod parse → contrato 1:1).
  */
 import { NextResponse } from 'next/server';
 
@@ -21,6 +24,7 @@ import {
 
 import { apiError } from '@/lib/errors';
 import { requireAuth } from '@/lib/api-helpers/auth';
+import { getBriefing } from '@/lib/visao/queries';
 import {
   BriefingResponseSchema,
   type BriefingResponse,
@@ -38,12 +42,7 @@ export async function GET(): Promise<NextResponse> {
       if (auth instanceof NextResponse) return auth;
 
       try {
-        const body: BriefingResponse = {
-          version: 1,
-          available: false,
-          message: 'Briefing diário disponível em breve.',
-          generatedAt: null,
-        };
+        const body: BriefingResponse = getBriefing();
         const validated = BriefingResponseSchema.parse(body);
         annotateSpan(span, { statusCode: 200 });
         return NextResponse.json<BriefingResponse>(validated);

@@ -1,0 +1,103 @@
+id: mj-handoff-5.6-po-to-dev-20260528
+from_agent: po
+to_agent: dev
+created: '2026-05-28T05:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-28T18:00:00Z'
+consumed_by: dev
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.6'
+last_command: '*validate-story-draft 5.6'
+priority: medium
+
+summary: |
+  @po (Pax) executou `*validate-story-draft 5.6` — **GO 9/10 HIGH**. 10-point
+  checklist 9 PASS + 1 N/A (CodeRabbit disabled). Cross-confirm anti-hallucination
+  de 12 verificações contra o codebase real: TODAS PASS byte-a-byte, zero invenção
+  (Constitution Article IV). Story status `Draft v1.0` → `Ready for Dev v1.1`.
+
+  Ficheiro: `docs/stories/active/5.6.visao-widgetgrid-widgets.story.md`
+  (secção "PO Validation" adicionada com o detalhe completo).
+
+  Story L: substitui placeholder `/visao` (1.5) por página real — `<WidgetGrid>`
+  responsivo (3/2/1) + 7 widget Server Components que consomem agregados 5.5 +
+  skeleton/Suspense por widget + empty-state local + saudação PT-PT.
+
+next_action: |
+  `@dev *develop 5.6` (modo YOLO autónomo). Implementar os 9 ACs.
+
+  **2 PO-FIX a honrar (Should-Fix resolvidos — não-bloqueantes):**
+
+  - **PO-FIX-1 (AC4 — rodapé `calendar_week`):** existe rota dedicada
+    **`/tarefas/calendario`** (verificada via grep de page.tsx). O rodapé
+    "Ver calendário →" do widget `calendar_week` deve apontar para
+    `/tarefas/calendario`, NÃO `/tarefas`. Os restantes rodapés confirmados:
+    `tasks_today`/`tasks_overdue` → `/tarefas`; `finance_month` →
+    `/financas/este-mes`; `recurrences_next` → `/financas/recorrentes`;
+    `accounts_balance` → `/financas/patrimonio`.
+
+  - **PO-FIX-2 (Dev Notes — `DEFAULT_WIDGETS_ENABLED`):** NÃO importar como valor
+    de `@meu-jarvis/db`. `packages/db/src/index.ts` faz `export * from './client'`
+    e o `db-shim` existe precisamente porque importar o client em apps/web parte
+    a resolução de `@/schema` no tsc. Em apps/web só há **import de tipo** de
+    `@meu-jarvis/db` (`preferences.ts:18`), zero imports de valor. → **Redeclarar
+    a const localmente** em `visao/_lib/` (5 ON / 2 OFF, igual a `prefs.ts:69`),
+    preferencialmente com parity guard contra `WidgetsEnabledSchema`
+    (precedente `preferences.ts:56-63`).
+
+  **Decision Points — verdicto @po (implementar conforme):**
+    DP-5.6.A = **B** (shared queries) — PO endossa; @architect ratifica no gate
+              (toca código 5.5 recém-gated; antecipado por CO-5.5.A). Extrair SQL
+              dos 7 route handlers `apps/web/src/app/api/visao/*/route.ts` para
+              `@/lib/visao/queries.ts`; handlers ficam wrappers finos (chamam a
+              função + mesmo Zod parse → contrato HTTP preservado 1:1); widgets RSC
+              chamam as funções via `getDb()` de `@/lib/agent/db-shim`. Testes
+              mockam `@/lib/visao/queries.ts` (AC9.b).
+    DP-5.6.B = **A** RATIFICADO — RSC-direct `getDb()` + fallback const local
+              (NÃO estender `GET /preferencias`, que só devolve `always_preview`).
+    DP-5.6.C = **A** RATIFICADO — `VisaoEmptyState` local (precedente
+              `financas/_components/FinanceEmptyState.tsx`); `<EmptyState>` shared é 5.9.
+    DP-5.6.D = RATIFICADO — helpers puros `getGreeting`/`resolveDisplayName`;
+              só campos do objecto `user` Supabase (sem inventar).
+    DP-5.6.E = RATIFICADO — `tasks_overdue` NÃO renderiza nada se `count===0`.
+    DP-5.6.F = @dev escolhe approach mobile (CSS `order-*` vs reorder); documentar.
+
+  **Gates (5/5 GREEN obrigatório):** lint (--max-warnings=0) · typecheck (sem `any`) ·
+  test apps/web (baseline 800, zero regressões, net esperado ≥ +20) · build (rota
+  /visao no manifest) · check:rls (EXIT 0 INALTERADO — 28 tabelas; story não toca DB).
+
+  Após implementação: sucessor `@architect *qa-gate 5.6` (ratifica DP-5.6.A + DP-5.6.F).
+
+context: |
+  Validação @po confirmou contra o codebase real (12 verificações byte-a-byte):
+    - Precedente RSC-direct `financas/este-mes/page.tsx` EXACTO (getDb via db-shim,
+      getMonthSummary, createServerSupabaseClient+getUser+redirect('/entrar'), try/catch).
+    - `DEFAULT_WIDGETS_ENABLED` const valor `prefs.ts:69` (5 ON/2 OFF).
+    - 7 shapes Zod `visao.ts` EXACTOS (TasksTodayResponse…BriefingResponse).
+    - Placeholder 1.5 com bloco debug confirmado (AC1 remove-o).
+    - `db-shim` + REQ-INLINE-1 EXACTO.
+    - `GET /preferencias` só devolve `{ always_preview }` (route.ts:132).
+    - `@meu-jarvis/ui` só Money/Date/tokens (sem EmptyState/Card/Skeleton).
+    - 6 rotas de rodapé existem + descoberta `/tarefas/calendario` dedicada (PO-FIX-1).
+    - Route handler `tarefas-hoje/route.ts` SQL inline → extracção DP-5.6.A=B viável.
+    - Scope-OUT 5.7/5.8/5.9/5.10 EXACTO vs epic-5.
+    - Saudação (front-end-spec l.496), copy empty-state (l.536/l.1232),
+      overdue hidden (l.549) EXACTOS.
+
+  Pipeline Epic 5: 5.1→5.5 Done (5/10). 5.6 é a continuação directa, consome 5.5.
+  Carry-overs relevantes: CO-5.5.A (contratos podem precisar ajuste minor → DP-5.6.A),
+  CO-5.5.B (briefing stub v1), FUP-5.5.B (predicado RLS redundante — LOW non-blocking).
+
+files_modified:
+  # === NEW ===
+  - docs/handoffs/mj-handoff-5.6-po-to-dev-20260528.yaml         # NEW — este handoff
+  # === MODIFIED ===
+  - docs/stories/active/5.6.visao-widgetgrid-widgets.story.md    # MOD — Status v1.1 + secção PO Validation + Change Log
+  - docs/HANDOFF-INDEX.md                                        # MOD — sm→po consumed→archive; po→dev pending
+  # === MOVED ===
+  - docs/handoffs/archive/mj-handoff-5.6-sm-to-po-20260528.yaml  # MOVED — sm→po consumed
+
+blockers: []

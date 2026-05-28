@@ -1,0 +1,117 @@
+id: mj-handoff-5.6-sm-to-po-20260528
+from_agent: sm
+to_agent: po
+created: '2026-05-28T04:10:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-28T05:00:00Z'
+consumed_by: po
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.6'
+last_command: '*draft 5.6'
+priority: medium
+
+summary: |
+  @sm (River) executou `*draft 5.6` orquestrado pelo @aiox-master (Orion) na
+  continuação do pipeline Epic 5 (5.5 Done + pushed 2026-05-28). Criada a
+  Story 5.6 "Visão: <WidgetGrid> + 7 widgets renderizáveis (frontend)" —
+  Draft v1.0.
+
+  Ficheiro: `docs/stories/active/5.6.visao-widgetgrid-widgets.story.md`
+
+  É a única story **L** do Epic 5: substitui o placeholder `/visao` (Story 1.5)
+  por uma página real com `<WidgetGrid>` responsivo (3/2/1 colunas) + 7 widget
+  Server Components que consomem os 7 agregados `/api/visao/*` da Story 5.5,
+  com skeleton/Suspense por widget + empty-state local + saudação contextual.
+
+  **9 ACs** derivados de fontes verificadas (zero invenção — Constitution
+  Article IV):
+    AC1  Página /visao real (substitui placeholder, remove debug Story 1.5)
+    AC2  Header de saudação PT-PT Europe/Lisbon (getGreeting + resolveDisplayName)
+    AC3  <WidgetGrid> — só widgets enabled, ordem canónica, grid responsivo
+    AC4  7 widget Server Components consomem agregados 5.5 (+ overdue hidden se vazio)
+    AC5  WidgetCard local (precedente FinanceEmptyState; @meu-jarvis/ui não tem Card)
+    AC6  Skeleton independente por widget (Suspense por widget, não bloqueia layout)
+    AC7  Empty-state global (VisaoEmptyState local) → CTA /jarvis
+    AC8  Responsivo desktop/tablet/mobile (tasks_today primeiro em mobile)
+    AC9  Testes + 5/5 gates GREEN; baseline 800; check:rls INALTERADO
+
+  **6 Decision Points para validação (@po) / ratificação (@architect):**
+    DP-5.6.A [CENTRAL] consumo de dados — RSC-direct shared queries (rec. B) vs
+             self-fetch route handlers (A) vs duplicar SQL (C rejeitado).
+             Toca código 5.5 recém-gated → @architect ratifica. Antecipado por CO-5.5.A.
+    DP-5.6.B leitura de widgets_enabled — RSC-direct getDb() (rec. A); GET
+             preferences só devolve always_preview hoje.
+    DP-5.6.C EmptyState local (rec. A) — <EmptyState> shared é Story 5.9.
+    DP-5.6.D saudação nome+hora (sem inventar campos do user).
+    DP-5.6.E tasks_overdue hidden se vazio (front-end-spec §5.4 l.549).
+    DP-5.6.F mobile tasks_today primeiro (@dev escolhe approach).
+
+next_action: |
+  `@po *validate-story-draft 5.6` — 10-point checklist + cross-confirm
+  anti-hallucination contra o codebase real.
+
+  **Pontos de atenção sugeridos ao @po (cross-confirm anti-hallucination):**
+
+  1. **DP-5.6.A é a decisão de maior peso** — confirmar se a recomendação B
+     (extrair queries partilhadas dos 7 route handlers 5.5 → @/lib/visao/queries.ts;
+     handlers ficam wrappers; widgets RSC chamam directamente) é aceitável, OU se
+     prefere A (self-fetch). Verificar precedente Finanças RSC-direct em
+     `apps/web/src/app/(app)/financas/este-mes/page.tsx` (getMonthSummary via getDb).
+     Esta decisão define o padrão de mock dos testes (AC9.b).
+
+  2. **Confirmar `DEFAULT_WIDGETS_ENABLED` import cross-package** — `prefs.ts:69`
+     exporta como const valor. Verificar se `import { DEFAULT_WIDGETS_ENABLED }
+     from '@meu-jarvis/db'` resolve no tsc do apps/web (a Story 5.5 só importava
+     TIPOS de @meu-jarvis/db; valor pode ter resolução diferente). Se falhar,
+     redeclarar local com nota (a story já prevê este fallback em Dev Notes).
+
+  3. **Confirmar paths das rotas de rodapé dos widgets** — `/tarefas`,
+     `/financas/este-mes`, `/financas/recorrentes`, `/financas/patrimonio` (todos
+     verificados existentes via glob em apps/web/src/app/(app)/). `calendar_week`
+     aponta para `/tarefas` (calendário é tab) — confirmar se há rota dedicada
+     `/tarefas/calendario`.
+
+  4. **Confirmar shapes de `visao.ts`** byte-a-byte (já lidos pelo @sm e citados
+     nos Dev Notes) — TasksTodayResponse, FinancesMonthResponse, etc.
+
+  5. **Scope OUT explícito** — config UI de widgets (⚙ × + [+ Adicionar widget])
+     é Story 5.7; <EmptyState> shared é 5.9; dark-mode sweep global é 5.8;
+     Lighthouse é 5.10. Confirmar que os ACs não invadem esse scope.
+
+  Após GO, sucessor: `@dev *develop 5.6`.
+
+context: |
+  Pipeline Epic 5: 5.1→5.5 Done (5/10). Story 5.5 (7 APIs /api/visao/*) pushed
+  2026-05-28 03:00 (commits 1188ed3 + 54bbc48). 5.6 é a continuação directa —
+  consome o que a 5.5 construiu. Depende também de 5.3 (shell) e 5.2 (packages/ui)
+  e 5.1 (widgets_enabled schema) — todas Done.
+
+  Fontes consultadas pelo @sm na elaboração (todas lidas, zero invenção):
+    - docs/epics/epic-5-web-app-ui.md (§3 scope, §5 l.92 story 5.6, §8 DP3/DP4)
+    - docs/front-end-spec.md §5.4 (wireframe Visão l.488-557), §7 (empty states
+      l.1224-1240), §9 (responsive l.1394-1399), componentes l.276-281
+    - apps/web/src/lib/api-schemas/visao.ts (7 contratos Zod Story 5.5)
+    - apps/web/src/lib/api-schemas/preferences.ts (WidgetsEnabledSchema)
+    - packages/db/src/schema/prefs.ts (WidgetId, DEFAULT_WIDGETS_ENABLED 5 ON/2 OFF)
+    - apps/web/src/app/(app)/visao/page.tsx (placeholder actual a substituir)
+    - apps/web/src/components/shell/AppShell.tsx (<main> onde /visao renderiza)
+    - apps/web/src/app/(app)/financas/este-mes/page.tsx (precedente RSC-direct D-4.6.2)
+    - apps/web/src/app/api/visao/tarefas-hoje/route.ts (pattern handler 5.5)
+    - apps/web/src/app/api/conta/preferencias/route.ts (GET só devolve always_preview)
+    - packages/ui/src/index.ts + components/index.ts (só Money/Date/tokens)
+    - docs/stories/completed/5.5.visao-apis-queries-agregadoras.story.md (predecessora)
+
+  **_INDEX.md NÃO actualizado nesta sessão** — o header narrativo do _INDEX é
+  mantido nas gates (@po validation / @architect gate), conforme precedente.
+  Recomenda-se que o @po actualize a entrada de status 5.6 Draft→Ready na validação.
+
+files_modified:
+  # === NEW ===
+  - docs/stories/active/5.6.visao-widgetgrid-widgets.story.md   # NEW — Story 5.6 Draft v1.0
+  - docs/handoffs/mj-handoff-5.6-sm-to-po-20260528.yaml         # NEW — este handoff
+  - docs/HANDOFF-INDEX.md                                       # MODIFIED — entrada pending 5.6 sm→po
+
+blockers: []

@@ -15,8 +15,10 @@
  *
  * Pattern canónico: D-5.5.1 — alinhado com 28+ route handlers existentes
  * (`@/lib/agent/db-shim`, `requireAuth`, `withSpan`, `apiError`, `childLogger`).
+ *
+ * Story 5.6 DP-5.6.A=B: SQL extraído para `@/lib/visao/queries.ts` (`getTasksToday`);
+ * este handler é wrapper fino (chama a função + mesmo Zod parse → contrato 1:1).
  */
-import { sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 import {
@@ -29,20 +31,13 @@ import {
 import { apiError } from '@/lib/errors';
 import { getDb } from '@/lib/agent/db-shim';
 import { requireAuth } from '@/lib/api-helpers/auth';
+import { getTasksToday } from '@/lib/visao/queries';
 import {
   TasksTodayResponseSchema,
   type TasksTodayResponse,
 } from '@/lib/api-schemas/visao';
 
 const ROUTE = '/api/visao/tarefas-hoje';
-
-interface TaskRow {
-  id: string;
-  title: string;
-  status: 'todo' | 'doing' | 'done' | 'archived';
-  priority: 'low' | 'medium' | 'high';
-  due_time: string | null;
-}
 
 export async function GET(): Promise<NextResponse> {
   return withSpan(
@@ -54,26 +49,7 @@ export async function GET(): Promise<NextResponse> {
       if (auth instanceof NextResponse) return auth;
 
       try {
-        const db = getDb();
-        const rows = await db.execute<TaskRow>(sql`
-          select id, title, status, priority, due_time
-          from public.tasks
-          where due_date = (now() at time zone 'Europe/Lisbon')::date
-            and status not in ('done', 'archived')
-          order by due_time asc nulls last, priority desc, created_at asc
-          limit 20
-        `);
-
-        const body: TasksTodayResponse = {
-          count: rows.length,
-          tasks: rows.map((r) => ({
-            id: r.id,
-            title: r.title,
-            status: r.status,
-            priority: r.priority,
-            dueTime: r.due_time,
-          })),
-        };
+        const body = await getTasksToday(getDb());
 
         // Defesa em profundidade — validação de shape antes de devolver.
         const validated = TasksTodayResponseSchema.parse(body);

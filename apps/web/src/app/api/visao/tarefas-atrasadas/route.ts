@@ -11,8 +11,10 @@
  *
  * RLS: `getDb()` exclusivamente. Índice `tasks_overdue_idx` (tasks.ts:106) é
  * explorado pela query.
+ *
+ * Story 5.6 DP-5.6.A=B: SQL extraído para `@/lib/visao/queries.ts` (`getTasksOverdue`);
+ * este handler é wrapper fino (chama a função + mesmo Zod parse → contrato 1:1).
  */
-import { sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 import {
@@ -25,25 +27,13 @@ import {
 import { apiError } from '@/lib/errors';
 import { getDb } from '@/lib/agent/db-shim';
 import { requireAuth } from '@/lib/api-helpers/auth';
+import { getTasksOverdue } from '@/lib/visao/queries';
 import {
   TasksOverdueResponseSchema,
   type TasksOverdueResponse,
 } from '@/lib/api-schemas/visao';
 
 const ROUTE = '/api/visao/tarefas-atrasadas';
-
-interface TaskRow {
-  id: string;
-  title: string;
-  status: 'todo' | 'doing' | 'done' | 'archived';
-  priority: 'low' | 'medium' | 'high';
-  due_date: string;
-  due_time: string | null;
-}
-
-interface CountRow {
-  total: number;
-}
 
 export async function GET(): Promise<NextResponse> {
   return withSpan(
@@ -55,38 +45,7 @@ export async function GET(): Promise<NextResponse> {
       if (auth instanceof NextResponse) return auth;
 
       try {
-        const db = getDb();
-
-        // 1. COUNT total (sem LIMIT) — para o widget exibir contador real.
-        const countRows = await db.execute<CountRow>(sql`
-          select count(*)::int as total
-          from public.tasks
-          where due_date < (now() at time zone 'Europe/Lisbon')::date
-            and status not in ('done', 'archived')
-        `);
-        const total = countRows[0]?.total ?? 0;
-
-        // 2. Lista paginada — LIMIT 20.
-        const rows = await db.execute<TaskRow>(sql`
-          select id, title, status, priority, due_date, due_time
-          from public.tasks
-          where due_date < (now() at time zone 'Europe/Lisbon')::date
-            and status not in ('done', 'archived')
-          order by due_date asc, priority desc
-          limit 20
-        `);
-
-        const body: TasksOverdueResponse = {
-          count: total,
-          tasks: rows.map((r) => ({
-            id: r.id,
-            title: r.title,
-            status: r.status,
-            priority: r.priority,
-            dueDate: r.due_date,
-            dueTime: r.due_time,
-          })),
-        };
+        const body = await getTasksOverdue(getDb());
 
         const validated = TasksOverdueResponseSchema.parse(body);
         annotateSpan(span, { statusCode: 200 });

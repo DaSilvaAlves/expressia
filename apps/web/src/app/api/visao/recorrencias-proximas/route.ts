@@ -13,8 +13,10 @@
  * byte-a-byte: expense | income | transfer) e `frequency` contra
  * `recurrenceFreqFinanceEnum` (finance.ts:68 — daily | weekly | biweekly |
  * monthly | quarterly | yearly | custom).
+ *
+ * Story 5.6 DP-5.6.A=B: SQL extraído para `@/lib/visao/queries.ts`
+ * (`getRecurrencesNext`); handler é wrapper fino (mesmo Zod parse → contrato 1:1).
  */
-import { sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 import {
@@ -27,28 +29,13 @@ import {
 import { apiError } from '@/lib/errors';
 import { getDb } from '@/lib/agent/db-shim';
 import { requireAuth } from '@/lib/api-helpers/auth';
+import { getRecurrencesNext } from '@/lib/visao/queries';
 import {
   RecurrencesNextResponseSchema,
   type RecurrencesNextResponse,
 } from '@/lib/api-schemas/visao';
 
 const ROUTE = '/api/visao/recorrencias-proximas';
-
-interface RecurrenceRow {
-  id: string;
-  description: string;
-  kind: 'expense' | 'income' | 'transfer';
-  amount_cents: number;
-  frequency:
-    | 'daily'
-    | 'weekly'
-    | 'biweekly'
-    | 'monthly'
-    | 'quarterly'
-    | 'yearly'
-    | 'custom';
-  next_run_on: string;
-}
 
 export async function GET(): Promise<NextResponse> {
   return withSpan(
@@ -60,28 +47,7 @@ export async function GET(): Promise<NextResponse> {
       if (auth instanceof NextResponse) return auth;
 
       try {
-        const db = getDb();
-        const rows = await db.execute<RecurrenceRow>(sql`
-          select id, description, kind, amount_cents, frequency, next_run_on
-          from public.recurrences
-          where active = true
-            and next_run_on > (now() at time zone 'Europe/Lisbon')::date
-            and next_run_on <= ((now() at time zone 'Europe/Lisbon')::date + interval '30 days')
-          order by next_run_on asc
-          limit 10
-        `);
-
-        const body: RecurrencesNextResponse = {
-          count: rows.length,
-          recurrences: rows.map((r) => ({
-            id: r.id,
-            description: r.description,
-            kind: r.kind,
-            amountCents: r.amount_cents,
-            frequency: r.frequency,
-            nextRunOn: r.next_run_on,
-          })),
-        };
+        const body = await getRecurrencesNext(getDb());
 
         const validated = RecurrencesNextResponseSchema.parse(body);
         annotateSpan(span, { statusCode: 200 });

@@ -1,0 +1,119 @@
+id: mj-handoff-5.6-dev-to-architect-20260528
+from_agent: dev
+to_agent: architect
+created: '2026-05-28T18:05:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.6'
+last_command: '*develop 5.6'
+priority: medium
+
+summary: |
+  @dev (Dex) implementou a Story 5.6 (`*develop 5.6`, YOLO) — **5/5 gates GREEN**.
+  Página `/visao` real substitui o placeholder Story 1.5: header de saudação PT-PT
+  + `<WidgetGrid>` responsivo (3/2/1) + 7 widget Server Components (cada num
+  `<Suspense>` próprio) + empty-state global local. 9 ACs implementados.
+
+  Ficheiro: `docs/stories/active/5.6.visao-widgetgrid-widgets.story.md`
+  Status: `Ready for Dev v1.1` → `Ready for Review v1.2` (Dev Agent Record completo).
+
+next_action: |
+  `@architect *qa-gate 5.6` — quality gate da Story 5.6.
+
+  **Pontos que requerem ratificação arquitectural (deferidos ao gate):**
+
+  - **DP-5.6.A = B (RATIFICAR):** o SQL dos 7 route handlers `/api/visao/*`
+    (código Story 5.5 recém-gated) foi extraído para
+    `apps/web/src/lib/visao/queries.ts` (7 funções: getTasksToday,
+    getTasksOverdue, getFinancesMonth, getRecurrencesNext, getAccountsBalance,
+    getCalendarWeek, getBriefing). Os handlers ficaram **wrappers finos** —
+    chamam a função + **mesmo `Zod.parse()` + mesmo `NextResponse.json<T>(validated)`
+    + mesmo `getDb()`/`requireAuth`**. Contrato HTTP **preservado 1:1**.
+    Os widgets RSC chamam as funções directamente via `getDb()` de
+    `@/lib/agent/db-shim` (sem HTTP self-call — NFR2/NFR4). Era o "ajuste minor"
+    antecipado por CO-5.5.A.
+    **Evidência do contrato 1:1:** os 21 testes de route handler existentes
+    (`apps/web/src/app/api/visao/__tests__/*`) passaram **INALTERADOS** após o
+    refactor — verificar que confirma a equivalência.
+
+  - **DP-5.6.F (RATIFICAR):** mobile "tasks_today primeiro" implementado via
+    **CSS `order-first md:order-none`** no item `tasks_today` do grid (não
+    reordenação condicional). Mantém fonte única da ordem (`WIDGET_ORDER`),
+    ordem DOM/tab canónica (WCAG 1.3.2 — só a ordem visual flexbox muda em mobile).
+
+  **Verificar também:**
+  - RLS NFR5: só `getDb()` (authenticated), zero `getServiceDb()` em código de
+    utilizador. `check:rls` EXIT 0 INALTERADO (28 tabelas).
+  - REQ-INLINE-1: `getDb` via `@/lib/agent/db-shim`; só imports de **tipo** de
+    `@meu-jarvis/db` (`WidgetsEnabled`/`WidgetId`).
+  - PO-FIX-1 (calendar_week footer → `/tarefas/calendario`) + PO-FIX-2
+    (`DEFAULT_WIDGETS_ENABLED` local + parity guard) honrados.
+  - FUP-5.5.B (LOW, não-bloqueante): predicado RLS redundante explícito não foi
+    adicionado nas queries extraídas — RLS já cumprida pelo JWT; deixar como
+    follow-up se @architect quiser defesa em profundidade.
+
+context: |
+  **Gates 5/5 GREEN (project root):**
+    - lint: exit 0, 0 warnings (--max-warnings=0)
+    - typecheck: exit 0, sem `any`
+    - test (apps/web): 850 passed / 113 files (baseline 800/104 → +50 net, 0 regressões)
+    - build: exit 0, `/visao` no manifest (`ƒ /visao 337 B`)
+    - check:rls: exit 0, 28 tabelas INALTERADO (story não toca DB)
+
+  **Cobertura de testes (+50 / 9 ficheiros novos):**
+    - greeting.test.ts (11) — 3 ramos getGreeting + resolveDisplayName + formatGreetingDate
+    - format.test.ts (4) — priorityDotClass + formatDueTime
+    - widgets.test.ts (3) — DEFAULT_WIDGETS_ENABLED parity + WIDGET_ORDER
+    - WidgetCard/WidgetSkeleton/VisaoEmptyState (6) — render + CTA /jarvis
+    - WidgetGrid.test.tsx (5) — só enabled / ordem canónica / 7 ON / grid classes / order-first
+    - widgets.test.tsx (15) — 7 widgets com dados/vazio + overdue hidden + rodapés
+    - page.test.tsx (6) — redirect /entrar / render grid / empty-state global / fallback prefs
+
+  **Gotcha capturado:** `captureException` (@meu-jarvis/observability) tem
+  `SentryContext` tipado — metadata custom vai em `extra:{...}`, NUNCA top-level
+  (senão TS2353 no typecheck).
+
+  Pipeline Epic 5: 5.1-5.5 Done (5/10). 5.6 InReview (6/10 após gate PASS).
+
+files_modified:
+  # === NEW (impl) ===
+  - apps/web/src/lib/visao/queries.ts
+  - apps/web/src/app/(app)/visao/_lib/greeting.ts
+  - apps/web/src/app/(app)/visao/_lib/format.ts
+  - apps/web/src/app/(app)/visao/_lib/widgets.ts
+  - apps/web/src/app/(app)/visao/_components/WidgetGrid.tsx
+  - apps/web/src/app/(app)/visao/_components/WidgetCard.tsx
+  - apps/web/src/app/(app)/visao/_components/WidgetSkeleton.tsx
+  - apps/web/src/app/(app)/visao/_components/VisaoEmptyState.tsx
+  - apps/web/src/app/(app)/visao/_components/widgets/BriefingWidget.tsx
+  - apps/web/src/app/(app)/visao/_components/widgets/TasksTodayWidget.tsx
+  - apps/web/src/app/(app)/visao/_components/widgets/FinanceMonthWidget.tsx
+  - apps/web/src/app/(app)/visao/_components/widgets/RecurrencesNextWidget.tsx
+  - apps/web/src/app/(app)/visao/_components/widgets/TasksOverdueWidget.tsx
+  - apps/web/src/app/(app)/visao/_components/widgets/AccountsBalanceWidget.tsx
+  - apps/web/src/app/(app)/visao/_components/widgets/CalendarWeekWidget.tsx
+  # === NEW (tests) ===
+  - apps/web/src/app/(app)/visao/_lib/__tests__/greeting.test.ts
+  - apps/web/src/app/(app)/visao/_lib/__tests__/format.test.ts
+  - apps/web/src/app/(app)/visao/_lib/__tests__/widgets.test.ts
+  - apps/web/src/app/(app)/visao/_components/__tests__/WidgetCard.test.tsx
+  - apps/web/src/app/(app)/visao/_components/__tests__/WidgetSkeleton.test.tsx
+  - apps/web/src/app/(app)/visao/_components/__tests__/VisaoEmptyState.test.tsx
+  - apps/web/src/app/(app)/visao/_components/__tests__/WidgetGrid.test.tsx
+  - apps/web/src/app/(app)/visao/_components/__tests__/widgets.test.tsx
+  - apps/web/src/app/(app)/visao/__tests__/page.test.tsx
+  # === MODIFIED ===
+  - apps/web/src/app/(app)/visao/page.tsx                          # substitui placeholder 1.5
+  - apps/web/src/app/api/visao/tarefas-hoje/route.ts               # wrapper fino (DP-5.6.A=B)
+  - apps/web/src/app/api/visao/tarefas-atrasadas/route.ts          # wrapper fino
+  - apps/web/src/app/api/visao/financas-mes/route.ts               # wrapper fino
+  - apps/web/src/app/api/visao/recorrencias-proximas/route.ts      # wrapper fino
+  - apps/web/src/app/api/visao/saldo-contas/route.ts               # wrapper fino
+  - apps/web/src/app/api/visao/calendario-semana/route.ts          # wrapper fino
+  - apps/web/src/app/api/visao/briefing/route.ts                   # wrapper fino
+  - docs/stories/active/5.6.visao-widgetgrid-widgets.story.md      # Dev Agent Record + Status v1.2
+
+blockers: []
