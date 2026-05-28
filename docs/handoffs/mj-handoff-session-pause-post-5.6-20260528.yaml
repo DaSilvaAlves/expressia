@@ -1,0 +1,107 @@
+id: mj-handoff-session-pause-post-5.6-20260528
+from_agent: devops
+to_agent: any
+created: '2026-05-28T18:36:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.6'
+last_command: '*push 5.6'
+priority: medium
+
+summary: |
+  SESSION PAUSE cross-terminal pós Story 5.6 Done + pushed. Epic 5 = **6/10 Done**.
+  Pipeline completo @sm→@po→@dev→@architect→@devops executado e fechado para a 5.6
+  (página `/visao` real + `<WidgetGrid>` + 7 widgets). Nada em progresso — o próximo
+  terminal escolhe a próxima story do Epic 5 e arranca novo ciclo. Não há blockers
+  funcionais; há 1 decisão pendente do Eurico (`docs/marketing/edit/`) e 1 verificação
+  rápida (CI run 26591321348 estava in_progress no momento do pause).
+
+next_action: |
+  **1. Verificar CI primeiro (rápido):**
+     `gh run view 26591321348 --json status,conclusion`
+     Deve estar `completed/success` (~4 min, precedente Stories 5.4/5.5). Se `failure`,
+     investigar antes de avançar (improvável — 5/5 gates locais GREEN no push).
+
+  **2. Escolher a próxima story do Epic 5 e arrancar o ciclo:**
+     `@sm *draft {N}` → `@po *validate-story-draft {N}` → `@dev *develop {N}`
+     → `@architect *qa-gate {N}` → `@devops *push {N}`.
+
+     Candidatas (Eurico decide a ordem):
+       - **5.7 — Widget config UI** (toggle `⚙ ×` por widget + `[+ Adicionar widget]`
+         + persistência via PATCH). **Reusa directamente** o `<WidgetGrid>` e os 7
+         widgets da 5.6 + o endpoint `GET /api/conta/preferencias` (que só devolve
+         `always_preview` hoje — a 5.7 estende-o para `widgets_enabled`). Continuação
+         natural da 5.6.
+       - **5.8 — Modo claro/escuro** (dark-mode sweep global; os componentes da 5.3/5.6
+         já suportam `dark:` sem leak — falta o toggle + persistência + sweep).
+       - **5.9 — UndoToast global + `<EmptyState>` shared** (consolida o
+         `VisaoEmptyState` local da 5.6 em `packages/ui`).
+       - **5.10 — Responsive sweep + Lighthouse** (absorve **FUP-5.6.A** — ver abaixo —
+         e os carry-overs de middleware/root-redirect das Stories 5.3).
+
+  **3. Decisão pendente do Eurico (não-bloqueante, mas recorrente):**
+     `docs/marketing/edit/` foi excluído pelo **12º push consecutivo**. Resolver:
+     (a) commitar o conteúdo, OU (b) adicionar ao `.gitignore` para parar de aparecer
+     como untracked em cada `git status`. Pendente desde Story 4.1.
+
+context: |
+  **Estado do repo no momento do pause:**
+    - Branch `main`, sincronizado com origin (push fast-forward `54bbc48..c94f636`).
+    - Working tree limpo EXCEPTO `docs/marketing/edit/` (untracked — exclusão deliberada).
+    - 2 commits da 5.6 em produção: `916ee7b` (feat — /visao + WidgetGrid + 7 widgets +
+      7 wrappers finos) + `c94f636` (chore housekeeping — story Done + handoffs + índices).
+    - CI run **26591321348** estava `in_progress` (verificar — ver next_action).
+    - Vercel auto-deploy fra1 dispara no push (não verificado neste pause).
+
+  **Story 5.6 — o que ficou em produção:**
+    - Página `/visao` real (substitui o placeholder Story 1.5): header de saudação
+      contextual PT-PT (Europe/Lisbon) + `<WidgetGrid>` responsivo 3/2/1 colunas + 7
+      widget Server Components (briefing, tasks_today, finance_month, recurrences_next,
+      tasks_overdue, accounts_balance, calendar_week), cada num `<Suspense>` próprio,
+      + empty-state global local + skeleton por widget.
+    - **DP-5.6.A=B (RATIFICADO @architect):** SQL dos 7 endpoints `/api/visao/*`
+      extraído para `apps/web/src/lib/visao/queries.ts` (7 funções puras
+      `(db: DbShim) => Response`). Os handlers viraram wrappers finos — contrato HTTP
+      preservado **1:1** (21 route tests INALTERADOS). Widgets consomem as funções
+      RSC-direct via `getDb()` (db-shim), sem self-call HTTP (NFR2/NFR4).
+    - **DP-5.6.F (RATIFICADO):** mobile "tasks_today primeiro" via CSS
+      `order-first md:order-none` (fonte única `WIDGET_ORDER`, WCAG 1.3.2 preservado).
+    - RLS NFR5 (zero `getServiceDb`) + REQ-INLINE-1 (só `import type` de `@meu-jarvis/db`)
+      gate-verified. Gate PASS 9.5/10.
+
+  **Follow-ups abertos (carry-over Epic 5, não-bloqueantes):**
+    - **FUP-5.6.A (MEDIUM → Story 5.10):** `isVisaoEmpty()` em `visao/page.tsx` corre os
+      agregados dos widgets ON 1× para decidir o empty-state global, e os widgets
+      voltam a corrê-los nos seus `<Suspense>` → até ~2× queries/page-load (≤6 agregados
+      leves indexados). Documentado em `page.tsx:76-80`, deferido ao perf sweep da 5.10
+      (optimização sugerida: `React.cache` / partilha de resultado).
+    - **FUP-5.5.B (LOW):** predicado RLS redundante explícito
+      (`where household_id = current_household_id()`) não adicionado nas queries
+      extraídas — RLS já cumprida via JWT. Opcional (defesa em profundidade).
+    - Carry-overs das Stories 5.3 para 5.10: FUP-5.3.C (middleware APP_PATH_PREFIXES) +
+      FUP-5.3.D (root redirect) — MEDIUM.
+
+  **Pipeline / processo confirmado (replicável para a próxima story):**
+    - Fluxo: `@sm *draft` → `@po *validate-story-draft` → `@dev *develop` (YOLO) →
+      `@architect *qa-gate` → `@devops *push`. Apenas @devops faz push.
+    - 5 quality gates obrigatórios (project root): `pnpm lint` · `pnpm typecheck` ·
+      `pnpm --filter @meu-jarvis/web test` · `pnpm build` · `pnpm check:rls`.
+    - **CodeRabbit SKIPPED** consistente (Stories 3.1-5.6) — `coderabbit_integration`
+      ausente em `core-config.yaml`; auditoria @architect substitui.
+    - **Handoffs cross-terminal:** ler `docs/HANDOFF-INDEX.md` SEMPRE na activação.
+      Baseline de testes corrente: **850 passed / 113 files** (apps/web).
+
+  **Auth local (contexto para smoke visual humano, se a próxima story precisar):**
+    O blocker de auth/registo local foi RESOLVIDO (handoff `auth-local-fixed` consumido).
+    Há helper `dev-create-user.ts` em apps/web para criar utilizador de smoke local.
+    Stories 5.5/5.6 foram gated sem smoke visual humano (backend/frontend com testes
+    estruturais); se 5.7+ exigir validação visual autenticada, o ambiente local já suporta.
+
+files_modified:
+  # Nenhum ficheiro de código alterado por este pause — handoff informativo apenas.
+  # Estado da 5.6 já em produção (commits 916ee7b + c94f636).
+
+blockers: []
