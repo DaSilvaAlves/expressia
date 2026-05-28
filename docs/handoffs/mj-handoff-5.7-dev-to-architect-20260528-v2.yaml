@@ -1,0 +1,69 @@
+id: mj-handoff-5.7-dev-to-architect-20260528-v2
+from_agent: dev
+to_agent: architect
+created: '2026-05-28T21:45:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.7'
+last_command: '*develop 5.7 (FIX-1)'
+priority: high
+
+summary: |
+  @dev Dex aplicou **FIX-1** (resposta ao gate FAIL v1.3). O único blocker HIGH
+  (SSR Hydrator cross-request leak) está resolvido — `WidgetConfigHydrator`
+  hidrata agora em `useEffect` client-only. 5/5 gates GREEN re-corridos, 879/879,
+  zero regressões. Story em `Ready for Review v1.3`. **Re-gate** pronto.
+
+next_action: |
+  **`@architect *qa-gate 5.7`** (re-gate) — verificar APENAS o FIX-1 (o resto já
+  foi ratificado no gate v1.3: 4/5 DPs, segurança, 5/5 gates). Confirmar:
+    1. `WidgetConfigHydrator.tsx` usa `useEffect` (não corpo do render) →
+       `hydrate` não corre no SSR.
+    2. typecheck/lint/test/build/check:rls GREEN (re-corridos pelo @dev — re-correr
+       para independência).
+  Se PASS: status → Done v1.4-ARCH-APPROVED + handoff architect→devops.
+
+context: |
+  **Story:** docs/stories/active/5.7.widget-config-ui-persistence.story.md
+  (Ready for Review v1.3 — QA Results do gate v1.3 + Completion Notes do FIX-1).
+
+  **FIX-1 — o que mudou (escopo cirúrgico, 1 ficheiro):**
+    - `apps/web/src/app/(app)/visao/_components/WidgetConfigHydrator.tsx`:
+      `useRef` + hidratação no corpo do render → `useEffect(() => {
+      useWidgetConfigStore.getState().hydrate(initial); }, [initial])`.
+    - O `useEffect` NÃO corre no SSR → o store singleton nunca é mutado no
+      servidor → cross-request leak eliminado. D-5.7.4 "SSR-safe" agora correcta.
+    - Pré-hidratação: `useWidgetEnabled(null) → true` mostra os widgets do RSC
+      (já só os ON do utilizador); `AddWidgetMenu` usa `?? initial`; `hydrate`
+      idempotente preserva optimistic entre `router.refresh()`. Sem mismatch.
+    - JSDoc actualizado (removida a afirmação incorrecta anterior).
+
+  **NADA MAIS mudou** desde o gate v1.3 — route.ts, widgetConfigStore, WidgetSlot,
+  WidgetGrid, AddWidgetMenu, WidgetConfigStatus, page.tsx, _lib/widgets.ts e todos
+  os testes estão intactos. As ratificações do gate v1.3 mantêm-se:
+    - 4/5 DPs ratificadas (D-5.7.1 overlay+OBS-1, D-5.7.2 sql.raw seguro, D-5.7.3,
+      D-5.7.5). D-5.7.4 agora corrigida pelo FIX-1.
+    - Segurança: RLS getDb only, REQ-INLINE-1, .strict(), PO-FIX-1 (AC6).
+    - 3 PRAISE (UPSERT parcial, fronteira RSC↔Client, retrocompat).
+
+  **Quality gates (re-corridos pelo @dev, GREEN):**
+    - typecheck exit 0 · lint exit 0 (sem exhaustive-deps warning com `[initial]`)
+    - test apps/web **879/879** (116 files) — inalterado vs v1.2 (net +29 baseline)
+    - build exit 0 `/visao` 2.69 kB + `/api/conta/preferencias` 427 B no manifest
+    - check:rls EXIT 0 28 tabelas INALTERADO
+
+  **OBS-1 (não-bloqueante, mantido):** slot `WidgetCard.headerActions` reservado
+  pela 5.6 fica órfão (overlay escolhido em D-5.7.1) — candidato a futura
+  iteração, NÃO nesta story.
+
+  **CodeRabbit:** SKIPPED (precedente 3.1-5.6).
+  **Git:** commits locais à frente de origin; push delegado a @devops após PASS.
+
+files_modified:
+  - apps/web/src/app/(app)/visao/_components/WidgetConfigHydrator.tsx  # MOD — useEffect client-only (FIX-1)
+  - docs/stories/active/5.7.widget-config-ui-persistence.story.md  # MOD — Ready for Review v1.3 + FIX-1 notes
+
+blockers: []

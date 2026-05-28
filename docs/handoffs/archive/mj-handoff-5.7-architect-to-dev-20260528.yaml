@@ -2,8 +2,20 @@ id: mj-handoff-5.7-architect-to-dev-20260528
 from_agent: architect
 to_agent: dev
 created: '2026-05-28T21:15:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-05-28T21:45:00Z'
+consumed_by: dev
+consumed_note: |
+  @dev Dex consumiu e aplicou **FIX-1**: `WidgetConfigHydrator` migrado de
+  hidratação no corpo do render (`useRef`) para `useEffect` client-only → o
+  efeito não corre no SSR, o widgetConfigStore nunca é mutado no servidor
+  (cross-request leak eliminado). Escopo cirúrgico (~10 linhas, só o Hydrator).
+  5/5 quality gates re-corridos GREEN (typecheck exit 0 · lint exit 0 sem
+  exhaustive-deps warning · test 879/879 116 files inalterado · build exit 0
+  `/visao` 2.69 kB · check:rls EXIT 0 28 tabelas). Zero regressões. D-5.7.4 agora
+  correcta. Status Changes Requested v1.2 → Ready for Review v1.3. Sucessor
+  pending: mj-handoff-5.7-dev-to-architect-20260528-v2.yaml (re-gate).
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
