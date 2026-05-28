@@ -2,8 +2,10 @@ id: mj-handoff-5.6-dev-to-architect-20260528
 from_agent: dev
 to_agent: architect
 created: '2026-05-28T18:05:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-05-28T18:10:00Z'
+consumed_by: architect
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

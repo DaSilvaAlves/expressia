@@ -1,0 +1,93 @@
+id: mj-handoff-5.6-architect-to-devops-20260528
+from_agent: architect
+to_agent: devops
+created: '2026-05-28T18:12:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-28T18:32:00Z'
+consumed_by: devops
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.6'
+last_command: '*qa-gate 5.6'
+priority: medium
+
+summary: |
+  @architect (Aria) executou `*qa-gate 5.6` — **PASS 9.5/10 HIGH**. Story 5.6
+  (Visão `<WidgetGrid>` + 7 widgets + página `/visao` real) aprovada para push.
+  5/5 quality gates re-corridos independentemente em sessão @architect (todos
+  GREEN). DP-5.6.A=B e DP-5.6.F **ratificados**. RLS NFR5 e REQ-INLINE-1
+  confirmados. Status `Ready for Review v1.2` → `Done v1.3-ARCH-APPROVED`.
+
+next_action: |
+  `@devops *push 5.6` — push do ciclo completo (precedente Stories 5.1-5.5,
+  2-commit pattern: commit primário feat + commit housekeeping).
+
+  **Pré-push (re-correr 5/5 gates independentemente — precedente @devops):**
+    - pnpm lint        → exit 0 (--max-warnings=0)
+    - pnpm typecheck   → exit 0 (sem any)
+    - pnpm --filter @meu-jarvis/web test → 850/113 (zero regressões)
+    - pnpm build       → exit 0 (/visao no manifest + 7 /api/visao/*)
+    - pnpm check:rls   → exit 0 (28 tabelas INALTERADO)
+
+  **CodeRabbit:** SKIPPED per precedente Stories 3.1-5.5 (`coderabbit_integration`
+  ausente em `core-config.yaml`; auditoria byte-a-byte @architect substitui).
+
+  **Housekeeping no commit:**
+    - Mover `docs/stories/active/5.6.visao-widgetgrid-widgets.story.md`
+      → `docs/stories/completed/`
+    - Mover este handoff (architect→devops) para `docs/handoffs/archive/` após push
+    - Actualizar `docs/HANDOFF-INDEX.md` (pending → archived)
+    - Actualizar `docs/stories/active/_INDEX.md` (Epic 5 progress 6/10)
+    - **EXCLUIR `docs/marketing/edit/`** do commit — decisão Eurico pendente
+      desde Story 4.1 (12º push consecutivo a excluir; NÃO commitar sem decisão).
+
+  **Commit primário sugerido:**
+    feat(visao): Story 5.6 — página /visao real com WidgetGrid + 7 widgets [Story 5.6]
+    (NOTA: já existe commit `916ee7b` com essa exacta mensagem no histórico — o
+    @devops deve confirmar se o working tree tem alterações por commitar ou se a
+    implementação já foi parcialmente commitada; reconciliar antes de push.)
+
+context: |
+  **Veredicto do gate:** PASS · 9.5/10 · Alta confiança. Secção "QA Results"
+  preenchida na story (`docs/stories/active/5.6.visao-widgetgrid-widgets.story.md`).
+
+  **Ratificações arquitecturais:**
+    - **DP-5.6.A=B RATIFICADO:** SQL dos 7 endpoints extraído para
+      `apps/web/src/lib/visao/queries.ts` (7 funções puras `(db: DbShim) => Response`).
+      Handlers `/api/visao/*` = wrappers finos (mesma função + mesmo `Schema.parse`
+      + mesmo `NextResponse.json<T>` + mesmo `requireAuth`/`withSpan`/`getDb()`).
+      Contrato HTTP preservado 1:1 — 21 route tests INALTERADOS + 7 endpoints no
+      build manifest (425-427 B). Widgets RSC-direct sem self-call (NFR2/NFR4).
+    - **DP-5.6.F RATIFICADO:** mobile "tasks_today primeiro" via CSS
+      `order-first md:order-none` (`WidgetGrid.tsx:62`). Fonte única `WIDGET_ORDER`,
+      WCAG 1.3.2 preservado (ordem DOM/tab canónica).
+
+  **Verificações de segurança (gate-verified por grep):**
+    - RLS NFR5: zero `getServiceDb` na árvore visao/ — só `getDb()` authenticated.
+    - REQ-INLINE-1: todos os imports de `@meu-jarvis/db` são `import type`.
+    - PO-FIX-1 (calendar_week → /tarefas/calendario) + PO-FIX-2
+      (DEFAULT_WIDGETS_ENABLED local + parity guard) + DP-5.6.E (overdue hidden
+      se vazio) confirmados.
+
+  **Follow-ups não-bloqueantes (carry-over Epic 5):**
+    - FUP-5.6.A (MEDIUM → Story 5.10): `isVisaoEmpty()` em page.tsx corre os
+      agregados ON uma vez para a decisão de empty-state; os widgets voltam a
+      corrê-los nos seus <Suspense> → até ~2× queries/page-load (≤6 agregados
+      leves indexados). Documentado (page.tsx:76-80), deferido ao perf sweep 5.10.
+    - FUP-5.5.B (LOW): predicado RLS redundante explícito não adicionado nas
+      queries extraídas (RLS já via JWT). Opcional.
+
+  **Epic 5:** 5/10 Done → **6/10 após push da 5.6** (5.1+5.2+5.3+5.4+5.5+5.6).
+  Próximas candidatas: 5.7 (Widget config UI — reusa WidgetGrid/widgets desta
+  story) ‖ 5.8 (Modo claro/escuro) ‖ 5.9 (UndoToast / EmptyState shared) ‖
+  5.10 (Responsive sweep + Lighthouse — absorve FUP-5.6.A).
+
+files_modified:
+  # Story + gate
+  - docs/stories/active/5.6.visao-widgetgrid-widgets.story.md  # Status Done v1.3 + QA Results + Change Log v1.3
+  # Implementação 5.6 (ver File List da story — 16 NEW + 9 testes + 8 MODIFIED)
+  # (nenhum ficheiro de código alterado pelo gate — só verificação read-only)
+
+blockers: []
