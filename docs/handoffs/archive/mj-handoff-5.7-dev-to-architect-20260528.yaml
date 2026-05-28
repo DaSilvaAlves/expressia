@@ -2,8 +2,23 @@ id: mj-handoff-5.7-dev-to-architect-20260528
 from_agent: dev
 to_agent: architect
 created: '2026-05-28T20:30:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-05-28T21:15:00Z'
+consumed_by: architect
+consumed_note: |
+  @architect Aria consumiu e executou `*qa-gate 5.7`. **FAIL — 1 blocker HIGH
+  (FIX-1).** 5/5 quality gates re-corridos independentemente GREEN (typecheck
+  exit 0 · lint exit 0 10/10 · test 879/879 116 files net +29 · build exit 0
+  `/visao` 2.7 kB + `/api/conta/preferencias` 427 B · check:rls EXIT 0 28
+  tabelas). Segurança OK: RLS getDb only, REQ-INLINE-1, sql.raw seguro (D-5.7.2
+  ratificada), .strict() + PO-FIX-1. **BLOCKER FIX-1 [HIGH]:**
+  WidgetConfigHydrator.tsx:33 hidrata o store no corpo do render de um Client
+  Component → corre no SSR → muta o widgetConfigStore singleton no servidor →
+  cross-request state leak (lambda warm). D-5.7.4 "SSR-safe" REFUTADA. Correção:
+  hydrate em useEffect (~3 linhas). 4/5 DPs ratificadas (D-5.7.1 overlay com
+  OBS-1; D-5.7.2; D-5.7.3; D-5.7.5). Status Ready for Review v1.2 → Changes
+  Requested v1.2. Sucessor pending: mj-handoff-5.7-architect-to-dev-20260528.yaml.
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

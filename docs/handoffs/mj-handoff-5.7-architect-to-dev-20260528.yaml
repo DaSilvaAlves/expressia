@@ -1,0 +1,80 @@
+id: mj-handoff-5.7-architect-to-dev-20260528
+from_agent: architect
+to_agent: dev
+created: '2026-05-28T21:15:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.7'
+last_command: '*qa-gate 5.7'
+priority: high
+
+summary: |
+  @architect Aria executou `*qa-gate 5.7` → **FAIL (1 blocker HIGH, FIX-1).**
+  A story está a ~95% (8/8 ACs, 5/5 gates GREEN, segurança sólida), mas tem 1
+  defeito arquitectural de correção: o `WidgetConfigHydrator` hidrata o store no
+  render → corre no SSR → cross-request state leak. Correção trivial (~3 linhas).
+
+next_action: |
+  **`@dev` aplica FIX-1 e re-submete a gate.**
+  1. Editar `apps/web/src/app/(app)/visao/_components/WidgetConfigHydrator.tsx`:
+     mover a hidratação do corpo do render para um `useEffect` (client-only).
+     Snippet completo na story (QA Results → BLOCKER → Correção). Resumo:
+        import { useEffect } from 'react';
+        export function WidgetConfigHydrator({ initial }): null {
+          useEffect(() => { useWidgetConfigStore.getState().hydrate(initial); }, [initial]);
+          return null;
+        }
+     Remover o `useRef` e a afirmação incorrecta "o store nunca é mutado no
+     servidor (SSR-safety)" do JSDoc — ou corrigi-la para descrever a hidratação
+     client-only via useEffect.
+  2. Actualizar a afirmação da D-5.7.4 na story (Dev Agent Record / Completion
+     Notes) para reflectir a hidratação client-only correcta.
+  3. Re-correr: typecheck + lint (atenção `react-hooks/exhaustive-deps` com
+     `[initial]`) + `pnpm --filter @meu-jarvis/web test --run` (widgetConfigStore
+     /WidgetSlot/AddWidgetMenu devem manter-se verdes) + build + check:rls.
+  4. Status `Changes Requested v1.2` → `Ready for Review v1.3`; criar handoff
+     dev→architect para re-gate.
+
+context: |
+  **Story:** docs/stories/active/5.7.widget-config-ui-persistence.story.md
+  (Changes Requested v1.2 — QA Results tem o detalhe completo do gate FAIL).
+
+  **FIX-1 [HIGH] — único blocker:**
+    - Ficheiro: `WidgetConfigHydrator.tsx:27-36`.
+    - Causa: `'use client'` + `useWidgetConfigStore.getState().hydrate(initial)`
+      **no corpo do render**. Client Components renderizam no SERVIDOR durante o
+      SSR (App Router) → `hydrate()` muta o `widgetConfigStore` singleton de
+      módulo no servidor. Com a idempotência (`if (get().hydrated) return`), o 2º
+      request num lambda warm NÃO re-hidrata → reutiliza `widgets_enabled` do 1º
+      request → HTML SSR de B com a visibilidade de widgets de A; client de B
+      corrige (store client fresh) → hydration mismatch + flash.
+    - NÃO é data leak de segurança (DADOS via RSC sob RLS por-utilizador; só a
+      visibilidade on/off transiente do wrapper pode ficar errada). Mas escala
+      mal em serverless e a afirmação "SSR-safe" (D-5.7.4) está incorrecta.
+    - Fix: `useEffect` (não corre no SSR). Pré-hidratação: `useWidgetEnabled(null)
+      → true` mostra os widgets do RSC (já só os ON de B); `AddWidgetMenu` usa
+      `?? initial` (B) → estado correcto, sem leak, sem mismatch. `hydrate`
+      idempotente preserva o optimistic entre `router.refresh()`.
+
+  **Tudo o resto RATIFICADO (não tocar):**
+    - 5/5 quality gates GREEN (re-corridos pelo @architect).
+    - D-5.7.1 overlay (`<WidgetSlot>`) — OK. OBS-1 não-bloqueante: o slot
+      `WidgetCard.headerActions` reservado pela 5.6 fica órfão; numa iteração
+      futura usar o slot OU remover o `headerActions?`. NÃO mexer nesta story.
+    - D-5.7.2 `sql.raw` seguro (whitelist), D-5.7.3, D-5.7.5 — ratificadas.
+    - RLS getDb only, REQ-INLINE-1, `.strict()`, PO-FIX-1 (AC6) — verificadas.
+    - 3 PRAISE (UPSERT parcial, fronteira RSC↔Client, retrocompat).
+
+  **Escopo do fix:** APENAS o `WidgetConfigHydrator` (+ JSDoc/Completion Notes).
+  Não tocar route.ts, store, WidgetSlot, WidgetGrid, AddWidgetMenu, page.tsx.
+
+  **Baseline testes:** 879/116. CodeRabbit SKIPPED (precedente 3.1-5.6).
+  **Git:** commits locais à frente de origin (push delegado a @devops após gate PASS).
+
+files_modified:
+  - docs/stories/active/5.7.widget-config-ui-persistence.story.md  # MOD — QA Results + Changes Requested v1.2
+
+blockers: []
