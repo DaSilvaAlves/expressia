@@ -1,0 +1,77 @@
+id: mj-handoff-5.7-sm-to-po-20260528
+from_agent: sm
+to_agent: po
+created: '2026-05-28T19:30:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.7'
+last_command: '*draft 5.7'
+priority: medium
+
+summary: |
+  @sm River executou `*draft 5.7` (Widget config UI inline + persistência) — a
+  7ª story do Epic 5, decidida pelo Eurico como continuação natural da 5.6.
+  Story Draft v1.0 criada em `docs/stories/active/5.7.widget-config-ui-persistence.story.md`.
+  Estimate S. Próximo passo: `@po *validate-story-draft 5.7` (10-point checklist +
+  cross-confirm anti-hallucination contra o codebase real).
+
+next_action: |
+  **`@po *validate-story-draft 5.7`** — validar o draft:
+    1. 10-point checklist (story-lifecycle.md Phase 2).
+    2. Cross-confirm anti-hallucination das afirmações byte-a-byte (precedente
+       5.4/5.5/5.6 — o @sm já verificou, o @po re-confirma): ver lista em "context".
+    3. Ratificar as 7 DPs (em especial DP-5.7.C — `×`-só MVP, `⚙` deferido —
+       que é decisão de ÂMBITO e afecta os ACs).
+    4. Se GO: status Draft v1.0 → Ready for Dev v1.1; criar handoff po→dev.
+    5. Se PO_FIX_INLINE necessário, aplicar inline (precedente 5.4/5.6).
+
+context: |
+  **Decisão de origem:** Eurico escolheu 5.7 (vs 5.8/5.9/5.10) na sessão @aiox-master
+  pós-5.6 (handoff session-pause consumido). `docs/marketing/edit/` resolvido →
+  `.gitignore` (commit local bb90355). 2 commits locais à frente de origin
+  (bb90355 .gitignore + 398d255 housekeeping handoff) — push delegado a @devops
+  (podem ir junto com o push da 5.7 ou antes).
+
+  **Afirmações verificadas pelo @sm contra o codebase (o @po re-confirma):**
+    1. Endpoint `/api/conta/preferencias/route.ts` GET+PATCH **só lida com
+       `always_preview`** (usa `PatchBodySchema` local, NÃO o `PreferencesPatchSchema`
+       partilhado). → AC1 estende-o.
+    2. `PreferencesPatchSchema` (preferences.ts:76-82) **já existe** com
+       `widgets_enabled: WidgetsEnabledSchema.optional()` + `.strict()`; comentário
+       no ficheiro diz "Stories que consomem: 5.7". `WidgetsEnabledSchema.strict()`
+       exige as 7 chaves.
+    3. `WidgetCard.headerActions?: React.ReactNode` (WidgetCard.tsx:30,48) — slot
+       **reservado explicitamente para a Story 5.7** ("`⚙ ×`"); hoje sempre undefined.
+    4. `_lib/widgets.ts` tem `DEFAULT_WIDGETS_ENABLED` (5 ON/2 OFF) + `WIDGET_ORDER`
+       (7 ids) + parity guard. NÃO tem `WIDGET_LABELS` → AC5 cria-o.
+    5. Títulos PT-PT hardcoded nos 7 widgets: "Briefing diário", "Tarefas hoje",
+       "Gastos do mês", "Próximas recorrências", "Tarefas atrasadas", "Saldo por
+       conta", "Calendário da semana" → AC5 extrai byte-a-byte para `WIDGET_LABELS`.
+    6. `page.tsx` é RSC; `readWidgetsEnabled()` lê widgets_enabled RSC-direct via
+       `getDb()` + fallback default; `<WidgetGrid widgetsEnabled>` filtra por
+       `WIDGET_ORDER`. Comentário em page.tsx:38-39 diz "Story 5.7 fá-lo-á".
+    7. `prefs-toggle.tsx` é o precedente de Client Component (optimistic + revert +
+       PATCH + banner "Guardado."/"Erro" auto-clear 3s).
+    8. `widgets_enabled` é coluna jsonb existente (Story 5.1, migration 0016) —
+       **zero migration nova** nesta story; `check:rls` 28 tabelas INALTERADO.
+
+  **7 DPs documentadas na story (a ratificar):**
+    - DP-5.7.A fronteira RSC↔Client (rec. A: remover=optimistic, adicionar=router.refresh).
+    - DP-5.7.B store partilhado (rec. A: Zustand `widgetConfigStore`, precedente shell/chat).
+    - DP-5.7.C `×`-só MVP, `⚙` deferido (rec. A) — **DECISÃO DE ÂMBITO, @po ratifica**.
+    - DP-5.7.D debounce ~600ms objecto completo (rec. A).
+    - DP-5.7.E `[+ Adicionar]` popover (rec. A).
+    - DP-5.7.F `WIDGET_LABELS` single source em _lib/widgets.ts (rec. A).
+    - DP-5.7.G GET devolve widgets_enabled + PATCH via PreferencesPatchSchema (rec. A; getDb only).
+
+  **Baseline testes:** 850 passed / 113 files (pós-5.6). Target net desta story ≥ +18.
+  **CodeRabbit:** SKIPPED consistente (precedente 3.1-5.6).
+  **Pipeline:** @sm(feito) → @po → @dev(YOLO) → @architect(qa-gate) → @devops(push). Só @devops faz push.
+
+files_modified:
+  - docs/stories/active/5.7.widget-config-ui-persistence.story.md  # NEW — Draft v1.0
+
+blockers: []
