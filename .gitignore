@@ -88,3 +88,5 @@ docs/marketing/*.png
 docs/marketing/*.jpg
 docs/marketing/*.jpeg
 docs/marketing/*.webm
+# Working dir de edição de vídeo (mp4 brutos + .fffilter + project.md) — não versionar
+docs/marketing/edit/
