@@ -1,0 +1,88 @@
+id: mj-handoff-5.7-po-to-dev-20260528
+from_agent: po
+to_agent: dev
+created: '2026-05-28T19:55:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.7'
+last_command: '*validate-story-draft 5.7'
+priority: medium
+
+summary: |
+  @po Pax validou a Story 5.7 (Widget config UI inline + persistência) — **GO
+  9.5/10 HIGH**, status Draft v1.0 → Ready for Dev v1.1. 10/10 checklist, 8
+  afirmações cross-confirmadas, 7 DPs ratificadas, PO-FIX-1 aplicado inline (AC6).
+  Pronta para `@dev *develop 5.7` em modo YOLO autónomo.
+
+next_action: |
+  **`@dev *develop 5.7`** (YOLO) — implementar a Story 5.7 conforme os 8 ACs +
+  6 tasks (T1-T6). Pipeline: garantir os 5 quality gates GREEN antes de entregar
+  ao @architect (`pnpm lint` · `pnpm typecheck` · `pnpm --filter @meu-jarvis/web test`
+  · `pnpm build` · `pnpm check:rls`). Net testes target ≥ +18 (baseline 850/113).
+  Ao terminar: status Ready for Review v1.2 + handoff dev→architect.
+
+context: |
+  **Story:** docs/stories/active/5.7.widget-config-ui-persistence.story.md
+  (Ready for Dev v1.1 — secção "PO Validation Report" tem o detalhe da validação).
+
+  **As 7 DPs estão RATIFICADAS — implementar conforme a recomendação (A em todas):**
+    - DP-5.7.A: remover = optimistic client (esconde já); adicionar = PATCH +
+      `router.refresh()` (re-fetch RSC traz o widget novo). NÃO tornar WidgetGrid
+      Client (opção C rejeitada — anula Suspense/RSC da 5.6).
+    - DP-5.7.B: Zustand `widgetConfigStore` (precedente `apps/web/src/lib/stores/
+      chatStore.ts` + `shellStore.ts`), hidratado com widgetsEnabled inicial do RSC.
+    - DP-5.7.C: **só `×` (remover) no MVP — `⚙` (menu por-widget) é scope-OUT.**
+      Não implementar o `⚙`. O `×` cumpre 100% do toggle on/off.
+    - DP-5.7.D: debounce ~600ms (valor ao @dev), PATCH com `widgets_enabled`
+      completo (7 chaves — `WidgetsEnabledSchema.strict()` exige todas).
+    - DP-5.7.E: `[+ Adicionar widget]` popover/menu listando widgets OFF.
+    - DP-5.7.F: criar `WIDGET_LABELS: Record<WidgetId,string>` em `_lib/widgets.ts`
+      (labels byte-a-byte = títulos actuais dos cards). Refactor dos 7 widgets para
+      consumir = OPCIONAL/incremental.
+    - DP-5.7.G: estender endpoint — PATCH via `PreferencesPatchSchema` (substitui o
+      `PatchBodySchema` local), GET devolve `{ always_preview, widgets_enabled }`.
+      **`getDb()` SEMPRE — NUNCA `getServiceDb()` (NFR5).**
+
+  **PO-FIX-1 (AC6) — atenção crítica:** com TODOS os widgets OFF, a 5.6 NÃO mostra
+  `VisaoEmptyState` (a heurística `isVisaoEmpty` em `page.tsx:109` faz
+  `if (checks.length === 0) return false` → grid vazia). NÃO reutilizar
+  `VisaoEmptyState` para "todos OFF" (a copy dele — "Carrega no chat…" — é para
+  vazio-por-dados). AC6 exige: `[+ Adicionar widget]` SEMPRE acessível (mesmo com
+  grid vazia) + mensagem PT-PT opcional curta tipo "O teu painel está vazio.
+  Adiciona widgets abaixo.".
+
+  **Nota orientadora @po (não-bloqueante) — injecção do `×` (T4.2):** preferir um
+  wrapper Client no `WidgetGrid` (overlay/posicionamento do `×` sobre cada card) a
+  modificar os 7 widgets para repassarem `headerActions`. Minimiza superfície de
+  mudança, mantém widgets RSC simples. O slot `WidgetCard.headerActions` (`:30,48`)
+  existe se preferires a via "cada widget repassa" — decisão @dev.
+
+  **UPSERT parcial (AC1.a) — gotcha:** o handler actual escreve sempre
+  `always_preview`. Com `PreferencesPatchSchema` (campos opcionais), o
+  `ON CONFLICT DO UPDATE SET` tem de escrever SÓ os campos presentes no body —
+  senão PATCH de `widgets_enabled` zeraria `always_preview`. INSERT lazy-init usa
+  defaults da coluna. `widgets_enabled` JSONB → cast `::jsonb` + `JSON.stringify`.
+  Retrocompat: `prefs-toggle.tsx` (envia `{ always_preview }`) NÃO lê a resposta
+  success (só `body.error` em !res.ok) → mudar shape da resposta é seguro, mas
+  manter `{ always_preview }` quando tocado. Testes existentes do `route.test.ts`
+  têm de continuar a passar.
+
+  **REQ-INLINE-1 (precedente 5.5/5.6):** em apps/web só `import type` de
+  `@meu-jarvis/db` (`WidgetId`, `WidgetsEnabled`). Valores (`WIDGET_LABELS`,
+  `WIDGET_ORDER`, `DEFAULT_WIDGETS_ENABLED`) vivem em `_lib/widgets.ts` local +
+  parity guard de tipo.
+
+  **Baseline:** 850 passed / 113 files. **CodeRabbit:** SKIPPED (precedente 3.1-5.6).
+  **Zero migration / zero touch RLS** — `check:rls` 28 tabelas tem de ficar EXIT 0.
+
+  **Estado git:** 4 commits locais à frente de origin (bb90355 gitignore +
+  398d255 housekeeping + 90b7b78 story draft + <commit da validação @po>). Push
+  delegado a @devops no fim do ciclo.
+
+files_modified:
+  - docs/stories/active/5.7.widget-config-ui-persistence.story.md  # MOD — Ready for Dev v1.1 + PO Validation Report + PO-FIX-1 (AC6)
+
+blockers: []
