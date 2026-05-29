@@ -1,8 +1,8 @@
 # Supabase Auth Setup — meu-jarvis (Expressia)
 
-**Última actualização:** 2026-05-06
+**Última actualização:** 2026-05-29
 **Owner:** @dev (Dex) + @devops (Gage)
-**Trace:** Story 1.5 AC3 + AC4 + AC7, Architecture §5.1 §5.2 §5.3, PRD FR24/FR25/FR33
+**Trace:** Story 1.5 AC3 + AC4 + AC7, Story 6.1 AC2/AC3/AC4/AC9 (verificação de email ON — DP1), Architecture §5.1 §5.2 §5.3, PRD FR24/FR25/FR33
 
 ---
 
@@ -147,34 +147,51 @@ fail-hard arquitectural (sem `EXCEPTION WHEN`).
 
 ---
 
-## 4. Email confirmation (D8 — OFF no MVP)
+## 4. Email confirmation (DP1 — ON desde Story 6.1)
 
 ### Decisão actual
 
-Email confirmation está **desactivado** no Supabase Dashboard. Após signUp o
-utilizador entra directamente na app.
+A verificação de email nativa do Supabase é **a activar** (DP1, Story 6.1),
+revertendo a decisão D8 da Story 1.5 (que a mantinha OFF para o MVP). O código
+da app já suporta o fluxo de confirmação end-to-end:
 
-### Como confirmar / alterar
+- `signUpAction` (`apps/web/src/app/(auth)/actions.ts`) passa
+  `emailRedirectTo: {origin}/callback` e, quando o Supabase devolve `user` sem
+  `session`, encaminha para `/confirm` (estado pendente).
+- `apps/web/src/app/(auth)/callback/route.ts` troca `code`→sessão
+  (`exchangeCodeForSession`) e encaminha para `/confirm?status=ok|error`.
+- `apps/web/src/app/(auth)/confirm/page.tsx` comunica os estados pendente /
+  sucesso / erro em PT-PT.
 
-Dashboard → **Authentication → Sign In / Up → Email**:
+### Activação no Dashboard (BLOQUEADOR EXTERNO — acção Eurico/@devops)
 
-- `Confirm email`: **OFF**.
+Pré-condição para o fluxo funcionar end-to-end (AC9). Análoga ao registo do
+Auth Hook (§2). Passos:
 
-### Quando ligar
+1. **Activar confirmação:** Dashboard → **Authentication → Sign In / Up →
+   Email** → ligar `Confirm email` (ON). Verificar via:
+   ```bash
+   curl -s "https://<project-ref>.supabase.co/auth/v1/settings" \
+     -H "apikey: <NEXT_PUBLIC_SUPABASE_ANON_KEY>" | jq '.mailer_autoconfirm'
+   ```
+   - `false` → confirmation ON (esperado a partir da Story 6.1).
+2. **Redirect URL `/callback`:** garantir que a allowlist (§5) cobre
+   `{origin}/callback` — os wildcards `http://localhost:3000/**`,
+   `https://expressia.pt/**` e `https://*.vercel.app/**` já o cobrem.
+3. **SMTP custom (Resend) — recomendado antes de produção:** Dashboard →
+   **Authentication → SMTP Settings**:
+   - Provider: Resend · Host: `smtp.resend.com` · Port: 465 / 587
+   - User: `resend` · Pass: `<resend-api-key>` (Vercel env: `RESEND_API_KEY`).
+   Sem SMTP custom o Supabase usa o serviço default partilhado (4 emails/hora —
+   suficiente só para smoke em dev/staging).
+4. **Templates PT-PT:** Dashboard → **Authentication → Templates** (Confirm
+   signup, Magic link, Reset password — todos PT-PT).
 
-Quando a integração com Resend (Story do Epic 1) estiver pronta:
+### Reverter (se necessário voltar a entrada directa)
 
-1. Configurar SMTP custom em Dashboard → **Authentication → SMTP Settings**:
-   - Provider: Resend
-   - Host: `smtp.resend.com`
-   - Port: 465 / 587
-   - User: `resend`
-   - Pass: `<resend-api-key>` (Vercel env: `RESEND_API_KEY`).
-2. Configurar templates PT-PT em **Authentication → Templates** (Confirm signup,
-   Magic link, Reset password — todos PT-PT).
-3. Activar `Confirm email` toggle.
-4. Actualizar `apps/web/src/app/(auth)/registar/page.tsx`: substituir o redirect
-   imediato por uma página "Verifica o teu email".
+Desligar `Confirm email` (OFF). O código degrada graciosamente: sem
+confirmação, `signUp` devolve sessão activa e `signUpAction` cai no fallback
+`redirect('/visao')` — sem ecrã partido.
 
 ---
 
@@ -386,10 +403,9 @@ mapeia explicitamente os códigos GoTrue mais comuns (`email_not_confirmed`,
 helper actualizado sempre que aparecer um novo `code` real em produção —
 mensagens genéricas escondem root causes e custam dias de debug.
 
-Quando o `Confirm email` voltar a ser activado intencionalmente (Resend
-integrado), revisitar o branch `if (data.user && !data.session)` em
-`signUpAction` que actualmente mostra "Verifica o teu email" — pode passar
-a redireccionar para uma página `/registo-confirma` dedicada.
+Actualização Story 6.1: o `Confirm email` passa a ON (DP1). O branch
+`if (data.user && !data.session)` em `signUpAction` já encaminha para a página
+`/confirm` dedicada (estados pendente/sucesso/erro) — ver §4.
 
 ---
 

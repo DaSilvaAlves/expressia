@@ -24,11 +24,34 @@
  *
  * Trace: Story 1.5 Task 5.4, Architecture §5.1, §7.1, AC2.
  */
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 
 import { mapSignInError, mapSignUpError } from '@/app/(auth)/_lib/error-messages';
+
+/**
+ * Deriva o origin absoluto da request actual (ex.: `https://expressia.pt` ou
+ * `http://localhost:3000`) para construir o `emailRedirectTo` do Supabase.
+ *
+ * Story 6.1: preferimos derivar dos headers em vez de introduzir uma env var
+ * `SITE_URL` (que exigiria configuração @devops em Vercel — mais um bloqueador).
+ * O browser envia `origin` em POSTs same-origin; em fallback reconstruímos a
+ * partir de `x-forwarded-proto` + `host` (Vercel/proxy) ou `host` simples.
+ *
+ * NOTA: o URL resultante (`{origin}/callback`) tem de estar na allowlist de
+ * Redirect URLs do Supabase Dashboard → Authentication (bloqueador externo
+ * documentado na AC9 / runbook supabase-auth-setup.md).
+ */
+async function getRequestOrigin(): Promise<string> {
+  const h = await headers();
+  const origin = h.get('origin');
+  if (origin) return origin;
+  const host = h.get('host') ?? 'localhost:3000';
+  const proto = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
+  return `${proto}://${host}`;
+}
 
 export interface AuthFormState {
   readonly error?: string;
@@ -79,14 +102,16 @@ export async function signInAction(
  *  - cria subscription com trial 14d família
  *  - escreve audit_log
  *
- * D8 (decidido): email confirmation OFF para MVP — o utilizador entra
- * directamente após signup. Documentado em runbook supabase-auth-setup.md
- * como follow-up quando Resend integrar.
+ * Story 6.1 (DP1): a verificação de email nativa do Supabase é activada. O
+ * `signUp` passa `emailRedirectTo` apontando para `/callback`, que troca o
+ * `code` por sessão e encaminha para `/confirm`. Quando o Supabase devolve
+ * `user` sem `session` (confirmação pendente), encaminhamos para `/confirm`
+ * (estado pendente). Pré-condição externa: "Confirm email" ligado no Supabase
+ * Dashboard + `{origin}/callback` na allowlist de Redirect URLs (AC9 / runbook).
  *
- * TASK-1 (2026-05-26): tratamento defensivo para o caso de `Confirm email`
- * estar ON (D8 revertido no Dashboard): se `signUp` devolve user sem sessão,
- * mostramos mensagem PT-PT a pedir verificação de email em vez de
- * redirecionar para `/visao` (que falharia silenciosamente no middleware).
+ * Histórico: D8 mantinha email confirmation OFF para o MVP (utilizador entrava
+ * directo). O tratamento defensivo `user && !session` (TASK-1 2026-05-26) é
+ * agora o caminho normal, não defensivo.
  */
 export async function signUpAction(
   _prevState: AuthFormState,
@@ -106,24 +131,26 @@ export async function signUpAction(
     return { error: 'As palavras-passe não coincidem.' };
   }
 
+  const origin = await getRequestOrigin();
   const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: `${origin}/callback` },
+  });
 
   if (error) {
     return { error: mapSignUpError(error) };
   }
 
-  // Detecta `Confirm email` ON no Dashboard: signUp devolve user sem sessão
-  // → não podemos redirecionar para `/visao`, o middleware bloqueia.
-  // Mostramos mensagem PT-PT pedindo confirmação para que o utilizador
-  // saiba o que falta fazer.
+  // Verificação de email ligada (DP1): signUp devolve user sem sessão →
+  // encaminhamos para `/confirm` (estado pendente "verifica o teu email").
   if (data.user && !data.session) {
-    return {
-      info: 'Conta criada. Verifica o teu email para confirmar e depois entra.',
-    };
+    redirect('/confirm');
   }
 
-  // D8 caminho default: sem email confirmation, sessão activa imediata → /visao.
+  // Fallback: se "Confirm email" estiver OFF no Dashboard, a sessão fica activa
+  // de imediato → entrada da app (onboarding 6.2 substitui /visao no futuro).
   redirect('/visao');
 }
 

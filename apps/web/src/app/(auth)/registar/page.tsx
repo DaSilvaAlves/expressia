@@ -4,6 +4,15 @@ import Link from 'next/link';
 import { useActionState } from 'react';
 
 import { signUpAction, type AuthFormState } from '@/app/(auth)/actions';
+import {
+  ERROR_CLASS,
+  HINT_CLASS,
+  INFO_CLASS,
+  INPUT_CLASS,
+  LABEL_CLASS,
+  LINK_CLASS,
+  PRIMARY_BUTTON_CLASS,
+} from '@/app/(auth)/_lib/styles';
 
 const initialState: AuthFormState = {};
 
@@ -14,21 +23,26 @@ const initialState: AuthFormState = {};
  * automaticamente o household + membership owner + subscription
  * trial 14d (Story 1.5 AC4 — migration 0003).
  *
- * Trace: Story 1.5 Task 5.2, AC2.
+ * Com a verificação de email ligada (Story 6.1 / DP1), `signUpAction`
+ * encaminha para `/confirm` quando a sessão fica pendente de confirmação.
+ *
+ * Branding via tokens `@meu-jarvis/ui` (Story 6.1 AC1).
+ *
+ * Trace: Story 1.5 Task 5.2, Story 6.1 AC1/AC2, AC2.
  */
 export default function RegistarPage() {
   const [state, formAction, isPending] = useActionState(signUpAction, initialState);
 
   return (
     <>
-      <h1 className="mb-1 text-xl font-semibold">Criar conta</h1>
+      <h1 className="mb-1 text-xl font-semibold text-foreground">Criar conta</h1>
       <p className="mb-6 text-sm text-muted-foreground">
         14 dias grátis com plano Família. Sem cartão.
       </p>
 
       <form action={formAction} className="space-y-4">
         <div>
-          <label htmlFor="email" className="mb-1 block text-sm font-medium">
+          <label htmlFor="email" className={LABEL_CLASS}>
             Endereço de email
           </label>
           <input
@@ -37,12 +51,12 @@ export default function RegistarPage() {
             type="email"
             autoComplete="email"
             required
-            className="w-full rounded-md border border-black/15 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-white/15 dark:bg-neutral-800"
+            className={INPUT_CLASS}
           />
         </div>
 
         <div>
-          <label htmlFor="password" className="mb-1 block text-sm font-medium">
+          <label htmlFor="password" className={LABEL_CLASS}>
             Palavra-passe
           </label>
           <input
@@ -52,13 +66,13 @@ export default function RegistarPage() {
             autoComplete="new-password"
             required
             minLength={8}
-            className="w-full rounded-md border border-black/15 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-white/15 dark:bg-neutral-800"
+            className={INPUT_CLASS}
           />
-          <p className="mt-1 text-xs text-muted-foreground">Mínimo 8 caracteres.</p>
+          <p className={HINT_CLASS}>Mínimo 8 caracteres.</p>
         </div>
 
         <div>
-          <label htmlFor="password_confirm" className="mb-1 block text-sm font-medium">
+          <label htmlFor="password_confirm" className={LABEL_CLASS}>
             Confirmar palavra-passe
           </label>
           <input
@@ -68,34 +82,30 @@ export default function RegistarPage() {
             autoComplete="new-password"
             required
             minLength={8}
-            className="w-full rounded-md border border-black/15 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-white/15 dark:bg-neutral-800"
+            className={INPUT_CLASS}
           />
         </div>
 
         {state.error ? (
-          <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          <p role="alert" className={ERROR_CLASS}>
             {state.error}
           </p>
         ) : null}
 
         {state.info ? (
-          <p role="status" className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+          <p role="status" className={INFO_CLASS}>
             {state.info}
           </p>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={isPending}
-          className="w-full rounded-md bg-black px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
-        >
+        <button type="submit" disabled={isPending} className={PRIMARY_BUTTON_CLASS}>
           {isPending ? 'A registar…' : 'Registar'}
         </button>
       </form>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Já tens conta?{' '}
-        <Link href="/entrar" className="font-medium text-foreground underline hover:no-underline">
+        <Link href="/entrar" className={LINK_CLASS}>
           Entra
         </Link>
       </p>
