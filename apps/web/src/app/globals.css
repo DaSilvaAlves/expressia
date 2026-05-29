@@ -2,15 +2,57 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Story 5.8 (AC1.b / AC5 / DP-5.8.C) — sistema de tokens reconciliado.
+ *
+ * Fonte canónica: `packages/ui/src/tokens.ts` (hex, front-end-spec §3.1-3.2).
+ * Aqui materializamos esses hex como CSS vars em `:root` (modo claro) e `.dark`
+ * (modo escuro). A estratégia mudou de `@media (prefers-color-scheme: dark)`
+ * (OS-driven, sem toggle) para a classe `.dark` no `<html>` (aplicada pelo
+ * script anti-FOUC + ThemeProvider — DP-5.8.A), permitindo o toggle manual FR22.
+ *
+ * Dois conjuntos de nomes coexistem (D-5.8.1):
+ *   - Legacy (`--background`/`--foreground`/`--muted`/`--muted-foreground`/
+ *     `--border`) — mapeados aos hex semânticos. Preservam classes já em uso.
+ *   - Semânticos canónicos (`--bg-canvas`/`--text-primary`/... — 19 tokens).
+ *
+ * Assimetria 19 light / 16 dark (PO-FIX-1 / Article IV — No Invention):
+ * `--success-subtle`/`--warning-subtle`/`--danger-subtle` existem só em `:root`
+ * (modo claro). O front-end-spec §3.2 não define equivalentes dark — NÃO são
+ * inventados. O teste de parity (`tokens-parity.test.ts`) reflecte esta omissão.
+ */
 @layer base {
   :root {
     --font-sans: 'Inter', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    /* ── Tokens semânticos de tema — modo claro (colorsLight, 19 tokens) ── */
+    --bg-canvas: #fafaf7;
+    --bg-surface: #ffffff;
+    --bg-muted: #f0eee8;
+    --border-default: #e5e2d9;
+    --border-strong: #c8c3b5;
+    --text-primary: #1a1a1a;
+    --text-secondary: #525252;
+    --text-muted: #8a857a;
+    --primary: #1f4f6a;
+    --primary-hover: #163a4f;
+    --primary-subtle: #e6eef3;
+    --accent: #b5754a;
+    --accent-subtle: #f4ece3;
+    --success: #3f7d58;
+    --success-subtle: #e5f0e9;
+    --warning: #b8862e;
+    --warning-subtle: #f8efd9;
+    --danger: #a33a2e;
+    --danger-subtle: #f5e2de;
+
+    /* ── Aliases legacy (Story 2.7/5.3) → hex semânticos (D-5.8.1) ── */
+    --background: var(--bg-canvas);
+    --foreground: var(--text-primary);
+    --muted: var(--bg-muted);
+    --muted-foreground: var(--text-muted);
+    --border: var(--border-default);
 
     /* Story 3.4 Kanban tokens (G1.2 Aria — token explícito + auto-documenta kill-switch). */
     --kanban-column-width: 288px;
@@ -32,13 +74,35 @@
     --calendar-drop-target-bg: rgba(59, 130, 246, 0.08);
   }
 
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --background: 222 47% 6%;
-      --foreground: 210 40% 98%;
-      --muted: 217 33% 17%;
-      --muted-foreground: 215 20% 65%;
-    }
+  /* ── Tokens semânticos de tema — modo escuro (colorsDark, 16 tokens) ──
+   * Aplicado quando o `<html>` tem a classe `.dark` (DP-5.8.A). Os 3 `*Subtle`
+   * de status ficam de fora (PO-FIX-1 — não definidos no front-end-spec §3.2). */
+  .dark {
+    --bg-canvas: #0f1311;
+    --bg-surface: #171c1a;
+    --bg-muted: #1f2624;
+    --border-default: #2a322f;
+    --border-strong: #3a4541;
+    --text-primary: #f0eee8;
+    --text-secondary: #b5b0a4;
+    --text-muted: #7a766c;
+    --primary: #5c9bbe;
+    --primary-hover: #7ab1d0;
+    --primary-subtle: #1e3343;
+    --accent: #d29465;
+    --accent-subtle: #3a2d20;
+    --success: #7db585;
+    --warning: #d4a85d;
+    --danger: #d17068;
+
+    /* Aliases legacy seguem os hex dark via `var()` (já apontam para os tokens
+     * acima — re-declarados aqui só para clareza; o `var()` em `:root` resolve
+     * dinamicamente, mas mantemos explícito para robustez). */
+    --background: var(--bg-canvas);
+    --foreground: var(--text-primary);
+    --muted: var(--bg-muted);
+    --muted-foreground: var(--text-muted);
+    --border: var(--border-default);
   }
 
   html {
@@ -46,8 +110,8 @@
   }
 
   body {
-    background: hsl(var(--background));
-    color: hsl(var(--foreground));
+    background: var(--bg-canvas);
+    color: var(--text-primary);
     font-family: var(--font-sans);
   }
 }

@@ -350,3 +350,98 @@ describe('Story 5.7 — PATCH widgets_enabled (AC1.a)', () => {
     expect(mocks.dbExecuteMock).toHaveBeenCalledTimes(1);
   });
 });
+
+// ───────────────────────────────────────────────────────────────────────────
+// Story 5.8 — theme (AC4)
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('Story 5.8 — GET devolve theme (AC4)', () => {
+  it('retorna theme válido lido da DB', async () => {
+    let call = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      call++;
+      if (call === 1) return []; // INSERT ON CONFLICT
+      if (call === 2)
+        return [{ always_preview: false, widgets_enabled: VALID_WIDGETS, theme: 'dark' }];
+      return [];
+    });
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { theme: string };
+    expect(body.theme).toBe('dark');
+  });
+
+  it('fallback para "system" quando theme na DB é inválido', async () => {
+    let call = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      call++;
+      if (call === 1) return [];
+      if (call === 2)
+        return [{ always_preview: false, widgets_enabled: VALID_WIDGETS, theme: 'rainbow' }];
+      return [];
+    });
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { theme: string };
+    expect(body.theme).toBe('system');
+  });
+
+  it('fallback para "system" quando theme é null (row recém-criada)', async () => {
+    let call = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      call++;
+      if (call === 1) return [];
+      if (call === 2)
+        return [{ always_preview: false, widgets_enabled: VALID_WIDGETS, theme: null }];
+      return [];
+    });
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { theme: string };
+    expect(body.theme).toBe('system');
+  });
+
+  it('resposta inclui sempre os 3 campos (always_preview + widgets_enabled + theme)', async () => {
+    let call = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      call++;
+      if (call === 1) return [];
+      if (call === 2)
+        return [{ always_preview: true, widgets_enabled: VALID_WIDGETS, theme: 'light' }];
+      return [];
+    });
+    const res = await GET();
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).toHaveProperty('always_preview');
+    expect(body).toHaveProperty('widgets_enabled');
+    expect(body).toHaveProperty('theme', 'light');
+  });
+});
+
+describe('Story 5.8 — PATCH theme (AC4.c)', () => {
+  beforeEach(() => {
+    mocks.dbExecuteMock.mockResolvedValue([]);
+  });
+
+  it('golden path — PATCH { theme: "dark" } → 200 + 1 call DB', async () => {
+    const res = await PATCH(makePatch({ theme: 'dark' }) as never);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { theme: string };
+    expect(body.theme).toBe('dark');
+    expect(mocks.dbExecuteMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('400 quando theme é um valor inválido (fora do enum)', async () => {
+    const res = await PATCH(makePatch({ theme: 'rainbow' }) as never);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('PATCH só theme NÃO devolve always_preview (UPSERT parcial)', async () => {
+    const res = await PATCH(makePatch({ theme: 'system' }) as never);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).not.toHaveProperty('always_preview');
+    expect(body).toHaveProperty('theme', 'system');
+  });
+});

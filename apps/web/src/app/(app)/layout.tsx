@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 
 import { AppShell } from '@/components/shell/AppShell';
+import { ThemeProvider, THEME_COOKIE } from '@/components/theme/ThemeProvider';
+import { ThemeSchema, type Theme } from '@/lib/api-schemas/preferences';
 
 export const metadata: Metadata = {
   title: 'Expressia',
@@ -9,22 +12,36 @@ export const metadata: Metadata = {
 /**
  * Layout do route group `(app)/` — rotas autenticadas.
  *
- * Story 5.3 substitui o placeholder Story 1.5 (header horizontal de 59 linhas)
- * pelo `<AppShell>` 3-zonas (sidebar fixa 240px + main + chat panel slot).
- * O layout fica fino — apenas declara `metadata` + delega ao `AppShell` que
- * orquestra Sidebar, TopBar (com avatar + logoutAction), main e ChatPanelSlot.
+ * Story 5.3 substituiu o placeholder Story 1.5 pelo `<AppShell>` 3-zonas.
+ * Story 5.8 (AC1.d/AC7) envolve o shell num `<ThemeProvider>` Client que
+ * sincroniza o tema claro/escuro/sistema e expõe `useTheme()` ao toggle.
+ *
+ * O `theme` inicial é lido do cookie `expressia-theme` server-side (leitura
+ * síncrona, zero round-trip DB por render — DP-5.8.B). A fonte de verdade
+ * cross-device é `user_prefs.theme` (DB), sincronizada para o cookie pelo PATCH
+ * do toggle e pelo script anti-FOUC. `ThemeSchema.safeParse` + fallback
+ * `'system'` (default da coluna) — análogo ao padrão da Story 5.7.
  *
  * Contracts preservados:
  *   - `export default AppLayout({ children })` (Next.js App Router exige)
- *   - `export const metadata` byte-a-byte
- *   - Server Component (sem `'use client'`)
- *   - `logoutAction` Server Action invocada via `<form action={logoutAction}>`
- *     dentro do `TopBar` (Story 1.5 D15 inalterado)
- *   - `apps/web/src/middleware.ts` NÃO tocado (auth gate intacto;
- *     DP-5.3.E carry-over folded em Story 5.10)
+ *   - Server Component (sem `'use client'`) — o `<ThemeProvider>` Client é
+ *     montado como filho (não converte o layout em Client)
+ *   - `apps/web/src/middleware.ts` NÃO tocado (auth gate intacto)
  *
- * Trace: Story 5.3 AC1; Story 1.5 Task 7 (D13/D15); Architecture §8.1.
+ * Trace: Story 5.3 AC1; Story 5.8 AC1.d/AC4/AC7; DP-5.8.A/B; Architecture §8.1.
  */
-export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return <AppShell>{children}</AppShell>;
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const cookieStore = await cookies();
+  const parsed = ThemeSchema.safeParse(cookieStore.get(THEME_COOKIE)?.value);
+  const initialTheme: Theme = parsed.success ? parsed.data : 'system';
+
+  return (
+    <ThemeProvider initialTheme={initialTheme}>
+      <AppShell>{children}</AppShell>
+    </ThemeProvider>
+  );
 }

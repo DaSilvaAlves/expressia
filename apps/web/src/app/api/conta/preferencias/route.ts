@@ -9,9 +9,10 @@
  *   - Lazy-init UPSERT (D32): `INSERT ... ON CONFLICT (user_id) DO NOTHING`
  *     resolve household via `household_members` (primeiro household do user);
  *     depois SELECT. Idempotente — concurrent GETs não duplicam rows.
- *   - Retorna `{ always_preview, widgets_enabled }`. `widgets_enabled` validado
- *     com `WidgetsEnabledSchema.safeParse` + fallback `DEFAULT_WIDGETS_ENABLED`.
- *     401 se sem auth.
+ *   - Retorna `{ always_preview, widgets_enabled, theme }` (Story 5.8 AC4).
+ *     `widgets_enabled` validado com `WidgetsEnabledSchema.safeParse` + fallback
+ *     `DEFAULT_WIDGETS_ENABLED`; `theme` com `ThemeSchema.safeParse` + fallback
+ *     `'system'` (default da coluna `user_prefs.theme`). 401 se sem auth.
  *
  * PATCH:
  *   - Body: `PreferencesPatchSchema` (`always_preview?`, `theme?`,
@@ -43,6 +44,7 @@ import { apiError } from '@/lib/errors';
 import { getDb } from '@/lib/agent/db-shim';
 import {
   PreferencesPatchSchema,
+  ThemeSchema,
   WidgetsEnabledSchema,
 } from '@/lib/api-schemas/preferences';
 // `DEFAULT_WIDGETS_ENABLED` é o espelho local apps/web (Story 5.6 PO-FIX-2 —
@@ -74,10 +76,11 @@ async function resolveHouseholdId(userId: string): Promise<string | null> {
 /**
  * GET /api/conta/preferencias
  *
- * Lazy-init UPSERT (D32). Devolve `{ always_preview }` do user actual.
+ * Lazy-init UPSERT (D32). Devolve `{ always_preview, widgets_enabled, theme }`
+ * do user actual.
  *
  * Responses:
- *   - 200 `{ always_preview: boolean }`
+ *   - 200 `{ always_preview: boolean, widgets_enabled: WidgetsEnabled, theme: Theme }`
  *   - 401 AUTH_REQUIRED
  *   - 404 HOUSEHOLD_NOT_FOUND
  *   - 500 INTERNAL_ERROR
@@ -130,8 +133,9 @@ export async function GET(): Promise<NextResponse> {
         const rows = await db.execute<{
           always_preview: boolean;
           widgets_enabled: unknown;
+          theme: unknown;
         }>(sql`
-          select always_preview, widgets_enabled from public.user_prefs
+          select always_preview, widgets_enabled, theme from public.user_prefs
           where user_id = ${user.id}::uuid
           limit 1
         `);
@@ -143,6 +147,10 @@ export async function GET(): Promise<NextResponse> {
         const widgetsEnabled = widgetsParsed.success
           ? widgetsParsed.data
           : DEFAULT_WIDGETS_ENABLED;
+        // Story 5.8 AC4 — valida `theme` lido; fallback `'system'` (default da
+        // coluna `user_prefs.theme`, migration 0016). Análogo ao padrão 5.7.
+        const themeParsed = ThemeSchema.safeParse(rows[0]?.theme);
+        const theme = themeParsed.success ? themeParsed.data : 'system';
 
         annotateSpan(span, { statusCode: 200 });
         log.info(
@@ -150,7 +158,11 @@ export async function GET(): Promise<NextResponse> {
           'GET /api/conta/preferencias OK',
         );
 
-        return NextResponse.json({ always_preview: alwaysPreview, widgets_enabled: widgetsEnabled });
+        return NextResponse.json({
+          always_preview: alwaysPreview,
+          widgets_enabled: widgetsEnabled,
+          theme,
+        });
       } catch (err) {
         annotateSpan(span, { statusCode: 500 });
         log.error({ err }, 'GET /api/conta/preferencias falhou');

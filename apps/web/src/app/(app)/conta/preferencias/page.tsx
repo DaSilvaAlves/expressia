@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 
 import { PrefsToggle } from '@/app/(app)/conta/preferencias/_components/prefs-toggle';
+import { ThemeToggle } from '@/app/(app)/conta/preferencias/_components/theme-toggle';
 
 export const metadata: Metadata = {
   title: 'Preferências — Expressia',
@@ -66,6 +67,11 @@ export default async function PreferenciasPage() {
       </div>
 
       <PrefsToggle initial={{ always_preview: initialAlwaysPreview }} />
+
+      {/* Story 5.8 (AC2.d) — toggle de tema. O valor inicial vem do
+          `<ThemeProvider>` (cookie lido server-side em `(app)/layout.tsx`),
+          via `useTheme()` — sem round-trip extra. */}
+      <ThemeToggle />
     </div>
   );
 }
