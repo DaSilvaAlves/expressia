@@ -1,0 +1,92 @@
+id: mj-handoff-5.9-architect-to-devops-20260529
+from_agent: architect
+to_agent: devops
+created: '2026-05-29T19:10:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.9'
+last_command: '*qa-gate 5.9'
+priority: medium
+
+summary: |
+  @architect Aria executou `*qa-gate 5.9` (`<UndoToast>` global + `<EmptyState>`
+  shared). **PASS 9,2/10 HIGH · 7/7 gates re-corridos independentemente GREEN
+  (incl. `pnpm build` + `pnpm --filter @meu-jarvis/ui test`) · 4 [DEV-DECISION]
+  ratificadas · 1 OBS LOW não-bloqueante.** Story → Done v1.3-ARCH-APPROVED.
+  Pronta para push. Net +25 testes (web 962→978; ui 18→27).
+
+next_action: |
+  **`@devops *push 5.9`** — re-correr os 5 quality gates em sessão @devops
+  (lint · typecheck · test apps/web · build · check:rls) + housekeeping:
+  story `active/`→`completed/`, actualizar `_INDEX.md` Epic 5 (→ 9/10 Done),
+  arquivar este handoff + actualizar HANDOFF-INDEX. CodeRabbit SKIPPED
+  (precedente consistente 3.1-5.8). 2-commit pattern habitual (feat já local
+  f6347da + housekeeping desta sessão @architect). Excluir do staging: draft 5.10
+  + STORY-BACKLOG.md + handoff session-pause (untracked/WIP, intactos).
+  NÃO usar `--force` nem `--no-verify`.
+
+context: |
+  **Story:** docs/stories/active/5.9.undotoast-global-emptystate-shared.story.md
+  (Done v1.3-ARCH-APPROVED; secção "QA Results" tem o detalhe completo do gate;
+  Change Log v1.3 sumariza).
+
+  **7/7 gates re-corridos na sessão @architect (independente do @dev):**
+    - `pnpm lint` — exit 0, 0 warnings (`--max-warnings=0`)
+    - `pnpm typecheck` — exit 0 (10/10)
+    - `pnpm --filter @meu-jarvis/web test` — 978/978 (124 files), baseline 962 → +16
+    - `pnpm --filter @meu-jarvis/ui test` — 27/27 (3 files), baseline 18 → +9
+    - `pnpm build` — exit 0 (10/10 tasks)
+    - `node scripts/audit-dark-mode.ts` — exit 0 (R-5.2; zero violações)
+    - `pnpm check:rls` — exit 0, 28 tabelas INALTERADO (NFR5; zero migration)
+  NOTA: "erros" no log dos testes web (audit_log table locked / connection lost)
+  são casos de teste de error-handling com mocks intencionais — NÃO falhas.
+
+  **4 [DEV-DECISION] RATIFICADAS:**
+    - D-5.9.1 — `VisaoEmptyState` wrapper fino delega a `<EmptyState variant="visao">`.
+      RATIFICADA. AC5 PASS permite explicitamente; consolidação real (fonte única
+      design system); preserva page.tsx/page.test.tsx sem tocar — zero regressão.
+    - D-5.9.2 — `<EmptyState>` usa `<a href>` (não next/link); `no-tasks` adopta
+      copy canónica e remove placeholder não-funcional. RATIFICADA. packages/ui é
+      framework-agnóstico (sem dep next) — `<a>` é a escolha correcta.
+    - D-5.9.3 — finanças `no-movements` delega via props explícitas (preserva
+      monthLabel); no-results/error/filtered-empty ficam locais. RATIFICADA.
+      Fronteira correcta — não forçar variantes artificiais no package partilhado.
+    - D-5.9.4 — slot órfão `WidgetCard.headerActions?` removido (DP-5.9.D=B).
+      RATIFICADA. grep zero callers; resolve OBS-5.7-1.
+
+  **Focus points confirmados:** FIX-1 (5.7) aplicada — `undoStore` mutado SÓ em
+  `useEffect` do `<UndoToastBridge>` + handlers/effects do `<UndoToast>`, nunca no
+  render (sem cross-request leak). REQ-INLINE-1 — grep negativo `@meu-jarvis/db`
+  em `undoStore.ts`+`EmptyState.tsx`; só strings primitivas. Zero touch DB.
+  R-5.2 exit 0. `<EmptyState>` API pública limpa (variant enum + props override,
+  precedência explícita correcta; Server Component).
+
+  **Commit local (NÃO pushed — push é EXCLUSIVO @devops):**
+    - f6347da feat(ui): Story 5.9 — UndoToast global + EmptyState shared
+    - (housekeeping desta sessão @architect: QA Results na story + handoffs — a commitar)
+
+  **CodeRabbit:** SKIPPED (precedente consistente Stories 3.1-5.8).
+
+  **Epic 5 após push:** 9/10 Done (5.1→5.9). Resta 5.10 (responsive sweep +
+  branding auth + Lighthouse — fecho do Epic 5; draft em active/, por validar).
+
+follow_ups:
+  - id: OBS-5.9-1
+    severity: LOW
+    description: >-
+      CTA do <EmptyState> (packages/ui) usa <a href> → navegação full-page em vez
+      de client-side. Aceitável para empty-state e mantém o package framework-
+      agnóstico. Reavaliar no Epic 6 se houver necessidade de SPA-nav (slot
+      render-prop para o CTA preserva a agnosticidade).
+    owner: ux-design-expert
+
+files_modified:
+  - docs/stories/active/5.9.undotoast-global-emptystate-shared.story.md   # MOD — QA Results + status Done v1.3 + Change Log v1.3
+  - docs/handoffs/archive/mj-handoff-5.9-dev-to-architect-20260529.yaml   # MOVED — consumed
+  - docs/handoffs/mj-handoff-5.9-architect-to-devops-20260529.yaml        # NEW — este handoff
+  - docs/HANDOFF-INDEX.md                                                 # MOD — pending/archived
+
+blockers: []
