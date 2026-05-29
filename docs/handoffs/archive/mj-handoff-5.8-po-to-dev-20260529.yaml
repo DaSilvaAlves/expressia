@@ -2,8 +2,16 @@ id: mj-handoff-5.8-po-to-dev-20260529
 from_agent: po
 to_agent: dev
 created: '2026-05-29T14:00:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-05-29T16:20:00Z'
+consumed_by: dev
+consumed_note: |
+  @dev Dex consumiu o handoff po→dev e executou `*develop 5.8` (YOLO). 8/8 ACs ·
+  5/5 quality gates GREEN · net testes +76 (886 → 962 / 121 files). 6 DPs (A-F)
+  implementadas conforme recomendação; 3 [DEV-DECISION] (D-5.8.1/2/3) a ratificar
+  no gate. Story → Ready for Review v1.3. Sucessor pending:
+  mj-handoff-5.8-dev-to-architect-20260529.yaml.
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

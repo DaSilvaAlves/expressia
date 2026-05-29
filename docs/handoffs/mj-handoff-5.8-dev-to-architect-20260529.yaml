@@ -1,0 +1,126 @@
+id: mj-handoff-5.8-dev-to-architect-20260529
+from_agent: dev
+to_agent: architect
+created: '2026-05-29T16:15:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.8'
+last_command: '*develop 5.8'
+priority: medium
+
+summary: |
+  @dev Dex completou `*develop 5.8` (Modo claro/escuro — tokens sweep +
+  persistência + toggle) em modo YOLO autónomo. **8/8 ACs · 5/5 quality gates
+  GREEN · net testes +76 (886 → 962 / 121 files).** Story em `Ready for Review
+  v1.3`. As 6 DPs (A-F) foram implementadas conforme a recomendação ratificada
+  pelo @po (A em todas). 3 [DEV-DECISION] (D-5.8.1/2/3) precisam de ratificação
+  arquitectural. Pronta para `@architect *qa-gate 5.8`.
+
+next_action: |
+  **`@architect *qa-gate 5.8`** — auditoria + 5/5 quality gates re-corridos
+  independentemente + ratificar as 3 [DEV-DECISION]. Pontos de foco abaixo.
+  Inclui `pnpm build` (o @dev correu lint/typecheck/test/audit/check:rls mas
+  NÃO build — é gate do @architect; verificar `/conta/preferencias` no manifest
+  + RootLayout com o `<script>` anti-FOUC). Se PASS: status → Done
+  v1.x-ARCH-APPROVED + handoff architect→devops.
+
+context: |
+  **Story:** docs/stories/active/5.8.dark-mode-tokens-sweep-persistence.story.md
+  (Ready for Review v1.3 — secção "Dev Agent Record" tem File List + 3
+  [DEV-DECISION] + tabela de gates; Change Log v1.3 tem o detalhe completo).
+
+  **Núcleo arquitectural (DP-5.8.A/B/C — porque o gate é @architect):**
+    - DP-5.8.A — estratégia `darkMode: 'class'` + anti-FOUC SSR. Implementado:
+      `tailwind.config.ts` `darkMode: 'class'`; `globals.css` `@media` → `.dark`;
+      `theme-script.ts` (`THEME_SCRIPT`) IIFE try/catch injectada no `<head>` do
+      RootLayout via `dangerouslySetInnerHTML` ANTES de qualquer CSS; lê cookie
+      `expressia-theme`, lida com `system` via `matchMedia`. Aplica/remove `dark`
+      no `<html>` pré-hidratação (zero flash).
+    - DP-5.8.B — persistência híbrida C. `user_prefs.theme` = source-of-truth
+      cross-device (DB); cookie `expressia-theme` (SameSite=Lax; Path=/;
+      Max-Age=31536000) = leitura síncrona pré-paint; ThemeProvider = cache
+      reactivo de UI. PATCH do toggle persiste DB + escreve cookie. SSR lê o
+      cookie em `(app)/layout.tsx` (`ThemeSchema.safeParse` + fallback 'system')
+      e passa `initialTheme` ao `<ThemeProvider>`.
+    - DP-5.8.C — reconciliação de tokens (FUP-5.3.B). `packages/ui/src/tokens.ts`
+      hex = fonte canónica; `globals.css` materializa em CSS vars; `tailwind.config`
+      `colors` mapeia nomes → `var(--*)`. 3 superfícies cobertas (PO-FIX-2).
+
+  **3 [DEV-DECISION] a ratificar:**
+    - D-5.8.1 — `tailwind.config.ts colors` mantém nomes legacy
+      (`background`/`foreground`/`muted`/`muted-foreground`/`border`) como aliases
+      + adiciona nomes semânticos (`canvas`/`surface`/`text-primary`/...). Razão:
+      cobre as 3 superfícies do PO-FIX-2 com zero sweep desnecessário e zero
+      regressão visual (as 14+ classes legacy já em uso continuam estiladas).
+      Alternativa (rename total) rejeitada — sweep maior sem benefício.
+    - D-5.8.2 — assimetria 19 light / 16 dark MANTIDA: os 3 `*Subtle` de status
+      (`successSubtle`/`warningSubtle`/`dangerSubtle`) NÃO foram preenchidos em
+      `colorsDark`/`.dark`. Razão: front-end-spec §3.2 não os define; inventar hex
+      violaria Article IV (PO-FIX-1). Decisão de UX adiada (consultar
+      @ux-design-expert). O parity test (`tokens-parity.test.ts`) reflecte a
+      omissão (verifica que existem em `:root` e estão ausentes em `.dark`).
+    - D-5.8.3 — teste do `scripts/audit-dark-mode.ts` (raiz do repo, fora do
+      `src/` de qualquer package) feito via `import()` dinâmico de `file://`
+      absoluto dentro de `apps/web/src/app/__tests__/audit-dark-mode.test.ts`.
+      Razão: não há root vitest/tsconfig que cubra `scripts/`; o `import()`
+      runtime não atravessa o `rootDir`/`include` do tsconfig do apps/web
+      (typecheck verde) e testa a lógica real (`findViolationsInContent` +
+      `runAudit()` exit 0 sobre o codebase).
+
+  **Pontos de foco para o gate (auditoria):**
+    1. **Lição FIX-1 (5.7) APLICADA:** a mutação de `document.documentElement`
+       no `ThemeProvider` está em `useEffect` (linhas 93-97 e 100-111), NUNCA no
+       corpo do render. O `setTheme` (useCallback) também só corre em handlers
+       client. O script anti-FOUC é a única excepção (JS puro pré-hidratação) —
+       coerente. Confirmar que não há repetição do bug 5.7 (cross-request leak).
+    2. **REQ-INLINE-1:** `ThemeSchema`/`Theme` vêm de `@/lib/api-schemas/preferences`
+       (local); o único import de `@meu-jarvis/db` em `preferences.ts` é
+       `import type { WidgetsEnabled }` (type-only). `route.ts` usa `getDb` de
+       `@/lib/agent/db-shim` (NUNCA `getServiceDb` — NFR5).
+    3. **Zero touch DB:** sem migration, sem nova tabela, sem alteração RLS.
+       `check:rls` exit 0 — 28 tabelas INALTERADO. PATCH já aceitava `theme`
+       (Story 5.1) — nenhuma alteração ao PATCH handler.
+    4. **Snapshots:** a mudança `media` → `class` NÃO partiu testes existentes
+       (962/962, baseline 886 + 76 novos, zero regressões). `page.test.tsx`
+       (visao) intacto.
+    5. **audit-dark-mode (R-5.2):** `node scripts/audit-dark-mode.ts` exit 0 —
+       zero violações no codebase real (os tokens semânticos no Tailwind `colors`
+       cobrem os componentes; whitelist trata `/N` opacidade + tons médios).
+
+  **Gates (5/5 GREEN — re-correr independentemente no gate):**
+    - `pnpm lint` — 10/10, 0 warnings (`--max-warnings=0`)
+    - `pnpm typecheck` — 10/10
+    - `pnpm --filter @meu-jarvis/web test` — 962/962 (121 files), net +76
+    - `node scripts/audit-dark-mode.ts` — exit 0 (R-5.2)
+    - `pnpm check:rls` — exit 0, 28 tabelas INALTERADO
+    - (NÃO corrido pelo @dev: `pnpm build` — gate do @architect)
+
+  **Commits locais (NÃO pushed — push é EXCLUSIVO @devops):**
+    - 0d73e29 chore(docs): consolidar docs PO Epic 5 (5.8 validada + 5.10 draft)
+    - 8c30aa3 feat(theme): Story 5.8 — modo claro/escuro com toggle + persistência híbrida
+
+  **CodeRabbit:** SKIPPED (precedente consistente Stories 3.1-5.7).
+
+files_modified:
+  - apps/web/tailwind.config.ts                                             # MOD — darkMode: class + bloco colors
+  - apps/web/src/app/globals.css                                           # MOD — @media → .dark; HSL → hex
+  - apps/web/src/app/layout.tsx                                            # MOD — THEME_SCRIPT no <head>
+  - apps/web/src/app/(app)/layout.tsx                                      # MOD — <ThemeProvider initialTheme>
+  - apps/web/src/app/(app)/conta/preferencias/page.tsx                     # MOD — <ThemeToggle> co-localizado
+  - apps/web/src/app/api/conta/preferencias/route.ts                       # MOD — GET estende theme
+  - apps/web/src/components/theme/ThemeProvider.tsx                        # NEW — Client + useTheme()
+  - apps/web/src/components/theme/theme-script.ts                          # NEW — THEME_SCRIPT anti-FOUC
+  - apps/web/src/app/(app)/conta/preferencias/_components/theme-toggle.tsx # NEW — radiogroup 3 opções
+  - scripts/audit-dark-mode.ts                                             # NEW — gate R-5.2
+  - apps/web/src/components/theme/__tests__/ThemeProvider.test.tsx         # NEW test (14)
+  - apps/web/src/components/theme/__tests__/theme-script.test.ts           # NEW test (10)
+  - apps/web/src/app/(app)/conta/preferencias/__tests__/theme-toggle.test.tsx # NEW test (8)
+  - apps/web/src/app/__tests__/tokens-parity.test.ts                       # NEW test (39)
+  - apps/web/src/app/__tests__/audit-dark-mode.test.ts                     # NEW test (8)
+  - apps/web/src/app/api/conta/preferencias/__tests__/route.test.ts        # MOD test (+7 theme)
+  - docs/stories/active/5.8.dark-mode-tokens-sweep-persistence.story.md    # MOD — v1.3 Ready for Review
+
+blockers: []
