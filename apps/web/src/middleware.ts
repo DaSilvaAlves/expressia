@@ -27,13 +27,21 @@ import { NextResponse, type NextRequest } from 'next/server';
  * Route groups Next.js (`(app)/`) são VIRTUAIS — não mapeiam automaticamente
  * para o auth gate. Cada rota nova autenticada DEVE ser adicionada aqui.
  *
+ * `startsWith` cobre as sub-rotas: `/tarefas` cobre `/tarefas/kanban`,
+ * `/financas` cobre `/financas/este-mes`, etc. — mesmo padrão de `/conta`
+ * que já cobre `/conta/preferencias`.
+ *
  * Story 2.7 PO_FIX_INLINE 4: refactor de literal `'/visao'` para array.
  * Sem isto, novas rotas (`/jarvis`, `/conta/preferencias`) ficavam
  * publicamente acessíveis (regression NFR8 / Story 1.5 AC2).
+ * Story 5.0-hotfix: adicionados `/tarefas` (Epic 3) e `/financas` (Epic 4),
+ * criados sem actualizar este array — 3ª reincidência do mesmo bug. Exportado
+ * para o teste de cobertura auto-mantido (`__tests__/middleware.test.ts`), que
+ * parte o build se uma rota `(app)/` futura ficar descoberta pelo auth gate.
  *
- * Trace: Story 1.5 AC2 + Story 2.7 PO_FIX_INLINE 4.
+ * Trace: Story 1.5 AC2 + Story 2.7 PO_FIX_INLINE 4 + Story 5.0-hotfix AC1/AC3.
  */
-const APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta'] as const;
+export const APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta', '/tarefas', '/financas'] as const;
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   let supabaseResponse = NextResponse.next({ request });
