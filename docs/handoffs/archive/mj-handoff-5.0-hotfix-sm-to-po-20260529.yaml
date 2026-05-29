@@ -1,0 +1,86 @@
+id: mj-handoff-5.0-hotfix-sm-to-po-20260529
+from_agent: sm (River)
+to_agent: po
+created: '2026-05-29T01:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-29T02:15:00Z'
+consumed_by: po (Pax)
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.0-hotfix'
+last_command: '@sm *draft 5.0-hotfix.middleware-auth-gate-tarefas-financas'
+priority: high
+
+summary: |
+  @sm (River) criou o draft da micro-story de hotfix de segurança
+  `5.0-hotfix.middleware-auth-gate-tarefas-financas` (Draft v1.0), a partir do handoff
+  po→sm (consumido + arquivado) e do achado [SEC-MW-F1] HIGH. Story endereça o bypass
+  do auth gate confirmado pelo @po: `middleware.ts:36` `APP_PATH_PREFIXES` omite
+  `/tarefas` e `/financas`. 5 ACs · 5 tasks · 3 DPs · Estimate S. Pronta para validação.
+
+next_action: |
+  `@po *validate-story-draft 5.0-hotfix.middleware-auth-gate-tarefas-financas`
+  (10-point checklist + cross-confirm anti-hallucination). Se GO, actualizar Status
+  Draft → Ready e seguir para `@dev *develop`. Recomendação @po (já registada): este
+  hotfix corre ANTES da Story 5.8.
+
+  Pontos para o @po decidir/ratificar na validação:
+    - DP-HF.A (mecanismo anti-reincidência via teste auto-mantido de cobertura) —
+      é o entregável que mais importa (o array já reincidiu 2×). Ratificar rec. A.
+    - DP-HF.B (defesa em profundidade no (app)/layout.tsx) — @sm deixou DEFERIDA ao
+      @architect no gate, com recomendação de manter mínimo (B) + follow-up. O @po
+      fixa o âmbito: incluir na story (sobe ligeiramente o esforço) ou follow-up?
+    - AC4 (verificação runtime de fuga de dados) é deliberadamente um item de QA gate,
+      não código do @dev — confirmar que o @po concorda com essa fronteira.
+
+context: |
+  **Story criada:** docs/stories/active/5.0-hotfix.middleware-auth-gate-tarefas-financas.story.md
+
+  **Verificação byte-a-byte independente do @sm (Article IV — zero invenção):**
+    - `middleware.ts:36` — `const APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta'] as const;` ✓
+    - `middleware.ts:70-76` — `isAppPath = APP_PATH_PREFIXES.some(p => pathname.startsWith(p))` + redirect 307 `/entrar?next=` só se `!user && isAppPath` ✓
+    - `middleware.ts:8` — docstring afirma `/(app)/**` "(visão, tarefas, finanças, perfil…)" requer auth ✓ (contradiz o array)
+    - `middleware.ts:90-102` — matcher JÁ apanha /tarefas e /financas (exclui só _next, favicon, api/billing, api/cron, estáticos) → o defeito é só na lógica isAppPath, NÃO no matcher ✓
+    - `(app)/layout.tsx:28-30` — Server Component fino `<AppShell>{children}</AppShell>` SEM getUser() próprio ✓ (sem 2ª linha de defesa)
+    - Glob `app/(app)/**/page.tsx` — confirmadas: /tarefas (+calendario,kanban), /financas (+este-mes,variaveis,recorrentes,cartoes,patrimonio), /visao, /jarvis, /conta/preferencias ✓
+    - `__tests__/middleware.test.ts` — EXISTE (Story 2.7), ambiente `node`, mock `@supabase/ssr` + `getUserMock`, 6 casos (visao/jarvis/conta redirect + visao com sessão + /entrar + /api/me passam) ✓ — molde para os casos novos
+    - `core-config.yaml` — SEM secção `coderabbit_integration` → CodeRabbit Disabled (precedente 3.1-5.7) ✓
+
+  **Decisões de design (3 DPs):**
+    - DP-HF.A: teste de cobertura auto-mantido (lê app/(app)/*/ via fs, assert cada
+      segmento ∈ APP_PATH_PREFIXES). Rec. A. Nota técnica: pode ser preciso EXPORTAR
+      `APP_PATH_PREFIXES` do middleware.ts para o teste importar (confirmar que não
+      quebra bundle Edge).
+    - DP-HF.B: guarda server-side no layout — DEFERIDA ao @architect (rec. @sm: mínimo B).
+    - DP-HF.C: adicionar exactamente '/tarefas' + '/financas' (startsWith cobre sub-rotas). Rec. A.
+
+  **Âmbito (NÃO faz):** não toca tokens/dark mode (5.8), responsive/branding (5.10),
+    RLS/schema/migrations, nem o matcher. check:rls inalterado (28 tabelas).
+
+  **Estimate S** — fix funcional = 1 linha; o grosso é o teste de cobertura anti-reincidência.
+  Baseline testes apps/web 879/116; target net ≥ +6.
+
+  **Pipeline:** @sm *draft → @po *validate → @dev *develop → @qa *qa-gate (security) →
+    @devops *push. 5 gates root: pnpm lint · typecheck · --filter @meu-jarvis/web test ·
+    build · check:rls. Apenas @devops faz push.
+
+  **Pós-fecho:** remover o achado de segurança da Story 5.10 (AC6/FUP-5.3.C) — passa a
+    estar resolvido isoladamente.
+
+  **Housekeeping pendente (não-bloqueante):** esta story + 5.8/5.9/5.10 + STORY-BACKLOG.md
+    + handoffs estão untracked. Commit = @dev; push = @devops. O _INDEX.md do Epic 5 não
+    lista as stories novas (só o header narrativo está actualizado até 5.7).
+
+files_modified:
+  # Criado nesta sessão @sm:
+  - docs/stories/active/5.0-hotfix.middleware-auth-gate-tarefas-financas.story.md
+  - docs/handoffs/mj-handoff-5.0-hotfix-sm-to-po-20260529.yaml  # este
+  # Consumido + arquivado nesta sessão:
+  - docs/handoffs/archive/mj-handoff-security-middleware-auth-gate-po-to-sm-20260529.yaml
+  # A modificar pela implementação (referência, ainda não tocado):
+  # - apps/web/src/middleware.ts (linha 36 + comentário)
+  # - apps/web/src/__tests__/middleware.test.ts (casos novos)
+
+blockers: []

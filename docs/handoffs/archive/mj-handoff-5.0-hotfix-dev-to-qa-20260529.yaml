@@ -1,0 +1,85 @@
+id: mj-handoff-5.0-hotfix-dev-to-qa-20260529
+from_agent: dev (Dex)
+to_agent: qa
+created: '2026-05-29T03:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-29T13:00:00Z'
+consumed_by: qa (Quinn)
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.0-hotfix'
+last_command: '@dev *develop 5.0-hotfix.middleware-auth-gate-tarefas-financas'
+priority: high
+
+summary: |
+  @dev (Dex) implementou o hotfix de segurança `5.0-hotfix` (Ready for Review v1.2-DEV).
+  AC1 (array +/tarefas+/financas, exportado), AC2 (5 casos de regressão), AC3 (teste de
+  cobertura auto-mantido + meta-verificação — DP-HF.A). **5/5 quality gates GREEN.**
+  T4/DP-HF.B NÃO implementado (fora do âmbito @po; deferido @architect). Pronto para
+  security gate @qa. Alterações no working tree (NÃO commitado — commit/push = @devops).
+
+next_action: |
+  `@qa *qa-gate 5.0-hotfix.middleware-auth-gate-tarefas-financas` (security gate).
+  Focos do gate:
+    1. AC4 (verificação runtime de fuga de dados) — é o entregável de QA, NÃO foi feito
+       por @dev nem @po. Confirmar runtime o que um GET ANÓNIMO de `/financas/este-mes`
+       devolvia ANTES do fix (profundidade da fuga; RLS NFR5 zero rows ou handler lança?)
+       e que DEPOIS o redirect 307 → /entrar dispara ANTES do render. Avaliar superfícies
+       fora do middleware (/api/* não em APP_PATH_PREFIXES; /api/billing+/api/cron excluídos
+       do matcher — webhooks). Ver "Nota para @qa (AC4)" na story (Completion Notes).
+    2. Ratificar DP-HF.A — que o mecanismo de cobertura AC3 REALMENTE parte com uma rota
+       não coberta (meta-teste `isCovered('rota-fantasma...')===false` já o demonstra).
+    3. Decidir DP-HF.B — manter follow-up LOW (rec. @po/@sm) ou puxar T4 (guarda layout) se
+       trivial. O @po deixou esta ratificação ao @architect; se o gate @qa precisar de
+       decisão arquitectural, consultar @architect.
+  Se PASS → `@devops *push`. Apenas @devops faz commit final (2-commit pattern) + push.
+
+context: |
+  **Story:** docs/stories/active/5.0-hotfix.middleware-auth-gate-tarefas-financas.story.md (Ready for Review v1.2-DEV)
+
+  **Implementação (verificável por git diff contra eef0525):**
+    - `apps/web/src/middleware.ts`:
+        * Linha do array: `export const APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta', '/tarefas', '/financas'] as const;`
+          (era `const ... = ['/visao', '/jarvis', '/conta']`). +`export` (DP-HF.A) +2 prefixos (DP-HF.C rec. A).
+        * Comentário/docstring (:24-34) actualizado: startsWith cobre sub-rotas, 3ª reincidência, motivo do export.
+        * `matcher` (:90-102) INTACTO. Lógica `isAppPath`/redirect (:69-76) INTACTA.
+    - `apps/web/src/__tests__/middleware.test.ts`:
+        * Imports add: `node:fs` (readdirSync), `node:path` (dirname/resolve), `node:url` (fileURLToPath) + `APP_PATH_PREFIXES`.
+        * Describe AC2 (5 casos): /tarefas→307 next=%2Ftarefas; /tarefas/kanban→307; /financas→307 next=%2Ffinancas;
+          /financas/este-mes→307; /tarefas com sessão→200. Molde 2.7 (makeRequest + getUserMock).
+        * Describe AC3 (2 casos): (a) readdirSync de app/(app)/ via import.meta.url→../app/(app), exclui _*/(* e ficheiros,
+          assert cada segmento ∈ APP_PATH_PREFIXES (uncovered===[]) + sanity length>0; (b) meta: isCovered('rota-fantasma-sem-auth-gate')===false.
+        * 6 casos existentes (2.7) INALTERADOS. Total 13 no ficheiro.
+
+  **DEV-DECISION D-HF.1:** export APP_PATH_PREFIXES (fonte única vs duplicar no teste). Risco "quebrar Edge bundle"
+    levantado pela story → DESCARTADO por evidência: pnpm build exit 0, `ƒ Middleware 94.6 kB` no manifest.
+
+  **5/5 quality gates GREEN (re-corridos sessão @dev):**
+    - pnpm lint → exit 0 ("No ESLint warnings or errors", --max-warnings=0)
+    - pnpm typecheck → exit 0 (10/10 packages, sem any)
+    - pnpm --filter @meu-jarvis/web test → 886/886 (116 files); baseline 879/116 → NET +7 (5 AC2 + 2 AC3); zero regressões
+    - pnpm build → exit 0; Middleware 94.6 kB; /tarefas+/financas(+sub-rotas)+/visao+/jarvis no manifest
+    - pnpm check:rls → EXIT 0, 28 tabelas INALTERADO (zero touch DB/RLS)
+
+  **CodeRabbit SKIPPED** — sem secção `coderabbit_integration` em `core-config.yaml` (precedente 3.1-5.7).
+
+  **Âmbito (NÃO feito):** DP-HF.B (guarda layout), tokens/dark mode (5.8), responsive/branding (5.10),
+    RLS/schema/migrations, matcher. check:rls 28 tabelas inalterado.
+
+  **Estado git:** alterações no working tree, NÃO commitadas (commit final + push = @devops, 2-commit pattern).
+    Untracked não relacionado (5.8/5.9/5.10 stories, STORY-BACKLOG.md) NÃO tocado por @dev — pertence a outros ciclos.
+
+  **Pós-fecho (lembrete):** remover o achado de segurança da Story 5.10 (AC6/FUP-5.3.C) — resolvido aqui isoladamente.
+
+files_modified:
+  # Implementação @dev (working tree, não commitado):
+  - apps/web/src/middleware.ts
+  - apps/web/src/__tests__/middleware.test.ts
+  # Story + handoffs (docs):
+  - docs/stories/active/5.0-hotfix.middleware-auth-gate-tarefas-financas.story.md  # Status Ready for Review v1.2-DEV + Dev Agent Record + File List + Change Log
+  - docs/handoffs/mj-handoff-5.0-hotfix-dev-to-qa-20260529.yaml  # este
+  - docs/handoffs/archive/mj-handoff-5.0-hotfix-po-to-dev-20260529.yaml  # consumido nesta sessão
+
+blockers: []

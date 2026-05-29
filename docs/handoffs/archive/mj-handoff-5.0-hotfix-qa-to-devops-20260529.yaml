@@ -1,0 +1,85 @@
+id: mj-handoff-5.0-hotfix-qa-to-devops-20260529
+from_agent: qa (Quinn)
+to_agent: devops
+created: '2026-05-29T13:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-29T13:35:00Z'
+consumed_by: devops (Gage)
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.0-hotfix'
+last_command: '@qa *qa-gate 5.0-hotfix.middleware-auth-gate-tarefas-financas'
+priority: high
+
+summary: |
+  @qa (Quinn) executou o security gate da Story 5.0-hotfix → **PASS 9.5/10 HIGH.**
+  5/5 ACs PASS, 5/5 quality gates re-verificados independentemente GREEN. DP-HF.A
+  ratificado EMPIRICAMENTE (rota falsa → build parte). AC4 runtime data-leak conduzido
+  pelo @qa: profundidade NIL (guardas getUser de página disparam antes do getDb).
+  Pronto para push. Apenas @devops faz commit final (2-commit pattern) + push.
+
+next_action: |
+  `@devops *push` — publicar o ciclo do hotfix 5.0.
+  Gate file: docs/qa/gates/5.0-hotfix-qa-gate.md (PASS).
+  Recomendação @qa: status story Ready for Review v1.2-DEV → Done v1.3-QA-APPROVED
+  (transição feita pelo @devops no housekeeping, junto com _INDEX Epic 5).
+
+context: |
+  **Story:** docs/stories/active/5.0-hotfix.middleware-auth-gate-tarefas-financas.story.md (Ready for Review v1.2-DEV → recomendado Done v1.3-QA-APPROVED)
+  **Gate:** docs/qa/gates/5.0-hotfix-qa-gate.md — PASS 9.5/10 HIGH
+
+  **5/5 quality gates RE-VERIFICADOS INDEPENDENTEMENTE pelo @qa (não aceites por reporte):**
+    - pnpm lint → exit 0 (FULL TURBO, 0 warnings)
+    - pnpm typecheck → exit 0 (10/10, FULL TURBO)
+    - pnpm --filter @meu-jarvis/web test → 886/886 (116 files)
+    - pnpm build → exit 0; `ƒ Middleware 94.6 kB`; /tarefas+/financas(+sub-rotas) no manifest
+    - pnpm check:rls → EXIT 0, "Tabelas com household_id: 28 · coverage completa" (NFR5 INALTERADO)
+
+  **Diff confirmado contra eef0525:** 2 ficheiros, +91/−3.
+    - apps/web/src/middleware.ts — única mudança de lógica = `export const APP_PATH_PREFIXES = ['/visao','/jarvis','/conta','/tarefas','/financas']` + comentário; matcher/isAppPath/redirect intactos.
+    - apps/web/src/__tests__/middleware.test.ts — imports node:* + APP_PATH_PREFIXES; 2 describes (5 AC2 + 2 AC3); 6 casos 2.7 inalterados → 13 total.
+
+  **DP-HF.A ratificado EMPIRICAMENTE:** rota `(app)/` falsa (`zzqa-leak-probe`) criada → teste de cobertura
+    partiu (`expected [ 'zzqa-leak-probe' ] to deeply equal []`) → rota removida → suite 886/886 restaurada.
+    O CI job `quality` bloqueia merge se uma rota `(app)/` futura ficar descoberta. NÃO há resíduo no working tree.
+
+  **AC4 (runtime data-leak):** profundidade NIL — 10/12 rotas (app)/ têm guarda getUser()+redirect próprias
+    antes do getDb(); `financas` índice só redirecciona (sem dados); `jarvis` já middleware-coberto.
+    /api/* usa requireAuth→401; /api/billing+/api/cron são webhooks sem dados de utilizador.
+
+  **2 follow-ups LOW non-blocking (registar pós-push):**
+    - OBS-1 / DP-HF.B: guardas getUser de página inconsistentes (10/12). Consolidar via guarda no
+      (app)/layout.tsx OU teste de cobertura de guardas. Decisão @architect a partir do backlog.
+    - OBS-2: over-match startsWith (pré-existente desde 2.7, fail-safe). Informativo, sem acção.
+
+  **CodeRabbit SKIPPED** — sem secção `coderabbit_integration` em `core-config.yaml` (precedente 3.1-5.7).
+
+  **INSTRUÇÕES DE PUSH:**
+    - Commit apenas os ficheiros DESTE hotfix:
+        apps/web/src/middleware.ts
+        apps/web/src/__tests__/middleware.test.ts
+        docs/stories/active/5.0-hotfix.middleware-auth-gate-tarefas-financas.story.md (→ mover para completed/ no housekeeping se for a convenção)
+        docs/qa/gates/5.0-hotfix-qa-gate.md
+        docs/handoffs/ (este + archive dos 4 consumidos do ciclo) + docs/HANDOFF-INDEX.md
+    - NÃO incluir untracked não relacionado: stories 5.8/5.9/5.10, STORY-BACKLOG.md (outros ciclos).
+    - 2-commit pattern: feat (middleware+teste) + chore housekeeping (story Done + gate + handoffs + _INDEX).
+    - Trailers de decisão (Constraint/Rejected/Confidence/Scope-risk) conforme commit_protocol.
+    - Sugestão subject feat: `fix(security): Story 5.0-hotfix — auth gate cobre /tarefas e /financas + teste de cobertura anti-reincidência [Story 5.0-hotfix]`
+
+  **Pós-fecho:** @po remove o achado de segurança da Story 5.10 (AC6/FUP-5.3.C) — resolvido aqui isoladamente.
+
+  **Epic 5:** este hotfix é transversal (não conta como story de feature do epic). Após push, retomar a Story 5.8 (dark mode, já validada @po GO 9.2/10).
+
+files_modified:
+  # Implementação @dev (working tree, a commitar por @devops):
+  - apps/web/src/middleware.ts
+  - apps/web/src/__tests__/middleware.test.ts
+  # QA + docs (esta sessão @qa):
+  - docs/qa/gates/5.0-hotfix-qa-gate.md  # NOVO — gate PASS
+  - docs/stories/active/5.0-hotfix.middleware-auth-gate-tarefas-financas.story.md  # secção QA Results adicionada
+  - docs/handoffs/mj-handoff-5.0-hotfix-qa-to-devops-20260529.yaml  # este
+  - docs/handoffs/archive/mj-handoff-5.0-hotfix-dev-to-qa-20260529.yaml  # consumido nesta sessão
+
+blockers: []

@@ -1,0 +1,95 @@
+id: mj-handoff-security-middleware-auth-gate-po-to-sm-20260529
+from_agent: po (Pax)
+to_agent: sm
+created: '2026-05-29T01:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-29T01:30:00Z'
+consumed_by: sm (River)
+consumed_note: |
+  @sm consumiu e executou *draft. Story criada em
+  docs/stories/active/5.0-hotfix.middleware-auth-gate-tarefas-financas.story.md
+  (Draft v1.0). Verificação byte-a-byte independente confirmou todos os factos do
+  handoff (middleware.ts:36/70-76/8, layout.tsx:28-30, rotas via Glob, molde de teste
+  2.7). Sucessor pending: mj-handoff-5.0-hotfix-sm-to-po-20260529.yaml.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: 'hotfix-middleware-auth-gate'
+last_command: '@po (verificação independente do achado de segurança)'
+priority: high
+
+summary: |
+  ACHADO DE SEGURANÇA CONFIRMADO pelo @po (Pax) em verificação independente durante
+  a sessão da Story 5.8. O auth gate do middleware (`apps/web/src/middleware.ts:36`)
+  NÃO cobre `/tarefas` nem `/financas` → utilizadores não autenticados não são
+  redireccionados dessas rotas (violação NFR8). É o carry-over CO-2 da Story 5.4
+  ("middleware APP_PATH_PREFIXES folding 5.10") e o achado reportado pelo @sm na
+  Story 5.10 (AC6/FUP-5.3.C), agora confirmado byte-a-byte. Decisão @po: tirar da
+  5.10 e tratar como FIX ISOLADO PRIORITÁRIO (antes da 5.8). Registado em
+  `docs/STORY-BACKLOG.md` como `[SEC-MW-F1]` HIGH.
+
+next_action: |
+  `@sm *draft` de uma micro-story de hotfix de segurança. Sugestão de nome/ID:
+  `5.0-hotfix.middleware-auth-gate-tarefas-financas` (ou o ID que o @sm achar
+  coerente com o esquema do Epic 5; é fix transversal, não uma feature do epic).
+
+  A story deve cobrir:
+    1. Adicionar `'/tarefas'` e `'/financas'` a `APP_PATH_PREFIXES`
+       (`apps/web/src/middleware.ts:36`).
+    2. Teste de regressão que assert um prefixo do auth gate por CADA rota `(app)/`
+       real existente — para que uma rota futura sem cobertura PARTA o build
+       (prevenir reincidência do CO-2; o array já falhou 2x: tarefas + financas).
+    3. [@architect avalia no gate] defesa em profundidade: guarda server-side no
+       `(app)/layout.tsx` para além do middleware (hoje não tem — delega 100% ao mw).
+    4. [@qa security gate] CONFIRMAR runtime o que o fetch SSR de `/financas/este-mes`
+       devolve a um utilizador anónimo (data leak ruled out ou não). O @po confirmou a
+       condição estrutural (gate quebrado) mas NÃO testou a profundidade da fuga.
+
+  Fluxo: @sm *draft → @po *validate → @dev *develop → @qa *qa-gate (security) →
+  @devops *push. Depois, remover o achado da Story 5.10 (AC6/FUP-5.3.C) como resolvido.
+
+context: |
+  **Evidência verificada pelo @po (não é afirmação de subagente — confirmado):**
+    - `apps/web/src/middleware.ts:36`:
+        `const APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta'] as const;`
+      Linha 8 (docstring) afirma que `/(app)/**` "(visão, tarefas, finanças, perfil…)"
+      requer auth — mas o array omite tarefas+financas.
+    - Linha 70-76: `isAppPath = APP_PATH_PREFIXES.some(p => pathname.startsWith(p))`;
+      redirect para `/entrar` só dispara se `!user && isAppPath`. Nunca dá match em
+      `/tarefas`/`/financas`.
+    - `(app)/layout.tsx:28-30`: delega ao `<AppShell>` SEM guarda server-side própria
+      (linha 23 até diz "auth gate intacto"). Não há 2ª linha de defesa.
+    - Rotas afectadas (Glob de `apps/web/src/app/(app)/**/page.tsx`):
+        /tarefas, /tarefas/calendario, /tarefas/kanban
+        /financas, /financas/este-mes, /financas/variaveis, /financas/recorrentes,
+        /financas/cartoes, /financas/patrimonio
+    - Coberturas OK: /visao, /jarvis, /conta/preferencias (via prefixo /conta).
+    - Precedente: `PO_FIX_INLINE 4` da Story 2.7 (`middleware.ts:30-32`) criou o array
+      precisamente para evitar este bug — mas Epics 3/4 não o actualizaram.
+
+  **Severidade (avaliação @po):**
+    - Auth gate do middleware: QUEBRADO para tarefas+financas (facto verificado) = HIGH.
+    - Fuga de dados real: PROVAVELMENTE mitigada pela RLS (NFR5 — getDb() sem JWT não
+      tem household_id claim → zero rows). MAS não confirmado runtime → @qa deve confirmar.
+      Não dar a fuga por garantidamente nula sem teste.
+
+  **Relação com o resto do Epic 5 (estado no momento):**
+    - 5.8 dark mode = Ready for Dev v1.1 (GO 9.2/10) — NÃO bloqueada por isto, mas o @po
+      recomenda o hotfix PRIMEIRO (segurança > feature nova).
+    - 5.9 e 5.10 = Draft v1.0 por validar. A 5.10 contém este achado em AC6/FUP-5.3.C;
+      remover de lá quando o hotfix fechar.
+    - Os 3 drafts (5.8/5.9/5.10) continuam untracked (commit = @dev, push = @devops).
+
+  **Pipeline (inalterado):** 5 quality gates (root): pnpm lint · typecheck ·
+    --filter @meu-jarvis/web test · build · check:rls. Baseline apps/web 879/116.
+    check:rls deve manter EXIT 0 28 tabelas (hotfix não toca DB/RLS schema).
+
+files_modified:
+  # Criados nesta sessão @po:
+  - docs/STORY-BACKLOG.md            # novo — item [SEC-MW-F1] HIGH
+  - docs/handoffs/mj-handoff-security-middleware-auth-gate-po-to-sm-20260529.yaml  # este
+  # A modificar pela story de hotfix (referência, ainda não tocado):
+  # - apps/web/src/middleware.ts (linha 36 — adicionar /tarefas + /financas)
+
+blockers: []
