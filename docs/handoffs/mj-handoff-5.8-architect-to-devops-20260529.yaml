@@ -1,0 +1,98 @@
+id: mj-handoff-5.8-architect-to-devops-20260529
+from_agent: architect
+to_agent: devops
+created: '2026-05-29T16:45:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.8'
+last_command: '*qa-gate 5.8'
+priority: medium
+
+summary: |
+  @architect Aria executou `*qa-gate 5.8` (Modo claro/escuro — tokens sweep +
+  persistência + toggle). **PASS 9,0/10 HIGH · 6/6 gates re-corridos
+  independentemente GREEN (incl. `pnpm build`) · 3 [DEV-DECISION] ratificadas ·
+  2 follow-ups não-bloqueantes.** Story → Done v1.4 — ARCH-APPROVED. Pronta para
+  push. Inclui `pnpm build` que era o único gate não corrido pelo @dev — GREEN
+  (`/conta/preferencias` 2.21 kB no manifest, `ƒ Middleware 94.6 kB` intacto).
+
+next_action: |
+  **`@devops *push 5.8`** — re-correr os 5 quality gates em sessão @devops
+  (lint · typecheck · test apps/web · build · check:rls) + housekeeping:
+  story `active/`→`completed/`, actualizar `_INDEX.md` Epic 5 (→ 8/10 Done),
+  arquivar este handoff + actualizar HANDOFF-INDEX. CodeRabbit SKIPPED
+  (precedente consistente 3.1-5.7). 2-commit pattern habitual (feat já local +
+  housekeeping). Excluir do staging: drafts 5.9/5.10 + STORY-BACKLOG.md
+  (untracked, intactos). NÃO usar `--force` nem `--no-verify`.
+
+context: |
+  **Story:** docs/stories/active/5.8.dark-mode-tokens-sweep-persistence.story.md
+  (Done v1.4 — ARCH-APPROVED; secção "Architect QA Gate" tem o detalhe completo;
+  Change Log v1.4 sumariza).
+
+  **6/6 gates re-corridos na sessão @architect (independente do @dev):**
+    - `pnpm lint` — exit 0, 0 warnings (`--max-warnings=0`)
+    - `pnpm typecheck` — exit 0 (10/10)
+    - `pnpm --filter @meu-jarvis/web test` — 962/962 (121 files) — match exacto
+    - `pnpm build` — exit 0, 10/10 tasks; `/conta/preferencias` 2.21 kB no
+      manifest; `ƒ Middleware 94.6 kB` (auth gate hotfix 5.0 preservado)
+    - `node scripts/audit-dark-mode.ts` — exit 0 (R-5.2)
+    - `pnpm check:rls` — exit 0, 28 tabelas INALTERADO (NFR5; zero migration)
+
+  **3 [DEV-DECISION] ratificadas:**
+    - D-5.8.1 — Tailwind `colors` aliases legacy + semânticos. RATIFICADA. Fonte
+      única `tokens.ts` (hex) → `globals.css` CSS vars → Tailwind colors →
+      `var(--*)`. Zero regressão, zero sweep desnecessário, KISS.
+    - D-5.8.2 — assimetria 19/16 mantida. RATIFICADA (recusa de inventar hex
+      CORRECTA — Article IV). Gate descobriu consequência real: `theme-toggle.tsx`
+      :121/:129 usa `bg-success-subtle`/`bg-danger-subtle` → herança CSS resolve
+      ao hex CLARO em dark mode → banners do toggle com chip pastel claro em dark.
+      Cosmético, transitório (3s), não-bloqueante → FUP-5.8.A (@ux-design-expert).
+    - D-5.8.3 — teste do audit-script via `import()` dinâmico `file://`.
+      RATIFICADA. Canónico; não atravessa tsconfig (typecheck verde); testa
+      lógica real.
+
+  **Focus points confirmados:** lição FIX-1 (5.7) aplicada (mutação DOM só em
+  `useEffect`, `ThemeProvider.tsx:93-111`); REQ-INLINE-1 (`getDb` only no
+  `route.ts:44`, `import type` only de `@meu-jarvis/db`); zero touch DB; zero
+  regressões snapshot; R-5.2 exit 0.
+
+  **Commits locais (NÃO pushed — push é EXCLUSIVO @devops):**
+    - 0d73e29 chore(docs): consolidar docs PO Epic 5 (5.8 validada + 5.10 draft)
+    - 8c30aa3 feat(theme): Story 5.8 — modo claro/escuro com toggle + persistência híbrida
+    - (housekeeping desta sessão @architect: gate na story + handoffs — a commitar)
+
+  **CodeRabbit:** SKIPPED (precedente consistente Stories 3.1-5.7; sem secção
+  `coderabbit_integration` activa).
+
+  **Epic 5 após push:** 8/10 Done (5.1→5.8). Restam 5.9 (UndoToast+EmptyState,
+  draft por validar) e 5.10 (responsive+Lighthouse, draft por validar).
+
+follow_ups:
+  - id: FUP-5.8.A
+    severity: MEDIUM
+    description: >-
+      Definir os 3 hex dark dos *Subtle de status (successSubtle/warningSubtle/
+      dangerSubtle) + materializar em .dark (globals.css) e colorsDark (tokens.ts).
+      Até lá os banners do <ThemeToggle> mostram chip pastel claro em dark mode.
+      Requer decisão de UX (hex), não de eng — Article IV.
+    owner: ux-design-expert
+  - id: FUP-5.8.B
+    severity: LOW
+    description: >-
+      audit-dark-mode.ts só detecta classes da palette Tailwind, não tokens
+      semânticos usados sem equivalente .dark (ex.: bg-success-subtle). Coverage
+      gap que deixou passar o leak da FUP-5.8.A. Estender o scan.
+    owner: dev
+
+files_modified:
+  - docs/stories/active/5.8.dark-mode-tokens-sweep-persistence.story.md  # MOD — gate section + status Done v1.4 + Change Log v1.4
+  - docs/handoffs/archive/mj-handoff-5.8-dev-to-architect-20260529.yaml  # MOVED — consumed
+  - docs/handoffs/mj-handoff-5.8-architect-to-devops-20260529.yaml       # NEW — este handoff
+  - docs/HANDOFF-INDEX.md                                                # MOD — pending/archived
+  - docs/STORY-BACKLOG.md                                                # MOD — FUP-5.8.A/B
+
+blockers: []
