@@ -1,0 +1,103 @@
+id: mj-handoff-6.1-dev-to-architect-20260529
+from_agent: dev
+to_agent: architect
+created: '2026-05-29T22:10:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-29T22:30:00Z'
+consumed_by: architect
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '6.1'
+last_command: '*develop 6.1'
+priority: high
+
+summary: |
+  @dev Dex implementou a **Story 6.1 — Registo + verificação de email + branding
+  das páginas de auth** → Status **Ready for Review** v1.0. Pronta para
+  `@architect *qa-gate 6.1`. Todos os 5 gates verdes localmente (lint, typecheck
+  web+db, test web 991/991 + db 11/11, check:rls EXIT 0, build EXIT 0). 13 testes
+  web novos + 5 structural db. CodeRabbit SKIPPED (precedente 3.1-5.9).
+
+next_action: |
+  **@architect *qa-gate 6.1** (re-correr os 7 gates independentemente + validar
+  as 5 [DEV-DECISION] e os 10 ACs). Depois: @devops *push (3 ficheiros
+  modificados + 7 novos no working tree, untracked/M).
+
+context: |
+  **Story file:** docs/stories/active/6.1.registo-email-household-default.story.md
+    - Status Ready for Review v1.0; Dev Agent Record completo (Completion Notes,
+      File List, 5 [DEV-DECISION], gates). PO Validation = GO 9/10 (Pax, na mesma sessão).
+
+  **Âmbito entregue:**
+    - AC1 branding: 4 superfícies auth (layout + entrar/registar/recuperar)
+      migradas de cores hardcoded para tokens; classes em `(auth)/_lib/styles.ts`.
+    - AC2/3/4/9 verificação email (DP1): signUpAction passa emailRedirectTo
+      ({origin}/callback derivado de headers()); nova callback/route.ts
+      (exchangeCodeForSession → /confirm?status=ok|error); nova /confirm (3
+      estados); runbook actualizado (activar Confirm email + Redirect URL).
+    - AC5/6: teste structural read-only do trigger handle_new_user +
+      custom_access_token_hook — correu contra a DB real, sem divergências.
+    - AC7 sem cartão; AC8 check:rls verde; AC10 testes.
+
+  **5 [DEV-DECISION] a ratificar:**
+    D-6.1.1 emailRedirectTo via headers() (não env var SITE_URL) — evita
+      bloqueador @devops; URL /callback tem de estar na allowlist Supabase.
+    D-6.1.2 confirmação pendente → redirect('/confirm') (em vez de {info} inline);
+      fallback redirect('/visao') se Confirm email OFF (degradação graciosa).
+    D-6.1.3 botão primário usa text-surface (inverte com tema → contraste WCAG).
+    D-6.1.4 mensagens de estado borda+texto sem fundo *-subtle (tokens dark não
+      existem por design — Article IV No Invention; não inventados).
+    D-6.1.5 testes trigger = structural read-only (skipIf !HAS_DB); smoke
+      funcional fica manual (runbook §6) / dependente da infra suite 1.4.
+
+  **Gates locais (2026-05-29):**
+    lint web ✓ · typecheck web+db ✓ · test web 991/991 (127 files, +13) ·
+    test db 11/11 (trigger structural correu contra DB real) · check:rls EXIT 0 ·
+    build EXIT 0 (/callback ƒ, /confirm ƒ, Middleware 94.6 kB, 43/43 static).
+
+  **Achado lateral (informativo, não-scope):** o "bug" do handoff session-pause
+    (alegava /tarefas+/financas públicos, NFR8) é FALSO — middleware.ts tem
+    APP_PATH_PREFIXES com /tarefas e /financas + teste auto-mantido. Sem acção.
+
+follow_ups:
+  - id: SUPABASE-CONFIRM-EMAIL
+    severity: HIGH
+    description: 'Activar "Confirm email" no Supabase Dashboard + garantir /callback na allowlist Redirect URLs (Eurico/@devops). Bloqueia só o smoke E2E, não o merge — código degrada graciosamente.'
+    owner: devops
+  - id: EPIC6-V1-CLOSURE
+    severity: HIGH
+    description: '@pm fecha Epic 6 em v1.0 Validated com as decisões DP1-DP8.'
+    owner: pm
+  - id: STRIPE-SETUP
+    severity: HIGH
+    description: '@devops configura Stripe — bloqueador do ramo billing 6.3-6.6/6.10.'
+    owner: devops
+  - id: TRIGGER-E2E-TESTS
+    severity: MEDIUM
+    description: 'Testes funcionais E2E do trigger (criar user → 3 linhas + idempotência) dependem da infra Testcontainers/RLS da Story 1.4 (não entregue). Smoke manual no runbook §6 entretanto.'
+    owner: any
+  - id: INDEX-HOUSEKEEPING
+    severity: MEDIUM
+    description: 'Adicionar a 6.1 ao docs/stories/active/_INDEX.md (Epic 6).'
+    owner: any
+
+files_modified:
+  - apps/web/src/app/(auth)/_lib/styles.ts  # NEW
+  - apps/web/src/app/(auth)/callback/route.ts  # NEW
+  - apps/web/src/app/(auth)/callback/__tests__/route.test.ts  # NEW
+  - apps/web/src/app/(auth)/confirm/page.tsx  # NEW
+  - apps/web/src/app/(auth)/confirm/__tests__/page.test.tsx  # NEW
+  - apps/web/src/app/(auth)/__tests__/actions.test.ts  # NEW
+  - packages/db/src/__tests__/handle-new-user.trigger.test.ts  # NEW
+  - apps/web/src/app/(auth)/layout.tsx  # M
+  - apps/web/src/app/(auth)/entrar/page.tsx  # M
+  - apps/web/src/app/(auth)/registar/page.tsx  # M
+  - apps/web/src/app/(auth)/recuperar/page.tsx  # M
+  - apps/web/src/app/(auth)/actions.ts  # M
+  - docs/runbooks/supabase-auth-setup.md  # M
+  - docs/stories/active/6.1.registo-email-household-default.story.md  # M (Ready for Review)
+
+blockers:
+  - 'Nenhum que bloqueie o qa-gate. Fluxo de confirmação E2E precisa de "Confirm email" ligado no Supabase Dashboard (Eurico/@devops) — não bloqueia merge.'

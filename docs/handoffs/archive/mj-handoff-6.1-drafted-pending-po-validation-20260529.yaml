@@ -1,0 +1,117 @@
+id: mj-handoff-6.1-drafted-pending-po-validation-20260529
+from_agent: sm
+to_agent: po
+created: '2026-05-29T21:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-29T22:10:00Z'
+consumed_by: po
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '6.1'
+last_command: '*draft 6.1'
+priority: high
+
+summary: |
+  @sm River draftou a **Story 6.1 — Registo + verificação de email + branding
+  das páginas de auth** (Status: Draft) em
+  `docs/stories/active/6.1.registo-email-household-default.story.md`.
+  Antes do draft, Eurico validou as 4 DPs de negócio/fiscal do Epic 6:
+  DP4=Stripe hosted · DP5=manter trial/Free até pagar · DP6=recibo+NIF no MVP
+  (certificação AT adia p/ Fase 2) · DP8=switcher adiado p/ Fase 2.
+  A 6.1 está pronta para `@po *validate-story-draft 6.1`.
+
+next_action: |
+  **@po *validate-story-draft 6.1** (checklist 10 pontos). Confirmar sobretudo
+  o ÂMBITO REVISTO abaixo (a 6.1 verifica — não recria — o bootstrap household/
+  trial, e foca branding + verificação de email).
+  Depois: @dev *develop 6.1 (ramo onboarding; corre em paralelo com o setup
+  Stripe do @devops, que bloqueia só o ramo billing 6.3-6.6/6.10).
+
+scope_clarification_for_po: |
+  ACHADO IMPORTANTE durante o draft: a criação ATÓMICA de household +
+  household_members(owner) + subscriptions(trialing, plano 'familia', 14d) JÁ
+  FOI ENTREGUE na Story 1.5 via trigger SQL `handle_new_user` (migração 0003); o
+  claim `household_id` no JWT já existe via `custom_access_token_hook` (migração
+  0002). Logo **DP2 e DP3 já estão satisfeitos** — a 6.1 apenas os VERIFICA e
+  TESTA, não os reconstrói. O trabalho NOVO da 6.1 é:
+    (1) Branding das páginas de auth (/entrar /registar /recuperar + nova
+        /confirm) com tokens @meu-jarvis/ui (Epic 5) / front-end-spec §3 —
+        substituir cores hardcoded actuais.
+    (2) Activar a VERIFICAÇÃO DE EMAIL nativa do Supabase (DP1) — hoje está OFF
+        (decisão D8 em actions.ts:84). Implica: emailRedirectTo no signUp +
+        nova callback route + página /confirm + activar "Confirm email" no
+        Supabase Dashboard (BLOQUEADOR EXTERNO, análogo ao Auth Hook da 1.5).
+  Nota: o 1º draft (v0.1) tinha erros factuais (referia auth-schemas.ts /
+  signupAction / bootstrap inexistente); foi REESCRITO em v0.2 contra o estado
+  real do código. Ver Change Log da story.
+
+context: |
+  **Story file:** docs/stories/active/6.1.registo-email-household-default.story.md
+    - v0.2, 10 ACs, 6 grupos de tasks, Dev Notes com [Source:] em cada detalhe.
+    - Fundamentado em fontes lidas nesta sessão: epic-6 (completo), tenancy.ts,
+      billing.ts, (auth)/actions.ts, (auth)/registar/page.tsx, árvore (auth)/,
+      Story 1.5 (completed), e excertos via Grep de architecture.md (§5/§6) e prd.md.
+
+  **Estado real relevante (verificado):**
+    - (auth)/ tem: entrar, registar, recuperar, _lib/error-messages.ts, actions.ts,
+      layout.tsx. NÃO existem /confirm, callback/route.ts, reset-password/, auth-schemas.ts.
+    - actions.ts: signInAction/signUpAction/resetPasswordAction; email confirmation
+      OFF (D8) com tratamento defensivo se ligada (user && !session).
+    - registar/page.tsx: cores hardcoded (bg-black/border-black/15) → migrar para tokens.
+    - Trigger handle_new_user (0003) + custom_access_token_hook (0002) aplicados na
+      Supabase real desde a Story 1.5. Trial dá plano 'familia' (architecture §6.4).
+
+  **DPs validadas (registar na fonte-de-verdade quando @pm fechar epic v1.0):**
+    DP1 Supabase nativo (ligar Confirm email) · DP2 household atómico (FEITO 1.5) ·
+    DP3 trial no registo (FEITO 1.5, plano familia) · DP4 Stripe Checkout HOSTED ·
+    DP5 past_due_pending → manter trial/Free até invoice.paid · DP6 recibo+NIF no
+    MVP (certificação AT Fase 2) · DP7 export GDPR ZIP+signedURL · DP8 switcher
+    adiado Fase 2.
+
+  **PENDÊNCIAS DE HOUSEKEEPING (não feitas nesta sessão — ver blockers):**
+    1. @pm fecha Epic 6 em v1.0 Validated (mover as decisões DP1-DP8 para a §8 do
+       epic, como no Epic 5). Autoridade @pm.
+    2. Adicionar linha pending deste handoff ao docs/HANDOFF-INDEX.md.
+    3. Consumir o handoff anterior (mj-handoff-epic6-defined-pending-dp-validation
+       -20260529.yaml): consumed:true, mover p/ archive/, actualizar INDEX.
+    4. Adicionar a 6.1 ao docs/stories/active/_INDEX.md (Epic 6).
+
+environment_note: |
+  Durante a sessão, várias chamadas Grep/Glob devolveram erros transitórios
+  "EUNKNOWN: uv_spawn" e os resultados de tools chegaram em LOTE/ATRASADOS (uma
+  ronda de reads aparecia no turno seguinte). Não é ataque — é instabilidade de
+  spawn do ripgrep no Windows + batching. Workaround usado: PowerShell
+  (Get-ChildItem) e Read directo em vez de Grep/Glob. Sem impacto na correcção
+  do draft (re-verificado contra o código real).
+
+follow_ups:
+  - id: EPIC6-V1-CLOSURE
+    severity: HIGH
+    description: '@pm fecha Epic 6 em v1.0 Validated com as decisões DP1-DP8.'
+    owner: pm
+  - id: STRIPE-SETUP
+    severity: HIGH
+    description: '@devops configura Stripe (conta PT, produtos/prices EUR, MB Way no Dashboard, keys test+prod, webhook secret) — bloqueador do ramo billing 6.3-6.6/6.10. Pode começar já em paralelo.'
+    owner: devops
+  - id: SUPABASE-CONFIRM-EMAIL
+    severity: HIGH
+    description: 'Activar "Confirm email" no Supabase Dashboard (DP1) — bloqueador externo do fluxo de confirmação da 6.1, análogo ao Auth Hook da 1.5. Acção Eurico/@devops.'
+    owner: devops
+  - id: AT-FISCAL-RESEARCH
+    severity: MEDIUM
+    description: 'Confirmar requisitos AT p/ DP6 (recibo+NIF MVP vs factura certificada) antes da 6.10.'
+    owner: pm
+  - id: INDEX-HOUSEKEEPING
+    severity: MEDIUM
+    description: 'Consumir handoff anterior + adicionar este ao HANDOFF-INDEX + adicionar 6.1 ao stories/active/_INDEX.md (Epic 6).'
+    owner: any
+
+files_modified:
+  - docs/stories/active/6.1.registo-email-household-default.story.md  # NEW — Story 6.1 Draft v0.2
+  - docs/handoffs/mj-handoff-6.1-drafted-pending-po-validation-20260529.yaml  # NEW — este handoff
+
+blockers:
+  - 'Ramo billing (6.3-6.6, 6.10) bloqueado até @devops configurar Stripe.'
+  - 'Fluxo de confirmação de email (6.1) precisa de "Confirm email" ligado no Supabase Dashboard (Eurico/@devops).'

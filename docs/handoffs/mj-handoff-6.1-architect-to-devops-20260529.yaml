@@ -1,0 +1,89 @@
+id: mj-handoff-6.1-architect-to-devops-20260529
+from_agent: architect
+to_agent: devops
+created: '2026-05-29T22:30:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '6.1'
+last_command: '*qa-gate 6.1'
+priority: high
+
+summary: |
+  @architect Aria deu **gate PASS 9,3/10 (Alta)** à Story 6.1 — Registo +
+  verificação de email + branding das páginas de auth → Status
+  **Done v1.1-ARCH-APPROVED**. Pronta para `@devops *push`. 7/7 gates
+  re-corridos independentemente GREEN. 10/10 ACs validados. 5 [DEV-DECISION]
+  ratificadas. 1 CONCERN MEDIUM não-bloqueante + 1 OBS LOW.
+
+next_action: |
+  **@devops *push** do ciclo da Story 6.1. Sugestão de commits (seguir precedente
+  5.9 — fast-forward, sem --force, sem --no-verify):
+    1. feat(auth): Story 6.1 — branding auth + verificação de email nativa
+    2. chore(docs): gate @architect 6.1 PASS 9,3/10 + handoffs
+  Re-correr os 5 quality gates em sessão @devops antes do push (precedente).
+  Excluir do staging (untracked/WIP intactos): _INDEX.md housekeeping (ver
+  follow-up INDEX-HOUSEKEEPING) se ainda não tratado.
+
+context: |
+  **Gate independente (não confiou no @dev) — 7/7 GREEN:**
+    lint web ✓ · typecheck web ✓ · typecheck db ✓ · test web 991/991 (127 files) ·
+    test db 11/11 (trigger structural vs DB real) · check:rls EXIT 0 ·
+    build EXIT 0 (/callback ƒ, /confirm ƒ, /entrar ○, Middleware 94.6 kB, 43/43 static).
+    Logs "DB connection refused" no test run = ruído intencional (testes de error
+    handling com DB mockada); 0 failed.
+
+  **10/10 ACs validados.** AC1 verificado independentemente: zero cores hardcoded
+  residuais + zero PT-BR em (auth). AC5/6 confirmados contra a Supabase real.
+
+  **5 [DEV-DECISION] ratificadas:** D-6.1.1 (origin via headers — host-header
+  injection mitigado pela allowlist Redirect URLs do Supabase), D-6.1.2
+  (redirect /confirm + fallback /visao), D-6.1.3 (text-surface contraste WCAG
+  AAA/AA+), D-6.1.4 (sem fundo *-subtle dark, Article IV), D-6.1.5 (testes
+  trigger structural).
+
+  **CONCERN C-6.1.1 [MEDIUM, não-bloqueante]:** testes funcionais E2E do trigger
+  (criar user → 3 linhas + idempotência) dependem da infra Testcontainers/RLS da
+  Story 1.4 (não entregue). Risco baixo: o trigger não foi tocado na 6.1 (entregue
+  + testado na 1.5 Done); verificado structural vs DB real + smoke manual no
+  runbook §6. Follow-up TRIGGER-E2E-TESTS.
+
+  **Ficheiros (13): 7 novos + 6 modificados** — ver File List da story. Resumo:
+    NOVOS: (auth)/_lib/styles.ts, (auth)/callback/route.ts (+test),
+      (auth)/confirm/page.tsx (+test), (auth)/__tests__/actions.test.ts,
+      packages/db/src/__tests__/handle-new-user.trigger.test.ts
+    MOD: (auth)/{layout,entrar/page,registar/page,recuperar/page,actions}.ts(x),
+      docs/runbooks/supabase-auth-setup.md, story 6.1 (Done v1.1-ARCH-APPROVED)
+    + handoffs (este + dev-to-architect arquivado) + HANDOFF-INDEX.
+
+follow_ups:
+  - id: SUPABASE-CONFIRM-EMAIL
+    severity: HIGH
+    description: 'Activar "Confirm email" no Supabase Dashboard + /callback na allowlist Redirect URLs (Eurico/@devops). Bloqueia só o smoke E2E, não o merge.'
+    owner: devops
+  - id: EPIC6-V1-CLOSURE
+    severity: HIGH
+    description: '@pm fecha Epic 6 em v1.0 Validated com as decisões DP1-DP8.'
+    owner: pm
+  - id: STRIPE-SETUP
+    severity: HIGH
+    description: '@devops configura Stripe — bloqueador do ramo billing 6.3-6.6/6.10.'
+    owner: devops
+  - id: TRIGGER-E2E-TESTS
+    severity: MEDIUM
+    description: 'Testes funcionais E2E do trigger dependem da infra Testcontainers/RLS da Story 1.4 (não entregue).'
+    owner: any
+  - id: INDEX-HOUSEKEEPING
+    severity: MEDIUM
+    description: 'Adicionar a 6.1 ao docs/stories/active/_INDEX.md (Epic 6). Ficheiro grande (148KB) — passo dedicado.'
+    owner: any
+
+files_modified:
+  - docs/stories/active/6.1.registo-email-household-default.story.md  # M — Done v1.1-ARCH-APPROVED + QA Results
+  - docs/handoffs/mj-handoff-6.1-architect-to-devops-20260529.yaml  # NEW — este handoff
+  - docs/handoffs/archive/mj-handoff-6.1-dev-to-architect-20260529.yaml  # consumed
+
+blockers:
+  - 'Nenhum que bloqueie o push. Smoke E2E precisa de "Confirm email" ligado no Dashboard (Eurico/@devops) — pós-push.'

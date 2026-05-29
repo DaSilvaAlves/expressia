@@ -1,0 +1,120 @@
+id: mj-handoff-session-pause-post-5.8-validated-20260529
+from_agent: claude (session orchestrator)
+to_agent: any
+created: '2026-05-29T00:00:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.8'
+last_command: '@po *validate-story-draft 5.8'
+priority: medium
+
+summary: |
+  SESSION PAUSE cross-terminal. Arrancou-se a próxima fase do Epic 5 (= 7/10 Done):
+  **@sm (River) criou 3 drafts em paralelo — 5.8, 5.9, 5.10** — e **@po (Pax)
+  validou a 5.8 (GO 9.2/10 HIGH → Ready for Dev v1.1, 2 PO-FIX inline)**. As 5.9 e
+  5.10 ficam **Draft v1.0 por validar**. Nada em implementação ainda. Os 3 ficheiros
+  de story estão **untracked (não commitados)** — ver nota de git abaixo.
+
+  **ATENÇÃO — achado de segurança REPORTADO mas NÃO confirmado pelo orquestrador:**
+  o agente @sm que redigiu a 5.10 afirmou que `/tarefas` e `/financas` estão
+  **publicamente acessíveis sem autenticação** (bypass do middleware, `middleware.ts:36`,
+  NFR8). Está registado na 5.10 (AC6/FUP-5.3.C) mas **precisa de verificação
+  independente** antes de se tratar como facto. Se confirmado, é HIGH e provavelmente
+  deve sair da 5.10 para um fix isolado prioritário.
+
+next_action: |
+  **Escolher um de dois caminhos (Eurico decide):**
+
+  **A) Implementar já a 5.8 (está GO):**
+     `@dev *develop 5.8` (YOLO) → `@architect *qa-gate 5.8` → `@devops *push 5.8`.
+     A 5.8 está Ready for Dev v1.1 com 2 PO-FIX já aplicados.
+
+  **B) Validar primeiro 5.9 e 5.10 (ter os 3 drafts prontos antes de implementar):**
+     `@po *validate-story-draft 5.9` e `@po *validate-story-draft 5.10`.
+
+  **ANTES de qualquer um, recomendado:** verificar o achado de segurança da 5.10
+     (`apps/web/src/middleware.ts` — confirmar se `/tarefas` e `/financas` estão no
+     matcher/auth gate). Se o bypass for real, tratar como fix HIGH isolado.
+
+  **Housekeeping pendente:** os 3 drafts estão untracked. Commit é trabalho de @dev
+     (`git add` + `git commit`), push é EXCLUSIVO de @devops. O `_INDEX.md` do Epic 5
+     e o HANDOFF-INDEX ainda **não** foram actualizados com as 3 novas stories (este
+     handoff foi indexado; as stories não). Opcional indexá-las no próximo ciclo.
+
+context: |
+  **Estado do repo no momento do pause:**
+    - Branch `main`. Working tree: **3 ficheiros untracked** (os drafts):
+        docs/stories/active/5.8.dark-mode-tokens-sweep-persistence.story.md
+        docs/stories/active/5.9.undotoast-global-emptystate-shared.story.md
+        docs/stories/active/5.10.responsive-sweep-branding-auth-lighthouse.story.md
+      (o ficheiro 5.8 inclui já a secção PO Validation Report + Change Log v1.1 do @po)
+    - CI da 5.7 não re-verificado nesta sessão (era o estado do handoff anterior).
+
+  **Os 3 drafts (Epic 5 — candidatas pós-5.7, podem correr em paralelo):**
+
+    **5.8 — Modo claro/escuro (tokens sweep + persistência + toggle) — Estimate M**
+      Status: **Ready for Dev v1.1** (@po GO 9.2/10 HIGH; 10/10 checklist; 13/13
+      cross-confirm byte-a-byte PASS). 8 ACs · 6 DPs (A darkMode class+anti-FOUC ·
+      B persistência DP2=C híbrido · C reconciliação tokens · D sweep · E GET theme ·
+      F toggle 3 valores). Achados-chave verificados: Tailwind SEM `darkMode` (default
+      media → hoje OS-driven via `@media prefers-color-scheme`); PATCH já aceita `theme`
+      (`route.ts:263-267`, preparado na 5.7) mas GET ainda NÃO devolve `theme`; coluna
+      `user_prefs.theme` já existe (5.1, migration 0016 → ZERO migration, check:rls
+      inalterado); 2 sistemas de tokens em conflito (globals.css HSL vs packages/ui hex
+      — absorve FUP-5.3.B); sweep real = 92 ocorrências/50 ficheiros. **2 PO-FIX
+      aplicados:** PO-FIX-1 (parity test não pode exigir simetria light/dark — colorsLight
+      19 vs colorsDark 16, 3 *Subtle omissos — senão @dev inventaria hex); PO-FIX-2
+      (reconciliação tem de cobrir 3 superfícies incl. `text-muted-foreground`/
+      `bg-background` em 10+ ficheiros). **Riscos p/ gate @architect:** anti-FOUC +
+      ThemeProvider hidratado em useEffect client-only (lição FIX-1 da 5.7!); mudança
+      Tailwind media→class; migração HSL→hex sem drift.
+
+    **5.9 — <UndoToast> global + <EmptyState> shared — Estimate S**
+      Status: **Draft v1.0 (POR VALIDAR @po).** 9 ACs · 5 DPs. UndoToast global no
+      shell alimentado por undoStore Zustand (token + expires_at da response Story 2.8,
+      30s); hoje o undo só existe inline no JarvisChat. EmptyState em packages/ui (4
+      variantes) consolidando o VisaoEmptyState local da 5.6 + migração incremental
+      tarefas/finanças/chat. Absorve OBS-1 da 5.7 (slot WidgetCard.headerActions órfão).
+      **Riscos:** SSR-safety do undoStore (lição FIX-1 da 5.7 — hidratar em useEffect);
+      bridge reactivo chatStore→undoStore; migração VisaoEmptyState sem regressão de
+      testes (page.test.tsx mocka-o).
+
+    **5.10 — Responsive sweep + branding auth + Lighthouse mobile ≥ 85 — Estimate M**
+      Status: **Draft v1.0 (POR VALIDAR @po).** 8 ACs · 6 DPs. Story de FECHO do Epic 5
+      (depende de 5.8/5.9 Done para o sweep ser completo). Auditoria 14 telas (3 auth +
+      11 app) mobile/tablet; aplicar tokens às páginas auth; runbook
+      `docs/runbooks/lighthouse-mobile.md` (a criar) + budgets. Absorve FUP-5.6.A (perf
+      double-query isVisaoEmpty — proposta React.cache()) + FUP-5.3.C + FUP-5.3.D
+      (middleware/root redirect, carry-overs da 5.3). **Riscos:** Lighthouse baseline
+      pode forçar AC interim 80 (R-5.8 — medir ANTES); **auth gate (achado de segurança
+      acima — POR CONFIRMAR)**; dependência de 5.8/5.9.
+
+  **Pipeline / processo (replicável, inalterado):**
+    - Fluxo: @sm *draft → @po *validate-story-draft → @dev *develop (YOLO) →
+      @architect *qa-gate → @devops *push. Apenas @devops faz push.
+    - 5 quality gates (project root): pnpm lint · pnpm typecheck ·
+      pnpm --filter @meu-jarvis/web test · pnpm build · pnpm check:rls.
+    - Baseline testes apps/web: **879 passed / 116 files** (pós-5.7).
+    - CodeRabbit SKIPPED consistente (3.1-5.7).
+    - REQ-INLINE-1: em apps/web só `import type` de @meu-jarvis/db.
+    - **Lição 5.7 (crítica para 5.8 E 5.9):** stores Zustand de módulo +
+      ThemeProvider hidratam-se SEMPRE em useEffect client-only — nunca no corpo do
+      render (Client Components renderizam no SSR → mutariam o singleton no servidor →
+      cross-request leak; o gate @architect da 5.7 apanhou exactamente isto).
+    - Handoffs cross-terminal: ler docs/HANDOFF-INDEX.md SEMPRE na activação.
+
+  **Auth local:** RESOLVIDO. Helper `apps/web/.../dev-create-user.ts` para smoke local
+  autenticado, se a próxima story precisar.
+
+files_modified:
+  # Drafts criados (untracked — não commitados):
+  - docs/stories/active/5.8.dark-mode-tokens-sweep-persistence.story.md
+  - docs/stories/active/5.9.undotoast-global-emptystate-shared.story.md
+  - docs/stories/active/5.10.responsive-sweep-branding-auth-lighthouse.story.md
+  # Handoff anterior marcado consumed (este pause):
+  - docs/handoffs/mj-handoff-session-pause-post-5.7-20260528.yaml
+
+blockers: []

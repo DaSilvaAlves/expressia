@@ -1,0 +1,136 @@
+id: mj-handoff-epic6-defined-pending-dp-validation-20260529
+from_agent: pm
+to_agent: any
+created: '2026-05-29T20:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-29T21:35:00Z'
+consumed_by: sm
+consumed_note: >-
+  next_action cumprido — Eurico validou as 4 DPs de negócio/fiscal (DP4/5/6/8) e
+  @sm draftou a Story 6.1 (ver mj-handoff-6.1-drafted-pending-po-validation-20260529).
+  Resíduo @pm (fechar epic em v1.0 Validated) transportado como follow-up
+  EPIC6-V1-CLOSURE no handoff 6.1.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: 'Epic 6 (planeamento)'
+last_command: '*create-epic 6'
+priority: high
+
+summary: |
+  @pm Morgan definiu o **Epic 6 — Onboarding e Billing** em
+  `docs/epics/epic-6-onboarding-billing.md` (Draft v0.1) — 10 stories (6.1-6.10
+  alinhadas com PRD §6) + 10 riscos + 8 DPs + métricas + FR24-36 mapeados.
+  Ancorado no codebase real: **schema de billing/tenancy/GDPR já existe** (só
+  faltam 2 tabelas GDPR). O epic está **BLOQUEADO na validação das 8 DPs por
+  Eurico** antes de `@sm *draft 6.1` (tal como o Epic 5 foi Draft v0.1 →
+  Validated v1.0 após revisão do Eurico). Nesta mesma sessão: Story 5.9 fechou
+  (gate @architect PASS 9.2/10 + push @devops + CI green → Epic 5 = 9/10 Done);
+  OBS-5.9-1 registado no backlog (UX-polish, @ux); OBS-5.7-1 marcado DONE.
+
+next_action: |
+  **Eurico valida as 8 DPs do §8 do epic** (mínimo as 4 de negócio/fiscal:
+  DP4 Stripe Checkout hosted/embedded · DP5 acesso durante Multibanco pending ·
+  DP6 factura AT sequência-própria/recibo+NIF · DP8 household switcher MVP/Fase2).
+  Depois: **@pm fecha o epic em v1.0 Validated** (mover recomendações validadas
+  para fonte-de-verdade, como na §8 do epic-5) → **@sm *draft 6.1**.
+
+  3 tracks possíveis (podem ser paralelos):
+    1. **Validar DPs → @sm *draft 6.1** (caminho crítico do Epic 6).
+    2. **@devops configura Stripe** (bloqueador externo do ramo billing 6.3-6.6/
+       6.10): conta Stripe PT, produtos/prices EUR (architecture §6.1: Pessoal
+       €4,90/€49 · Família €8,88/€89 · Pro €14,90/€149), activar MB Way no
+       Dashboard PT, keys test+prod, webhook secret. Pode começar já.
+    3. **Fechar Epic 5: @po *validate-story-draft 5.10** (responsive sweep +
+       branding auth + Lighthouse — único restante do Epic 5; draft em active/).
+
+context: |
+  **Epic doc:** docs/epics/epic-6-onboarding-billing.md (Draft v0.1, §8 tem as 8
+  DPs com recomendações preliminares; §5 tem as 10 stories; §4 lista o que já
+  existe vs o trabalho novo).
+
+  **Estado verificado do codebase (Article IV — o epic assenta nisto):**
+    - Schema EXISTE: `subscriptions`/`payment_methods`/`invoices`/`payment_events`
+      (packages/db/src/schema/billing.ts); `households`/`household_members`/
+      `household_invites` + `planTierEnum`(free/pessoal/familia/pro)/
+      `householdRoleEnum` (tenancy.ts); `feature_flags` + acções de audit
+      billing/invite (audit.ts).
+    - Especificado na architecture: modelo Stripe §6.1, payment methods PT §6.2
+      (past_due_pending p/ Multibanco), webhook idempotente §6.3, convites +
+      função SQL `accept_invite()` §5.3.
+    - Infra Inngest (client + 3 jobs + route) + Vercel Cron diário prontos.
+    - Páginas auth /entrar /registar /recuperar funcionais (Story 1.5).
+    - NÃO existe: tabelas `data_export_jobs`+`account_deletion_jobs` (2 migrations
+      novas, +RLS); código Stripe runtime (zero); jobs `expire-trials`/
+      `stripe.event`/`gdpr-export`/`gdpr-purge`; fluxo onboarding; `accept_invite()`
+      implementada; páginas /conta/plano|faturas|exportar|eliminar + /aceitar-convite.
+
+  **8 DPs (resumo — detalhe no §8 do epic):**
+    - DP1 verificação email → Supabase nativo (rec).
+    - DP2 criação household → atómica no registo (rec).
+    - DP3 activação trial → no registo, sem Stripe customer (rec).
+    - DP4 Stripe Checkout → hosted (rec) [DECISÃO EURICO].
+    - DP5 acesso durante past_due_pending Multibanco → manter trial/Free até pago
+      (rec, a confirmar) [DECISÃO EURICO/negócio].
+    - DP6 factura AT → sequência DB própria sem gaps OU recibo+NIF no MVP
+      (certificação adia) [DECISÃO EURICO/fiscal].
+    - DP7 export GDPR → ZIP JSON+CSV em Supabase Storage + signed URL 24h (rec).
+    - DP8 household switcher → adiar Fase 2 (rec, a confirmar) [DECISÃO EURICO].
+
+  **O que foi feito nesta sessão (cadeia completa):**
+    1. @architect *qa-gate 5.9 → PASS 9.2/10 HIGH (7/7 gates) → Done v1.3-ARCH-APPROVED.
+    2. @devops *push 5.9 → 3 commits pushed origin/main (316478a..6f0600e), 5/5
+       gates GREEN, CI run 26658990829 exit 0. _INDEX Epic 5 reconciliado 9/10
+       (estava stale: 5.6/5.7/5.8 marcadas "Not Drafted" apesar de Done).
+    3. @pm *create-epic 6 → docs/epics/epic-6-onboarding-billing.md (Draft v0.1).
+    4. OBS-5.9-1 (CTA <EmptyState> <a href> → SPA-nav via slot render-prop +
+       ilustrações SVG) registado no backlog como UX-polish (@ux), fora do Epic 6.
+    5. OBS-5.7-1 marcado ✅ DONE (resolvido por 5.9 D-5.9.4). Stats backlog: 5 itens.
+
+  **Estado git/working tree (NÃO commitado):**
+    - NEW (untracked): docs/epics/epic-6-onboarding-billing.md (epic Draft v0.1).
+    - NEW (untracked): este handoff + mj-handoff-session-pause-post-5.8-validated
+      (WIP de sessão anterior, intacto).
+    - MODIFIED: docs/STORY-BACKLOG.md (OBS-5.9-1 add + OBS-5.7-1 done + stats);
+      docs/stories/active/5.10... (WIP sessão anterior, intacto);
+      docs/handoffs/archive/mj-handoff-5.8-architect-to-devops (WIP, intacto).
+    - Story 5.9 já está em completed/ e pushed. origin/main ↔ HEAD sync.
+    - Push é EXCLUSIVO @devops. O epic é Draft pendente validação — não há pressa
+      de commit; quem retomar pode commitar o epic+backlog quando fizer sentido.
+
+  **CodeRabbit:** SKIPPED (precedente consistente Stories 3.1-5.9).
+
+  **Roadmap:** Epic 6 é o ÚLTIMO da Fase 1 (PRD §5) — fecha o loop comercial.
+  Nenhum epic posterior depende dele no MVP.
+
+follow_ups:
+  - id: OBS-5.9-1
+    severity: LOW
+    description: >-
+      CTA do <EmptyState> (packages/ui) usa <a href> (full-page nav) — reavaliar
+      SPA-nav via slot render-prop + ilustrações SVG. UX-polish, fora do Epic 6.
+      Registado em docs/STORY-BACKLOG.md (LOW, @ux).
+    owner: ux-design-expert
+  - id: STRIPE-SETUP
+    severity: HIGH
+    description: >-
+      @devops configura Stripe (conta PT, produtos/prices EUR, MB Way no Dashboard,
+      keys test+prod, webhook secret) — bloqueador externo do ramo billing do Epic 6.
+    owner: devops
+  - id: AT-FISCAL-RESEARCH
+    severity: MEDIUM
+    description: >-
+      Confirmar se factura electrónica AT no MVP exige software certificado (DP6/
+      R-6.3/R-6.10) ou se recibo+NIF basta para o launch. Decisão fiscal do Eurico.
+    owner: pm
+
+files_modified:
+  - docs/epics/epic-6-onboarding-billing.md                                    # NEW — epic Draft v0.1
+  - docs/STORY-BACKLOG.md                                                      # MOD — OBS-5.9-1 add + OBS-5.7-1 DONE + stats
+  - docs/handoffs/mj-handoff-epic6-defined-pending-dp-validation-20260529.yaml # NEW — este handoff
+  - docs/HANDOFF-INDEX.md                                                      # MOD — entrada pending
+
+blockers:
+  - 'Epic 6 detalhamento (@sm *draft) bloqueado até Eurico validar as 8 DPs (mín. DP4/5/6/8).'
+  - 'Ramo billing (Stories 6.3-6.6, 6.10) bloqueado até @devops configurar Stripe (keys/produtos/MB Way).'
