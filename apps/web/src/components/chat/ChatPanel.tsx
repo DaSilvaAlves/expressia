@@ -44,6 +44,8 @@ import { useRouter } from 'next/navigation';
 
 import { captureException } from '@sentry/nextjs';
 
+import { EmptyState } from '@meu-jarvis/ui';
+
 import { ChatInput } from '@/components/chat/ChatInput';
 import {
   errorMessageFor,
@@ -228,6 +230,10 @@ export function ChatPanel({ mode }: ChatPanelProps): React.ReactElement {
   return (
     <div className={outerClassName}>
       <div className={messagesContainerClassName} aria-live="polite">
+        {/* Story 5.9 AC6 — estado inicial: sem mensagens e sem preview activo,
+            mostra o empty-state do chat em vez de uma área em branco. */}
+        {messages.length === 0 && !preview && <EmptyState variant="chat" />}
+
         {messages.map((m) => {
           if (m.kind === 'user') {
             return (

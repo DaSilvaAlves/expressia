@@ -35,6 +35,8 @@ import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import { ChatPanelSlot } from '@/components/shell/ChatPanelSlot';
 import { Sidebar } from '@/components/shell/Sidebar';
 import { TopBar } from '@/components/shell/TopBar';
+import { UndoToast } from '@/components/shell/UndoToast';
+import { UndoToastBridge } from '@/components/shell/UndoToastBridge';
 
 interface AppShellProps {
   children: ReactNode;
@@ -59,6 +61,11 @@ export async function AppShell({ children }: AppShellProps) {
 
       {/* ChatPanelSlot — desktop col auto, mobile FAB gerido pelo próprio componente Client. */}
       <ChatPanelSlot />
+
+      {/* Story 5.9 — undo global: bridge reactiva (chatStore → undoStore, sem UI)
+          + toast fixo fora dos painéis (visível em qualquer rota). */}
+      <UndoToastBridge />
+      <UndoToast />
     </div>
   );
 }

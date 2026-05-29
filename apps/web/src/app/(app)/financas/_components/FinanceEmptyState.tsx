@@ -2,16 +2,21 @@
 
 import { useRouter } from 'next/navigation';
 
+import { EmptyState as SharedEmptyState } from '@meu-jarvis/ui';
+
 /**
  * `<FinanceEmptyState>` — estados vazios das vistas de Finanças
  * (Story 4.6 AC6; variant `no-results` adicionado na Story 4.7 AC7).
  *
- * - `error`: o fetch RSC falhou. CTA tenta novamente (`router.refresh`).
- * - `no-movements`: o mês não tem transacções reais (vista "Este mês").
+ * - `error`: o fetch RSC falhou. CTA tenta novamente (`router.refresh` — local).
+ * - `no-movements`: o mês não tem transacções reais (vista "Este mês"). **Story
+ *   5.9 AC7 — migrado** para o `<EmptyState>` de `@meu-jarvis/ui` (props
+ *   explícitas preservam a copy + o mês; D-5.9.3).
  * - `no-results`: lista sem resultados (vistas "Variáveis"/"Recorrentes") —
- *   distingue "sem dados" de "sem resultados para os filtros" via `message`.
+ *   distingue "sem dados" de "sem resultados para os filtros" via `message`
+ *   (local — shape de 1 linha sem equivalente directo no shared).
  *
- * Trace: Story 4.6 AC6, Story 4.7 AC7.
+ * Trace: Story 4.6 AC6, Story 4.7 AC7; Story 5.9 AC7.
  */
 export interface FinanceEmptyStateProps {
   readonly variant: 'error' | 'no-movements' | 'no-results';
@@ -58,15 +63,12 @@ export function FinanceEmptyState({
     );
   }
 
-  // no-movements
+  // no-movements — Story 5.9 AC7: delega ao componente shared do design system
+  // (props explícitas preservam a copy original + o mês — zero regressão de copy).
   return (
-    <div className="rounded-lg border border-black/10 bg-neutral-50 p-8 text-center dark:border-white/10 dark:bg-neutral-900/40">
-      <p className="text-sm text-neutral-700 dark:text-neutral-300">
-        Sem movimentos registados em <span className="capitalize">{monthLabel ?? 'este mês'}</span>.
-      </p>
-      <p className="mt-1 text-xs text-neutral-500">
-        Fala com o Jarvis ou regista uma transacção para a veres aqui.
-      </p>
-    </div>
+    <SharedEmptyState
+      title={`Sem movimentos registados em ${monthLabel ?? 'este mês'}.`}
+      body="Fala com o Jarvis ou regista uma transacção para a veres aqui."
+    />
   );
 }

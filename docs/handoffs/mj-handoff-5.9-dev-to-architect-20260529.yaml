@@ -1,0 +1,104 @@
+id: mj-handoff-5.9-dev-to-architect-20260529
+from_agent: dev
+to_agent: architect
+created: '2026-05-29T18:35:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.9'
+last_command: '*develop 5.9'
+priority: medium
+
+summary: |
+  @dev Dex completou `*develop 5.9` (`<UndoToast>` global + `<EmptyState>` shared)
+  em modo YOLO autónomo. **9/9 ACs · 5/5 quality gates GREEN · net +25 testes**
+  (apps/web 962→978 = +16; packages/ui 18→27 = +9). Story em `Ready for Review
+  v1.2`. 4 [DEV-DECISION] (D-5.9.1/2/3/4) precisam de ratificação arquitectural.
+  Pronta para `@architect *qa-gate 5.9`.
+
+next_action: |
+  **`@architect *qa-gate 5.9`** — auditoria + 5/5 quality gates re-corridos
+  independentemente (incl. `pnpm build` + `pnpm --filter @meu-jarvis/ui test`) +
+  ratificar as 4 [DEV-DECISION]. Pontos de foco abaixo. Se PASS: status → Done
+  v1.x-ARCH-APPROVED + handoff architect→devops.
+
+context: |
+  **Story:** docs/stories/active/5.9.undotoast-global-emptystate-shared.story.md
+  (Ready for Review v1.2 — "Dev Agent Record" tem File List + 4 [DEV-DECISION] +
+  tabela de gates; Change Log v1.2 tem o detalhe completo).
+
+  **4 [DEV-DECISION] a ratificar:**
+    - D-5.9.1 — AC5: `VisaoEmptyState` mantido como WRAPPER FINO (delega a
+      `<EmptyState variant="visao">`) em vez de eliminação directa. Razão: preserva
+      `page.tsx`+`page.test.tsx` (RSC stringifyTree) sem tocar — zero regressão.
+      AC5 PASS permite explicitamente "wrapper que importa de @meu-jarvis/ui".
+    - D-5.9.2 — AC4/AC7: `<EmptyState>` do `packages/ui` usa `<a href>` (NÃO
+      `next/link`) — o package é framework-agnóstico (sem dep `next`); `<a>`
+      renderiza HTML idêntico para CTA de empty-state. Migração tarefas `no-tasks`
+      adopta a copy canónica (front-end-spec §7) e REMOVE o placeholder
+      desactivado "+ Criar primeira tarefa" (era não-funcional). Teste actualizado.
+    - D-5.9.3 — AC7: finanças `no-movements` delega ao shared via PROPS EXPLÍCITAS
+      (preserva copy + `monthLabel`) em vez de `variant="financas"`. `no-results`/
+      `error` (finanças) + `filtered-empty`/`error` (tarefas) ficam LOCAIS
+      (precisam de `router`/shape distinto) — deferidos e documentados.
+    - D-5.9.4 — DP-5.9.D=B: slot órfão `WidgetCard.headerActions?` REMOVIDO
+      (código especulativo da 5.6 nunca usado; grep confirmou zero callers;
+      resolve OBS-5.7-1 do backlog).
+
+  **Pontos de foco para o gate (auditoria):**
+    1. **Lição FIX-1 (5.7) APLICADA:** `undoStore` nunca mutado no corpo do
+       render. Escrita SÓ no `useEffect` do `<UndoToastBridge>` (linhas ~30-34) e
+       em handlers/effects do `<UndoToast>`. Confirmar ausência de cross-request
+       leak (singleton de módulo Zustand).
+    2. **REQ-INLINE-1:** `undoStore` usa só `string` primitivas (zero import de
+       `@meu-jarvis/db`); `<EmptyState>` de `packages/ui` não importa de
+       `@meu-jarvis/db`; ChatPanel/empty-states importam de `@meu-jarvis/ui`
+       (package legítimo — não é violação).
+    3. **Zero touch DB:** sem migration, sem RLS. `check:rls` exit 0 — 28 tabelas.
+    4. **R-5.2 (audit-dark-mode):** exit 0. Os componentes novos têm `dark:`
+       counterpart. NOTA: o audit teve um falso-positivo durante dev (casa
+       backtick code-spans de comentários JSDoc como className) — resolvido
+       reformulando comentários; pode valer um follow-up ao script (FUP-5.8.B
+       já cobre coverage gaps do audit).
+    5. **`<EmptyState>` API pública** (contrato de package partilhado usado pelo
+       Epic 6): variant enum + props override; validar a interface.
+
+  **Gates (5/5 GREEN — re-correr independentemente no gate):**
+    - `pnpm lint` — exit 0, 0 warnings
+    - `pnpm typecheck` — exit 0 (10/10)
+    - `pnpm --filter @meu-jarvis/web test` — 978/978 (124 files), net +16
+    - `pnpm --filter @meu-jarvis/ui test` — 27/27 (3 files), net +9
+    - `pnpm build` — exit 0 (10/10 tasks)
+    - `node scripts/audit-dark-mode.ts` — exit 0 (R-5.2)
+    - `pnpm check:rls` — exit 0, 28 tabelas INALTERADO
+
+  **Commits locais (NÃO pushed — push é EXCLUSIVO @devops):** ver git log.
+
+  **CodeRabbit:** SKIPPED (precedente consistente Stories 3.1-5.8).
+
+  **Epic 5:** 8/10 Done. Esta é a 9ª (após gate+push → 9/10). Resta 5.10 (fecho).
+
+files_modified:
+  - apps/web/src/lib/stores/undoStore.ts                                      # NEW (AC1)
+  - apps/web/src/lib/stores/__tests__/undoStore.test.ts                       # NEW test (4)
+  - apps/web/src/components/shell/UndoToastBridge.tsx                          # NEW (AC2)
+  - apps/web/src/components/shell/__tests__/UndoToastBridge.test.tsx          # NEW test (4)
+  - apps/web/src/components/shell/UndoToast.tsx                               # NEW (AC3)
+  - apps/web/src/components/shell/__tests__/UndoToast.test.tsx                # NEW test (6)
+  - packages/ui/src/components/EmptyState/EmptyState.tsx                       # NEW (AC4)
+  - packages/ui/src/components/EmptyState/index.ts                            # NEW (AC4)
+  - packages/ui/src/components/EmptyState/__tests__/EmptyState.test.tsx       # NEW test (9)
+  - packages/ui/src/components/index.ts                                       # MOD — export EmptyState
+  - apps/web/src/components/shell/AppShell.tsx                                # MOD — monta bridge+toast
+  - apps/web/src/components/chat/ChatPanel.tsx                                # MOD — empty-state chat (AC6)
+  - apps/web/src/components/chat/__tests__/ChatPanel.test.tsx                 # MOD test (+2 AC6)
+  - apps/web/src/app/(app)/visao/_components/VisaoEmptyState.tsx              # MOD — wrapper fino (AC5)
+  - apps/web/src/app/(app)/tarefas/_components/EmptyState.tsx                 # MOD — no-tasks → shared (AC7)
+  - apps/web/src/app/(app)/tarefas/_components/__tests__/EmptyState.test.tsx  # MOD test — copy canónica
+  - apps/web/src/app/(app)/financas/_components/FinanceEmptyState.tsx         # MOD — no-movements → shared (AC7)
+  - apps/web/src/app/(app)/visao/_components/WidgetCard.tsx                   # MOD — remove headerActions (DP-5.9.D)
+  - docs/stories/active/5.9.undotoast-global-emptystate-shared.story.md       # MOD — Ready for Review v1.2
+
+blockers: []

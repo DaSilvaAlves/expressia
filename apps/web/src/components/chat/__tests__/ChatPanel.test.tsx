@@ -71,6 +71,23 @@ describe('<ChatPanel mode="panel">', () => {
   });
 });
 
+describe('ChatPanel — empty-state (Story 5.9 AC6)', () => {
+  it('sem mensagens e sem preview → renderiza o empty-state do chat', () => {
+    render(<ChatPanel mode="panel" />);
+    expect(screen.getByText('Olá. Em que posso ajudar?')).toBeInTheDocument();
+  });
+
+  it('com ≥ 1 mensagem → NÃO renderiza o empty-state', () => {
+    useChatStore.setState({
+      messages: [{ kind: 'user', id: 'u1', text: 'olá' }],
+      preview: null,
+      loading: false,
+    });
+    render(<ChatPanel mode="panel" />);
+    expect(screen.queryByText('Olá. Em que posso ajudar?')).toBeNull();
+  });
+});
+
 describe('ChatPanel — submit + endpoint', () => {
   it('submit prompt dispara POST /api/agent/prompt com body correcto', async () => {
     const fetchMock = vi

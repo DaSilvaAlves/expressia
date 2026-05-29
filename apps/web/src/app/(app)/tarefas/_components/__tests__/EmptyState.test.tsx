@@ -14,11 +14,14 @@ vi.mock('next/navigation', () => ({
 }));
 
 describe('<EmptyState>', () => {
-  it('variant no-tasks mostra mensagem PT-PT + 2 CTAs', () => {
+  it('variant no-tasks delega ao EmptyState shared (Story 5.9 AC7 — copy canónica + CTA "Abrir o chat")', () => {
     render(<EmptyState variant="no-tasks" />);
-    expect(screen.getByText(/Ainda não tens tarefas/i)).toBeInTheDocument();
-    expect(screen.getByText('Falar com o Jarvis')).toBeInTheDocument();
-    expect(screen.getByText('+ Criar primeira tarefa')).toBeDisabled();
+    // Migrado para <EmptyState variant="tarefas"> de @meu-jarvis/ui (copy front-end-spec §7).
+    expect(screen.getByText('Sem tarefas para mostrar.')).toBeInTheDocument();
+    const cta = screen.getByText('Abrir o chat');
+    expect(cta).toHaveAttribute('href', '/jarvis');
+    // O placeholder desactivado "+ Criar primeira tarefa" foi removido (D-5.9.2).
+    expect(screen.queryByText('+ Criar primeira tarefa')).toBeNull();
   });
 
   it('variant filtered-empty oferece botão Limpar filtros', () => {
