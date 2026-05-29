@@ -1,0 +1,135 @@
+id: mj-handoff-5.8-po-to-dev-20260529
+from_agent: po
+to_agent: dev
+created: '2026-05-29T14:00:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '5.8'
+last_command: '*validate-story-draft 5.8'
+priority: medium
+
+summary: |
+  @po Pax RE-VALIDOU formalmente a Story 5.8 (Modo claro/escuro — tokens sweep +
+  persistência + toggle) na sessão pós-hotfix 5.0 — **GO RE-CONFIRMADO 9,2/10
+  ALTA**, status Ready for Dev v1.1 → Ready for Dev v1.2. Motivo da re-validação:
+  o hotfix 5.0-hotfix (Done + pushed) tocou `middleware.ts`/`middleware.test.ts`
+  entre a validação original (28/05) e agora — confirmou-se **zero drift** no
+  código que a 5.8 toca. 13/13 cross-confirm re-verificados byte-a-byte (zero
+  invenções — Article IV). Os 2 PO-FIX inline (v1.1) continuam válidos. 6 DPs
+  ratificadas (A-F). Pronta para `@dev *develop 5.8` em YOLO autónomo.
+
+next_action: |
+  **`@dev *develop 5.8`** (YOLO) — implementar os 8 ACs + 6 tasks (T1-T6).
+  Garantir os 5 quality gates GREEN antes de entregar ao @architect:
+  `pnpm lint` (--max-warnings=0) · `pnpm typecheck` (sem `any`) ·
+  `pnpm --filter @meu-jarvis/web test` · `pnpm build` · `pnpm check:rls`
+  (**EXIT 0 — 28 tabelas INALTERADO**, story não toca DB). Target net testes
+  **≥ +15, zero regressões**. `node scripts/audit-dark-mode.ts` exit 0 (R-5.2
+  mandatório). Ao terminar: status Ready for Review + handoff dev→architect.
+  Gate final por **@architect** (DP-5.8.A/B/C são decisões arquitecturais).
+
+  **Housekeeping:** os 3 drafts Epic 5 (5.8/5.9/5.10) ainda estão untracked.
+  O commit é trabalho de @dev (`git add` + `git commit`); push EXCLUSIVO @devops.
+
+context: |
+  **Story:** docs/stories/active/5.8.dark-mode-tokens-sweep-persistence.story.md
+  (Ready for Dev v1.2 — secção "PO Validation Report" tem o detalhe + Change Log
+  v1.2 tem a re-validação byte-a-byte completa).
+
+  **As 6 DPs estão RATIFICADAS — implementar conforme a recomendação (A em todas):**
+    - DP-5.8.A: `darkMode: 'class'` no `tailwind.config.ts` + script anti-FOUC
+      inline no `<head>` do RootLayout (lê cookie `expressia-theme`, aplica/remove
+      classe `dark` no `<html>` ANTES do primeiro paint) + `ThemeProvider` Client.
+      Opção C (manter `media`) rejeitada — viola FR22 (toggle manual).
+    - DP-5.8.B: persistência híbrida C (DP2 validada por Eurico) — `user_prefs.theme`
+      = fonte de verdade cross-device; cookie `expressia-theme` (SameSite=Lax;
+      Path=/; Max-Age=31536000) = leitura síncrona pré-paint; localStorage = cache
+      UI reactivo. PATCH actualiza DB + cookie. Opção C (só localStorage) rejeitada
+      (per-device, viola FR22).
+    - DP-5.8.C: **`packages/ui/src/tokens.ts` hex = fonte canónica.** Migrar
+      `globals.css` HSL → hex exactos. **ATENÇÃO PO-FIX-2 (3 superfícies):** a
+      reconciliação tem de cobrir (1) CSS vars `:root`/`.dark`, (2) bloco
+      `theme.extend.colors` no `tailwind.config.ts` — que HOJE NÃO EXISTE (só tem
+      `fontFamily`), (3) componentes. As classes `text-muted-foreground`/
+      `bg-background`/`text-foreground` são usadas em 10+ ficheiros (ex.:
+      `conta/preferencias/page.tsx:59,63`) mas não estão mapeadas no config —
+      sem mapear o Tailwind, ficam SILENCIOSAMENTE sem estilo após a migração.
+      @dev decide: manter nomes legacy (`--background`/`--foreground`/`--muted`)
+      como aliases (menos sweep) OU renomear para `--bg-canvas`/`--text-primary`
+      (mais sweep). @architect ratifica no gate.
+    - DP-5.8.D: sweep cobre `apps/web/src` + `packages/ui/src`; whitelist de
+      falsos positivos (ex.: `bg-white/N` em glass effects); `theme:'system'` via
+      `window.matchMedia('(prefers-color-scheme: dark)')` no ThemeProvider.
+    - DP-5.8.E: GET estende para `{ always_preview, widgets_enabled, theme }`;
+      `ThemeSchema.safeParse(rows[0]?.theme).data ?? 'system'` (análogo ao
+      `WidgetsEnabledSchema.safeParse` da 5.7 — `route.ts:142-145`).
+    - DP-5.8.F: toggle 3 opções PT-PT ("Claro"/"Escuro"/"Sistema"), radiogroup
+      a11y, co-localizado com `always_preview`, optimistic + PATCH + banner 3s
+      (precedente `prefs-toggle.tsx`).
+
+  **PO-FIX-1 (AC5.d) — atenção crítica anti-invenção (Article IV):** o parity
+  test de tokens NÃO PODE exigir simetria. `colorsLight` = **19 tokens**,
+  `colorsDark` = **16** (`successSubtle`/`warningSubtle`/`dangerSubtle` omissos —
+  documentado em `tokens.ts:50-58` PO_FIX_INLINE F2, front-end-spec §3.2 não os
+  define). O teste verifica: cada entrada de `colorsLight` → CSS var em `:root`
+  E cada de `colorsDark` → CSS var em `.dark`, com os 3 `*Subtle` só em `:root`.
+  @dev decide (com @ux-design-expert, como nota o `tokens.ts`) se preenche os 3
+  omissos em `colorsDark`+`.dark` ou mantém a omissão — **NUNCA inventar hex**;
+  o teste reflecte a decisão tomada.
+
+  **Lição FIX-1 da Story 5.7 (CRÍTICA) — aplicada explicitamente (AC1.d + Dev
+  Notes linha 241):** Client Components renderizam no SSR. A mutação da classe
+  `dark` no `document.documentElement` no `ThemeProvider` DEVE estar em `useEffect`
+  (client-only) — NUNCA no corpo do render (mutaria o DOM/singleton no servidor →
+  cross-request leak; o gate @architect da 5.7 apanhou exactamente isto). A ÚNICA
+  excepção é o script anti-FOUC no `<head>` — JS puro, pré-hidratação, não-React.
+
+  **Cross-confirm byte-a-byte (re-verificado 29/05, zero drift):**
+    - `tailwind.config.ts` — sem `darkMode`, sem bloco `colors` (só `fontFamily`,
+      linhas 12-18). AC1.a (+ darkMode) e PO-FIX-2 (+ colors) válidos.
+    - `globals.css:35-42` — `@media (prefers-color-scheme: dark)` + HSL
+      (`--background: 222 47% 6%`). AC1.b migra `@media` → `.dark`. Tokens
+      Kanban/Calendar (linhas 15-32, `rgba()`/px) ficam FORA do grep de tema.
+    - GET `route.ts:153` retorna `{ always_preview, widgets_enabled }` SEM `theme`
+      (SELECT :134 idem) → AC4 estende.
+    - PATCH `route.ts:263-267` já aceita `theme` (`if (hasTheme)`) — **nenhuma
+      alteração ao PATCH**. UPSERT parcial já persiste `theme` quando enviado.
+    - `PreferencesPatchSchema` `theme: ThemeSchema.optional()` (`preferences.ts:79`);
+      `ThemeSchema = z.enum(['light','dark','system'])` (`preferences.ts:27`).
+    - `user_prefs.theme` existe (Story 5.1, migration 0016 `user_prefs_theme_check`,
+      default 'system') → **ZERO migration, check:rls 28 tabelas inalterado**.
+    - `(app)/layout.tsx:28-30` Server Component delega `<AppShell>` sem
+      `'use client'` → ThemeProvider montável aqui (ou em componente próprio).
+    - `conta/preferencias/page.tsx:44-50/68` faz fetch SSR via cookie ao GET
+      próprio + passa `initial` ao `<PrefsToggle>`. A 5.8 estende este fetch para
+      passar também o `theme` inicial ao `<ThemeToggle>` (AC2.d / T4.2).
+    - `hsl(var(--))` só em `globals.css` (1 ficheiro) → migração HSL→hex baixo risco.
+    - Sweep = **92 ocorrências / 50 ficheiros** (idêntico a v1.1, sem drift).
+      Muitas são `bg-white/N` (glass) = falsos positivos legítimos da whitelist.
+
+  **Achado de segurança do session-pause — RESOLVIDO pelo hotfix 5.0:** o bypass
+  reportado de `/tarefas`/`/financas` já não existe — `middleware.ts:44`
+  `APP_PATH_PREFIXES = ['/visao','/jarvis','/conta','/tarefas','/financas']`
+  (auto-mantido por `middleware.test.ts` que parte o build se uma rota `(app)/`
+  futura ficar descoberta). `/conta` cobre `/conta/preferencias` onde a 5.8 monta
+  o toggle — auth gate intacto, sem conflito com a 5.8.
+
+  **REQ-INLINE-1 (precedente 5.5/5.6/5.7):** em apps/web só `import type` de
+  `@meu-jarvis/db`. `ThemeSchema` vem de `@/lib/api-schemas/preferences` (local).
+  `route.ts:43` já usa `getDb` de `@/lib/agent/db-shim` (NUNCA `getServiceDb` — NFR5).
+
+  **Baseline testes:** "879/116 (pós-5.7)" — mas o hotfix 5.0 tocou
+  `middleware.test.ts`; a baseline exacta pode divergir ligeiramente. O target da
+  5.8 (≥ +15, zero regressões) é RELATIVO — @dev re-mede no `*develop`.
+  **CodeRabbit:** SKIPPED (precedente consistente 3.1-5.7).
+
+  **Snapshots:** Dev Notes linha 262 antecipa que `media`→`class` pode partir
+  snapshots (`page.test.tsx` visao). Verificar/actualizar no `*develop`.
+
+files_modified:
+  - docs/stories/active/5.8.dark-mode-tokens-sweep-persistence.story.md  # MOD — Ready for Dev v1.2 + Change Log v1.2 (re-validação byte-a-byte)
+
+blockers: []
