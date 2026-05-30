@@ -28,6 +28,7 @@ export const LLM_MODEL_VALUES = [
   'gpt-4o-mini',
   'claude-sonnet-4-5',
   'claude-opus-4-7',
+  'claude-haiku-4-5',
 ] as const;
 
 /**
@@ -41,10 +42,33 @@ export const LlmModelSchema = z.enum(LLM_MODEL_VALUES);
 export type LlmModel = z.infer<typeof LlmModelSchema>;
 
 /**
- * Default Anthropic Sonnet — usado por `AnthropicProvider` quando não
- * especificado no constructor.
+ * Default Anthropic Sonnet — usado por `AnthropicProvider` quando explicitamente
+ * pedido via `opts.model`. Já NÃO é o default global do Executor (ver
+ * `CLAUDE_HAIKU_DEFAULT`); permanece válido como override.
  */
 export const CLAUDE_SONNET_DEFAULT: LlmModel = 'claude-sonnet-4-5';
+
+/**
+ * Default Anthropic Haiku 4.5 — identificador completo da API Anthropic,
+ * passado ao SDK na chamada `messages.create`.
+ *
+ * Story 2.12: é o NOVO default do Executor.
+ *
+ * NOTA (Article IV / coerência enum): este valor é o API ID full-form
+ * (`-20251001`) e por isso NÃO é membro de `LlmModel` (o enum Postgres guarda
+ * o short-form `'claude-haiku-4-5'`). O short-form correspondente para a coluna
+ * DB `agent_runs.executor_model` e para `ProviderCompleteOutput.model` é
+ * `CLAUDE_HAIKU_MODEL_ENUM`. A separação é deliberada — ver Dev Notes Story 2.12
+ * AUTO-DECISION enum curto vs. API ID.
+ */
+export const CLAUDE_HAIKU_DEFAULT = 'claude-haiku-4-5-20251001' as const;
+
+/**
+ * Short-form do Haiku 4.5 — valor canónico do enum Postgres `llm_model`.
+ * É o que se escreve na coluna `agent_runs.executor_model` e o que aparece em
+ * `ProviderCompleteOutput.model`. O API ID full-form vive em `CLAUDE_HAIKU_DEFAULT`.
+ */
+export const CLAUDE_HAIKU_MODEL_ENUM = 'claude-haiku-4-5' as const;
 
 /**
  * Default OpenAI GPT-4o-mini — usado por `OpenAIProvider`.

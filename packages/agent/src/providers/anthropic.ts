@@ -17,13 +17,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 import {
-  type LlmModel,
   type ProviderCompleteInput,
   type ProviderCompleteOutput,
-  CLAUDE_SONNET_DEFAULT,
+  CLAUDE_HAIKU_DEFAULT,
+  CLAUDE_HAIKU_MODEL_ENUM,
   ProviderCompleteInputSchema,
   ProviderCompleteOutputSchema,
 } from '../contracts';
+import type { AnthropicModel } from '../pricing';
 import { CircuitBreaker } from '../circuit-breaker';
 import { MissingApiKeyError, mapAnthropicError, type ProviderId } from '../errors';
 import { calculateAnthropicCost } from '../pricing';
@@ -43,7 +44,8 @@ export interface AnthropicClientLike {
 }
 
 interface AnthropicProviderOpts {
-  readonly model?: LlmModel;
+  /** Override do modelo Anthropic. Default Story 2.12: Haiku 4.5. */
+  readonly model?: AnthropicModel;
   /** Override de API key — usado apenas em tests. Default: env. */
   readonly apiKeyOverride?: string;
   /** Override do client SDK — para mocks em tests sem precisar de `vi.mock`. */
@@ -56,13 +58,32 @@ interface AnthropicProviderOpts {
 
 export class AnthropicProvider implements ProviderInterface {
   public readonly id: ProviderId = PROVIDER;
-  public readonly model: LlmModel;
+  /**
+   * Modelo reportado em telemetria/output e gravado na coluna enum
+   * `agent_runs.executor_model` — sempre um `AnthropicModel` (subconjunto de
+   * `LlmModel` que exclui o classifier OpenAI; short-form do enum).
+   */
+  public readonly model: AnthropicModel;
+  /**
+   * Identificador efectivo passado ao SDK Anthropic. Para o default Haiku é o
+   * API ID full-form (`claude-haiku-4-5-20251001`); para overrides é igual ao
+   * `model`. Story 2.12 — separação enum short-form vs API ID.
+   */
+  private readonly wireModel: string;
   private readonly client: AnthropicClientLike;
   private readonly circuitBreaker: CircuitBreaker | null;
   private readonly retryOpts: Parameters<typeof withRetry>[1];
 
   constructor(opts: AnthropicProviderOpts = {}) {
-    this.model = opts.model ?? CLAUDE_SONNET_DEFAULT;
+    if (opts.model === undefined) {
+      // Default Story 2.12: Haiku 4.5. Reporta o short-form do enum; chama a API
+      // com o API ID full-form.
+      this.model = CLAUDE_HAIKU_MODEL_ENUM;
+      this.wireModel = CLAUDE_HAIKU_DEFAULT;
+    } else {
+      this.model = opts.model;
+      this.wireModel = opts.model;
+    }
 
     const apiKey = opts.apiKeyOverride ?? process.env.ANTHROPIC_API_KEY;
     if (apiKey === undefined || apiKey.trim() === '') {
@@ -131,7 +152,7 @@ export class AnthropicProvider implements ProviderInterface {
     const tools = buildToolsParam(input);
 
     const params: Record<string, unknown> = {
-      model: this.model,
+      model: this.wireModel,
       max_tokens: input.maxTokens ?? 4096,
       temperature: input.temperature ?? 0,
       system: systemBlocks,
@@ -199,7 +220,7 @@ function buildToolsParam(input: ProviderCompleteInput): unknown[] | undefined {
 }
 
 function mapAnthropicResponse(
-  model: LlmModel,
+  model: AnthropicModel,
   resp: AnthropicMessagesResponse,
   latencyMs: number,
 ): ProviderCompleteOutput {
@@ -211,6 +232,7 @@ function mapAnthropicResponse(
   const cacheHit = tokensInputCacheRead > 0;
 
   const cost = calculateAnthropicCost(
+    model,
     tokensInputRegular,
     tokensInputCacheRead,
     tokensInputCacheWrite,

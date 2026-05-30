@@ -53,7 +53,8 @@ describe('AnthropicProvider', () => {
     const result = await provider.complete(VALID_INPUT);
 
     expect(result.provider).toBe('anthropic');
-    expect(result.model).toBe('claude-sonnet-4-5');
+    // Story 2.12: default do provider passou a Haiku 4.5 (reporta short-form do enum).
+    expect(result.model).toBe('claude-haiku-4-5');
     expect(result.content).toBe('Olá!');
     expect(result.toolCalls).toEqual([]);
     expect(result.finishReason).toBe('stop');
@@ -92,6 +93,41 @@ describe('AnthropicProvider', () => {
     const systemBlocks = params.system as Array<{ cache_control?: unknown }>;
     expect(Array.isArray(systemBlocks)).toBe(true);
     expect(systemBlocks[0]?.cache_control).toEqual({ type: 'ephemeral' });
+  });
+
+  it('Story 2.12: default envia o API ID full-form "claude-haiku-4-5-20251001" ao SDK', async () => {
+    let capturedParams: Record<string, unknown> | null = null;
+    const client = makeMockClient(async (params) => {
+      capturedParams = params;
+      return {
+        content: [{ type: 'text', text: 'ok' }],
+        usage: { input_tokens: 10, output_tokens: 5 },
+        stop_reason: 'end_turn',
+      };
+    });
+    const provider = new AnthropicProvider({ clientOverride: client });
+    const result = await provider.complete(VALID_INPUT);
+    const params = capturedParams as unknown as Record<string, unknown>;
+    // Wire model = API ID full-form; model reportado = short-form do enum.
+    expect(params.model).toBe('claude-haiku-4-5-20251001');
+    expect(result.model).toBe('claude-haiku-4-5');
+  });
+
+  it('Story 2.12: override opts.model=claude-sonnet-4-5 continua funcional (wire=reportado)', async () => {
+    let capturedParams: Record<string, unknown> | null = null;
+    const client = makeMockClient(async (params) => {
+      capturedParams = params;
+      return {
+        content: [{ type: 'text', text: 'ok' }],
+        usage: { input_tokens: 10, output_tokens: 5 },
+        stop_reason: 'end_turn',
+      };
+    });
+    const provider = new AnthropicProvider({ clientOverride: client, model: 'claude-sonnet-4-5' });
+    const result = await provider.complete(VALID_INPUT);
+    const params = capturedParams as unknown as Record<string, unknown>;
+    expect(params.model).toBe('claude-sonnet-4-5');
+    expect(result.model).toBe('claude-sonnet-4-5');
   });
 
   it('mapeia tool_use response correctamente', async () => {

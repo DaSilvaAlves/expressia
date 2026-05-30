@@ -58,10 +58,16 @@ export function getProvider(opts: GetProviderOpts = {}): ProviderInterface {
   const cached = providerCache.get(key);
   if (cached !== undefined) return cached;
 
+  // O AnthropicProvider só aceita modelos Anthropic (`AnthropicModel`); o
+  // classifier OpenAI `gpt-4o-mini` nunca deve chegar aqui via branch anthropic.
+  // Quando `opts.model` é `gpt-4o-mini` (ou undefined) passamos `undefined` para
+  // o provider escolher o seu default (Story 2.12: Haiku 4.5).
+  const anthropicModel =
+    opts.model === undefined || opts.model === 'gpt-4o-mini' ? undefined : opts.model;
   const created: ProviderInterface =
     providerId === 'openai'
       ? new OpenAIProvider({ model: opts.model })
-      : new AnthropicProvider({ model: opts.model });
+      : new AnthropicProvider({ model: anthropicModel });
   providerCache.set(key, created);
   return created;
 }

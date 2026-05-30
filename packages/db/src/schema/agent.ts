@@ -64,6 +64,7 @@ export const llmModelEnum = pgEnum('llm_model', [
   'gpt-4o-mini', // classifier
   'claude-sonnet-4-5', // executor (futuras versões adicionar aqui)
   'claude-opus-4-7',
+  'claude-haiku-4-5', // executor default desde Story 2.12 (migration 0017)
 ]);
 
 // ─────────────────────────────────────────────────────────────────────────────

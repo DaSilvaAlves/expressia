@@ -44,7 +44,7 @@ const result = await planner.plan({
 ```
 
 **Defaults:**
-- `model`: `'claude-sonnet-4-5'` (`CLAUDE_SONNET_DEFAULT` da 2.2)
+- `model`: `'claude-haiku-4-5'` (`CLAUDE_HAIKU_MODEL_ENUM` — Story 2.12; Sonnet/Opus continuam válidos via override)
 - `cacheControl`: `'ephemeral'` (D11 — Architecture §4.3 ~90% cost saving)
 - `temperature`: `0.2`
 - `maxTokens`: `1024`

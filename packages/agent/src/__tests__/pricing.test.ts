@@ -34,25 +34,55 @@ describe('usdToEur', () => {
   });
 });
 
-describe('calculateAnthropicCost', () => {
+describe('calculateAnthropicCost — Sonnet', () => {
   it('cost típico Sonnet — 1k input regular + 100 output', () => {
-    const cost = calculateAnthropicCost(1000, 0, 0, 100);
+    const cost = calculateAnthropicCost('claude-sonnet-4-5', 1000, 0, 0, 100);
     // 1000 × 3 / 1M = 0.003 USD input + 100 × 15 / 1M = 0.0015 USD output = 0.0045 USD total
     expect(cost.costUsd).toBeCloseTo(0.0045, 6);
     expect(cost.costEur).toBeCloseTo(0.0045 * 0.92, 6);
   });
 
-  it('cache read poupa custo', () => {
-    const noCache = calculateAnthropicCost(1000, 0, 0, 100);
-    const withCache = calculateAnthropicCost(0, 1000, 0, 100); // mesmos tokens, mas via cache read
+  it('cache read poupa custo (Sonnet)', () => {
+    const noCache = calculateAnthropicCost('claude-sonnet-4-5', 1000, 0, 0, 100);
+    const withCache = calculateAnthropicCost('claude-sonnet-4-5', 0, 1000, 0, 100); // mesmos tokens, via cache read
     expect(withCache.costUsd).toBeLessThan(noCache.costUsd);
     // 1000 × 0.30 / 1M = 0.0003 + 100 × 15 / 1M = 0.0015 = 0.0018 total
     expect(withCache.costUsd).toBeCloseTo(0.0018, 6);
   });
 
-  it('cache write é 1.25× mais caro que input', () => {
-    const cost = calculateAnthropicCost(0, 0, 1000, 0);
+  it('cache write Sonnet é 1.25× mais caro que input', () => {
+    const cost = calculateAnthropicCost('claude-sonnet-4-5', 0, 0, 1000, 0);
     expect(cost.costUsd).toBeCloseTo(0.00375, 6);
+  });
+});
+
+describe('calculateAnthropicCost — Haiku 4.5 (Story 2.12)', () => {
+  it('cost típico Haiku — 1k input regular + 100 output', () => {
+    const cost = calculateAnthropicCost('claude-haiku-4-5', 1000, 0, 0, 100);
+    // 1000 × 1 / 1M = 0.001 input + 100 × 5 / 1M = 0.0005 output = 0.0015 total
+    expect(cost.costUsd).toBeCloseTo(0.0015, 6);
+    expect(cost.costEur).toBeCloseTo(0.0015 * 0.92, 6);
+  });
+
+  it('cache read poupa custo (Haiku)', () => {
+    const noCache = calculateAnthropicCost('claude-haiku-4-5', 1000, 0, 0, 100);
+    const withCache = calculateAnthropicCost('claude-haiku-4-5', 0, 1000, 0, 100);
+    expect(withCache.costUsd).toBeLessThan(noCache.costUsd);
+    // 1000 × 0.10 / 1M = 0.0001 + 100 × 5 / 1M = 0.0005 = 0.0006 total
+    expect(withCache.costUsd).toBeCloseTo(0.0006, 6);
+  });
+
+  it('cache write Haiku é 1.25× input ($1.25/MTok)', () => {
+    const cost = calculateAnthropicCost('claude-haiku-4-5', 0, 0, 1000, 0);
+    expect(cost.costUsd).toBeCloseTo(0.00125, 6);
+  });
+
+  it('custo Haiku < custo Sonnet para os mesmos tokens (prova dispatch por modelo)', () => {
+    const haiku = calculateAnthropicCost('claude-haiku-4-5', 1000, 0, 0, 100);
+    const sonnet = calculateAnthropicCost('claude-sonnet-4-5', 1000, 0, 0, 100);
+    expect(haiku.costUsd).toBeLessThan(sonnet.costUsd);
+    // Haiku é exactamente 1/3 do input e 1/3 do output de Sonnet → 0.0015 vs 0.0045
+    expect(haiku.costUsd / sonnet.costUsd).toBeCloseTo(1 / 3, 6);
   });
 });
 

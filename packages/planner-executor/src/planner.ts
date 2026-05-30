@@ -28,9 +28,10 @@
  */
 import {
   AnthropicProvider,
-  CLAUDE_SONNET_DEFAULT,
+  CLAUDE_HAIKU_MODEL_ENUM,
   ProviderError,
   type AnthropicClientLike,
+  type AnthropicModel,
   type LlmModel,
   type ProviderCompleteInput,
   type ProviderCompleteOutput,
@@ -102,7 +103,7 @@ export interface PlannerOpts {
    * `null` desliga cache (apenas para testes/debug).
    */
   readonly cacheControl?: 'ephemeral' | null;
-  /** Override do model — default `claude-sonnet-4-5`. */
+  /** Override do model — default `claude-haiku-4-5` (Story 2.12). */
   readonly model?: LlmModel;
 }
 
@@ -116,7 +117,9 @@ export class Planner {
   private readonly maxTokens: number;
   private readonly temperature: number;
   private readonly cacheControl: 'ephemeral' | null;
-  private readonly model: LlmModel;
+  // O Planner usa sempre um provider Anthropic — `model` é um `AnthropicModel`
+  // (exclui o classifier OpenAI `gpt-4o-mini`).
+  private readonly model: AnthropicModel;
 
   constructor(opts: PlannerOpts = {}) {
     this.maxTokens = opts.maxTokens ?? DEFAULT_PLANNER_MAX_TOKENS;
@@ -124,7 +127,17 @@ export class Planner {
     // CacheControl: aceitar `null` explícito (override desliga) e `undefined`/missing → default 'ephemeral'.
     // `??` trata null como nullish, então usar comparação explícita.
     this.cacheControl = opts.cacheControl === undefined ? 'ephemeral' : opts.cacheControl;
-    this.model = opts.model ?? CLAUDE_SONNET_DEFAULT;
+    // Story 2.12: default do Executor passou de Sonnet → Haiku 4.5 (short-form
+    // do enum, alias válido da API Anthropic). O override `opts.model` continua
+    // a aceitar Sonnet/Opus. Sem esta mudança, a coluna agent_runs.executor_model
+    // (escrita como 'claude-haiku-4-5' pelos route handlers, AC5) ficaria
+    // incoerente com o modelo realmente usado.
+    // `gpt-4o-mini` (classifier OpenAI) não é um executor Anthropic válido —
+    // se passado por engano, cai no default Haiku.
+    this.model =
+      opts.model === undefined || opts.model === 'gpt-4o-mini'
+        ? CLAUDE_HAIKU_MODEL_ENUM
+        : opts.model;
     this.registry = opts.registry ?? toolRegistry;
 
     if (opts.client !== undefined) {

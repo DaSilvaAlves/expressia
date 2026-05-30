@@ -28,6 +28,8 @@ export {
   LlmModelSchema,
   FinishReasonSchema,
   CLAUDE_SONNET_DEFAULT,
+  CLAUDE_HAIKU_DEFAULT,
+  CLAUDE_HAIKU_MODEL_ENUM,
   OPENAI_GPT4O_MINI_DEFAULT,
 } from './contracts';
 export type {
@@ -39,6 +41,7 @@ export type {
   LlmModel,
   FinishReason,
 } from './contracts';
+export type { AnthropicModel } from './pricing';
 
 export {
   ProviderError,

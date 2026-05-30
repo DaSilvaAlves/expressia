@@ -22,6 +22,7 @@
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { CLAUDE_HAIKU_MODEL_ENUM } from '@meu-jarvis/agent';
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import {
   ClassificationSchema,
@@ -187,7 +188,8 @@ export async function POST(
           runId,
           {
             toolCalls: plan.toolCalls,
-            executorModel: 'claude-sonnet-4-5',
+            // Story 2.12: enum short-form gravado na coluna agent_runs.executor_model.
+            executorModel: CLAUDE_HAIKU_MODEL_ENUM,
             tokensInput: plan.tokensInput,
             tokensOutput: plan.tokensOutput,
             costEur: plan.costEur,

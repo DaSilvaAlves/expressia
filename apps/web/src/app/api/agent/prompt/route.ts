@@ -49,7 +49,7 @@ import {
   type AtomicResult,
   type PlanResult,
 } from '@meu-jarvis/planner-executor';
-import type { OpenAIClientLike } from '@meu-jarvis/agent';
+import { CLAUDE_HAIKU_MODEL_ENUM, type OpenAIClientLike } from '@meu-jarvis/agent';
 
 import { apiError } from '@/lib/errors';
 import {
@@ -478,7 +478,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           runId,
           {
             toolCalls: plan.toolCalls,
-            executorModel: 'claude-sonnet-4-5',
+            // Story 2.12: enum short-form gravado na coluna agent_runs.executor_model.
+            executorModel: CLAUDE_HAIKU_MODEL_ENUM,
             tokensInput: plan.tokensInput,
             tokensOutput: plan.tokensOutput,
             costEur: plan.costEur,
@@ -556,7 +557,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         cache_hit: plan.cacheHit,
         status_code: 200,
         classifier_model: 'gpt-4o-mini',
-        executor_model: 'claude-sonnet-4-5',
+        // Story 2.12: span OTel (telemetria, string livre) — usa o short-form
+        // por coerência com o enum.
+        executor_model: CLAUDE_HAIKU_MODEL_ENUM,
       });
 
       const undoExpiresAt = new Date(Date.now() + 30 * 1000); // 30s FR6
