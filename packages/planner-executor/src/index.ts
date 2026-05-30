@@ -40,12 +40,14 @@ export {
   PlanResultSchema,
   PlannerInputSchema,
   ExecutorInputSchema,
+  AccountContextSchema,
 } from './schemas';
 export type {
   PlanToolCall,
   PlanResult,
   PlannerInput,
   ExecutorInput,
+  AccountContext,
 } from './schemas';
 
 // System prompt — apenas versão (texto raw NÃO exportado)

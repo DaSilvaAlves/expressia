@@ -119,4 +119,45 @@ describe('handle_new_user bootstrap (Story 6.1 AC5/AC6 — verificação estrutu
       expect(rows[0]!.prosecdef).toBe(true);
     },
   );
+
+  // ───────────────────────────────────────────────────────────────────────
+  // Story 2.13 T1.5 (AC1 / PO-FIX-D) — verificação ESTRUTURAL da conta default.
+  //
+  // A migration 0018 estende `handle_new_user` para criar uma conta "Dinheiro"
+  // (account_type='dinheiro') por household no onboarding. A verificação
+  // FUNCIONAL do row (1 conta, household_id correcto) exige criar `auth.users`
+  // via SDK Supabase Auth (não Postgres directo) — depende da suite
+  // Testcontainers da Story 1.4 (ainda não entregue) e fica como smoke manual
+  // no E2E T6. Aqui validamos apenas, de forma read-only via pg_get_functiondef,
+  // que o corpo da função CONTÉM o INSERT em accounts com account_type 'dinheiro'.
+  // Trace: Story 2.13 AC1/AC8, migration 0018, ADR-002 §3/§4.
+  // ───────────────────────────────────────────────────────────────────────
+
+  it.skipIf(!HAS_DB)(
+    'handle_new_user contém INSERT da conta Dinheiro default (Story 2.13 AC1)',
+    async () => {
+      const result = await db!.execute(drizzleSql`
+        select pg_get_functiondef(p.oid) as def
+        from pg_proc p
+        join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'handle_new_user'
+      `);
+      const rows = result as unknown as Array<{ def: string }>;
+      expect(rows[0]).toBeDefined();
+      const def = rows[0]!.def.toLowerCase();
+
+      // INSERT na tabela accounts presente no corpo do trigger.
+      expect(def).toMatch(/insert\s+into\s+public\.accounts/);
+      // Conta criada é do tipo 'dinheiro' (cash físico) com nome 'Dinheiro'.
+      // pg_get_functiondef pode normalizar o enum como 'dinheiro'::account_type;
+      // a asserção de substring cobre ambas as formas.
+      expect(def).toContain("'dinheiro'");
+      // O comportamento de bootstrap pré-existente (household + subscription) é
+      // mantido — a 0018 é aditiva, não substitui.
+      expect(def).toMatch(/insert\s+into\s+public\.households/);
+      expect(def).toMatch(/insert\s+into\s+public\.subscriptions/);
+      // Continua SECURITY DEFINER (search_path defendido) — não regrediu.
+      expect(def).toContain('security definer');
+    },
+  );
 });

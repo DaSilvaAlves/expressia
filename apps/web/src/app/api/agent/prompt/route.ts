@@ -45,6 +45,7 @@ import {
   ExecutorValidationError,
   ToolPlanGateError,
   ToolError,
+  type AccountContext,
   type AtomicOutcome,
   type AtomicResult,
   type PlanResult,
@@ -108,6 +109,56 @@ async function resolveHouseholdId(userId: string): Promise<string | null> {
     return null;
   }
   return data.household_id;
+}
+
+/**
+ * Constrói o `accountContext` (Story 2.13 AC6) — contas e cartões activos do
+ * household para o Planner desambiguar conta/cartão nomeados pelo utilizador.
+ *
+ * RLS (ADR-002 §9.3): usa `getDb()` (role authenticated, JWT-scoped) — NUNCA
+ * `getServiceDb()`. O Postgres garante que só vê entidades do próprio
+ * household. Filtra `archived_at IS NULL` (a coluna de arquivamento é
+ * `archived_at`, NÃO `is_archived`).
+ *
+ * O endpoint converte o `account_type` (pgEnum) para string — o package
+ * planner é agnóstico de DDL (não conhece `accountTypeEnum`).
+ *
+ * Falha é não-fatal: devolve `undefined` (o fallback `resolveDefaultAccount`
+ * das tools resolve a conta default a jusante).
+ */
+async function buildAccountContext(
+  db: ReturnType<typeof getDb>,
+  log: ReturnType<typeof childLogger>,
+): Promise<AccountContext | undefined> {
+  try {
+    const accountRows = await db.execute<{ id: string; name: string; account_type: string }>(sql`
+      select id, name, account_type
+      from public.accounts
+      where archived_at is null
+      order by created_at asc
+    `);
+    const cardRows = await db.execute<{ id: string; name: string }>(sql`
+      select id, name
+      from public.cards
+      where archived_at is null
+      order by created_at asc
+    `);
+
+    const accounts = accountRows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      type: r.account_type,
+    }));
+    const cards = cardRows.map((r) => ({ id: r.id, name: r.name }));
+
+    if (accounts.length === 0 && cards.length === 0) {
+      return undefined;
+    }
+    return { accounts, cards };
+  } catch (err) {
+    log.warn({ err }, 'buildAccountContext falhou — Planner sem accountContext (fallback resolve a jusante)');
+    return undefined;
+  }
 }
 
 /**
@@ -463,6 +514,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       // ─── 8. Planner + Executor (executed branch) ──────────────────
+      // Story 2.13 AC6 (ADR-002 §9.3): SELECT RLS-scoped (getDb(), NUNCA
+      // getServiceDb()) das contas/cartões activos (archived_at IS NULL) do
+      // household, para alimentar o accountContext do Planner. Falha é
+      // não-fatal — o fallback resolveDefaultAccount das tools resolve a jusante.
+      const accountContext = await buildAccountContext(db, log);
+
       let plan: PlanResult;
       let outcome: AtomicOutcome;
       try {
@@ -473,6 +530,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           userId: user.id,
           traceId,
           runId,
+          accountContext,
         });
         await updateAfterPlanner(
           runId,

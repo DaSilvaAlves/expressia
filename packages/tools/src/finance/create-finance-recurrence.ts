@@ -10,9 +10,12 @@
  *   - `description` NOT NULL (schema `recurrences.description text not null` — PO_FIX_INLINE F2)
  *   - `frequency` subset MVP: `'monthly'` | `'weekly'` | `'yearly'` (schema enum tem 7 — restantes diferidos Fase 2)
  *   - `startsOn` ISO YYYY-MM-DD (schema NOT NULL — F2)
- *   - `accountId` XOR `cardId`
+ *   - `accountId`/`cardId` AMBOS opcionais (Story 2.13 AC3 — refine relaxado):
+ *       quando nenhum é fornecido, `resolveDefaultAccount` resolve a conta
+ *       "Dinheiro" default do household dentro de `execute()`.
  *   - `categoryId` opcional → fallback por kind (F6)
- *   - `paymentMethod` opcional → inferido (default schema 'transfer')
+ *   - `paymentMethod` opcional → inferido (DP-2.13.A): cardId → 'card';
+ *       conta default tipo 'dinheiro' → 'cash'; outros → 'transfer'
  *
  * `next_run_on` é populado igual a `startsOn` — cron Inngest (Story 4.5)
  * materializa a primeira transacção nessa data.
@@ -28,6 +31,7 @@ import type {
   ToolExecutionContext,
 } from '../contracts';
 import { formatEuroCents } from './_helpers/format-euro-cents';
+import { resolveDefaultAccount } from './_helpers/resolve-default-account';
 import { resolveDefaultCategory } from './_helpers/resolve-default-category';
 
 const PAYMENT_METHOD_VALUES = [
@@ -57,10 +61,9 @@ const CreateFinanceRecurrenceInputSchema = z
     cardId: z.string().uuid().optional(),
     categoryId: z.string().uuid().optional(),
     paymentMethod: z.enum(PAYMENT_METHOD_VALUES).optional(),
-  })
-  .refine((d) => d.accountId !== undefined || d.cardId !== undefined, {
-    message: 'Fornecer accountId ou cardId (CHECK recurrences_account_or_card)',
   });
+// Story 2.13 AC3: refine `accountId` XOR `cardId` removido. A conta default é
+// resolvida em `execute()` via `resolveDefaultAccount` quando ambos ausentes.
 
 export type CreateFinanceRecurrenceInput = z.infer<
   typeof CreateFinanceRecurrenceInputSchema
@@ -130,9 +133,26 @@ export const createFinanceRecurrence: ToolDefinition<
         toolName: 'create_finance_recurrence',
       }));
 
+    // Story 2.13 AC3/AC4: resolver conta default quando NEM accountId NEM
+    // cardId vêm do input. Devolve o tipo para inferir paymentMethod (DP-2.13.A).
+    let accountId = input.accountId;
+    let resolvedAccountType: string | undefined;
+    if (input.accountId === undefined && input.cardId === undefined) {
+      const resolved = await resolveDefaultAccount({
+        db: ctx.db,
+        toolName: 'create_finance_recurrence',
+      });
+      accountId = resolved.accountId;
+      resolvedAccountType = resolved.accountType;
+    }
+
     const paymentMethod =
       input.paymentMethod ??
-      (input.cardId !== undefined ? 'card' : 'transfer');
+      (input.cardId !== undefined
+        ? 'card'
+        : resolvedAccountType === 'dinheiro'
+          ? 'cash'
+          : 'transfer');
 
     const result = (await ctx.db.execute(sql`
       insert into recurrences
@@ -146,7 +166,7 @@ export const createFinanceRecurrence: ToolDefinition<
           ${input.description},
           ${input.kind}::transaction_kind,
           ${input.amountCents},
-          ${input.accountId ?? null}::uuid,
+          ${accountId ?? null}::uuid,
           ${input.cardId ?? null}::uuid,
           ${categoryId}::uuid,
           ${paymentMethod}::payment_method_finance,

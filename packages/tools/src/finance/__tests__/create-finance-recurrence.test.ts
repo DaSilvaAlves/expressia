@@ -165,14 +165,14 @@ describe('create_finance_recurrence — input validation', () => {
         .success,
     ).toBe(false);
   });
-  it('rejeita sem accountId E sem cardId', () => {
+  it('ACEITA sem accountId E sem cardId (Story 2.13 — refine relaxado; conta default em execute)', () => {
     expect(
       createFinanceRecurrence.inputSchema.safeParse({
         ...base,
         accountId: undefined,
         cardId: undefined,
       }).success,
-    ).toBe(false);
+    ).toBe(true);
   });
   it('aceita com cardId (sem accountId)', () => {
     expect(
@@ -311,6 +311,76 @@ describe('create_finance_recurrence — execute', () => {
       ctx,
     );
     expect(state.executes[1]?.sqlText).toMatch(/true/);
+  });
+});
+
+describe('create_finance_recurrence — conta default (Story 2.13)', () => {
+  const DINHEIRO_ACCOUNT_ID = '66666666-7777-4888-8999-aaaaaaaaaaaa';
+
+  it('sem accountId nem cardId → resolveDefaultAccount + paymentMethod cash (dinheiro)', async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        [{ id: DEFAULT_CATEGORY_ID }], // SELECT category
+        [{ id: DINHEIRO_ACCOUNT_ID, account_type: 'dinheiro' }], // SELECT account
+        [
+          {
+            id: REC_ID,
+            description: 'Renda',
+            amount_cents: 60000,
+            kind: 'expense',
+            frequency: 'monthly',
+            starts_on: '2026-06-01',
+            next_run_on: '2026-06-01',
+          },
+        ],
+      ],
+    };
+    const ctx = makeCtx(makeMockDb(state));
+    await createFinanceRecurrence.execute(
+      {
+        amountCents: 60000,
+        kind: 'expense',
+        description: 'Renda',
+        frequency: 'monthly',
+        startsOn: '2026-06-01',
+      },
+      ctx,
+    );
+    expect(state.executes.length).toBe(3);
+    const accountSelectSql = state.executes[1]?.sqlText.toLowerCase() ?? '';
+    expect(accountSelectSql).toContain('from accounts');
+    expect(accountSelectSql).toContain('archived_at is null');
+    const insertSql = state.executes[2]?.sqlText.toLowerCase() ?? '';
+    expect(insertSql).toContain('insert into recurrences');
+    expect(insertSql).toContain('cash');
+  });
+
+  it('household sem conta → ToolExecutionError PT-PT', async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        [{ id: DEFAULT_CATEGORY_ID }],
+        [], // SELECT account → vazio
+      ],
+    };
+    const ctx = makeCtx(makeMockDb(state));
+    try {
+      await createFinanceRecurrence.execute(
+        {
+          amountCents: 60000,
+          kind: 'expense',
+          description: 'Renda',
+          frequency: 'monthly',
+          startsOn: '2026-06-01',
+        },
+        ctx,
+      );
+      expect.fail('devia ter lançado ToolExecutionError');
+    } catch (err) {
+      expect((err as Error).name).toBe('ToolExecutionError');
+      expect(((err as { cause?: Error }).cause as Error).message).toMatch(/Nenhuma conta/);
+    }
   });
 });
 

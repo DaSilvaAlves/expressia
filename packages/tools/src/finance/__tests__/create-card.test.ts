@@ -172,10 +172,10 @@ describe('create_card — input validation (F3 corrigido)', () => {
     ).toBe(false);
   });
 
-  it('rejeita accountId omitido (F3 NOT NULL)', () => {
+  it('ACEITA accountId omitido (Story 2.13 AC5 / PO-FIX-E — opcional; conta default em execute)', () => {
     const noAccount: Record<string, unknown> = { ...validCredit };
     delete noAccount['accountId'];
-    expect(createCard.inputSchema.safeParse(noAccount).success).toBe(false);
+    expect(createCard.inputSchema.safeParse(noAccount).success).toBe(true);
   });
 
   it('aceita last4 válido (4 dígitos)', () => {
@@ -297,6 +297,66 @@ describe('create_card — execute', () => {
     );
     expect(out.creditLimitCents).toBeNull();
     expect(out.closingDay).toBeNull();
+  });
+});
+
+describe('create_card — conta default (Story 2.13 AC5)', () => {
+  const DINHEIRO_ACCOUNT_ID = '66666666-7777-4888-8999-aaaaaaaaaaaa';
+
+  it('sem accountId → resolveDefaultAccount + INSERT usa conta default', async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        // 1ª: SELECT default account (resolveDefaultAccount)
+        [{ id: DINHEIRO_ACCOUNT_ID, account_type: 'dinheiro' }],
+        // 2ª: INSERT card
+        [
+          {
+            id: CARD_ID,
+            name: 'Millennium',
+            account_id: DINHEIRO_ACCOUNT_ID,
+            card_type: 'debit',
+            closing_day: null,
+            due_day: null,
+            last4: null,
+            credit_limit_cents: null,
+          },
+        ],
+      ],
+    };
+    const ctx = makeCtx(makeMockDb(state));
+    const out = await createCard.execute(
+      { name: 'Millennium', cardType: 'debit' },
+      ctx,
+    );
+    expect(state.executes.length).toBe(2);
+    expect(state.executes[0]?.sqlText.toLowerCase()).toContain('from accounts');
+    expect(state.executes[1]?.sqlText.toLowerCase()).toContain('insert into cards');
+    expect(out.accountId).toBe(DINHEIRO_ACCOUNT_ID);
+  });
+
+  it('com accountId explícito → NÃO chama resolveDefaultAccount (só INSERT)', async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        [
+          {
+            id: CARD_ID,
+            name: 'X',
+            account_id: ACCOUNT_ID,
+            card_type: 'debit',
+            closing_day: null,
+            due_day: null,
+            last4: null,
+            credit_limit_cents: null,
+          },
+        ],
+      ],
+    };
+    const ctx = makeCtx(makeMockDb(state));
+    await createCard.execute({ name: 'X', accountId: ACCOUNT_ID, cardType: 'debit' }, ctx);
+    expect(state.executes.length).toBe(1);
+    expect(state.executes[0]?.sqlText.toLowerCase()).toContain('insert into cards');
   });
 });
 

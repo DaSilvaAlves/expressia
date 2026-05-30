@@ -91,13 +91,40 @@ export type PlanResult = z.infer<typeof PlanResultSchema>;
  *
  * `traceId` propaga para deep-link Grafana. `householdId` e `userId` NUNCA
  * aparecem em logs raw — `hashForCorrelation` aplica-se em span attributes.
+ *
+ * `accountContext` (Story 2.13 AC6 — ponte Finanças ↔ Cérebro, ADR-002 §9.4):
+ * contexto opcional de contas/cartões do household que o endpoint (`apps/web`)
+ * monta via SELECT RLS-scoped e o Planner injecta como **prefixo da user
+ * message** (NUNCA no `system`/`tools` — preserva o cache Anthropic). São DUAS
+ * listas distintas porque cartões NÃO têm `account_type`. `type` é `z.string()`
+ * (NÃO importa `accountTypeEnum` de `@meu-jarvis/db` — mantém o package
+ * agnóstico de DDL; o endpoint faz o mapeamento da row para a string).
  */
+export const AccountContextSchema = z.object({
+  accounts: z.array(
+    z.object({
+      id: z.string().uuid(),
+      name: z.string(),
+      type: z.string(),
+    }),
+  ),
+  cards: z.array(
+    z.object({
+      id: z.string().uuid(),
+      name: z.string(),
+    }),
+  ),
+});
+
+export type AccountContext = z.infer<typeof AccountContextSchema>;
+
 export const PlannerInputSchema = z.object({
   classification: ClassificationSchema,
   householdId: z.string().uuid(),
   userId: z.string().uuid(),
   traceId: z.string().min(1),
   runId: z.string().uuid(),
+  accountContext: AccountContextSchema.optional(),
 });
 
 export type PlannerInput = z.infer<typeof PlannerInputSchema>;

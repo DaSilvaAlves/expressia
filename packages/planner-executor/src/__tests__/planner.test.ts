@@ -255,6 +255,71 @@ describe('Planner.plan() — payload structure', () => {
     expect((tools as unknown[]).length).toBe(3);
   });
 
+  it('accountContext (Story 2.13) é injectado no PREFIXO da user message — nunca no system/tools', async () => {
+    let capturedParams: Record<string, unknown> | undefined;
+    const client = createMockAnthropicClient((params) => {
+      capturedParams = params;
+      return buildToolUseResponse([{ name: 'create_finance_variable', input: { amountCents: 1870 } }]);
+    });
+    const planner = new Planner({ client, registry: createMockRegistry() });
+    await planner.plan(
+      buildInput({
+        classification: {
+          intents: [
+            { intent: 'criar_financa_variavel', confidence: 0.95, raw_span: 'paguei no pingo doce' },
+          ],
+          language: 'pt-PT',
+          needs_confirmation: false,
+          overall_confidence: 0.95,
+        },
+        accountContext: {
+          // Nome distintivo que NÃO aparece no system prompt estático (evita
+          // colisão com os few-shots que mencionam "Millennium"/"Dinheiro").
+          accounts: [{ id: VALID_UUID_1, name: 'ContaTesteXYZ', type: 'dinheiro' }],
+          cards: [{ id: VALID_UUID_2, name: 'CartaoTesteXYZ' }],
+        },
+      }),
+    );
+
+    const messages = capturedParams?.messages as Array<{ role: string; content: string }>;
+    const userContent = messages[0]?.content ?? '';
+    // accountContext no prefixo da user message
+    expect(userContent).toContain('Contexto de contas do household');
+    expect(userContent).toContain('ContaTesteXYZ');
+    expect(userContent).toContain('CartaoTesteXYZ');
+    // NUNCA no system nem nos tools — os nomes de conta não devem lá aparecer
+    const systemStr = JSON.stringify(capturedParams?.system ?? '');
+    const toolsStr = JSON.stringify(capturedParams?.tools ?? '');
+    expect(systemStr).not.toContain('ContaTesteXYZ');
+    expect(toolsStr).not.toContain('CartaoTesteXYZ');
+  });
+
+  it('accountContext ausente → sem prefixo de contexto na user message', async () => {
+    let capturedParams: Record<string, unknown> | undefined;
+    const client = createMockAnthropicClient((params) => {
+      capturedParams = params;
+      return buildToolUseResponse([{ name: 'create_task', input: { title: 'A' } }]);
+    });
+    const planner = new Planner({ client, registry: createMockRegistry() });
+    await planner.plan(buildInput());
+
+    const messages = capturedParams?.messages as Array<{ role: string; content: string }>;
+    expect(messages[0]?.content ?? '').not.toContain('Contexto de contas do household');
+  });
+
+  it('accountContext com ambas as listas vazias → sem prefixo (utilizador novo pré-backfill)', async () => {
+    let capturedParams: Record<string, unknown> | undefined;
+    const client = createMockAnthropicClient((params) => {
+      capturedParams = params;
+      return buildToolUseResponse([{ name: 'create_task', input: { title: 'A' } }]);
+    });
+    const planner = new Planner({ client, registry: createMockRegistry() });
+    await planner.plan(buildInput({ accountContext: { accounts: [], cards: [] } }));
+
+    const messages = capturedParams?.messages as Array<{ role: string; content: string }>;
+    expect(messages[0]?.content ?? '').not.toContain('Contexto de contas do household');
+  });
+
   it('cacheControl=null desliga cache (system é string raw)', async () => {
     let capturedParams: Record<string, unknown> | undefined;
     const client = createMockAnthropicClient((params) => {

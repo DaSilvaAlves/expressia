@@ -269,7 +269,12 @@ export class Planner {
     temperature: number,
   ): Promise<ProviderCompleteOutput> {
     const tools = this.registry.getAnthropicToolDefinitions();
-    const userMessage = serializeClassificationForPlanner(input.classification);
+    // Story 2.13 AC6 (ADR-002 §9.1/§9.4): o accountContext é injectado como
+    // PREFIXO da user message — NUNCA no `system`/`tools` (preserva o prefixo
+    // cacheável da Anthropic). Os nomes de conta viajam em `messages`, logo são
+    // cobertos por `redactProviderPayload` (NFR12) por construção.
+    const accountContextPrefix = serializeAccountContextForPlanner(input.accountContext);
+    const userMessage = `${accountContextPrefix}${serializeClassificationForPlanner(input.classification)}`;
 
     const providerInput: ProviderCompleteInput = {
       system: PLANNER_SYSTEM_PROMPT,
@@ -355,6 +360,48 @@ export class Planner {
  * **Importante**: o prompt original do utilizador NÃO é re-enviado nesta
  * camada — o Planner trabalha apenas com a classificação validada.
  */
+/**
+ * Serializa o `accountContext` (contas/cartões do household) num prefixo
+ * compacto PT-PT para anteceder a user message (Story 2.13 AC6 / ADR-002 §9.4).
+ *
+ * Formato denso — uma linha por categoria, ids inline para o LLM resolver
+ * desambiguação ("cartão Millennium" → id). Retorna string vazia (sem prefixo)
+ * quando `accountContext` é ausente ou ambas as listas estão vazias
+ * (utilizador novo pré-backfill; o fallback `resolveDefaultAccount` da peça B
+ * resolve a jusante).
+ *
+ * Os nomes de conta/cartão aqui são PII ligeira — viajam em `messages`, logo
+ * cobertos por `redactProviderPayload` (NFR12). NÃO entram em span attributes.
+ */
+function serializeAccountContextForPlanner(
+  accountContext: PlannerInput['accountContext'],
+): string {
+  if (
+    accountContext === undefined ||
+    (accountContext.accounts.length === 0 && accountContext.cards.length === 0)
+  ) {
+    return '';
+  }
+
+  const lines: string[] = ['[Contexto de contas do household]'];
+  if (accountContext.accounts.length > 0) {
+    const items = accountContext.accounts
+      .map((a) => `${a.name} (${a.id})`)
+      .join(', ');
+    lines.push(`Contas: ${items}`);
+  }
+  if (accountContext.cards.length > 0) {
+    const items = accountContext.cards.map((c) => `${c.name} (${c.id})`).join(', ');
+    lines.push(`Cartões: ${items}`);
+  }
+  lines.push(
+    'Se o utilizador não indicar conta nem cartão, OMITE accountId/cardId (a tool usa a conta por defeito).',
+  );
+  lines.push('');
+  lines.push('');
+  return lines.join('\n');
+}
+
 function serializeClassificationForPlanner(classification: PlannerInput['classification']): string {
   const lines: string[] = ['Classificação validada (Estágio 1):', ''];
   for (const [idx, intent] of classification.intents.entries()) {

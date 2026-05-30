@@ -226,13 +226,13 @@ describe('create_finance_variable — input validation', () => {
     ).toBe(false);
   });
 
-  it('rejeita input SEM accountId E SEM cardId (refine XOR)', () => {
+  it('ACEITA input SEM accountId E SEM cardId (Story 2.13 — refine relaxado; conta default resolvida em execute)', () => {
     const r = createFinanceVariable.inputSchema.safeParse({
       ...baseValid,
       accountId: undefined,
       cardId: undefined,
     });
-    expect(r.success).toBe(false);
+    expect(r.success).toBe(true);
   });
 
   it("aceita paymentMethod válido ('mb_way')", () => {
@@ -511,6 +511,155 @@ describe('create_finance_variable — execute', () => {
       const cause = (err as { cause?: unknown }).cause;
       expect(cause).toBeInstanceOf(Error);
       expect((cause as Error).message).toMatch(/Outros gastos/);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tests — conta default (Story 2.13 AC3/AC4 — resolveDefaultAccount)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DINHEIRO_ACCOUNT_ID = '66666666-7777-4888-8999-aaaaaaaaaaaa';
+
+describe('create_finance_variable — conta default (Story 2.13)', () => {
+  it('sem accountId nem cardId → resolveDefaultAccount + INSERT usa conta default + paymentMethod cash (dinheiro)', async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        // 1ª: SELECT default category
+        [{ id: DEFAULT_CATEGORY_ID }],
+        // 2ª: SELECT default account (resolveDefaultAccount) → conta Dinheiro
+        [{ id: DINHEIRO_ACCOUNT_ID, account_type: 'dinheiro' }],
+        // 3ª: INSERT transaction
+        [
+          {
+            id: TX_ID,
+            amount_cents: 1870,
+            kind: 'expense',
+            transaction_date: '2026-05-30',
+            account_id: DINHEIRO_ACCOUNT_ID,
+            card_id: null,
+            category_id: DEFAULT_CATEGORY_ID,
+          },
+        ],
+      ],
+    };
+    const ctx = makeCtx(makeMockDb(state));
+    const out = await createFinanceVariable.execute(
+      {
+        amountCents: 1870,
+        kind: 'expense',
+        transactionDate: '2026-05-30',
+        description: 'Pingo Doce',
+      },
+      ctx,
+    );
+
+    // 3 chamadas: SELECT category + SELECT account + INSERT.
+    expect(state.executes.length).toBe(3);
+    const accountSelectSql = state.executes[1]?.sqlText.toLowerCase() ?? '';
+    expect(accountSelectSql).toContain('from accounts');
+    expect(accountSelectSql).toContain('archived_at is null');
+    // INSERT usa o accountId resolvido + paymentMethod cash (forçado para dinheiro).
+    const insertSql = state.executes[2]?.sqlText.toLowerCase() ?? '';
+    expect(insertSql).toContain('insert into transactions');
+    expect(insertSql).toContain('cash');
+    expect(out.accountId).toBe(DINHEIRO_ACCOUNT_ID);
+  });
+
+  it("conta default não-dinheiro (legacy) → paymentMethod 'transfer'", async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        [{ id: DEFAULT_CATEGORY_ID }],
+        [{ id: ACCOUNT_ID, account_type: 'corrente' }],
+        [
+          {
+            id: TX_ID,
+            amount_cents: 1870,
+            kind: 'expense',
+            transaction_date: '2026-05-30',
+            account_id: ACCOUNT_ID,
+            card_id: null,
+            category_id: DEFAULT_CATEGORY_ID,
+          },
+        ],
+      ],
+    };
+    const ctx = makeCtx(makeMockDb(state));
+    await createFinanceVariable.execute(
+      {
+        amountCents: 1870,
+        kind: 'expense',
+        transactionDate: '2026-05-30',
+        description: 'Pingo Doce',
+      },
+      ctx,
+    );
+    const insertSql = state.executes[2]?.sqlText.toLowerCase() ?? '';
+    expect(insertSql).toContain('transfer');
+    expect(insertSql).not.toContain('cash');
+  });
+
+  it('com accountId explícito → NÃO chama resolveDefaultAccount (só SELECT category + INSERT)', async () => {
+    const localState: MockState = {
+      executes: [],
+      insertReturns: [
+        [{ id: DEFAULT_CATEGORY_ID }],
+        [
+          {
+            id: TX_ID,
+            amount_cents: 7870,
+            kind: 'expense',
+            transaction_date: '2026-05-23',
+            account_id: ACCOUNT_ID,
+            card_id: null,
+            category_id: DEFAULT_CATEGORY_ID,
+          },
+        ],
+      ],
+    };
+    const ctx = makeCtx(makeMockDb(localState));
+    await createFinanceVariable.execute(
+      {
+        amountCents: 7870,
+        kind: 'expense',
+        transactionDate: '2026-05-23',
+        description: 'supermercado',
+        accountId: ACCOUNT_ID,
+      },
+      ctx,
+    );
+    // 2 chamadas: SELECT category + INSERT (sem SELECT account).
+    expect(localState.executes.length).toBe(2);
+    expect(localState.executes.some((e) => e.sqlText.toLowerCase().includes('from accounts'))).toBe(false);
+  });
+
+  it('household sem nenhuma conta → ToolExecutionError PT-PT accionável', async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        [{ id: DEFAULT_CATEGORY_ID }], // SELECT category OK
+        [], // SELECT account → vazio (sem contas)
+      ],
+    };
+    const ctx = makeCtx(makeMockDb(state));
+    try {
+      await createFinanceVariable.execute(
+        {
+          amountCents: 1870,
+          kind: 'expense',
+          transactionDate: '2026-05-30',
+          description: 'X',
+        },
+        ctx,
+      );
+      expect.fail('execute() devia ter lançado ToolExecutionError');
+    } catch (err) {
+      expect((err as Error).name).toBe('ToolExecutionError');
+      const cause = (err as { cause?: unknown }).cause;
+      expect(cause).toBeInstanceOf(Error);
+      expect((cause as Error).message).toMatch(/Nenhuma conta/);
     }
   });
 });

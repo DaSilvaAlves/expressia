@@ -4,7 +4,10 @@
  * Trace: Story 2.5 AC5 + AC13 (snapshot hash garantia de imutabilidade);
  *        Story 4.10 AC7 (bump v1→v2 — 11 intents + 5 few-shots Finance +
  *        correcção do Exemplo 1 PT/EN drift + simplificação do Exemplo 3
- *        parcelada para 1 tool call único).
+ *        parcelada para 1 tool call único);
+ *        Story 2.13 AC7 (bump v2→v3 — substituição dos `<uuid>` placeholder dos
+ *        exemplos Finance por instrução de usar o accountContext / omitir o
+ *        campo + secção "CONTAS E CARTÕES" + Exemplo 6b conta default).
  */
 import { createHash } from 'node:crypto';
 
@@ -16,8 +19,8 @@ import {
 } from '@/prompts/planner-system';
 
 describe('PLANNER_SYSTEM_PROMPT', () => {
-  it('versão é v2 (Story 4.10 bump)', () => {
-    expect(PLANNER_SYSTEM_PROMPT_VERSION).toBe('v2');
+  it('versão é v3 (Story 2.13 bump — accountContext)', () => {
+    expect(PLANNER_SYSTEM_PROMPT_VERSION).toBe('v3');
   });
 
   it('inclui as 11 intents canónicas (Story 4.10: 8 originais + 3 da Story 3.8)', () => {
@@ -79,11 +82,20 @@ describe('PLANNER_SYSTEM_PROMPT', () => {
     expect(PLANNER_SYSTEM_PROMPT).toContain('query_finance_summary');
   });
 
+  it('v3: instrui o uso do accountContext e omissão quando não indicado (Story 2.13)', () => {
+    expect(PLANNER_SYSTEM_PROMPT).toMatch(/accountContext|Contexto de contas/);
+    expect(PLANNER_SYSTEM_PROMPT).toMatch(/OMITE|omite/);
+  });
+
+  it('v3: já não contém o placeholder literal <uuid> (Story 2.13)', () => {
+    expect(PLANNER_SYSTEM_PROMPT).not.toContain('<uuid>');
+  });
+
   it('snapshot hash SHA-256 estável', () => {
     const hash = createHash('sha256').update(PLANNER_SYSTEM_PROMPT).digest('hex');
     expect(hash).toMatch(/^[a-f0-9]{64}$/);
     // Detector de mudança não-intencional; bumpar prompt obriga a actualizar versão.
-    const KNOWN_HASH_V2 = hash;
-    expect(hash).toBe(KNOWN_HASH_V2);
+    const KNOWN_HASH_V3 = hash;
+    expect(hash).toBe(KNOWN_HASH_V3);
   });
 });

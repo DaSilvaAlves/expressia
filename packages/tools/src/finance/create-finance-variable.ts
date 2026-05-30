@@ -9,10 +9,14 @@
  *   - `kind` = `'expense'` | `'income'` (sem `'transfer'` — DP-4.10.C ratificada)
  *   - `transactionDate` ISO YYYY-MM-DD
  *   - `description` NOT NULL (schema `transactions.description text not null` — PO_FIX_INLINE F1)
- *   - `accountId` XOR `cardId` (CHECK `transactions_account_or_card`)
+ *   - `accountId`/`cardId` AMBOS opcionais (Story 2.13 AC3 — refine relaxado):
+ *       quando nenhum é fornecido, `resolveDefaultAccount` resolve a conta
+ *       "Dinheiro" default do household dentro de `execute()`, antes do INSERT,
+ *       garantindo que o CHECK `transactions_account_or_card` é sempre satisfeito.
  *   - `categoryId` opcional → fallback "Outros gastos"/"Outros rendimentos" por kind (D-4.10.8 / F6)
- *   - `paymentMethod` opcional → inferido se omisso (PO_FIX_INLINE F1):
- *       cardId presente → 'card'; accountId presente → 'transfer'
+ *   - `paymentMethod` opcional → inferido se omisso (PO_FIX_INLINE F1 + DP-2.13.A):
+ *       cardId presente → 'card'; accountId explícito → 'transfer';
+ *       conta default resolvida tipo 'dinheiro' → 'cash'; outros tipos → 'transfer'
  *
  * Trace: Story 4.10 AC1 + PRD FR13/FR15 + Architecture §3.1 (módulo Finanças) +
  *        Epic 4 §5 (literal naming EN) + Story 4.2/4.3 (API contas/transacções
@@ -37,6 +41,7 @@ import type {
   ToolExecutionContext,
 } from '../contracts';
 import { formatEuroCents } from './_helpers/format-euro-cents';
+import { resolveDefaultAccount } from './_helpers/resolve-default-account';
 import { resolveDefaultCategory } from './_helpers/resolve-default-category';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -65,11 +70,11 @@ const CreateFinanceVariableInputSchema = z
     cardId: z.string().uuid().optional(),
     categoryId: z.string().uuid().optional(),
     paymentMethod: z.enum(PAYMENT_METHOD_VALUES).optional(),
-  })
-  .refine((d) => d.accountId !== undefined || d.cardId !== undefined, {
-    message:
-      'Fornecer accountId ou cardId (CHECK transactions_account_or_card)',
   });
+// Story 2.13 AC3: o `.refine()` que exigia `accountId` XOR `cardId` foi
+// removido. A presença de conta/cartão é agora delegada a `execute()`, onde
+// `resolveDefaultAccount` preenche a conta default antes de atingir o CHECK
+// Postgres `transactions_account_or_card`.
 
 export type CreateFinanceVariableInput = z.infer<
   typeof CreateFinanceVariableInputSchema
@@ -131,15 +136,34 @@ export const createFinanceVariable: ToolDefinition<
         toolName: 'create_finance_variable',
       }));
 
-    // 2) Inferir paymentMethod (PO_FIX_INLINE F1):
+    // 2) Resolver conta default quando NEM accountId NEM cardId vêm do input
+    //    (Story 2.13 AC3/AC4 — ponte Finanças ↔ Cérebro). Devolve o tipo da
+    //    conta para inferir o paymentMethod (DP-2.13.A).
+    let accountId = input.accountId;
+    let resolvedAccountType: string | undefined;
+    if (input.accountId === undefined && input.cardId === undefined) {
+      const resolved = await resolveDefaultAccount({
+        db: ctx.db,
+        toolName: 'create_finance_variable',
+      });
+      accountId = resolved.accountId;
+      resolvedAccountType = resolved.accountType;
+    }
+
+    // 3) Inferir paymentMethod (PO_FIX_INLINE F1 + DP-2.13.A):
     //    - input explícito → usar
     //    - cardId presente → 'card'
-    //    - accountId presente → 'transfer'
+    //    - conta default resolvida tipo 'dinheiro' → 'cash'
+    //    - accountId explícito ou outra conta default → 'transfer'
     const paymentMethod =
       input.paymentMethod ??
-      (input.cardId !== undefined ? 'card' : 'transfer');
+      (input.cardId !== undefined
+        ? 'card'
+        : resolvedAccountType === 'dinheiro'
+          ? 'cash'
+          : 'transfer');
 
-    // 3) INSERT em transactions via ctx.db (RLS authenticated).
+    // 4) INSERT em transactions via ctx.db (RLS authenticated).
     const result = (await ctx.db.execute(sql`
       insert into transactions
         (household_id, created_by_user_id, account_id, card_id, category_id,
@@ -149,7 +173,7 @@ export const createFinanceVariable: ToolDefinition<
         (
           ${ctx.householdId},
           ${ctx.userId},
-          ${input.accountId ?? null}::uuid,
+          ${accountId ?? null}::uuid,
           ${input.cardId ?? null}::uuid,
           ${categoryId}::uuid,
           ${input.amountCents},

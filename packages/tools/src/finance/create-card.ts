@@ -5,7 +5,10 @@
  *
  * Scope (Story 4.10 AC3 — major rewrite após PO_FIX_INLINE F3):
  *   - `name` 1..200 chars
- *   - `accountId` UUID NOT NULL — schema `cards.account_id references accounts.id ON DELETE restrict` (linha 131-133 finance.ts)
+ *   - `accountId` UUID opcional (Story 2.13 AC5 / PO-FIX-E) — quando ausente,
+ *     `resolveDefaultAccount` resolve a conta "Dinheiro" default do household
+ *     dentro de `execute()`. O FK `cards.account_id` continua NOT NULL no
+ *     schema (`finance.ts:131-133`) — o default garante que é sempre satisfeito.
  *   - `cardType` enum literal EN `'credit'` | `'debit'` (schema linha 48 — F3 corrigiu PT→EN)
  *   - `closingDay` 1..28 (CHECK `cards_closing_day_range`)
  *   - `dueDay` 1..28
@@ -27,11 +30,13 @@ import type {
   ToolExecutionContext,
 } from '../contracts';
 import { formatEuroCents } from './_helpers/format-euro-cents';
+import { resolveDefaultAccount } from './_helpers/resolve-default-account';
 
 const CreateCardInputSchema = z
   .object({
     name: z.string().min(1).max(200),
-    accountId: z.string().uuid(),
+    // Story 2.13 AC5 / PO-FIX-E: opcional — resolveDefaultAccount preenche quando ausente.
+    accountId: z.string().uuid().optional(),
     cardType: z.enum(['credit', 'debit']),
     closingDay: z.number().int().min(1).max(28).optional(),
     dueDay: z.number().int().min(1).max(28).optional(),
@@ -88,7 +93,7 @@ export const createCard: ToolDefinition<CreateCardInput, CreateCardOutput> = {
   name: 'create_card',
   domain: 'finance',
   description:
-    'Usa esta tool quando o utilizador quer adicionar um cartão de crédito ou débito ao agregado. Aceita name, accountId (conta associada — obrigatória), cardType (credit/debit), e para crédito também closingDay (1..28), dueDay (1..28) e creditLimitCents. Aceita last4 opcional.',
+    'Usa esta tool quando o utilizador quer adicionar um cartão de crédito ou débito ao agregado. Aceita name, accountId opcional (conta associada — se omitido, usa a conta por defeito), cardType (credit/debit), e para crédito também closingDay (1..28), dueDay (1..28) e creditLimitCents. Aceita last4 opcional.',
   inputSchema: CreateCardInputSchema,
   outputSchema: CreateCardOutputSchema,
   estimatedTokens: 70,
@@ -105,13 +110,24 @@ export const createCard: ToolDefinition<CreateCardInput, CreateCardOutput> = {
   },
 
   async execute(input, ctx: ToolExecutionContext): Promise<CreateCardOutput> {
+    // Story 2.13 AC5: resolver conta default quando accountId ausente. Apenas
+    // o accountId é necessário aqui (o accountType não influencia cartões).
+    const accountId =
+      input.accountId ??
+      (
+        await resolveDefaultAccount({
+          db: ctx.db,
+          toolName: 'create_card',
+        })
+      ).accountId;
+
     const result = (await ctx.db.execute(sql`
       insert into cards
         (household_id, account_id, name, card_type, closing_day, due_day, last4, credit_limit_cents)
       values
         (
           ${ctx.householdId},
-          ${input.accountId}::uuid,
+          ${accountId}::uuid,
           ${input.name},
           ${input.cardType}::card_type,
           ${input.closingDay ?? null},
