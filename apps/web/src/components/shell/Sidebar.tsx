@@ -117,12 +117,10 @@ const NAV_ITEMS: readonly NavItem[] = [
  * `/conta/plano`, `/conta/household`, `/conta/exportar`) listadas em
  * `architecture.md §8.1 linhas 676-680` adicionar-se-ão quando Epic 6 chegar.
  */
-const CONTA_ITEM: NavLeafItem = {
-  kind: 'leaf',
-  label: 'Conta',
-  href: '/conta/preferencias',
-  icon: '⚙',
-};
+const CONTA_ITEMS: readonly NavLeafItem[] = [
+  { kind: 'leaf', label: 'Conta', href: '/conta/preferencias', icon: '⚙' },
+  { kind: 'leaf', label: 'Família', href: '/conta/household', icon: '⌂' },
+];
 
 // ───────────────────────────────────────────────────────────────────────────
 // Helpers de estado activo
@@ -252,14 +250,16 @@ export function Sidebar({ user }: SidebarProps) {
 
           {/* Conta */}
           <ul className="space-y-1">
-            <li>
-              <NavLinkLeaf
-                item={CONTA_ITEM}
-                active={isLeafActive(pathname ?? '', CONTA_ITEM.href) || pathname?.startsWith('/conta/') === true}
-                collapsed={effectiveCollapsed}
-                onClick={onMobileClose}
-              />
-            </li>
+            {CONTA_ITEMS.map((item) => (
+              <li key={item.href}>
+                <NavLinkLeaf
+                  item={item}
+                  active={isLeafActive(pathname ?? '', item.href)}
+                  collapsed={effectiveCollapsed}
+                  onClick={onMobileClose}
+                />
+              </li>
+            ))}
           </ul>
         </nav>
 
