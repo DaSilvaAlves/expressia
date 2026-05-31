@@ -2,8 +2,10 @@ id: mj-handoff-push-display-name-onboarding-20260601
 from_agent: aiox-master
 to_agent: devops
 created: '2026-06-01T00:45:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-06-01T01:05:00Z'
+consumed_by: devops
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
