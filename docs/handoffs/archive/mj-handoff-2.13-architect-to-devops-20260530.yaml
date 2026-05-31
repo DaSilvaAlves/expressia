@@ -1,0 +1,171 @@
+id: mj-handoff-2.13-architect-to-devops-20260530
+from_agent: architect
+to_agent: devops
+created: '2026-05-30T23:55:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-31T01:00:00Z'
+consumed_by: devops
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+story_id: '2.13'
+last_command: '*qa-gate 2.13'
+priority: high
+
+summary: |
+  @architect Aria executou `*qa-gate 2.13` (Ponte Finanças ↔ Cérebro / GAP-6 —
+  conta Dinheiro default no onboarding + backfill + refine relaxado +
+  resolveDefaultAccount + context injection + prompt v2→v3). **PASS 9,6/10 HIGH ·
+  5/5 gates re-corridos INDEPENDENTEMENTE GREEN · 4 [DEV-DECISION] ratificadas ·
+  2 concerns LOW non-blocking · E2E T6 provado manual (Pingo Doce −€18,70 conta
+  default + undo).** Story → Done v1.4-ARCH-APPROVED. Desbloqueia todo o
+  subsistema Finanças via chat (directiva `refocus_core_before_billing` — CORE).
+  ATENÇÃO: o @dev NÃO commitou — as mudanças 2.13 estão no working tree por
+  commitar; há também mudanças NÃO relacionadas a excluir do staging (ver
+  staging_exclusions).
+
+next_action: |
+  **`@devops *push 2.13`** — re-correr os 5 quality gates em sessão @devops
+  (lint · typecheck · test · build · check:rls) + commitar APENAS os ficheiros
+  2.13 (ver files_to_commit) + housekeeping (story `active/`→`completed/`,
+  actualizar `_INDEX.md`/HANDOFF-INDEX, arquivar este handoff). CodeRabbit
+  SKIPPED (precedente consistente 3.1-6.1). NÃO usar `--force` nem `--no-verify`.
+  **DEPLOY NOTE crítico (PO-FIX-C):** a migration 0018 corre BACKFILL sobre TODOS
+  os households existentes (operação de DADOS, não só DDL) — já aplicada na DB EU
+  em dev (3 households → 3 contas Dinheiro). Em produção, `db:migrate` aplicá-la-á
+  via runner com DIRECT_URL; é idempotente (WHERE NOT EXISTS), re-run safe.
+
+context: |
+  **Story:** docs/stories/active/2.13.finance-chat-bridge-default-account-context-injection.story.md
+  (Done v1.4-ARCH-APPROVED; Change Log v1.4 sumariza; gate file completo em
+  docs/qa/gates/2.13-architect-gate.md).
+  **ADR:** docs/adr/ADR-002-finance-chat-bridge.md (§9 ratifica DP-2.13.B —
+  canal `messages`, shape 2 listas).
+
+  **5/5 gates re-corridos na sessão @architect (independente do @dev):**
+    - `pnpm lint` — EXIT 0
+    - `pnpm typecheck` — EXIT 0 (10/10 tasks)
+    - `pnpm --filter @meu-jarvis/tools test` — 351/351 (20 files; resolve-default-account 4/4)
+    - `pnpm --filter @meu-jarvis/planner-executor test` — 67/67 (7 files; +3 injecção accountContext)
+    - `pnpm --filter @meu-jarvis/web test` — 991/991 (127 files; SEM flaky timeout neste run)
+    - `pnpm check:rls` — EXIT 0 (accounts+cards cobertas, zero regressão)
+    - `pnpm build` — EXIT 0 (10/10 tasks)
+
+  **4 [DEV-DECISION] ratificadas:**
+    - D-2.13.1 — AccountType union local no helper (NÃO importa de @meu-jarvis/db).
+      RATIFICADA — preserva fronteira de package (mesma filosofia z.string() no planner).
+      Concern LOW NIT-AR-2.13.1: teste de paridade enum→union (FUP-2.13.D).
+    - D-2.13.2 — Precedência fallback numa única query (ORDER BY (type='dinheiro')
+      DESC, created_at ASC). RATIFICADA — 1 round-trip (NFR1), semântica correcta.
+    - D-2.13.3 — <uuid> substituído também no Exemplo 3 (parcelada) do prompt.
+      RATIFICADA — limpeza coerente, não altera scope.
+    - D-2.13.4 — accountId explícito de conta dinheiro mantém 'transfer' (não 'cash').
+      RATIFICADA — preserva comportamento 4.10; DP-2.13.A foca a conta DEFAULT resolvida.
+      Os 2 findings MINOR do CodeRabbit sobre isto são comportamento intencional aceite.
+
+  **NFR verificadas por auditoria negativa:**
+    - NFR5 (RLS): grep `getServiceDb` em tools/finance + helper + buildAccountContext
+      → ZERO invocações reais (só comentários). Único getServiceDb no route.ts:603 é
+      incrementQuota pré-existente (Story 2.9 D50, legítimo). resolveDefaultAccount e
+      buildAccountContext usam ctx.db/getDb() authenticated. check:rls EXIT 0.
+    - NFR12 (PII): tripla cobertura por construção — whitelist 12-keys
+      (PLANNER_SPAN_ATTRIBUTE_KEYS), `messages`∈REDACTED_FIELD_NAMES (redactProviderPayload),
+      test negativo planner.test.ts:291-294 (ContaTesteXYZ/CartaoTesteXYZ ausentes de
+      system/tools). T3.4 foi verificação, não adição — correcto.
+
+  **Constitution Art. IV (No Invention) ✓:** resolveDefaultAccount espelha
+  resolveDefaultCategory (precedente real); accountContext rastreável a ADR-002 §9.4;
+  AccountType union 1:1 com accountTypeEnum (finance.ts:39-46); zero campo Zod inventado.
+
+  **E2E T6:** provado manualmente nesta sessão (Eurico + Orion, localhost) —
+  "paguei 18,70 no pingo doce" → "Pingo Doce −€18,70 · Outros gastos · Dinheiro"
+  conta default + undo. Sem ToolValidationError. Screenshot confirmado. AC9 ✓.
+
+  **Estado do working tree (CRÍTICO — @dev NÃO commitou):** as mudanças 2.13
+  estão por commitar (modified + untracked). Há também mudanças NÃO relacionadas
+  no tree (5.10 draft, epic-6, .env.example, handoff 5.8 archive tocado) — EXCLUIR
+  do staging 2.13. Ver files_to_commit + staging_exclusions.
+
+  **CodeRabbit:** SKIPPED (precedente consistente Stories 3.1-6.1).
+
+files_to_commit:
+  # — Implementação 2.13 (feat) —
+  - packages/db/migrations/0018_finance_default_account_onboarding_backfill.sql   # NEW — trigger + backfill (T1, @data-engineer)
+  - packages/db/src/__tests__/handle-new-user.trigger.test.ts                     # MOD — asserção estrutural T1.5
+  - packages/tools/src/finance/_helpers/resolve-default-account.ts                # NEW — helper (T2.3)
+  - packages/tools/src/finance/_helpers/__tests__/resolve-default-account.test.ts # NEW — 4 testes
+  - packages/tools/src/finance/create-finance-variable.ts                         # MOD — refine removido + resolveDefaultAccount + paymentMethod (T2.1/T2.4)
+  - packages/tools/src/finance/create-finance-recurrence.ts                       # MOD — idem (T2.2)
+  - packages/tools/src/finance/create-card.ts                                     # MOD — accountId optional + default (T5.1)
+  - packages/tools/src/finance/__tests__/create-finance-variable.test.ts          # MOD — refine invertido +4 testes
+  - packages/tools/src/finance/__tests__/create-finance-recurrence.test.ts        # MOD — refine invertido +2 testes
+  - packages/tools/src/finance/__tests__/create-card.test.ts                      # MOD — accountId invertido +2 testes
+  - packages/planner-executor/src/schemas.ts                                      # MOD — AccountContextSchema + campo accountContext (T3.1)
+  - packages/planner-executor/src/index.ts                                        # MOD — export barrel AccountContext
+  - packages/planner-executor/src/planner.ts                                      # MOD — serializeAccountContextForPlanner + injecção messages (T3.3)
+  - packages/planner-executor/src/prompts/planner-system.ts                       # MOD — bump v2→v3 + <uuid> removidos (T4.1)
+  - packages/planner-executor/src/__tests__/prompts.test.ts                       # MOD — v3 + hash + 2 testes (T4.2)
+  - packages/planner-executor/src/__tests__/planner.test.ts                       # MOD — +3 testes injecção (T3.4)
+  - apps/web/src/app/api/agent/prompt/route.ts                                    # MOD — buildAccountContext getDb() + passar ao planner (T3.2)
+  # — Docs do gate (housekeeping) —
+  - docs/stories/active/2.13.finance-chat-bridge-default-account-context-injection.story.md  # MOD — Done v1.4 + gate + Change Log (mover p/ completed/)
+  - docs/qa/gates/2.13-architect-gate.md                                          # NEW — gate file
+  - docs/adr/ADR-002-finance-chat-bridge.md                                       # NEW — ADR (untracked, parte do ciclo 2.13)
+  - docs/E2E-FINANCE-CHAT-GAP-20260530.md                                         # NEW — evidência GAP-6 (untracked, parte do ciclo)
+  - docs/handoffs/mj-handoff-2.13-architect-to-devops-20260530.yaml               # NEW — este handoff
+  - docs/HANDOFF-INDEX.md                                                         # MOD — pending/archived
+  # Nota: docs/handoffs/mj-handoff-finance-chat-gap-architect-20260530.yaml (untracked) é
+  # o handoff inicial do ciclo — @devops decide se commita junto ou arquiva.
+
+staging_exclusions:
+  # NÃO relacionadas com 2.13 — NÃO incluir no commit 2.13:
+  - .env.example                                                                  # MOD — não relacionado (config local)
+  - docs/STORY-BACKLOG.md                                                         # MOD — backlog (decidir à parte)
+  - docs/epics/epic-2-cerebro-ai-multi-intent.md                                  # MOD — verificar se é update 2.13 ou drift; se 2.13, incluir
+  - docs/epics/epic-6-onboarding-billing.md                                       # MOD — não relacionado (Epic 6)
+  - docs/handoffs/archive/mj-handoff-5.8-architect-to-devops-20260529.yaml        # MOD — handoff antigo tocado, não relacionado
+  - docs/stories/active/5.10.responsive-sweep-branding-auth-lighthouse.story.md   # MOD — draft 5.10, não relacionado
+  - docs/CORE-STATE-AUDIT-20260529.md                                             # NEW untracked — auditoria 29/05, não relacionado
+  - docs/handoffs/mj-handoff-env-keys-setup-2.12-gate-20260530.yaml               # NEW untracked — handoff 2.12
+  - docs/handoffs/mj-handoff-refocus-core-freeze-billing-20260529.yaml            # NEW untracked — directiva 29/05
+  - docs/handoffs/archive/mj-handoff-openrouter-llm-gateway-study-20260529.yaml   # NEW untracked — estudo
+
+deploy_note: |
+  PO-FIX-C — migration 0018 corre BACKFILL sobre TODOS os households existentes
+  (operação de dados, não só DDL). Idempotente (WHERE NOT EXISTS), re-run safe.
+  Em dev já aplicada (3 households → 3 contas Dinheiro). Em produção, `db:migrate`
+  aplica via runner DIRECT_URL (porta 5432). Critério "tem alguma conta" (não "tem
+  dinheiro") — households que já criaram conta própria são ignorados (fallback
+  nível 2 cobre). Sem acção manual @devops adicional além de garantir que o
+  pipeline de migration corre no deploy.
+
+follow_ups:
+  - id: NIT-AR-2.13.1
+    severity: LOW
+    description: >-
+      AccountType union local (resolve-default-account.ts:47-53) pode dessincronizar
+      do accountTypeEnum DB (finance.ts:39-46). Adicionar teste de paridade
+      enum-vs-union. (FUP-2.13.D)
+    owner: dev
+  - id: NIT-AR-2.13.2
+    severity: LOW
+    description: >-
+      buildAccountContext (route.ts) faz 2 queries (accounts + cards). NFR1 marginal
+      (listas curtas, índice FK household_id). Considerar 1 query CTE só se latência
+      medida degradar.
+    owner: dev
+  - id: FUP-2.13.A
+    severity: MEDIUM
+    description: >-
+      criar_parcelada continua bloqueada até existir cartão real (cardId FK NOT NULL).
+      Documentar pré-requisito na UI "adiciona cartão" antes de criar parcelada via chat.
+    owner: dev/ux
+  - id: FUP-2.13.B
+    severity: LOW
+    description: >-
+      Opção C — clarificação conversacional multi-turn ("de que conta saiu?"). Pipeline
+      actual é one-shot; é feature de Fase 2, não fix.
+    owner: pm
+
+blockers: []

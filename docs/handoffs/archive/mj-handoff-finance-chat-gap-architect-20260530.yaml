@@ -1,0 +1,99 @@
+id: mj-handoff-finance-chat-gap-architect-20260530
+from_agent: aiox-master
+to_agent: architect
+created: '2026-05-30T18:30:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: architecture-decision + e2e-finding
+
+summary: |
+  Teste E2E manual do chat (localhost:3000/jarvis) revelou que TODO o subsistema
+  Finanças via chat está BLOQUEADO. Tarefas funcionam E2E (chat->DB->UI->undo);
+  finanças falham com ToolValidationError "Fornecer accountId ou cardId". Causa
+  raiz é uma ponte nunca fechada entre o módulo Finanças (Epic 4) e o cérebro AI
+  (Epics 2/3) para o caso conversacional. Evidência completa em
+  docs/E2E-FINANCE-CHAT-GAP-20260530.md. Decisão de arquitectura necessária.
+
+next_action: |
+  @architect: ler docs/E2E-FINANCE-CHAT-GAP-20260530.md (evidência: log do
+  servidor com runId/traceId, 3 peças de causa raiz, ficheiros-chave com linhas).
+
+  Decidir a abordagem do fix (provável combinação):
+    1. Context injection — injetar lista de contas/cartões do household (id+nome)
+       no system prompt do planner, substituindo os '<uuid>' placeholder literais
+       (planner-system.ts:96/100/104). Montagem em
+       apps/web/src/app/api/agent/prompt/route.ts.
+    2. Conta "Dinheiro" default no onboarding — estender handle_new_user
+       (0003_auth_user_trigger.sql) ou seed; tools usam-na como fallback quando
+       o input não traz conta/cartão.
+    3. Clarificação conversacional — cérebro pergunta "de que conta?" quando >1.
+
+  Avaliar se requer mudança de schema (não deve — `accounts` já existe; a peça 2
+  é INSERT no onboarding + delegar DDL a @data-engineer se mexer no trigger).
+
+  Output esperado: decisão de design (qual combinação 1/2/3) + complexity
+  assessment, para @sm draftar a story e @dev implementar (SDC normal).
+
+  Respeitar directiva activa refocus_core_before_billing: este é CORE
+  (cérebro+finanças a conectar de verdade), logo ALTA prioridade. NÃO billing.
+
+context: |
+  Sessão (terminal docs/handoffs, 30/05/2026), por Orion/aiox-master + Eurico:
+    1. Fechado GAP-1 LOCAL: apps/web/.env.local recebeu ANTHROPIC_API_KEY +
+       OPENAI_API_KEY bem formadas (Eurico rotacionou as chaves após exposição
+       anterior no transcript). Ficheiros .env arrumados:
+         - apps/web/.env.local  -> ONDE a app lê as chaves (1 ANTHROPIC + 1 OPENAI)
+         - packages/db/.env.local -> migrations
+         - .env.example (raiz)  -> template tracked, vazio
+         - .env.local (raiz)    -> só VERCEL_OIDC_TOKEN (chaves AI redundantes removidas)
+         - .env (raiz)          -> lixo framework AIOX; Anthropic malformada (curl) CORRIGIDA
+    2. Confirmado: chat AI funciona em PRODUÇÃO (Vercel já tinha as chaves).
+       GAP-1 era real só em local.
+    3. Teste E2E em localhost:
+       - criar_tarefa: FUNCIONA (tarefa "Comprar pão no Pingo Doce" criada via
+         chat, com undo 30s).
+       - criar_financa_variavel: FALHA (ToolValidationError account/card).
+       - preview-then-confirm: FUNCIONA (95% confiança, validação antecipada).
+
+  Constraint dura: data residency UE (PII famílias PT). Directiva activa:
+  refocus_core_before_billing (billing CONGELADO).
+
+  Tools de finança afectadas (mesma raiz):
+    - packages/tools/src/finance/create-finance-variable.ts:69-72
+    - packages/tools/src/finance/create-finance-recurrence.ts:61-62
+    - criar_cartao / criar_parcelada (few-shot exige account/card)
+
+decisions:
+  - 'GAP-1 local resolvido (chaves AI em apps/web/.env.local); chat vivo localmente.'
+  - 'Finanças via chat bloqueadas por falta de context injection + sem conta default.'
+  - 'Tarefas via chat funcionam E2E (contraria parcialmente "nada conecta com nada").'
+  - 'Fix é decisão de arquitectura (@architect) antes de código — não ata rápida.'
+
+blockers:
+  - 'Todo o subsistema Finanças via chat bloqueado até a ponte Finanças<->Cérebro ser fechada.'
+
+follow_ups:
+  - id: FIN-CHAT-GAP
+    severity: HIGH
+    description: 'Fechar ponte Finanças<->Cérebro (context injection + conta default). Decisão @architect -> story @sm -> @dev.'
+    owner: architect
+  - id: STORY-2.12-GATE
+    severity: MEDIUM
+    description: 'Pendente do handoff anterior: gate @architect da story 2.12 (ratificar D-2.12.2 Planner default) -> @devops push commit 0bb4a55.'
+    owner: architect
+  - id: SPEND-CAP-CONFIRM
+    severity: LOW
+    description: 'Eurico confirmar spend cap nos consoles Anthropic (~10€) + OpenAI (~5€).'
+    owner: any
+
+related:
+  - docs/E2E-FINANCE-CHAT-GAP-20260530.md
+  - docs/CORE-STATE-AUDIT-20260529.md
+  - docs/handoffs/mj-handoff-env-keys-setup-2.12-gate-20260530.yaml
+  - docs/handoffs/mj-handoff-refocus-core-freeze-billing-20260529.yaml
+  - packages/planner-executor/src/prompts/planner-system.ts
+  - packages/tools/src/finance/create-finance-variable.ts
