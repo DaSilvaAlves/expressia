@@ -160,4 +160,38 @@ describe('handle_new_user bootstrap (Story 6.1 AC5/AC6 — verificação estrutu
       expect(def).toContain('security definer');
     },
   );
+
+  // ───────────────────────────────────────────────────────────────────────
+  // Story 6.1 (display_name no onboarding) — verificação ESTRUTURAL.
+  //
+  // A migration 0019 recria `handle_new_user` para ler o nome do signup
+  // (`raw_user_meta_data->>'name'`) e preencher `household_members.display_name`,
+  // além de usar o primeiro nome no household ('Casa de {primeiro nome}'). A
+  // verificação FUNCIONAL exige criar `auth.users` via SDK Supabase Auth (smoke
+  // manual / suite 1.4). Aqui validamos read-only, via pg_get_functiondef, que o
+  // corpo da função lê o metadata e insere display_name em household_members.
+  // Trace: Story 6.1, migration 0019, tenancy.ts (display_name), greeting.ts.
+  // ───────────────────────────────────────────────────────────────────────
+
+  it.skipIf(!HAS_DB)(
+    'handle_new_user lê raw_user_meta_data.name e preenche display_name (Story 6.1)',
+    async () => {
+      const result = await db!.execute(drizzleSql`
+        select pg_get_functiondef(p.oid) as def
+        from pg_proc p
+        join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'handle_new_user'
+      `);
+      const rows = result as unknown as Array<{ def: string }>;
+      expect(rows[0]).toBeDefined();
+      const def = rows[0]!.def.toLowerCase();
+
+      // Lê o nome do metadata do signup (options.data.name).
+      expect(def).toContain('raw_user_meta_data');
+      // O INSERT em household_members inclui a coluna display_name.
+      expect(def).toMatch(/insert\s+into\s+public\.household_members[\s\S]*display_name/);
+      // Bootstrap pré-existente (conta Dinheiro da 0018) mantido — não regrediu.
+      expect(def).toContain("'dinheiro'");
+    },
+  );
 });

@@ -42,6 +42,22 @@ export default function RegistarPage() {
 
       <form action={formAction} className="space-y-4">
         <div>
+          <label htmlFor="name" className={LABEL_CLASS}>
+            Nome
+          </label>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            autoComplete="name"
+            required
+            maxLength={80}
+            className={INPUT_CLASS}
+          />
+          <p className={HINT_CLASS}>É assim que apareces na app e para a tua família.</p>
+        </div>
+
+        <div>
           <label htmlFor="email" className={LABEL_CLASS}>
             Endereço de email
           </label>

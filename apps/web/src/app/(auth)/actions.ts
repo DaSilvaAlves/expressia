@@ -117,12 +117,22 @@ export async function signUpAction(
   _prevState: AuthFormState,
   formData: FormData,
 ): Promise<AuthFormState> {
+  const name = String(formData.get('name') ?? '').trim();
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
   const passwordConfirm = String(formData.get('password_confirm') ?? '');
 
   if (!email || !password) {
     return { error: 'Indica o email e a palavra-passe.' };
+  }
+  // Story 6.1.x: o nome é obrigatório no registo — alimenta `user_metadata.name`
+  // (saudação /visao via resolveDisplayName) e `household_members.display_name`
+  // (lista de membros em /conta/household, preenchido pelo trigger 0019).
+  if (!name) {
+    return { error: 'Indica o teu nome.' };
+  }
+  if (name.length > 80) {
+    return { error: 'O nome é demasiado longo (máx. 80 caracteres).' };
   }
   if (password.length < 8) {
     return { error: 'A palavra-passe tem de ter pelo menos 8 caracteres.' };
@@ -133,10 +143,12 @@ export async function signUpAction(
 
   const origin = await getRequestOrigin();
   const supabase = await createServerSupabaseClient();
+  // `options.data` é gravado em `auth.users.raw_user_meta_data` → exposto como
+  // `user_metadata` na sessão. O trigger 0019 lê-o para preencher o display_name.
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: `${origin}/callback` },
+    options: { data: { name }, emailRedirectTo: `${origin}/callback` },
   });
 
   if (error) {

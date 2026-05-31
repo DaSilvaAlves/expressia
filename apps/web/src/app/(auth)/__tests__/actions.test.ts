@@ -35,7 +35,12 @@ function form(fields: Record<string, string>): FormData {
   return fd;
 }
 
-const VALID = { email: 'novo@expressia.pt', password: 'segredo123', password_confirm: 'segredo123' };
+const VALID = {
+  name: 'João',
+  email: 'novo@expressia.pt',
+  password: 'segredo123',
+  password_confirm: 'segredo123',
+};
 
 describe('signUpAction (Story 6.1 AC2)', () => {
   beforeEach(() => {
@@ -53,8 +58,24 @@ describe('signUpAction (Story 6.1 AC2)', () => {
     expect(mocks.signUpMock).toHaveBeenCalledWith({
       email: VALID.email,
       password: VALID.password,
-      options: { emailRedirectTo: 'https://expressia.pt/callback' },
+      options: { data: { name: 'João' }, emailRedirectTo: 'https://expressia.pt/callback' },
     });
+  });
+
+  it('passa o nome em options.data (alimenta user_metadata.name + display_name)', async () => {
+    mocks.signUpMock.mockResolvedValue({ data: { user: { id: 'u1' }, session: null }, error: null });
+    await expect(
+      signUpAction({}, form({ ...VALID, name: '  Maria Silva  ' })),
+    ).rejects.toThrow('REDIRECT:/confirm');
+    expect(mocks.signUpMock).toHaveBeenCalledWith(
+      expect.objectContaining({ options: expect.objectContaining({ data: { name: 'Maria Silva' } }) }),
+    );
+  });
+
+  it('validação local: nome em falta → erro sem chamar signUp', async () => {
+    const result = await signUpAction({}, form({ ...VALID, name: '   ' }));
+    expect(result.error).toMatch(/nome/i);
+    expect(mocks.signUpMock).not.toHaveBeenCalled();
   });
 
   it('confirmação pendente (user sem session) → redirect /confirm', async () => {
@@ -96,7 +117,7 @@ describe('signUpAction (Story 6.1 AC2)', () => {
     await expect(signUpAction({}, form(VALID))).rejects.toThrow('REDIRECT:/confirm');
     expect(mocks.signUpMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        options: { emailRedirectTo: 'https://expressia.pt/callback' },
+        options: { data: { name: 'João' }, emailRedirectTo: 'https://expressia.pt/callback' },
       }),
     );
   });
