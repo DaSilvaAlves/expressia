@@ -320,6 +320,29 @@ describe('Planner.plan() — payload structure', () => {
     expect(messages[0]?.content ?? '').not.toContain('Contexto de contas do household');
   });
 
+  it('bug-fix "amanhã": injecta [Data de hoje] + amanhã calculado no prefixo da user message', async () => {
+    let capturedParams: Record<string, unknown> | undefined;
+    const client = createMockAnthropicClient((params) => {
+      capturedParams = params;
+      return buildToolUseResponse([{ name: 'create_task', input: { title: 'Reunião' } }]);
+    });
+    const planner = new Planner({ client, registry: createMockRegistry() });
+    // currentDate determinística (domingo) — sem isto o helper derivaria a data
+    // corrente no fuso Europe/Lisbon (não-determinístico em teste).
+    await planner.plan(buildInput({ currentDate: '2026-05-31' }));
+
+    const messages = capturedParams?.messages as Array<{ role: string; content: string }>;
+    const userContent = messages[0]?.content ?? '';
+    expect(userContent).toContain('[Data de hoje]');
+    expect(userContent).toContain('2026-05-31'); // hoje
+    expect(userContent).toContain('2026-06-01'); // amanhã calculado (rollover de mês)
+    expect(userContent).toContain('domingo'); // dia da semana PT-PT
+    // A âncora de data vem ANTES da classificação (é o contexto temporal base)
+    expect(userContent.indexOf('[Data de hoje]')).toBeLessThan(
+      userContent.indexOf('Classificação validada'),
+    );
+  });
+
   it('cacheControl=null desliga cache (system é string raw)', async () => {
     let capturedParams: Record<string, unknown> | undefined;
     const client = createMockAnthropicClient((params) => {

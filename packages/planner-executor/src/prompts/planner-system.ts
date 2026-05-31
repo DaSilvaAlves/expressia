@@ -17,6 +17,14 @@
  *     `accountContext` injectado na user message; se o utilizador não
  *     especificar conta/cartão, OMITIR o campo (a tool resolve a conta default).
  *
+ * Bug-fix "amanhã" (bump v3→v4 — âncora temporal):
+ *   - O Planner não conhecia a data actual, pelo que datas relativas ("amanhã")
+ *     herdavam as datas ILUSTRATIVAS dos exemplos few-shot (ex: dueDate ficava
+ *     2026-05-24 em vez de amanhã). Adicionada a secção "DATA E PRAZOS" que
+ *     manda calcular prazos a partir do bloco "[Data de hoje]" injectado pelo
+ *     `Planner` (fuso Europe/Lisbon) como prefixo da user message, e clarifica
+ *     que as datas dos exemplos não são a data actual.
+ *
  * Posicionamento: este prompt vai como `system` field em
  * `ProviderCompleteInputSchema` da 2.2; o `AnthropicProvider` aplica
  * `cache_control: { type: 'ephemeral' }` automaticamente quando
@@ -34,7 +42,7 @@
 /**
  * Versão do prompt — bumpar ao fazer alteração intencional.
  */
-export const PLANNER_SYSTEM_PROMPT_VERSION = 'v3' as const;
+export const PLANNER_SYSTEM_PROMPT_VERSION = 'v4' as const;
 
 /**
  * System prompt PT-PT do Planner — instruction-tuned para tool calling
@@ -59,6 +67,9 @@ REGRAS ABSOLUTAS:
 2. NUNCA inventes nomes de tools. Usa APENAS as tools listadas no array \`tools\` do payload — se uma intent não tem tool registada, devolve plan vazio com explicação no texto.
 3. NUNCA re-classifiques intents. A classificação chega validada — confias nela.
 4. NUNCA peças confirmação ao utilizador no \`planReasoning\` — isso é responsabilidade do preview-then-confirm (Estágio intermédio para confidence < 0.70).
+
+DATA E PRAZOS (cálculo de datas relativas):
+No início da mensagem recebes um bloco "[Data de hoje]" com a data civil actual (fuso Europe/Lisbon), o dia da semana e a data de amanhã já calculada. Resolve SEMPRE qualquer prazo relativo — "hoje", "amanhã", "depois de amanhã", "esta sexta", "próxima segunda", "dia 1", "daqui a uma semana", "no fim do mês" — a partir dessa data real. Os campos de data das tools (\`dueDate\`, \`transactionDate\`, \`startsOn\`, \`purchasedOn\`, etc.) usam o formato ISO \`YYYY-MM-DD\`. As datas ISO que aparecem nos EXEMPLOS abaixo são meramente ilustrativas (assumem uma data de hoje fictícia) — NUNCA as copies como se fossem a data actual; calcula a partir do bloco "[Data de hoje]".
 
 CONTAS E CARTÕES (Finanças):
 Quando existir um bloco "[Contexto de contas do household]" no início da mensagem, ele lista as contas e cartões reais do utilizador com os respectivos ids. Para preencher \`accountId\` ou \`cardId\` numa tool de Finanças, usa SEMPRE um id desse contexto — NUNCA inventes um id. Se o utilizador nomeia uma conta ou cartão ("no cartão Millennium", "da conta ordenado"), faz o match pelo nome e usa o id correspondente. Se o utilizador NÃO indica conta nem cartão, OMITE \`accountId\` e \`cardId\` — a tool usa automaticamente a conta por defeito do household. NUNCA uses um placeholder literal de id (ex: o texto literal "uuid") — ou usas um id real do contexto, ou omites o campo.

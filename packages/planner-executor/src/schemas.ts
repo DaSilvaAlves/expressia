@@ -125,6 +125,19 @@ export const PlannerInputSchema = z.object({
   traceId: z.string().min(1),
   runId: z.string().uuid(),
   accountContext: AccountContextSchema.optional(),
+  /**
+   * Data civil "de hoje" no fuso do utilizador (`YYYY-MM-DD`), injectada como
+   * âncora para o cálculo de prazos relativos ("hoje", "amanhã", "dia 1") pelo
+   * Planner — sem ela o LLM não sabe a data actual e copia as datas ilustrativas
+   * dos exemplos few-shot (bug do "amanhã" → data errada). Opcional: quando
+   * ausente, o Planner deriva a data corrente no fuso `Europe/Lisbon` (PT-PT,
+   * CON — data residency UE). Override existe sobretudo para testes
+   * determinísticos.
+   */
+  currentDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'currentDate deve ser YYYY-MM-DD')
+    .optional(),
 });
 
 export type PlannerInput = z.infer<typeof PlannerInputSchema>;

@@ -19,8 +19,14 @@ import {
 } from '@/prompts/planner-system';
 
 describe('PLANNER_SYSTEM_PROMPT', () => {
-  it('versão é v3 (Story 2.13 bump — accountContext)', () => {
-    expect(PLANNER_SYSTEM_PROMPT_VERSION).toBe('v3');
+  it('versão é v4 (bug-fix "amanhã" — âncora temporal [Data de hoje])', () => {
+    expect(PLANNER_SYSTEM_PROMPT_VERSION).toBe('v4');
+  });
+
+  it('v4: instrui o cálculo de datas relativas a partir do bloco [Data de hoje]', () => {
+    expect(PLANNER_SYSTEM_PROMPT).toMatch(/\[Data de hoje\]/);
+    expect(PLANNER_SYSTEM_PROMPT).toMatch(/amanhã/);
+    expect(PLANNER_SYSTEM_PROMPT).toMatch(/ILUSTRATIVAS|ilustrativas/);
   });
 
   it('inclui as 11 intents canónicas (Story 4.10: 8 originais + 3 da Story 3.8)', () => {

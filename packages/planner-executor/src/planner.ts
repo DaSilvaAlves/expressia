@@ -273,8 +273,12 @@ export class Planner {
     // PREFIXO da user message — NUNCA no `system`/`tools` (preserva o prefixo
     // cacheável da Anthropic). Os nomes de conta viajam em `messages`, logo são
     // cobertos por `redactProviderPayload` (NFR12) por construção.
+    // O prefixo de data vem PRIMEIRO (âncora temporal para prazos relativos —
+    // ver bug do "amanhã"). Como o accountContext, viaja em `messages` (NUNCA
+    // no `system`/`tools`), preservando o prefixo cacheável da Anthropic.
+    const dateContextPrefix = serializeCurrentDateForPlanner(input.currentDate);
     const accountContextPrefix = serializeAccountContextForPlanner(input.accountContext);
-    const userMessage = `${accountContextPrefix}${serializeClassificationForPlanner(input.classification)}`;
+    const userMessage = `${dateContextPrefix}${accountContextPrefix}${serializeClassificationForPlanner(input.classification)}`;
 
     const providerInput: ProviderCompleteInput = {
       system: PLANNER_SYSTEM_PROMPT,
@@ -360,6 +364,78 @@ export class Planner {
  * **Importante**: o prompt original do utilizador NÃO é re-enviado nesta
  * camada — o Planner trabalha apenas com a classificação validada.
  */
+/**
+ * Fuso canónico do produto (PT-PT exclusivo / data residency UE). Toda a
+ * resolução de "hoje"/"amanhã" usa a data civil neste fuso — evita o escorregão
+ * de dia perto da meia-noite quando o servidor corre em UTC (Vercel `fra1`).
+ */
+const PLANNER_TIMEZONE = 'Europe/Lisbon' as const;
+
+/**
+ * Devolve a data civil (`YYYY-MM-DD`) de um `Date` no fuso `Europe/Lisbon`.
+ * Usa `Intl.DateTimeFormat` (`en-CA` → formato ISO) com `formatToParts` para
+ * ser robusto independentemente do locale do runtime.
+ */
+function isoDateInLisbon(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: PLANNER_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const year = parts.find((p) => p.type === 'year')?.value ?? '0000';
+  const month = parts.find((p) => p.type === 'month')?.value ?? '01';
+  const day = parts.find((p) => p.type === 'day')?.value ?? '01';
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Soma `days` a uma data ISO `YYYY-MM-DD` e devolve a nova data ISO.
+ * Aritmética em UTC midnight (determinística, trata overflow de mês/ano) —
+ * a data já está fixada como data civil, logo não há ambiguidade de fuso aqui.
+ */
+function addDaysIso(iso: string, days: number): string {
+  const [y, m, d] = iso.split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+/** Nome do dia da semana em PT-PT (ex: "domingo") para uma data ISO. */
+function weekdayPtPt(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number) as [number, number, number];
+  return new Intl.DateTimeFormat('pt-PT', {
+    timeZone: 'UTC',
+    weekday: 'long',
+  }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+/**
+ * Serializa a âncora temporal (data de hoje) num prefixo PT-PT para anteceder
+ * a user message do Planner. Resolve o bug do "amanhã": sem esta âncora o LLM
+ * não conhece a data actual e copia as datas ILUSTRATIVAS dos exemplos few-shot
+ * do system prompt.
+ *
+ * Fornece hoje + amanhã pré-calculados (o caso mais comum) e o dia da semana,
+ * mais a instrução de calcular SEMPRE prazos relativos a partir desta data.
+ *
+ * @param currentDate - Override `YYYY-MM-DD` (testes). Ausente → data corrente
+ *   no fuso `Europe/Lisbon`.
+ */
+function serializeCurrentDateForPlanner(currentDate: string | undefined): string {
+  const today = currentDate ?? isoDateInLisbon(new Date());
+  const tomorrow = addDaysIso(today, 1);
+  const weekday = weekdayPtPt(today);
+  return [
+    '[Data de hoje]',
+    `Hoje é ${weekday}, ${today}. Amanhã é ${tomorrow}. Fuso: Europe/Lisbon.`,
+    'Calcula SEMPRE as datas relativas ("hoje", "amanhã", "depois de amanhã",',
+    '"próxima segunda", "dia 1", "daqui a uma semana") a partir desta data real.',
+    'As datas ISO que aparecem nos exemplos do system prompt são MERAMENTE',
+    'ILUSTRATIVAS — NUNCA as copies como se fossem a data actual.',
+    '',
+    '',
+  ].join('\n');
+}
+
 /**
  * Serializa o `accountContext` (contas/cartões do household) num prefixo
  * compacto PT-PT para anteceder a user message (Story 2.13 AC6 / ADR-002 §9.4).
