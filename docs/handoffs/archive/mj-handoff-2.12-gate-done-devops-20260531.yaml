@@ -1,0 +1,73 @@
+id: mj-handoff-2.12-gate-done-devops-20260531
+from_agent: architect
+to_agent: devops
+created: '2026-05-31T00:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-31T00:00:00Z'
+consumed_by: devops
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: low
+type: docs-housekeeping-commit
+
+summary: |
+  Gate RETROATIVO da Story 2.12 (Executor default → Claude Haiku 4.5) concluído
+  pelo @architect: PASS 9,4/10, D-2.12.2 RATIFICADA. O CÓDIGO da 2.12 JÁ ESTÁ EM
+  PRODUÇÃO (commit 0bb4a55, arrastado no push da 2.13 — origin/main). NÃO há push
+  de código a fazer. Falta apenas COMMITAR o housekeeping de docs do gate (gate
+  file + story movida active→completed + status Done + handoff consumido).
+
+next_action: |
+  COMMIT de housekeeping de docs (sem código de produção — zero risco):
+
+  Ficheiros a incluir no commit:
+    - docs/qa/gates/2.12-architect-gate.md                                  (novo — gate file)
+    - docs/stories/completed/2.12.executor-default-haiku-4-5.story.md        (movida de active/, status Done v1.3-ARCH-APPROVED + QA Results preenchido + Change Log)
+    - docs/handoffs/archive/mj-handoff-env-keys-setup-2.12-gate-20260530.yaml (consumed, movido para archive)
+    - docs/handoffs/mj-handoff-2.12-gate-done-devops-20260531.yaml           (este handoff — marcar consumed ao processar)
+    - docs/HANDOFF-INDEX.md                                                  (actualizar: remover env-keys-setup-2.12 de pending, adicionar a archived)
+
+  NOTA: o working tree tem outros ficheiros untracked pré-existentes de sessões
+  anteriores (ADR-001, mj-handoff-refocus-core-freeze-billing, mj-handoff-openrouter-*
+  archive, CORE-STATE-AUDIT, edits a epics/stories 5.10/6/2). NÃO os incluir neste
+  commit a menos que o Eurico confirme — são scope de outras sessões. Commitar APENAS
+  os 5 ficheiros do housekeeping 2.12 listados acima.
+
+  Sugestão de mensagem (conventional, doc-only):
+    chore(docs): Story 2.12 Done v1.3-ARCH-APPROVED — gate retroativo PASS 9,4/10 + housekeeping [Story 2.12]
+
+  Push é seguro (doc-only, sem alteração a código de produção). Vercel auto-deploy
+  fra1 não será afectado funcionalmente.
+
+context: |
+  - Story 2.12: docs/stories/completed/2.12.executor-default-haiku-4-5.story.md
+  - Gate: docs/qa/gates/2.12-architect-gate.md (PASS 9,4/10, D-2.12.2 RATIFICADA)
+  - Código em prod desde 0bb4a55 (antes de 19fdb47/2.13 em origin/main).
+  - 5 quality gates re-corridos pelo @architect (2026-05-31): lint EXIT 0,
+    typecheck EXIT 0, test 1169 PASS (agent 111 + planner-executor 67 + web 991),
+    check:rls EXIT 0, build EXIT 0.
+
+decisions:
+  - 'D-2.12.2 (Planner default → Haiku) RATIFICADA: o Executor é wrapper transaccional sem LLM; o Planner é o único caller LLM de produção, logo trocar o seu default era necessário e não cosmético.'
+  - 'Gate retroativo PASS — código já em prod, sem reversão possível; só housekeeping de docs.'
+
+follow_ups:
+  - id: FU-2.12-A
+    severity: MEDIUM
+    description: 'Validação E2E de qualidade do Planner com Haiku 4.5 contra prompts multi-intent PT-PT (incl. ≥3 intents + desambiguação contas/cartões). Se degradar, considerar Sonnet selectivo por intentCount. Desbloqueável agora (chaves provisionadas). Owner: @qa/@architect.'
+    owner: qa
+  - id: FU-2.12-B
+    severity: LOW
+    description: 'Tarifa dedicada para claude-opus-4-7 (resolveAnthropicTariff usa aproximação Sonnet). Adicionar quando Opus entrar em uso. Owner: @dev.'
+    owner: dev
+  - id: FU-2.12-C
+    severity: INFO
+    description: 'Reconciliar diagrama architecture.md §4.3 ("Executor — Sonnet + Tools" → o LLM vive no Planner; Executor é materialização transaccional sem LLM). Doc-only. Owner: @architect.'
+    owner: architect
+
+related:
+  - docs/stories/completed/2.12.executor-default-haiku-4-5.story.md
+  - docs/qa/gates/2.12-architect-gate.md
+  - docs/handoffs/archive/mj-handoff-env-keys-setup-2.12-gate-20260530.yaml

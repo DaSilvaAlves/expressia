@@ -1,0 +1,140 @@
+id: mj-handoff-env-keys-setup-2.12-gate-20260530
+from_agent: claude
+to_agent: any
+created: '2026-05-30T00:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-31T00:00:00Z'
+consumed_by: architect
+
+progress_update:
+  - '[2026-05-30 18:30 — aiox-master/Orion] PARTE A (chaves LLM) RESOLVIDA: apps/web/.env.local recebeu ANTHROPIC_API_KEY + OPENAI_API_KEY bem formadas (Eurico confirmou rotação prévia). Ficheiros .env arrumados (Anthropic malformada no .env raiz corrigida; chaves AI redundantes removidas do .env.local raiz). Chat AI validado a funcionar (localhost + produção).'
+  - '[2026-05-31 — architect/Aria] PARTE B (gate story 2.12) CONCLUÍDA: gate retroativo PASS 9,4/10, D-2.12.2 (Planner default) RATIFICADA. Gate file docs/qa/gates/2.12-architect-gate.md. Story → Done v1.3-ARCH-APPROVED, movida active→completed. 5 gates re-corridos verdes (1169 testes). 3 follow-ups (FU-2.12-A/B/C). Código já em prod (0bb4a55). Housekeeping docs delegado a @devops via mj-handoff-2.12-gate-done-devops-20260531.yaml. AMBAS as partes fechadas → handoff consumed.'
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: setup-blocker + story-gate-pending
+
+summary: |
+  Dois fios em aberto, ambos por fechar noutro terminal limpo (a sessão anterior
+  ficou ruidosa a depurar output de shell e o Eurico pediu para continuar noutro
+  lado):
+    (A) SETUP DAS CHAVES LLM — provisionar OPENAI + ANTHROPIC directas no sítio
+        certo (apps/web/.env.local), para destravar o chat AI (GAP-1 da auditoria
+        CORE-STATE-AUDIT). Há uma chave Anthropic MALFORMADA e um possível
+        incidente de exposição a resolver (rotação).
+    (B) STORY 2.12 (executor default Haiku 4.5) está Ready for Review, commitada
+        localmente (commit 0bb4a55), à espera do gate @architect. NÃO foi pushed.
+
+next_action: |
+  PARTE A — CHAVES LLM (urgente, destrava o chat):
+
+  Estado actual verificado (factos, não suposição):
+    - gitignore cobre .env, .env.local, **/.env.local, .env*.local → NENHUM
+      secret foi para o GitHub. Só .env.example é tracked (e já foi restaurado
+      ao template limpo, 0 chaves).
+    - apps/web/.env.local É o ficheiro que a app web lê. JÁ tem Supabase +
+      DATABASE_URL. FALTAM as 2 chaves AI (tem 0 ANTHROPIC/OPENAI hoje).
+    - O .env.local da RAIZ só tem VERCEL_OIDC_TOKEN (gerado pela Vercel CLI) —
+      NÃO é o ficheiro das chaves AI, não mexer.
+    - O .env da RAIZ tem chaves (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.) MAS a
+      ANTHROPIC_API_KEY está MALFORMADA: o Eurico colou o COMANDO curl inteiro do
+      dashboard em vez de só a chave (linha começa por `ANTHROPIC_API_KEY=curl
+      https://api.anthropic.com/...`). A OpenAI nesse .env está bem formada
+      (sk-proj-...).
+
+  INCIDENTE DE EXPOSIÇÃO (decidir com o Eurico):
+    - Na sessão anterior, ao ler o .env.example (que na altura tinha as chaves
+      reais), os valores das 2 chaves apareceram em texto no transcript da
+      sessão. NÃO foram pushed para lado nenhum. O Eurico já escolheu
+      "Rotacionar (recomendado)" como caminho. Logo:
+      1. Revogar no console.anthropic.com a chave sk-ant-api03-vnIse... (a antiga).
+      2. Revogar no platform.openai.com a chave sk-proj-wgkOJ... (a antiga).
+      3. Gerar novas + pôr SPEND CAP (Anthropic Billing→Spend limit ~10€/mês;
+         OpenAI Settings→Limits→monthly budget ~5€/mês). O spend cap era a
+         preocupação original do Eurico ("factura disparar") — é a mitigação real.
+      4. Escrever as novas em apps/web/.env.local, UMA por linha, sem aspas, sem
+         curl:
+           ANTHROPIC_API_KEY=sk-ant-api03-<nova>
+           OPENAI_API_KEY=sk-proj-<nova>
+      5. Limpar/corrigir também o .env da raiz (a linha curl malformada) se esse
+         .env for usado por outras ferramentas — confirmar com o Eurico se é.
+
+    NOTA DE PROCESSO: NÃO pedir ao Eurico para colar as chaves no chat (já
+    aconteceu uma vez). Ou ele edita o ficheiro à mão, ou o agente edita
+    apps/web/.env.local lendo do .env da raiz e corrigindo a Anthropic — mas SEM
+    imprimir os valores no output.
+
+  PARTE B — GATE STORY 2.12:
+    - Story: docs/stories/active/2.12.executor-default-haiku-4-5.story.md
+    - Status: Ready for Review. Commit local 0bb4a55 (+756/-41, 15 ficheiros).
+      NÃO pushed (push é exclusivo @devops).
+    - Quality gates TODOS verdes localmente: lint EXIT 0, typecheck EXIT 0,
+      test 1164 PASS (+9), check:rls EXIT 0, build EXIT 0. db-test (Testcontainers)
+      só falha local por Docker indisponível — corre em CI, não toca RLS.
+    - Migration 0017 já aplicada na DB live (enum llm_model agora inclui
+      claude-haiku-4-5). Preços Haiku 4.5 confirmados de fonte oficial
+      (docs.claude.com, 2026-05-30): input $1 / output $5 / cache read $0,10 /
+      cache write $1,25 por 1M.
+    - DESVIO A RATIFICAR NO GATE (D-2.12.2): o @dev alargou o scope e trocou
+      TAMBÉM o default do Planner (packages/planner-executor), que NÃO estava nos
+      AC nem na File List. Justificação: o Planner sobrepõe-se ao default do
+      provider; sem isto a coluna agent_runs.executor_model gravaria Haiku
+      enquanto o Sonnet corria DE FACTO — a story seria cosmética e a factura não
+      baixava. É a mudança mínima para o objectivo ser real. O @architect deve
+      ratificar (ou reverter) este alargamento no gate.
+    - Próximo passo após gate PASS: @devops *push.
+
+context: |
+  Sequência da sessão anterior (terminal docs/handoffs):
+    1. @architect produziu ADR-001 (docs/adr/ADR-001-openrouter-llm-gateway.md):
+       NO-GO ao OpenRouter como gateway LLM. Razão: data residency UE é
+       enterprise-only no OpenRouter; ZDR sozinho não satisfaz RGPD (resolve
+       retenção, não localização de processamento). Ficam chaves directas
+       OpenAI + Anthropic (DPAs UE self-serve). Handoff do estudo já arquivado.
+    2. Eurico decidiu trocar executor para Haiku (custo) → story 2.12 criada
+       (@sm), validada (@po, GO 9/10 após 1 ciclo de fix), implementada (@dev).
+    3. Setup das chaves correu mal: chaves no ficheiro errado (.env.example,
+       tracked) + Anthropic malformada (curl colado) + exposição no transcript.
+       .env.example já restaurado. Eurico interrompeu por excesso de comandos de
+       diagnóstico de shell (output não retornava → comandos repetidos = ruído).
+
+  Constraint dura: data residency UE (PII de famílias PT). Directiva activa:
+  refocus_core_before_billing (billing CONGELADO; core E2E primeiro). A 2.12
+  serve o core (chat AI), não billing.
+
+  Ficheiros-chave:
+    - apps/web/.env.local → ONDE as chaves AI devem ir (já tem Supabase+DB)
+    - .env (raiz) → tem chaves mas Anthropic malformada (curl)
+    - .env.local (raiz) → só Vercel OIDC, NÃO mexer
+    - .env.example → template tracked, JÁ limpo (não voltar a pôr chaves reais)
+    - docs/stories/active/2.12.executor-default-haiku-4-5.story.md → gate pendente
+    - docs/adr/ADR-001-openrouter-llm-gateway.md → decisão OpenRouter NO-GO
+
+decisions:
+  - 'OpenRouter: NO-GO (ADR-001). Chaves directas OpenAI+Anthropic.'
+  - 'Eurico escolheu ROTACIONAR as 2 chaves (apareceram em texto no transcript).'
+  - 'Spend cap nas 2 chaves é a mitigação do medo "factura disparar".'
+  - 'Story 2.12 implementada com Haiku 4.5; gate @architect tem de ratificar D-2.12.2 (Planner default).'
+  - 'NUNCA pedir chaves coladas no chat; editar ficheiro sem imprimir valores.'
+
+blockers:
+  - 'Chat AI morto até apps/web/.env.local ter ANTHROPIC_API_KEY + OPENAI_API_KEY bem formadas (GAP-1).'
+  - 'Story 2.12 não pode ir para push sem gate @architect (PASS + ratificação D-2.12.2).'
+
+follow_ups:
+  - id: ENV-KEYS-SETUP
+    severity: HIGH
+    description: 'Rotacionar+spend cap+pôr 2 chaves AI bem formadas em apps/web/.env.local. Corrigir Anthropic malformada no .env raiz.'
+    owner: any
+  - id: STORY-2.12-GATE
+    severity: MEDIUM
+    description: 'Gate @architect da story 2.12 (ratificar D-2.12.2 Planner default) → depois @devops push.'
+    owner: architect
+
+related:
+  - docs/adr/ADR-001-openrouter-llm-gateway.md
+  - docs/stories/active/2.12.executor-default-haiku-4-5.story.md
+  - docs/CORE-STATE-AUDIT-20260529.md
+  - docs/handoffs/mj-handoff-refocus-core-freeze-billing-20260529.yaml
