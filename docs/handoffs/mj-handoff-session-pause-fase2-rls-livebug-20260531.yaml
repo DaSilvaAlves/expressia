@@ -1,0 +1,105 @@
+id: mj-handoff-session-pause-fase2-rls-livebug-20260531
+from_agent: devops
+to_agent: any
+created: '2026-05-31T19:15:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: session-pause
+
+summary: |
+  Sessão core-first (aiox-master Orion -> dev Dex -> devops Gage) fechou DOIS itens
+  do backlog do handoff-mãe billing-congelado e pushou tudo para origin/main (37b1788):
+  (1) FASE 2 — suite RLS/Testcontainers provada LOCALMENTE contra Postgres 16 real
+  (152/152 testes verde), fechando o GAP-5 da CORE-STATE-AUDIT; (2) BUG E2E do
+  live-refresh dos widgets da /visao RESOLVIDO (router.refresh() no chat após
+  executed/confirm/undo). Docker Desktop foi arrancado e fica a correr. Billing
+  continua CONGELADO. Não há trabalho de código a meio. Próximo gap real do core =
+  GAP-4 INNGEST, que só o Eurico pode provisionar.
+
+next_action: |
+  Não há nada urgente nem bloqueado do lado do agente. Por ordem de prioridade
+  (ler PRIMEIRO o handoff-mãe mj-handoff-refocus-core-freeze-billing-20260529):
+    1. (EURICO) Provisionar GAP-4 INNGEST: INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY
+       em apps/web/.env.local (e nos secrets de produção Vercel). Desbloqueia as
+       recorrências automáticas (tarefas recorrentes Story 3.7 + finanças
+       recorrentes Story 4.5 via cron Inngest). É o último gap de config externa
+       do core que resta.
+    2. (AGENTE, depois de Eurico provisionar) Validar E2E que as recorrências
+       Inngest disparam de facto (criar uma recorrência -> confirmar que o job
+       gera as ocorrências). Provar ponta-a-ponta, não só "configurado".
+    3. (FUTURO/LOW, story formal @sm->@po->@dev) Normalizar naming EN/PT dos tools
+       do cérebro (criar_tarefa PT vs create_finance_variable EN). É tech-debt LOW
+       DELIBERADO (FUP-4.10.A, documentado em planner-system.ts:45-51). Eurico
+       optou por ADIAR nesta sessão. Refactor MÉDIO (~500 linhas: prompt + schemas
+       + tools + testes), invalida prompt cache Anthropic (bump v3->v4), histórico
+       agent_runs.tool_calls fica misto (não-breaking). reverse_ops NÃO afectados.
+       Direcção recomendada: tudo PT (alinha PT-PT first). NÃO fazer YOLO — story.
+  NÃO escrever código de billing/Stripe/faturas até o Eurico dar nova ordem.
+
+context: |
+  **Handoff-mãe (LER PRIMEIRO):** mj-handoff-refocus-core-freeze-billing-20260529.yaml
+  — directiva estratégica billing-CONGELADO / core-first, MANTÉM-SE pending por
+  desenho (lembrete activo, não consumir). Todos os follow-ups lá dentro estão
+  reconciliados e actualizados com o trabalho desta sessão.
+
+  **O que esta sessão fez, em detalhe:**
+
+  1. FASE 2 — SUITE RLS (GAP-5 fechado). DESCOBERTA importante: a Story 1.4 já
+     estava DONE (docs/stories/completed/1.4.rls-helpers-test-suite.md) e
+     packages/db-test JÁ existia — a premissa do handoff anterior ("suite a
+     implementar/inexistente") estava desactualizada. A suite já era provada no
+     CI cloud (3/3 GREEN). Esta sessão arrancou o Docker Desktop (estava parado =
+     o bloqueio do GAP-5) e correu a suite LOCALMENTE: `pnpm --filter
+     @meu-jarvis/db-test test` -> 33 test files / 152 testes PASSED, 0 falhas,
+     59,93s, contra Postgres 16 efémero real (não mocks). A suite cresceu de 86
+     (Story 1.4 original) -> 152: cobre as 22 tabelas RLS + jwt-rls-isolation +
+     user_prefs + triggers + benchmark E2E (Story 2.10). Registo pushed (65798ea).
+
+  2. BUG E2E LIVE-REFRESH (resolvido, commit 9efec65). Os widgets RSC da /visao
+     (ex: FinanceMonthWidget "Gastos do mês") não actualizavam após o cérebro AI
+     criar/alterar dados via chat. Causa: ChatPanel (client) executava as tools
+     mas nunca revalidava os RSC. Fix cirúrgico @dev (Dex): router.refresh() em 3
+     pontos onde os dados mudam de facto — branch `executed` (handleSubmit),
+     confirmação de preview (handleConfirmResult), e undo bem-sucedido
+     (ResultMessage). NÃO no branch `preview` (nada mudou na DB ainda). 7 ficheiros
+     (2 produção: ChatPanel.tsx + ResultMessage.tsx; 5 testes; +129/-6). Quality
+     gates re-verificados independentemente por @devops GREEN: lint exit 0 ·
+     typecheck exit 0 · test 994/994 (127 files) · build exit 0 (Middleware
+     94,6 kB intacto). CodeRabbit SKIPPED (precedente 3.1-6.1).
+
+  3. Bug 2 do backlog (naming EN/PT dos tools) NÃO atacado — Eurico optou por
+     adiar (tech-debt LOW deliberado FUP-4.10.A). Triagem completa feita (ver
+     next_action item 3 para âmbito/risco).
+
+  **Estado git no fim desta sessão:**
+    - origin/main em 37b1788. Working tree LIMPO. 4 commits pushed nesta sessão:
+      65798ea (doc: registo Fase 2 RLS) -> 9efec65 (fix: live-refresh widgets) ->
+      37b1788 (doc: registo bug resolvido). [o 4º é o GAP-5 doc, incluído em 65798ea].
+    - Docker Desktop A CORRER (arrancado nesta sessão).
+
+  **Estado do produto:** core PROVADO E2E (Fase 1 smoke test + Fase 2 RLS real).
+  Auth + dados reais + tarefas + finanças + cérebro AI multi-intent (undo 30s) +
+  RLS multi-tenant contra Postgres real, todos verificados. Widgets agora
+  live-refresh. "Nada conecta" continua DESMENTIDO com evidência acrescida.
+
+decisions:
+  - 'FASE 2 (suite RLS contra Postgres real) provada localmente 152/152 — GAP-5 fechado.'
+  - 'Bug live-refresh dos widgets /visao resolvido via router.refresh() (executed/confirm/undo) — pushed.'
+  - 'Bug naming EN/PT adiado por opção do Eurico (tech-debt LOW deliberado, FUP-4.10.A).'
+  - 'Billing continua CONGELADO — directiva do handoff-mãe mantém-se válida e pending.'
+  - 'Próximo gap real do core: GAP-4 INNGEST (só Eurico provisiona as chaves).'
+
+blockers:
+  - 'NENHUM do lado do agente. GAP-4 (recorrências) depende de Eurico provisionar INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY.'
+
+files_modified:
+  - docs/handoffs/mj-handoff-session-pause-fase2-rls-livebug-20260531.yaml  # NEW — este handoff
+  - docs/handoffs/mj-handoff-refocus-core-freeze-billing-20260529.yaml  # M — GAP-5 + BUG-VISAO-LIVE-REFRESH DONE (pushed 65798ea/37b1788)
+  - docs/handoffs/archive/mj-handoff-security-config-closeout-20260531.yaml  # MOVED — consumido (next_action Fase 2 cumprido)
+  - docs/HANDOFF-INDEX.md  # M — pending/archived reconciliados
+  - apps/web/src/components/chat/ChatPanel.tsx  # M — router.refresh() (commit 9efec65)
+  - apps/web/src/components/chat/ResultMessage.tsx  # M — router.refresh() pós-undo (commit 9efec65)

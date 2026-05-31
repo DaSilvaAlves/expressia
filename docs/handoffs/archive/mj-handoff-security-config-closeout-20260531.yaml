@@ -2,8 +2,11 @@ id: mj-handoff-security-config-closeout-20260531
 from_agent: devops
 to_agent: any
 created: '2026-05-31T16:30:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-05-31T19:15:00Z'
+consumed_by: devops
+consumed_note: 'next_action item 1 (FASE 2 — suite RLS contra Postgres real) CUMPRIDO nesta sessão (152/152 verde, GAP-5 fechado) + item 2 (bug live-refresh widget) também RESOLVIDO. Superado por mj-handoff-session-pause-fase2-rls-livebug-20260531.'
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
