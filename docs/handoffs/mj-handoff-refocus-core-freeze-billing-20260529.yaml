@@ -163,9 +163,16 @@ follow_ups:
     status: MITIGATED
     description: 'Ao preparar o commit desta sessão, detectado que .env.example (ficheiro TRACKED, vai para o repo PÚBLICO DaSilvaAlves/expressia) tinha as chaves REAIS ANTHROPIC_API_KEY + OPENAI_API_KEY coladas (sessão anterior colou no template em vez do .env.local). NUNCA foram comitadas/pushed (alteração estava unstaged; origin/main limpo). Mitigado: git restore .env.example -> template voltou a placeholders vazios. As chaves NÃO chegaram ao GitHub. Lição: validar sempre `git diff .env.example` antes de commit; chaves reais SÓ em .env.local (gitignored). Como as chaves apareceram em chat history desta sessão, rotação é opcional (decisão Eurico) — não houve exposição pública.'
     owner: any
+  - id: GAP-5-RLS-SUITE
+    severity: HIGH
+    status: DONE
+    completed_at: '2026-05-31T18:24:00Z'
+    completed_by: aiox-master
+    description: 'FASE 2 RESOLVIDA. Docker Desktop arrancado (estava parado — o bloqueio do GAP-5) e a suite RLS/Testcontainers corrida LOCALMENTE contra Postgres 16 efémero REAL (localhost:32769, bootstrap + migrations 0000+0001 aplicadas), não mocks. Resultado: 33 test files / 152 testes PASSED, 0 falhas, 59,93s wall-clock (testes 7,07s). A suite cresceu desde a Story 1.4 original (86 -> 152): cobre as 22 tabelas RLS + jwt-rls-isolation + user_prefs + triggers (handle-new-user) + benchmark E2E (Story 2.10). RLS multi-tenant bloqueia cross-household contra Postgres real, com isolamento e atomicidade verificados. NOTA: a Story 1.4 JÁ estava Done (completed/) e o CI cloud sempre provou isto (3/3 GREEN) — esta sessão acrescenta a confirmação LOCAL fresca de hoje no ambiente do Eurico. "Maior gap de confiança que restava" fechado com evidência.'
+    owner: any
   - id: PROGRESS-NOTE
     severity: INFO
-    description: 'RECONCILIAÇÃO 2026-05-31 (aiox-master): a directiva estratégica deste handoff (billing CONGELADO, core-first) MANTÉM-SE válida e pending. O next_action original ("chat AI morto", auditar estado) está CUMPRIDO E SUPERADO — Fase 1 smoke test E2E PASSOU (ver E2E-SMOKE-TEST-FASE1). RESOLVIDOS: CORE-STATE-AUDIT · GAP-1 (chaves LLM) · GAP-3 (service-role URL) · GAP-6 (finanças via chat) · Story 2.12 · Fase 1 E2E. RESTAM: GAP-4 (INNGEST — recorrências, só Eurico), GAP-5 (Docker up + suite RLS 1.4 = Fase 2), religar Confirm email, SPEND-CAP. O core está PROVADO a funcionar E2E; billing continua congelado até decisão do Eurico.'
+    description: 'RECONCILIAÇÃO 2026-05-31 (aiox-master): a directiva estratégica deste handoff (billing CONGELADO, core-first) MANTÉM-SE válida e pending. O next_action original ("chat AI morto", auditar estado) está CUMPRIDO E SUPERADO — Fase 1 smoke test E2E PASSOU (ver E2E-SMOKE-TEST-FASE1) e Fase 2 (suite RLS contra Postgres real) PASSOU localmente (ver GAP-5-RLS-SUITE). RESOLVIDOS: CORE-STATE-AUDIT · GAP-1 (chaves LLM) · GAP-3 (service-role URL) · GAP-5 (Docker + suite RLS = Fase 2) · GAP-6 (finanças via chat) · Story 2.12 · Fase 1 E2E · SPEND-CAP · Confirm email · sb_secret revogada. RESTAM (só Eurico/máquina): GAP-4 (INNGEST — recorrências). Backlog agente non-blocking: bugs E2E (widget "Gastos do mês" sem live-refresh; naming misto EN/PT nos tools). O core está PROVADO a funcionar E2E + RLS provado contra Postgres real; billing continua congelado até decisão do Eurico.'
     owner: any
 
 files_modified:
