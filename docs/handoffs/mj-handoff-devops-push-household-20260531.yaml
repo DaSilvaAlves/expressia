@@ -1,0 +1,97 @@
+id: mj-handoff-devops-push-household-20260531
+from_agent: aiox-master
+to_agent: devops
+created: '2026-05-31T23:55:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: push-request
+
+summary: |
+  Feature "Família" (gestão de household + membros) implementada e provada E2E
+  local na sessão make-it-work. Commit 4e8e221 já feito (working tree limpo),
+  falta APENAS o `git push` para origin/main — exclusivo do @devops. 5 quality
+  gates verdes localmente. Billing continua CONGELADO (não tocado).
+
+next_action: |
+  @devops: fazer push do commit 4e8e221 para origin/main.
+    1. `git fetch origin && git log origin/main..HEAD --oneline` → confirmar que
+       só 4e8e221 está à frente (era f726c75 o último remoto).
+    2. (Opcional, recomendado precedente) correr CodeRabbit pre-push ou aceitar
+       SKIP como nas sessões anteriores desta fase make-it-work.
+    3. `git push origin main`.
+    4. Confirmar CI verde no GitHub (jobs quality + rls-gate + build).
+  NÃO é preciso migration nova (feature não adicionou tabela com household_id —
+  o check:rls não é afectado). NÃO mexer em billing.
+
+context: |
+  **O que foi feito (commit 4e8e221):**
+  Nova página `/conta/household` (família-first, lacuna do core multi-tenant):
+  ver/renomear o household, ver o plano, listar membros com papel. 6 ficheiros:
+    - apps/web/src/app/api/conta/household/route.ts            (GET+PATCH)
+    - apps/web/src/app/api/conta/household/__tests__/route.test.ts (7 testes)
+    - apps/web/src/app/(app)/conta/household/page.tsx          (SSR)
+    - apps/web/src/app/(app)/conta/household/_components/household-editor.tsx (client)
+    - apps/web/src/lib/api-schemas/households.ts               (contrato Zod+types)
+    - apps/web/src/components/shell/Sidebar.tsx                (item "Família" no nav)
+
+  **2 bugs reparados de passagem:**
+    1. households.ts estava ÓRFÃO com erro de sintaxe (trabalho parcial de sessão
+       anterior — nunca compilava). Reescrito do zero.
+    2. Query de membros fazia `JOIN public.users` → erro runtime 42P01
+       (relation "public.users" does not exist). auth.users vive no schema `auth`
+       e NÃO é acessível via role `authenticated` por SQL directo (getDb) — é a
+       mesma razão por que /api/me usa PostgREST. Reescrita para ler só
+       `household_members` (user_id, role, display_name, joined_at). Nome via
+       display_name (fallback email do próprio); email de outros membros NÃO
+       exposto (privacidade).
+
+  **Autorização:** renomear restrito a owner/admin. RLS households_update já
+  exige is_household_owner_or_admin; a app reforça com 403 explícito para member.
+
+  **Quality gates (todos verdes localmente):**
+    - lint: exit 0
+    - typecheck: exit 0
+    - test: 1000/1001 (a única falha é tarefas/calendario/page.test.tsx — FLAKY
+      pré-existente sob carga da suite; passa 3/3 isolado, SEM relação com a feature)
+    - build: Compiled successfully 23s; /conta/household (ƒ 2.59 kB) e
+      /api/conta/household no manifest
+    - check:rls: N/A (não há tabela nova com household_id)
+
+  **Provado E2E no log do dev server (autenticado, conta real do Eurico):**
+    GET /api/conta/household 200 — household_id 2dedb1ec…, members:1
+    GET /conta/household 200
+    (antes do fix: 500 public.users does not exist)
+
+  **GOTCHA conhecido (respeitado nesta sessão):** não correr `pnpm build` e
+  `next dev` partilhando apps/web/.next — parte o CSS em dev. Build foi feito com
+  dev parado + .next limpo, dev rearrancado depois.
+
+  **Limitações honestas (NÃO bloqueiam push, ficam para story futura):**
+    - display_name em household_members está vazio (trigger de registo não o
+      preenche) → nome do membro aparece como email. Preencher no onboarding.
+    - Convidar/remover membros não implementado (UI diz "chega numa próxima
+      atualização"). Tabela household_invites + RLS já existem no schema.
+    - PATCH renomear não testado E2E no browser (só smoke 401/200 + 7 unit tests).
+
+decisions:
+  - 'Feature household+membros implementada; commit 4e8e221 local, working tree limpo.'
+  - 'households.ts órfão (erro sintaxe) reparado; query reescrita para household_members (auth.users não JOINable via getDb).'
+  - 'Renomear restrito owner/admin (RLS + 403 na app); email de outros membros não exposto.'
+  - 'Billing continua CONGELADO (directiva handoff-mãe mantém-se).'
+
+blockers:
+  - 'NENHUM. Só falta `git push` (exclusivo @devops).'
+
+files_modified:
+  - apps/web/src/app/api/conta/household/route.ts  # NEW (commit 4e8e221)
+  - apps/web/src/app/api/conta/household/__tests__/route.test.ts  # NEW
+  - apps/web/src/app/(app)/conta/household/page.tsx  # NEW
+  - apps/web/src/app/(app)/conta/household/_components/household-editor.tsx  # NEW
+  - apps/web/src/lib/api-schemas/households.ts  # NEW
+  - apps/web/src/components/shell/Sidebar.tsx  # M (item "Família" no nav)
+  - docs/handoffs/mj-handoff-devops-push-household-20260531.yaml  # NEW (este handoff)
+  - docs/HANDOFF-INDEX.md  # M (linha pending)
