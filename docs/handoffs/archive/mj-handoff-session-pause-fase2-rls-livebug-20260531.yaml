@@ -2,8 +2,11 @@ id: mj-handoff-session-pause-fase2-rls-livebug-20260531
 from_agent: devops
 to_agent: any
 created: '2026-05-31T19:15:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-05-31T22:45:00Z'
+consumed_by: aiox-master
+superseded_by: mj-handoff-session-pause-datefix-inngest-local-20260531
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

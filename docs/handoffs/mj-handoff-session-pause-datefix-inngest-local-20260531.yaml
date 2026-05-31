@@ -1,0 +1,114 @@
+id: mj-handoff-session-pause-datefix-inngest-local-20260531
+from_agent: aiox-master
+to_agent: any
+created: '2026-05-31T22:45:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: session-pause
+
+summary: |
+  Sessão directa aiox-master (Orion) + Eurico, em modo "ver o produto a
+  funcionar / make-it-work". DOIS resultados: (1) BUG do cérebro AI corrigido e
+  pushado para origin/main (4f11eaf) — datas relativas ("amanhã") caíam na data
+  errada porque o Planner não conhecia a data de hoje; (2) GAP-4 INNGEST
+  (recorrências) PROVADO LOCALMENTE end-to-end com o inngest-cli dev — criação de
+  recorrência via chat aparece no widget + função cron "Generate finance
+  recurrences" corre Completed no painel local. Billing continua CONGELADO. Sem
+  trabalho de código a meio. A chave de PRODUÇÃO do Inngest (deploy) continua por
+  provisionar — é o que resta.
+
+next_action: |
+  Não há nada bloqueado do lado do agente. Eurico quer continuar noutro terminal.
+  Por ordem (ler PRIMEIRO o handoff-mãe mj-handoff-refocus-core-freeze-billing-20260529):
+    1. (EURICO, opcional/deploy) Provisionar chaves Inngest de PRODUÇÃO quando
+       fizer deploy: seguir docs/runbooks/inngest-setup.md Steps 1-4 (criar
+       workspace EU Frankfurt, gerar INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY,
+       registar endpoint, popular secrets Vercel). NÃO é preciso para dev local.
+    2. (EURICO, opcional) Ligar envio de emails (GAP-2 RESEND + Supabase confirm
+       email) se quiser registo por email a sério end-to-end.
+    3. (AGENTE, se pedido) Continuar make-it-work: escolher próximo ponto do core
+       a validar/polir. O cérebro + tarefas + finanças + recorrências (local) já
+       estão provados E2E.
+  NÃO escrever código de billing/Stripe/faturas até nova ordem do Eurico.
+
+context: |
+  **Handoff-mãe (LER PRIMEIRO):** mj-handoff-refocus-core-freeze-billing-20260529.yaml
+  — directiva billing-CONGELADO / core-first, mantém-se pending por desenho.
+
+  **O que esta sessão fez, em detalhe:**
+
+  1. BUG-FIX "AMANHÃ" (commit 4f11eaf, PUSHED origin/main). Sintoma: o cérebro AI
+     criava tarefas com data relativa errada — "amanhã reunião" caía em 2026-05-24
+     (passado) em vez de 01/06. Causa raiz: o Planner (packages/planner-executor)
+     nunca injectava a data actual na mensagem ao LLM, por isso o modelo copiava as
+     datas ILUSTRATIVAS dos exemplos few-shot do system prompt (Exemplo 1 tinha
+     dueDate '2026-05-24' literal). Fix: (a) planner.ts injecta um prefixo
+     "[Data de hoje]" na user message — hoje + amanhã pré-calculado + dia da semana,
+     derivados no fuso Europe/Lisbon (evita escorregão à meia-noite em Vercel fra1
+     UTC); (b) schemas.ts ganha campo opcional currentDate (override p/ testes);
+     (c) planner-system.ts ganha secção "DATA E PRAZOS" + bump versão v3->v4 +
+     aviso de que as datas dos exemplos são ilustrativas. 5 ficheiros (3 código +
+     2 testes). 5/5 quality gates GREEN re-corridos: lint exit 0 · typecheck 10/10
+     · test (incl. db-test 152/152 RLS contra Postgres real) · build (Middleware
+     94,6 kB intacto) · check:rls exit 0. Provado E2E na app: "amanhã reunião às
+     16h" -> tarefa em 01/06/2026 (hoje=31/05). CodeRabbit SKIPPED (precedente).
+
+  2. GAP-4 INNGEST — RECORRÊNCIAS PROVADAS LOCALMENTE (sem chaves cloud). Caminho:
+     `npx inngest-cli@latest dev -u http://localhost:3000/api/inngest` arranca o
+     Inngest Dev Server local (painel http://localhost:8288, engine sqlite em
+     memória, ZERO chaves/conta necessárias — Step 5 do runbook). As 3 funções
+     sincronizaram (Cleanup expired reverse ops, Generate finance recurrences,
+     Generate recurring tasks). Validação E2E: Eurico criou "renda de 600 euros
+     todo dia 1" via chat -> recorrência aparece no widget "Próximas Recorrências"
+     da /visao (prova a criação, NÃO precisa de Inngest). Depois "Invoke" da função
+     Generate finance recurrences no painel -> run Completed em ~1s, zero erros
+     (prova o motor cron ligado à app). Hoje materializa 0 transacções (a renda só
+     vence dia 1, next_run_on=01/06) — comportamento CORRECTO. Ambas as funções de
+     recorrência são cron diário '0 3 * * *' (apps/web/src/lib/inngest/functions/).
+     Conclusão: a engrenagem de recorrências está completa e funcional localmente;
+     só falta provisionar as chaves de PRODUÇÃO no dia do deploy.
+
+  **GOTCHA NOVO (importante p/ próximas sessões):** NÃO correr `pnpm build` e
+  depois `next dev` partilhando a mesma pasta apps/web/.next — os artefactos de
+  produção e dev entram em conflito e o CSS deixa de carregar (página fica "crua",
+  HTML sem estilos). Aconteceu nesta sessão (corri build para validar o push e
+  depois voltei ao dev). Fix: parar dev, `Remove-Item -Recurse -Force
+  apps/web/.next`, rearrancar `pnpm --filter @meu-jarvis/web dev`.
+
+  **Como rearrancar o ambiente local (próxima sessão):**
+    - App: `pnpm --filter @meu-jarvis/web dev` (http://localhost:3000)
+    - Inngest dev (só p/ testar recorrências): `npx inngest-cli@latest dev -u
+      http://localhost:3000/api/inngest` (painel http://localhost:8288)
+    - Login na app: euricojsalves@gmail.com (conta real já com household + dados
+      de teste: 3-4 tarefas, ~3 transacções, 1 recorrência renda 600/mês).
+
+  **Estado git no fim desta sessão:** origin/main em 4f11eaf. Working tree LIMPO
+  (excepto ficheiros de handoff desta entrega). Docker Desktop a correr.
+
+  **Estado do produto:** core PROVADO E2E — auth + dados reais + tarefas + finanças
+  + cérebro AI multi-intent (undo 30s) + recorrências (criação + motor Inngest
+  local) + RLS multi-tenant contra Postgres real + bug de datas corrigido. Widgets
+  live-refresh (sessão anterior). "Nada conecta" DESMENTIDO com evidência crescente.
+
+decisions:
+  - 'Bug "amanhã" (datas relativas erradas) corrigido — Planner injecta [Data de hoje] fuso Lisboa + prompt v3->v4. Pushed 4f11eaf.'
+  - 'GAP-4 Inngest recorrências provado LOCALMENTE via inngest-cli dev (widget + run Completed). Chaves de PRODUÇÃO ainda por provisionar (deploy).'
+  - 'Gotcha registado: pnpm build + next dev na mesma .next parte o CSS em dev — limpar .next e rearrancar.'
+  - 'Billing continua CONGELADO — directiva do handoff-mãe mantém-se válida e pending.'
+
+blockers:
+  - 'NENHUM do lado do agente. Recorrências em PRODUÇÃO dependem de Eurico provisionar INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY no deploy (runbook Steps 1-4).'
+
+files_modified:
+  - docs/handoffs/mj-handoff-session-pause-datefix-inngest-local-20260531.yaml  # NEW — este handoff
+  - docs/handoffs/archive/mj-handoff-session-pause-fase2-rls-livebug-20260531.yaml  # MOVED — consumido (next_action Inngest validado E2E local + bug data corrigido)
+  - docs/HANDOFF-INDEX.md  # M — pending/archived reconciliados
+  - packages/planner-executor/src/planner.ts  # M — injecta [Data de hoje] (commit 4f11eaf)
+  - packages/planner-executor/src/schemas.ts  # M — campo currentDate opcional (commit 4f11eaf)
+  - packages/planner-executor/src/prompts/planner-system.ts  # M — secção DATA E PRAZOS + bump v4 (commit 4f11eaf)
+  - packages/planner-executor/src/__tests__/planner.test.ts  # M — teste do prefixo de data (commit 4f11eaf)
+  - packages/planner-executor/src/__tests__/prompts.test.ts  # M — versão v4 + cobertura (commit 4f11eaf)
