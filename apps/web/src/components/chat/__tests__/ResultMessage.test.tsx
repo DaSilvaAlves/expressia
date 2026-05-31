@@ -16,15 +16,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 
 const pushMock = vi.fn();
+const refreshMock = vi.fn();
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, refresh: refreshMock }),
 }));
 
 import { ResultMessage } from '@/components/chat/ResultMessage';
 
 beforeEach(() => {
   pushMock.mockReset();
+  refreshMock.mockReset();
   global.fetch = vi.fn();
 });
 
@@ -152,6 +154,9 @@ describe('<ResultMessage />', () => {
     expect(global.fetch).toHaveBeenCalledWith('/api/agent/prompt/r1/undo', {
       method: 'POST',
     });
+    // Undo bem-sucedido revalida os RSC da rota (ex: widgets /visao) — os
+    // dados voltaram atrás, logo o widget tem de reflectir o estado revertido.
+    expect(refreshMock).toHaveBeenCalledTimes(1);
   });
 
   it('(v) click → 409 UNDO_EXPIRED: status→error + banner amarelo "Já não é possível anular"', async () => {

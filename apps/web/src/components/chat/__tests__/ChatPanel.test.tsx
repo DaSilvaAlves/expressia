@@ -16,10 +16,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const pushMock = vi.fn();
+const refreshMock = vi.fn();
 const captureExceptionMock = vi.fn();
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, refresh: refreshMock }),
 }));
 
 vi.mock('@sentry/nextjs', () => ({
@@ -36,6 +37,7 @@ function resetState() {
     loading: false,
   });
   pushMock.mockReset();
+  refreshMock.mockReset();
   captureExceptionMock.mockReset();
 }
 
@@ -173,6 +175,108 @@ describe('ChatPanel — submit + endpoint', () => {
     await waitFor(() => {
       expect(useChatStore.getState().preview).not.toBeNull();
       expect(useChatStore.getState().preview?.runId).toBe('run-preview-1');
+    });
+  });
+});
+
+describe('ChatPanel — revalidação RSC (live-refresh widgets /visao)', () => {
+  it('mode "executed" dispara router.refresh() (widgets RSC stale revalidam)', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          mode: 'executed',
+          run_id: 'run-refresh-1',
+          summary: 'Registei uma despesa de €15,00.',
+          results: { success: true, results: [{ id: 'tx1' }] },
+          undo_url: '/api/agent/undo/run-refresh-1',
+          undo_expires_at: new Date(Date.now() + 30_000).toISOString(),
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const user = userEvent.setup();
+    render(<ChatPanel mode="fullscreen" />);
+
+    await user.type(screen.getByLabelText('Prompt'), 'gastei 15 euros');
+    await user.click(screen.getByRole('button', { name: /enviar/i }));
+
+    await waitFor(() => {
+      expect(refreshMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('mode "preview" NÃO dispara router.refresh() (nada mudou na DB ainda)', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          mode: 'preview',
+          run_id: 'run-preview-norefresh',
+          plan_summary: ['Registar despesa €15,00'],
+          confidence: 0.55,
+          expires_at: new Date(Date.now() + 30_000).toISOString(),
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const user = userEvent.setup();
+    render(<ChatPanel mode="fullscreen" />);
+
+    await user.type(screen.getByLabelText('Prompt'), 'gastei 15 euros');
+    await user.click(screen.getByRole('button', { name: /enviar/i }));
+
+    // Esperar a preview entrar no store, confirmando que o fetch resolveu.
+    await waitFor(() => {
+      expect(useChatStore.getState().preview).not.toBeNull();
+    });
+    // Branch preview não revalida — é só uma proposta.
+    expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it('confirm de uma preview dispara router.refresh() (dados criados)', async () => {
+    // 1.ª fetch: prompt → preview. 2.ª fetch: confirm endpoint (PreviewCard).
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            mode: 'preview',
+            run_id: 'run-confirm-1',
+            plan_summary: ['Registar despesa €15,00'],
+            confidence: 0.55,
+            expires_at: new Date(Date.now() + 30_000).toISOString(),
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            results: { success: true, results: [{ id: 'tx1' }] },
+            undo_url: '/api/agent/prompt/run-confirm-1/undo',
+            undo_expires_at: new Date(Date.now() + 30_000).toISOString(),
+          }),
+          { status: 200 },
+        ),
+      );
+
+    const user = userEvent.setup();
+    render(<ChatPanel mode="fullscreen" />);
+
+    await user.type(screen.getByLabelText('Prompt'), 'gastei 15 euros');
+    await user.click(screen.getByRole('button', { name: /enviar/i }));
+
+    // Aguardar render da PreviewCard.
+    const confirmButton = await screen.findByRole('button', { name: /confirmar/i });
+    // Preview ainda não revalidou.
+    expect(refreshMock).not.toHaveBeenCalled();
+
+    await user.click(confirmButton);
+
+    // Após confirm bem-sucedido, handleConfirmResult revalida os RSC.
+    await waitFor(() => {
+      expect(refreshMock).toHaveBeenCalledTimes(1);
     });
   });
 });

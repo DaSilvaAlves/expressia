@@ -145,6 +145,10 @@ export function ResultMessage({
         const opsCount = typeof body.ops_count === 'number' ? body.ops_count : 0;
         setStatus('success');
         setBanner(bannerSuccess(opsCount));
+        // Undo bem-sucedido → os dados voltaram atrás na DB. Revalidar os
+        // RSC da rota actual (ex: widgets da /visao) para que reflictam o
+        // estado revertido sem refresh manual.
+        router.refresh();
         return;
       }
       if (res.status === 409) {

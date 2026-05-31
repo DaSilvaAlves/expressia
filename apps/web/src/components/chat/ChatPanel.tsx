@@ -173,6 +173,12 @@ export function ChatPanel({ mode }: ChatPanelProps): React.ReactElement {
             undoUrl: data.undo_url,
             undoExpiresAt: data.undo_expires_at,
           });
+          // Os dados de domínio mudaram de facto (tools executadas em
+          // transacção). Revalidar os RSC da rota actual (ex: widgets da
+          // /visao como FinanceMonthWidget) para reflectir a mudança sem
+          // refresh manual. NÃO disparado no branch `preview` — aí nada
+          // mudou ainda na DB, é apenas uma proposta.
+          router.refresh();
         }
       } catch {
         appendMessage({
@@ -208,8 +214,12 @@ export function ChatPanel({ mode }: ChatPanelProps): React.ReactElement {
         undoExpiresAt: payload.undoExpiresAt,
       });
       setPreview(null);
+      // Preview confirmado → tools foram executadas e os dados criados.
+      // Revalidar os RSC da rota actual (widgets stale) tal como na branch
+      // `executed` de handleSubmit.
+      router.refresh();
     },
-    [appendMessage, preview, setPreview],
+    [appendMessage, preview, router, setPreview],
   );
 
   const handleCancelPreview = useCallback(() => {
