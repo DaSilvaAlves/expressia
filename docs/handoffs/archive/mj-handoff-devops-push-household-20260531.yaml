@@ -2,8 +2,10 @@ id: mj-handoff-devops-push-household-20260531
 from_agent: aiox-master
 to_agent: devops
 created: '2026-05-31T23:55:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-05-31T23:59:30Z'
+consumed_by: devops
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
