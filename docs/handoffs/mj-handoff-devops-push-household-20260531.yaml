@@ -12,14 +12,16 @@ type: push-request
 
 summary: |
   Feature "Família" (gestão de household + membros) implementada e provada E2E
-  local na sessão make-it-work. Commit 4e8e221 já feito (working tree limpo),
-  falta APENAS o `git push` para origin/main — exclusivo do @devops. 5 quality
-  gates verdes localmente. Billing continua CONGELADO (não tocado).
+  local na sessão make-it-work. Commit a132f29 (feature) + 7b48ce6 (este handoff)
+  já feitos (working tree limpo), falta APENAS o `git push` para origin/main —
+  exclusivo do @devops. 5 quality gates verdes localmente. Billing continua
+  CONGELADO (não tocado).
 
 next_action: |
-  @devops: fazer push do commit 4e8e221 para origin/main.
+  @devops: fazer push para origin/main (2 commits à frente: a132f29 + 7b48ce6).
     1. `git fetch origin && git log origin/main..HEAD --oneline` → confirmar que
-       só 4e8e221 está à frente (era f726c75 o último remoto).
+       só a132f29 (feature) + 7b48ce6 (handoff) estão à frente (era f726c75 o
+       último remoto).
     2. (Opcional, recomendado precedente) correr CodeRabbit pre-push ou aceitar
        SKIP como nas sessões anteriores desta fase make-it-work.
     3. `git push origin main`.
@@ -78,7 +80,7 @@ context: |
     - PATCH renomear não testado E2E no browser (só smoke 401/200 + 7 unit tests).
 
 decisions:
-  - 'Feature household+membros implementada; commit 4e8e221 local, working tree limpo.'
+  - 'Feature household+membros implementada; commits a132f29 (feature) + 7b48ce6 (handoff) locais, working tree limpo.'
   - 'households.ts órfão (erro sintaxe) reparado; query reescrita para household_members (auth.users não JOINable via getDb).'
   - 'Renomear restrito owner/admin (RLS + 403 na app); email de outros membros não exposto.'
   - 'Billing continua CONGELADO (directiva handoff-mãe mantém-se).'
@@ -87,7 +89,7 @@ blockers:
   - 'NENHUM. Só falta `git push` (exclusivo @devops).'
 
 files_modified:
-  - apps/web/src/app/api/conta/household/route.ts  # NEW (commit 4e8e221)
+  - apps/web/src/app/api/conta/household/route.ts  # NEW (commit a132f29)
   - apps/web/src/app/api/conta/household/__tests__/route.test.ts  # NEW
   - apps/web/src/app/(app)/conta/household/page.tsx  # NEW
   - apps/web/src/app/(app)/conta/household/_components/household-editor.tsx  # NEW
