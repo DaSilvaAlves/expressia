@@ -1,0 +1,84 @@
+id: mj-handoff-push-display-name-onboarding-20260601
+from_agent: aiox-master
+to_agent: devops
+created: '2026-06-01T00:45:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: push-request
+
+summary: |
+  Sessão make-it-work aiox-master (Orion) + Eurico. Feature "display_name no
+  onboarding" implementada, testada (5/5 gates GREEN) e COMMITADA localmente
+  (3470f0f) — falta só o `git push` (exclusivo @devops). O registo passa a
+  pedir o NOME (campo obrigatório); o nome alimenta a saudação /visao
+  (user_metadata.name) e a lista de membros /conta/household
+  (household_members.display_name, via novo trigger 0019). Backfill da conta do
+  Eurico (euricojsalves@gmail.com) já feito em prod (nome "Eurico" nas duas
+  superfícies). Migração 0019 já aplicada à Supabase real.
+
+next_action: |
+  @devops: fazer o push do commit 3470f0f para origin/main.
+    1. `git log --oneline origin/main..HEAD` → confirmar que só está 3470f0f.
+    2. (Opcional) re-correr gates: lint · typecheck · test · build · check:rls.
+       Já foram corridos nesta sessão — todos GREEN (ver decisions).
+    3. `*push` (ou git push origin main).
+  NÃO é preciso aplicar a migração 0019 no deploy manualmente — já foi aplicada
+  à Supabase real nesta sessão (db:migrate, registada em __schema_migrations).
+  Em ambientes novos corre automaticamente na ordem lexicográfica.
+
+context: |
+  **O que foi feito (commit 3470f0f, 5 ficheiros):**
+    - `registar/page.tsx` — novo campo "Nome" (obrigatório, maxLength 80,
+      autoComplete name) antes do email.
+    - `(auth)/actions.ts` — signUpAction capta+valida `name` (não vazio, ≤80) e
+      passa `options.data.name` ao supabase.auth.signUp → grava em
+      auth.users.raw_user_meta_data.name (exposto como user_metadata).
+    - `0019_handle_new_user_display_name.sql` (NOVA migração) — recria
+      handle_new_user. EVOLUI A 0018 (não a 0003): preserva byte-a-byte a conta
+      "Dinheiro" default (Story 2.13/GAP-6) + audit account.created + fail-hard
+      D2. ALTERA: lê raw_user_meta_data->>'name' → preenche
+      household_members.display_name + usa "Casa de {primeiro nome}".
+    - `actions.test.ts` — VALID ganha name; +2 testes (passa data.name; valida
+      nome em falta). 8/8.
+    - `handle-new-user.trigger.test.ts` — +1 teste structural (def lê
+      raw_user_meta_data + insere display_name; conta Dinheiro intacta). 7 db.
+
+  **Porquê:** resolveDisplayName (greeting.ts) JÁ lia user_metadata.name mas o
+  registo nunca o captava → tudo caía no email. Memória relacionada:
+  auth-users-not-joinable (auth.users não JOINable via getDb; nome tem de vir do
+  metadata/JWT e de household_members.display_name).
+
+  **DIRECTIVE crítica (no commit trailer também):** qualquer migração futura que
+  recrie handle_new_user DEVE partir da 0019 (conta Dinheiro + display_name),
+  nunca da 0003. Há agora 3 versões na história: 0003 (base) → 0018 (conta
+  Dinheiro) → 0019 (display_name). Só a 0019 está activa.
+
+  **Backfill prod (fora do git):** script one-shot (já apagado, não commitado)
+  escreveu nome "Eurico" em user_metadata.name (Admin API) +
+  household_members.display_name (DIRECT_URL) para df5b403f-...-faab. Eurico
+  precisa de logout+login para o JWT renovar o metadata e a saudação mostrar o
+  nome (a lista de membros mostra já).
+
+  **Estado git:** HEAD local = 3470f0f, à frente de origin/main (9c51516) por 1
+  commit. Working tree LIMPO. Branch main.
+
+decisions:
+  - 'Campo Nome OBRIGATÓRIO no registo (decisão Eurico) — família-first, baixa fricção.'
+  - '0019 evolui a 0018 (conta Dinheiro preservada), não a 0003 — confirmado lendo a 0018 antes de escrever.'
+  - 'Backfill da conta do Eurico feito em prod nas 2 superfícies (Eurico pediu) — logout/login renova saudação.'
+  - '5/5 gates GREEN: lint(0 warnings) · typecheck(10/10) · test(web 1003/1003, 1 flaky timeout calendario passa isolado 1279ms; db 13/13) · build(registar static, MW 94,6 kB) · check:rls(EXIT 0).'
+  - 'CodeRabbit SKIPPED (precedente do projecto stories 3.1–6.1).'
+
+blockers:
+  - 'NENHUM. Só falta o push (exclusivo @devops). Migração 0019 já em prod.'
+
+files_modified:
+  - apps/web/src/app/(auth)/registar/page.tsx
+  - apps/web/src/app/(auth)/actions.ts
+  - apps/web/src/app/(auth)/__tests__/actions.test.ts
+  - packages/db/migrations/0019_handle_new_user_display_name.sql
+  - packages/db/src/__tests__/handle-new-user.trigger.test.ts
