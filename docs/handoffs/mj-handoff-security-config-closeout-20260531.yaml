@@ -1,0 +1,92 @@
+id: mj-handoff-security-config-closeout-20260531
+from_agent: devops
+to_agent: any
+created: '2026-05-31T16:30:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: session-pause
+
+summary: |
+  Sessão @devops (Gage) fechou as 3 acções de owner=Eurico que estavam OPEN no
+  handoff-mãe da directiva billing-congelado (mj-handoff-refocus-core-freeze-billing-20260529):
+  (1) SPEND-CAP definido (€10/mês em Anthropic + OpenAI), (2) "Confirm email"
+  religado no Supabase Dashboard, (3) chave sb_secret_ — exposta num screenshot
+  de chat — APAGADA no Supabase + limpa do .env.local. Tudo doc-only commitado e
+  pushed (origin/main em bdd4bef). O core já estava PROVADO E2E (Fase 1 smoke test
+  passou). Billing continua CONGELADO. Não há trabalho de código a meio nesta sessão.
+
+next_action: |
+  Não há nada urgente nem bloqueado do lado do agente. O core está vivo E2E e as
+  acções de config/segurança do Eurico estão feitas. Para o próximo terminal, por
+  ordem de prioridade (ler PRIMEIRO o handoff-mãe da directiva):
+    1. (AGENTE, depois de Eurico arrancar Docker Desktop) FASE 2 — correr a suite
+       RLS/Testcontainers (Story 1.4, packages/db-test se existir, senão é a story
+       a implementar). Primeira prova de RLS/atomicidade contra Postgres REAL,
+       não mocks. É o maior gap de confiança que resta no core.
+    2. (AGENTE) Backlog de bugs reais capturados no smoke test E2E da Fase 1:
+       - widget "Gastos do mês" na /visao NÃO faz live-refresh após o cérebro AI
+         criar uma despesa (precisa de refresh manual da página).
+       - naming misto EN/PT nos tools do cérebro (create_finance_variable vs
+         criar_tarefa) — inconsistência de convenção, candidato a normalizar.
+    3. (FUTURO, @dev, LOW) Migração legacy-JWT -> novas API keys do Supabase
+       (anon/service_role legacy -> publishable/secret). Resolve de vez a rotação
+       da service_role legacy (deferida). NÃO é prioridade — fazer quando o core
+       estiver mais maduro.
+  NÃO escrever código de billing/Stripe/faturas até o Eurico dar nova ordem.
+
+context: |
+  **Handoff-mãe (LER PRIMEIRO):** mj-handoff-refocus-core-freeze-billing-20260529.yaml
+  — directiva estratégica billing-CONGELADO / core-first, MANTÉM-SE pending por
+  desenho (é um lembrete activo, não consumir). Todos os follow-ups lá dentro estão
+  reconciliados e actualizados com o trabalho desta sessão.
+
+  **O que esta sessão (@devops Gage) fez, em detalhe:**
+    - SPEND-CAP (era HIGH/OPEN) -> DONE. Eurico definiu €10/mês de limite em ambos
+      os consoles LLM. Risco financeiro das chaves LLM LIVE agora contido.
+    - SUPABASE-CONFIRM-EMAIL-REENABLE (era MEDIUM/OPEN) -> DONE. "Confirm email"
+      religado (ON) no Supabase Dashboard (Auth -> Sign In/Providers -> User Signups).
+      Registo volta a exigir validação de email. Resíduo opcional: RESEND_API_KEY
+      está no .env.local mas o código ainda não o usa (actions.ts:14 "integração
+      futura"); email de confirmação é enviado pelo Supabase. SMTP custom Resend
+      fica para o futuro.
+    - SECURITY-ENV-LOCAL-SCREENSHOT-LEAK (novo, HIGH) -> PARTIALLY-MITIGATED.
+      Eurico enviou screenshot do .env.local aberto revelando chaves reais
+      (ANTHROPIC, OPENAI, RESEND, SUPABASE_SERVICE_ROLE legacy, SUPABASE_SECRET sb_secret).
+      SEM fuga pública (.env.local gitignored, origin/main limpo). Grep ao código:
+      a sb_secret NÃO era lida por código nenhum -> apagada no Dashboard (zero
+      impacto) + linha limpa no .env.local. service_role legacy SÓ usada por script
+      dev (dev-create-user.ts); rotação deferida (rolar JWT secret partiria o login
+      via anon legacy) para a futura migração de keys. LLM keys mantidas (teto €10).
+
+  **Lição de segurança (IMPORTANTE):** NUNCA pedir/aceitar screenshot do .env.local
+  aberto. Se for preciso inspeccionar env vars, tapar os valores das chaves.
+
+  **Estado git no fim desta sessão:**
+    - origin/main em bdd4bef. 3 commits doc-only pushed nesta sessão
+      (3b87c7f reconciliação inicial -> 72d6628 spend-cap+confirm-email
+      -> bdd4bef sb_secret revogada). Working tree limpo.
+    - .env.local (apps/web) tem SUPABASE_SECRET_KEY= vazia + nota. NÃO commitado
+      (gitignored). Restantes chaves intactas e funcionais.
+
+  **Estado do produto:** core PROVADO a funcionar E2E (auth + dados reais +
+  tarefas + finanças + cérebro AI multi-intent com undo 30s). Ver
+  E2E-SMOKE-TEST-FASE1 no handoff-mãe. "Nada conecta" foi DESMENTIDO com evidência.
+
+decisions:
+  - 'As 3 acções de owner=Eurico (spend-cap, confirm email, sb_secret) estão FECHADAS.'
+  - 'sb_secret apagada (não usada por código); service_role legacy rotation deferida para migração de keys (LOW).'
+  - 'Billing continua CONGELADO — directiva do handoff-mãe mantém-se válida e pending.'
+  - 'Próximo foco do core: Fase 2 (suite RLS real) + backlog de bugs E2E. Sem trabalho a meio.'
+
+blockers:
+  - 'NENHUM do lado do agente. Fase 2 depende de Eurico arrancar o Docker Desktop (pré-condição da suite Testcontainers).'
+
+files_modified:
+  - docs/handoffs/mj-handoff-security-config-closeout-20260531.yaml  # NEW — este handoff
+  - docs/handoffs/mj-handoff-refocus-core-freeze-billing-20260529.yaml  # M — follow-ups DONE (pushed)
+  - docs/HANDOFF-INDEX.md  # M — esta linha pending
+  - apps/web/.env.local  # M — sb_secret limpa (NÃO commitado, gitignored)
