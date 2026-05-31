@@ -25,9 +25,9 @@ updated: 2026-05-29
 - **Priority**: 🔴 HIGH
 - **Type**: S (security)
 - **Effort**: 1-2 horas (fix de array trivial + testes de regressão por prefixo)
-- **Status**: 📋 TODO
-- **Assignee**: @dev (fix) → @qa (security gate) → @devops (push)
-- **Sprint**: imediato (antes da Story 5.8)
+- **Status**: ✅ DONE — **resolvido via Story 5.0-hotfix (Done, security gate PASS 9.5/10, 2026-05-29; pushed)**. Confirmado byte-a-byte por @po na validação da 5.10 (2026-05-29): `apps/web/src/middleware.ts:44` `APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta', '/tarefas', '/financas']` + teste de cobertura anti-reincidência em `middleware.test.ts`. Removido do scope da Story 5.10 (FUP-5.3.C).
+- **Assignee**: @dev (fix) → @qa (security gate) → @devops (push) — **concluído no ciclo 5.0-hotfix**
+- **Sprint**: ~~imediato (antes da Story 5.8)~~ — entregue 2026-05-29
 - **Risk if not done**: 🔴 HIGH — utilizadores não autenticados não são redireccionados de `/tarefas/**` (3 páginas) nem `/financas/**` (7 páginas). Viola NFR8 (auth gate). Fuga de dados provavelmente mitigada pela RLS (NFR5 — `getDb()` sem JWT não tem `household_id` claim), MAS o shell SSR + estrutura de navegação renderiza para anónimos e o comportamento exacto do fetch SSR sem sessão NÃO foi confirmado runtime.
 
 - **Description**:
@@ -100,9 +100,9 @@ updated: 2026-05-29
 - **Source**: @architect QA gate Story 5.7 (2026-05-28)
 - **Priority**: 🟢 LOW
 - **Type**: F (follow-up)
-- **Status**: 📋 TODO
-- **Description**: Slot `headerActions` reservado no `WidgetCard` ficou sem consumidor após a 5.7. Candidato a absorção pela Story 5.9 (`<UndoToast>`/`<EmptyState>` shared).
-- **Acceptance**: slot consumido ou removido.
+- **Status**: ✅ DONE — **resolvido pela Story 5.9 (D-5.9.4, gate @architect PASS 9.2/10, pushed 2026-05-29)**. Slot `headerActions` removido do `WidgetCard.tsx`; grep confirmou zero callers no código.
+- **Description**: Slot `headerActions` reservado no `WidgetCard` ficou sem consumidor após a 5.7. Absorvido pela Story 5.9 (DP-5.9.D=B — remoção).
+- **Acceptance**: ~~slot consumido ou removido~~ → removido.
 
 #### [FUP-5.8.B] `audit-dark-mode.ts` não cobre tokens semânticos sem equivalente `.dark`
 
@@ -118,15 +118,35 @@ updated: 2026-05-29
   para cruzar classes `bg-*-subtle` (ou `var(--*)`) com a presença da var em `.dark`.
 - **Acceptance**: o audit flagga um token semântico usado sem `.dark` counterpart.
 
+#### [OBS-5.9-1] CTA do `<EmptyState>` usa `<a href>` (full-page nav) em vez de SPA-nav
+
+- **Source**: @architect QA gate Story 5.9 (2026-05-29) — ratificação D-5.9.2; encaminhado a @ux por Eurico (2026-05-29)
+- **Priority**: 🟢 LOW
+- **Type**: F (follow-up) — UX-polish do design system
+- **Assignee**: @ux-design-expert
+- **Status**: 📋 TODO
+- **Description**: O CTA do `<EmptyState>` em `packages/ui` usa `<a href>` (navegação
+  full-page) em vez de client-side nav, decisão **correcta no MVP** para manter o
+  package framework-agnóstico (sem dep `next`). Item de polish independente — **não
+  pertence ao Epic 6 (Onboarding e Billing)**. Reavaliar quando houver capacidade de
+  design. Relacionado: ilustrações SVG reais no `<EmptyState>` (prop `illustration`
+  já existe, aceita `null` no MVP; Epic 5 previa ilustrações de designer em fase
+  posterior).
+- **Fix sugerido**: slot render-prop para o CTA (o caller injecta `<Link>` quando
+  quiser nav client-side) — preserva a agnosticidade do package. Opcionalmente
+  adicionar ilustrações SVG às 4 variantes.
+- **Acceptance**: CTA do `<EmptyState>` suporta nav client-side sem o package
+  passar a depender de `next`; (opcional) ilustrações SVG nas variantes.
+
 ---
 
 ## Estatísticas
 
 | Métrica | Valor |
 |---------|-------|
-| Total de itens | 4 |
-| 🔴 HIGH | 1 |
+| Total de itens | 5 |
+| 🔴 HIGH | 1 (✅ done) |
 | 🟡 MEDIUM | 1 |
-| 🟢 LOW | 2 |
-| 📋 TODO | 4 |
-| ✅ DONE | 0 |
+| 🟢 LOW | 3 |
+| 📋 TODO | 3 |
+| ✅ DONE | 2 |

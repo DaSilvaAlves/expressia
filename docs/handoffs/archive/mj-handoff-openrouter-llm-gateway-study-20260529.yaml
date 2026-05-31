@@ -1,0 +1,133 @@
+id: mj-handoff-openrouter-llm-gateway-study-20260529
+from_agent: architect
+to_agent: architect
+created: '2026-05-29T22:15:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-05-29T23:40:00Z'
+consumed_by: architect
+outcome: |
+  ADR-001-openrouter-llm-gateway.md produzido em docs/adr/. VEREDICTO: NO-GO
+  para produção (GO-PARCIAL condicional só para tráfego sem PII, sem aplicação
+  prática hoje). Gate #1 (data residency UE) FALHA: o único caminho do
+  OpenRouter que mantém PII na UE — EU in-region routing via eu.openrouter.ai
+  + DPA RGPD — é enterprise-only/by-request, incompatível com MVP pré-receita.
+  ZDR (disponível a todas as contas) resolve retenção mas NÃO garante
+  processamento na UE → transferência internacional ainda exige SCCs/DPA.
+  Gates #2-#5 ficaram informativos: caching Anthropic propaga-se (não
+  bloquearia), integração técnica seria barata (classifier 1 linha baseURL;
+  executor ~3-5 linhas via "Anthropic Skin" baseURL=openrouter.ai/api mantendo
+  tool calling + cache_control), sem markup (5,5% créditos / 5% BYOK). Decisão:
+  Fase 0 segue com OPENAI_API_KEY + ANTHROPIC_API_KEY DIRECTAS (DPAs self-serve,
+  base legal RGPD imediata). NÃO provisionar OPENROUTER_API_KEY.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: research-architecture-decision
+
+summary: |
+  Estudar https://openrouter.ai/ como gateway LLM unificado para o cérebro AI
+  (substituir/complementar as chaves OpenAI + Anthropic directas). Decisão de
+  tecnologia + research. NÃO toca no core a correr — é estudo isolado, ideal
+  para terminal próprio. Output esperado: ADR (Architecture Decision Record)
+  com veredicto GO/NO-GO + plano de integração se GO. Contexto: a auditoria
+  CORE-STATE-AUDIT (29/05) confirmou que o chat AI está morto por falta das
+  chaves LLM (GAP-1). Antes de o Eurico provisionar OPENAI+ANTHROPIC directas,
+  vale avaliar se um gateway único (OpenRouter) é melhor opção.
+
+next_action: |
+  Produzir um ADR em docs/adr/ (ou docs/research/) que responda, POR ESTA ORDEM:
+
+  1. [BLOQUEANTE — DATA RESIDENCY/GDPR] O projecto é UE-EXCLUSIVO com data
+     residency obrigatória (Vercel fra1 + Supabase eu-central-1; ver CLAUDE.md
+     "Data residency: UE obrigatória"). Os prompts levam PII real (finanças,
+     tarefas das famílias). O OpenRouter encaminha para providers globais (US,
+     etc.). PERGUNTA #1: o OpenRouter permite restringir a providers UE / Zero
+     Data Retention (ZDR) / não-treino? Há DPA (Data Processing Agreement) que
+     satisfaça o RGPD para subprocessadores fora da UE? SE NÃO HOUVER FORMA DE
+     GARANTIR ISTO → NO-GO imediato, ficar com OpenAI/Anthropic directas (que
+     têm endpoints/DPAs UE conhecidos). Não avançar para os pontos seguintes sem
+     resolver este.
+
+  2. [PROMPT CACHING — CUSTO] O Executor usa o SDK Anthropic com
+     `cache_control: { type: 'ephemeral' }` no system + tools
+     (packages/agent/src/providers/anthropic.ts:178,195; Architecture §4.3 /
+     NFR11). Isto é caching nativo Anthropic e é central para o custo. PERGUNTA:
+     o OpenRouter propaga o prompt caching da Anthropic? Se não, qual o impacto
+     no custo €/prompt? Comparar com Anthropic directa.
+
+  3. [COMPATIBILIDADE DE CÓDIGO — esforço de integração]
+     - Classifier (packages/classifier): usa `OpenAIClientLike` (interface
+       ESTRUTURAL, cliente INJECTADO via createClassifier() em
+       apps/web/src/app/api/agent/prompt/route.ts:716-721) com
+       `response_format: { type: 'json_schema' }` e modelo `gpt-4o-mini`.
+       Apontar para OpenRouter = só acrescentar `baseURL:
+       'https://openrouter.ai/api/v1'` ao `new OpenAI({...})`. TRIVIAL.
+       VERIFICAR: o modelo escolhido no OpenRouter suporta
+       `response_format: json_schema` (structured output)? Nem todos suportam.
+     - Executor (packages/agent/src/providers/anthropic.ts): usa o SDK Anthropic
+       directo (`new Anthropic({ apiKey })`) com tool calling + cache_control.
+       Tem `apiKeyOverride` e `clientOverride` mas NÃO tem `baseURL` override
+       hoje. VERIFICAR: usar o endpoint OpenAI-compatible do OpenRouter para
+       Claude (perde-se tool calling nativo Anthropic + caching?) OU o SDK
+       Anthropic aceita baseURL apontado ao OpenRouter? Qual mantém tool calling
+       + caching intactos? Quantas linhas de mudança?
+
+  4. [CUSTO + MODELOS] Comparar €/1M tokens (input/output) no OpenRouter vs
+     directo para os 2 modelos em uso (gpt-4o-mini classifier, claude-sonnet-4-5
+     executor). Há markup do OpenRouter? Vale a pena?
+
+  5. [FIABILIDADE] OpenRouter oferece fallback automático entre providers
+     (resiliência) — vantagem real para o circuit-breaker que já existe em
+     packages/agent/src/circuit-breaker.ts? Ou redundante?
+
+  6. [VEREDICTO] GO / NO-GO / GO-PARCIAL (ex: classifier via OpenRouter, executor
+     directo). Se GO: listar as mudanças exactas de código + env vars novas
+     (OPENROUTER_API_KEY) + o que dizer ao Eurico provisionar. Se NO-GO:
+     confirmar que a Fase 0 da auditoria segue com OPENAI_API_KEY +
+     ANTHROPIC_API_KEY directas.
+
+context: |
+  **Porquê este estudo agora:** a auditoria de estado real (29/05,
+  docs/CORE-STATE-AUDIT-20260529.md) confirmou que o chat AI não funciona por
+  ausência das chaves LLM. O Eurico, antes de provisionar, quer avaliar o
+  OpenRouter como gateway único (1 chave em vez de 2, fallback, escolha de
+  modelos). Decisão sensata MAS condicionada pela constraint de data residency
+  UE — que é provavelmente o factor decisivo.
+
+  **Factos do código (verificados pelo @architect na auditoria):**
+    - Classifier: cliente OpenAI INJECTADO, interface estrutural
+      (OpenAIClientLike). baseURL não definido hoje → fácil de adicionar.
+      response_format json_schema + gpt-4o-mini.
+    - Executor: SDK Anthropic directo, cache_control ephemeral (caching),
+      tool calling, claude-sonnet-4-5. Sem baseURL override hoje.
+    - Ambos os pontos de instanciação são centralizados (1 sítio cada) → a
+      mudança é localizada se GO.
+
+  **Constraint dura (não negociável):** data residency UE (CLAUDE.md +
+  memory market_pt_pt_exclusive + design_decisions). PII de famílias
+  portuguesas. Esta é a pergunta #1, não a última.
+
+  **Ferramentas para o estudo:** WebFetch/WebSearch sobre openrouter.ai
+  (docs de privacy/data-policy, models, prompt-caching, structured-outputs),
+  Context7 para docs dos SDKs se preciso. O @analyst pode fazer a perna de
+  web-research; a DECISÃO (GO/NO-GO + ADR) é do @architect.
+
+decisions:
+  - 'Estudo isolado — não toca no core a correr. Pode/deve ser feito em terminal próprio.'
+  - 'Data residency UE é a pergunta #1 e potencial NO-GO imediato.'
+  - 'Prompt caching Anthropic (NFR11) não pode ser sacrificado sem quantificar o custo.'
+
+follow_ups:
+  - id: OPENROUTER-ADR
+    severity: MEDIUM
+    description: 'Produzir ADR GO/NO-GO sobre OpenRouter como gateway LLM, com data residency UE como gate #1.'
+    owner: architect
+
+blockers:
+  - 'NENHUM. Estudo independente. Não bloqueia nem é bloqueado pelo core — informa apenas a Fase 0 (que chaves provisionar).'
+
+related:
+  - docs/CORE-STATE-AUDIT-20260529.md  # auditoria que motivou (GAP-1 chaves LLM)
+  - docs/handoffs/mj-handoff-refocus-core-freeze-billing-20260529.yaml  # directiva estratégica activa

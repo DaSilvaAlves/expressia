@@ -1,8 +1,9 @@
 # Epic 6 — Onboarding e Billing
 
-**Status:** Draft v0.1 — pendente validação das 8 DPs por Eurico antes de `@sm *draft 6.1`
+**Status:** v1.0 Validated — 8 DPs validadas por Eurico (2026-05-29). Story 6.1 Done (em produção). Detalhamento das restantes stories desbloqueado.
 **Owner:** @pm (Morgan)
 **Created:** 2026-05-29
+**Validated:** 2026-05-29
 **Depends on:** Epic 1 Done · Epic 2 Done · Epic 3 Done · Epic 4 Done · Epic 5 9/10 Done (shell + `<ChatPanel>` + `<EmptyState>` + `WidgetGrid` entregues; resta só 5.10 responsive sweep, não-bloqueante para o arranque do Epic 6).
 **Estimated total effort:** L (≈ 10 stories, mistura S/M/L; 2-3 L nas integrações Stripe + jobs GDPR).
 
@@ -34,8 +35,6 @@ No fim do Epic 6, um visitante novo pode: registar-se com email+password e confi
 - **Export GDPR (FR28)** — `/conta/exportar`: enqueue job Inngest que percorre todas as tabelas com `household_id`, escreve ZIP (JSON+CSV) em Supabase Storage (eu-central-1) e envia signed URL (24h) por email. Requer tabela nova `data_export_jobs`.
 - **Eliminação de conta + purge 30 dias (FR29)** — `/conta/eliminar`: cria job de purge agendado a 30 dias, **revogável até execução**; job Inngest executa o purge real (ON DELETE CASCADE em `household_id` garante consistência). Requer tabela nova `account_deletion_jobs`.
 - **Painel de billing/faturas + factura electrónica PT (FR35)** — `/conta/faturas` lista as `invoices` do household; cada pagamento (`invoice.paid`) gera factura com NIF do cliente (quando fornecido) e número sequencial AT-friendly (`FT 2026/0001` — DP6).
-- **Household switcher (slot do shell)** — activar o slot `HouseholdSwitcher` que o Epic 5 desenhou no topbar (adiado do Epic 5 §3-OUT) — troca de household activo via `POST /api/auth/switch-household` (architecture §5.5). **Apenas relevante para Pro multi-household** — avaliar âmbito (DP8 / pode ficar OUT do MVP).
-
 ### OUT (adiar para Fase 2 ou outro epic)
 
 - **Social login (Google/Apple)** — FR24 menciona-o como opção; adiar para Fase 2 (email+password cobre o MVP).
@@ -43,7 +42,7 @@ No fim do Epic 6, um visitante novo pode: registar-se com email+password e confi
 - **Open Banking / import e-fatura PT** — Fases 2-3 (project-brief §roadmap; explicitamente fora do MVP).
 - **Dunning avançado / recuperação de pagamentos falhados além do email +0/+3/+7d** — architecture §6.3 define o básico; orquestração avançada é Fase 2.
 - **Faturação anual com gestão de migração mensal↔anual complexa** — suportar anual no checkout (prices existem) mas migrações mensais↔anuais pró-rata complexas adiam-se se a DP6 mostrar complexidade fiscal.
-- **Multi-household management UI rica (Pro)** — o switcher básico entra; gestão avançada (renomear, sair, transferir ownership em massa) é Fase 2.
+- **Household switcher + multi-household (Pro)** — DP8=B: o switcher básico **adia-se para a Fase 2** (slot do shell fica desenhado mas inactivo no MVP); gestão avançada (renomear, sair, transferir ownership) também é Fase 2. Multi-household é caso Pro de nicho.
 - **Cupões/descontos/campanhas promocionais** — fora do MVP.
 
 ## 4. Estado Actual (pré-condição verificada)
@@ -84,9 +83,11 @@ No fim do Epic 6, um visitante novo pode: registar-se com email+password e confi
 
 ## 5. Stories Propostas (alta-nível, ordem sugerida)
 
-| Story | Título | Objectivo (1 frase) | Estimate | Dependências |
-| ----- | ------ | ------------------- | -------- | ------------ |
-| 6.1 | Registo + verificação de email + household default | Aplicar branding a `/registar`; confirmação de email via Supabase Auth; criar household default + membership `owner` atomicamente no registo (DP1/DP2). | M | Epic 1 (1.5 Done) |
+**Progresso: 1/10 Done** (6.1). Próximas prioritárias: 6.3 (Stripe setup — gargalo do ramo billing) e 6.2 (onboarding).
+
+| Story | Título | Objectivo (1 frase) | Estimate | Dependências | Estado |
+| ----- | ------ | ------------------- | -------- | ------------ | ------ |
+| 6.1 | Registo + verificação de email + branding auth | Branding das páginas de auth com tokens `@meu-jarvis/ui`; verificação de email nativa Supabase (DP1: callback + `/confirm`); verificar bootstrap household/trial do registo (DP2/DP3, já entregue na 1.5). | M | Epic 1 (1.5 Done) | **Done** (PASS 9,3/10) |
 | 6.2 | Onboarding 3 passos + activação de trial | Tour pós-registo (chat → tarefa → finança); cria `subscriptions{status:'trialing', trial_ends_at:now+14d}` sem Stripe customer; saltável mas trial sempre activa (FR30/FR31/FR33). | M | 6.1 |
 | 6.3 | Setup Stripe + webhook handler idempotente | Produtos/prices EUR, payment methods PT (`card`/`multibanco`/`mb_way`), `POST /api/billing/webhook` (verify signature + upsert `payment_events`) + Inngest `stripe.event` handler (FR32/FR36; architecture §6.3). | L | Epic 1 (DevOps Stripe keys) |
 | 6.4 | Trial expiry — job Inngest `expire-trials` | Cron diário lê `subscriptions WHERE trial_ends_at <= now() AND status='trialing'` → regride household a Free (FR33). Idempotente. | S | 6.2, 6.3 |
@@ -95,11 +96,11 @@ No fim do Epic 6, um visitante novo pode: registar-se com email+password e confi
 | 6.7 | Convite de membros + limites por plano | UI convite + `POST /api/household/invites` + email Resend + função SQL `accept_invite()` (valida limite Pessoal=1/Família=4/Pro=10) + página `/aceitar-convite/{token}` (FR27; architecture §5.3). | M | 6.1 |
 | 6.8 | Export GDPR (JSON + CSV) | Tabela `data_export_jobs` (+RLS); `/conta/exportar` enfileira Inngest `gdpr-export` → ZIP em Supabase Storage → signed URL 24h via Resend (FR28/AC5). | M | 6.1 |
 | 6.9 | Eliminação de conta + purge 30 dias | Tabela `account_deletion_jobs` (+RLS); `/conta/eliminar` agenda purge a 30d revogável; Inngest `gdpr-purge` executa purge real (FR29/AC6). | M | 6.1 |
-| 6.10 | Painel de faturas + factura electrónica PT | `/conta/faturas` lista `invoices`; `invoice.paid` gera factura com NIF + número sequencial AT (`FT 2026/0001` — DP6) + PDF (FR35/AC7). | M | 6.3 |
+| 6.10 | Painel de faturas + recibo PT (NIF) | `/conta/faturas` lista `invoices`; `invoice.paid` gera **recibo simples com NIF** (DP6=C — MVP) + PDF (FR35/AC7). Numeração sequencial AT certificada **adiada p/ Fase 2** (confirmar requisitos AT antes — AT-FISCAL-RESEARCH). | M | 6.3 |
 
 **Total estimado:** 10 stories — 1×S, 8×M, 1×L (6.3) — alinhado com precedentes Epic 4/5 (10 stories cada).
 
-> **Paralelização possível:** 6.1 é o caminho crítico inicial (registo + household). Após 6.1: o ramo **billing** (6.3 → 6.4/6.5 → 6.6 → 6.10) e o ramo **household/GDPR** (6.7, 6.8, 6.9) podem correr em paralelo. 6.3 (Stripe setup) é o gargalo do ramo billing — priorizar cedo. Switcher de household (slot do shell) avalia-se em DP8.
+> **Paralelização possível:** 6.1 (Done) era o caminho crítico inicial. Após 6.1: o ramo **billing** (6.3 → 6.4/6.5 → 6.6 → 6.10) e o ramo **household/GDPR** (6.7, 6.8, 6.9) podem correr em paralelo. 6.3 (Stripe setup) é o gargalo do ramo billing — priorizar cedo (bloqueador externo STRIPE-SETUP). Switcher de household **fora do âmbito** (DP8=B — Fase 2).
 
 ## 6. Riscos Macro
 
@@ -139,20 +140,20 @@ No fim do Epic 6, um visitante novo pode: registar-se com email+password e confi
 
 - **Nenhum epic posterior depende do Epic 6 no MVP** — é o último epic da Fase 1. Fecha o roadmap PRD §5.
 
-## 8. Decisões Pendentes (a validar por Eurico)
+## 8. Decisões Validadas (Eurico — 2026-05-29)
 
-> **Estado: pendentes.** As recomendações abaixo são preliminares (PM). Tal como no Epic 5, o detalhamento das stories só arranca depois de Eurico validar — mínimo as DPs com impacto fiscal/UX (DP4, DP5, DP6, DP8).
+> **Estado: validadas.** As 8 DPs foram decididas por Eurico em 2026-05-29, desbloqueando o detalhamento das stories. As decisões abaixo são a fonte-de-verdade do âmbito do Epic 6. DP1/DP2/DP3 já estão materializadas (Story 6.1 Done + bootstrap da Story 1.5); DP4-DP8 guiam as stories 6.3-6.10.
 
-| ID | Decisão | Opções consideradas | Recomendação preliminar |
-| -- | ------- | ------------------- | ----------------------- |
-| **DP1** | **Verificação de email — Supabase nativo vs custom.** | A) Supabase Auth confirm email nativo (link mágico). B) Fluxo custom com token próprio + Resend. | **A** — Supabase Auth já gere confirmação (NFR6, bcrypt cost 12); evita reinventar. Resend usa-se para os emails de produto (convite/export/dunning), não para auth. |
-| **DP2** | **Criação do household — no registo ou no onboarding.** | A) Atómica no registo (household + membership owner + trial). B) No 1º passo do onboarding. C) Lazy na 1ª acção. | **A** — atomicidade evita estados inconsistentes (R-6.6). Onboarding torna-se puramente tour; saltar não deixa o utilizador sem household nem sem trial (FR31). |
-| **DP3** | **Activação de trial — momento e mecanismo.** | A) No registo (junto com household). B) No fim do onboarding. C) Job que activa em todos os novos. | **A** — `subscriptions{status:'trialing', trial_ends_at:now+14d}` criada na transação de registo, sem Stripe customer (FR33). Expiry por job `expire-trials` (6.4). |
-| **DP4** | **Stripe Checkout — hosted vs embedded (Payment Element).** | A) Stripe Checkout hosted (redirect). B) Payment Element embebido na app. | **A** — hosted reduz superfície PCI, suporta Multibanco+MB Way nativamente com menos código, e acelera o MVP. Embedded reavalia-se na Fase 2 para UX mais integrada. |
-| **DP5** | **Acesso durante `past_due_pending` (Multibanco a aguardar 3-7 dias).** | A) Conceder acesso do plano imediatamente (optimista); reverter se não pagar. B) Manter Free/trial até confirmação. C) Acesso parcial. | **B (a confirmar)** — manter o estado anterior (trial/Free) até `invoice.paid`, com UI clara "a aguardar Multibanco". Evita conceder plano pago sem dinheiro recebido. **Decisão de negócio — Eurico valida.** |
-| **DP6** | **Numeração de factura AT — sequência DB própria vs Stripe.** | A) Sequência DB transaccional própria (`FT {ano}/{NNNN}`, sem gaps). B) Usar o número do Stripe. C) Recibo simples + NIF no MVP, factura certificada na Fase 2. | **A ou C — decisão fiscal de Eurico.** Stripe não emite numeração AT-compliant. Sequência própria sem gaps é o correcto (R-6.3) mas pode exigir software certificado; se a complexidade for alta, **C** (recibo+NIF no MVP) destrava o launch e adia a certificação. |
-| **DP7** | **Export GDPR — formato e entrega.** | A) ZIP (JSON+CSV) em Supabase Storage + signed URL 24h por email (architecture §map). B) Download síncrono na hora. C) Email com anexo. | **A** — coerente com architecture (`Storage`, signed URL); assíncrono via Inngest aguenta households grandes (R-6.9). FR28/AC5 pede JSON+CSV. |
-| **DP8** | **Household switcher — incluir no Epic 6 ou adiar.** | A) Incluir switcher básico (slot do shell já existe) — só relevante para Pro multi-household. B) Adiar para Fase 2 (MVP foca single-household por utilizador na maioria dos planos). | **B (a confirmar)** — multi-household é caso Pro de nicho; o slot fica desenhado (Epic 5) mas inactivo no MVP. Incluir (A) só se Eurico quiser Pro multi-household no launch. **Eurico valida.** |
+| ID | Decisão | Validada | Detalhe e impacto |
+| -- | ------- | -------- | ----------------- |
+| **DP1** | Verificação de email — Supabase nativo vs custom. | **A — Supabase Auth nativo** | Confirm email nativo (link). Resend reserva-se para emails de produto (convite/export/dunning). **Materializada na Story 6.1** (`emailRedirectTo` + callback + `/confirm`); pré-condição externa: ligar "Confirm email" no Dashboard (follow-up SUPABASE-CONFIRM-EMAIL). |
+| **DP2** | Criação do household — registo vs onboarding. | **A — atómica no registo** | household + membership owner criados na transação de registo (R-6.6). **Já satisfeita** pelo trigger `handle_new_user` (Story 1.5 / migr. 0003); a 6.1 verifica+testa. Onboarding (6.2) é puramente tour. |
+| **DP3** | Activação de trial — momento e mecanismo. | **A — no registo** | `subscriptions{status:'trialing', trial_ends_at:now+14d}`, plano `familia`, sem Stripe customer (FR33). **Já satisfeita** pelo trigger (1.5); expiry por job `expire-trials` (6.4). |
+| **DP4** | Stripe Checkout — hosted vs embedded. | **A — Checkout HOSTED** | Redirect hosted reduz superfície PCI e suporta Multibanco+MB Way nativamente com menos código. Embedded reavalia-se na Fase 2. Guia a Story 6.5. |
+| **DP5** | Acesso durante `past_due_pending` (Multibanco 3-7 dias). | **B — manter trial/Free até `invoice.paid`** | Não conceder plano pago sem dinheiro recebido; UI "a aguardar Multibanco". Guia as Stories 6.5/6.3. |
+| **DP6** | Numeração de factura AT — sequência própria vs Stripe vs recibo. | **C — recibo + NIF no MVP** | Recibo simples com NIF destrava o launch; certificação AT (sequência sem gaps / software certificado) **adia-se para a Fase 2** (R-6.3/R-6.10). Confirmar requisitos AT antes da 6.10 (follow-up AT-FISCAL-RESEARCH). Guia a Story 6.10. |
+| **DP7** | Export GDPR — formato e entrega. | **A — ZIP (JSON+CSV) em Storage + signed URL 24h** | Assíncrono via Inngest aguenta households grandes (R-6.9); coerente com a architecture. Guia a Story 6.8. |
+| **DP8** | Household switcher — incluir vs adiar. | **B — adiado para a Fase 2** | Multi-household é caso Pro de nicho; o slot fica desenhado (Epic 5) mas **inactivo no MVP**. Remove o switcher do âmbito do Epic 6 (a linha em §3-IN passa a OUT). |
 
 ## 9. Métricas de Sucesso
 
@@ -222,6 +223,7 @@ No fim do Epic 6, um visitante novo pode: registar-se com email+password e confi
 | Versão | Data | Autor | Mudanças |
 | ------ | ---- | ----- | -------- |
 | v0.1 | 2026-05-29 | Morgan (@pm) | Draft inicial — skeleton + 10 stories alta-nível (6.1-6.10 alinhadas com PRD §6) + 10 riscos macro + 8 DPs pendentes. Âmbito ancorado no codebase real verificado: schema de billing/tenancy/GDPR **já existe** (`billing.ts`, `tenancy.ts`, `audit.ts`); trabalho do epic é fluxo+integração Stripe+UI+jobs Inngest. 2 tabelas novas identificadas (`data_export_jobs`, `account_deletion_jobs`). Modelo Stripe + convites + GDPR já especificados na architecture §5.3/§6. Pré-condição: Epic 5 9/10 Done (shell + design system entregues). Bloqueador externo principal: @devops configura Stripe (keys, produtos/prices, MB Way no Dashboard PT). **Pendente: validação das 8 DPs por Eurico antes de `@sm *draft 6.1`** (mínimo DP4 checkout, DP5 Multibanco access, DP6 factura AT, DP8 switcher). |
+| v1.0 | 2026-05-29 | Morgan (@pm) | **Epic validado (v1.0 Validated).** 8 DPs decididas por Eurico → §8 passa de "pendentes" para "validadas" (fonte-de-verdade do âmbito): DP1=A Supabase nativo · DP2=A household atómico (feito 1.5) · DP3=A trial no registo (feito 1.5) · DP4=A Stripe HOSTED · DP5=B manter trial/Free até `invoice.paid` · DP6=C recibo+NIF no MVP (certificação AT→Fase 2) · DP7=A ZIP+signed URL · DP8=B switcher adiado→Fase 2. **Switcher removido do §3-IN** (DP8). §5: 6.1 marcada **Done** (gate PASS 9,3/10, em produção) — Epic 6 = **1/10 Done**. 6.10 ajustada para recibo+NIF (DP6=C). Detalhamento das restantes stories desbloqueado. Próximas prioritárias: 6.3 (Stripe — gargalo) e 6.2 (onboarding). |
 
 ---
 
@@ -229,6 +231,6 @@ No fim do Epic 6, um visitante novo pode: registar-se com email+password e confi
 *1) Epics 1-4 Done; Epic 5 9/10 Done (shell + design system entregues — verificado).*
 *2) Schema de billing/tenancy/GDPR existente verificado byte-a-byte em `packages/db/src/schema/`.*
 *3) Modelo Stripe + convites + GDPR especificados em `docs/architecture.md §5.3/§6`.*
-*Próximo passo: validação das 8 DPs por Eurico → depois `@sm *draft 6.1`.*
+*Estado: v1.0 Validated (8 DPs decididas 2026-05-29). 6.1 Done. Próximo passo: `@sm *draft 6.3` (Stripe — gargalo, requer STRIPE-SETUP do @devops) ou `@sm *draft 6.2` (onboarding).*
 
 *Toda decisão técnica é rastreável a FR/NFR/CON do PRD, à architecture.md ou ao schema/codebase real verificado, conforme Constitution Article IV — No Invention.*

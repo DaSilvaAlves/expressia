@@ -1,0 +1,167 @@
+id: mj-handoff-refocus-core-freeze-billing-20260529
+from_agent: pm
+to_agent: any
+created: '2026-05-29T23:00:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: critical
+type: strategic-redirect
+
+summary: |
+  REORIENTAÇÃO ESTRATÉGICA (directiva do Eurico, 2026-05-29). CONGELAR o ramo
+  billing do Epic 6 (Stripe / pagamentos / faturas — Stories 6.3, 6.4, 6.5, 6.6,
+  6.10). Razão: o produto core NÃO está nem a 50%, está cheio de bugs e "nada
+  conecta com nada". Construir checkout/faturação agora é prematuro e
+  desperdício de tokens — ninguém pagaria pelo estado actual. NOVA PRIORIDADE
+  ÚNICA: fazer o produto FUNCIONAR end-to-end (cérebro AI multi-intent +
+  Tarefas + Finanças + Web a conectar de verdade), corrigir bugs, fechar o gap
+  entre "stories marcadas Done" e "produto que realmente funciona".
+
+next_action: |
+  [ACTUALIZADO 2026-05-31 — core PROVADO E2E nesta sessão, ver follow-up E2E-SMOKE-TEST-FASE1]
+  A auditoria + Fase 1 (smoke test E2E) estão FEITAS e PASSARAM. Billing continua
+  CONGELADO. Para o próximo terminal, por ordem de prioridade:
+    1. (EURICO, segurança) Definir SPEND-CAP nos consoles Anthropic + OpenAI.
+    2. (EURICO, segurança) RELIGAR "Confirm email" no Supabase Dashboard
+       (foi desligado SÓ para o smoke test desta sessão).
+    3. (EURICO) Provisionar GAP-4 INNGEST (INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY)
+       → desbloqueia recorrências automáticas.
+    4. (AGENTE, depois de Eurico arrancar Docker Desktop) Fase 2 — correr a suite
+       RLS/Testcontainers (packages/db-test) → primeira prova de RLS/atomicidade
+       contra Postgres real, não mocks.
+    5. (AGENTE) Backlog de bugs reais data-driven a partir do uso E2E. Observações
+       já capturadas: widget "Gastos do mês" não faz live-refresh; naming misto
+       EN/PT nos tools (create_finance_variable vs criar_tarefa).
+  NÃO escrever código de billing/Stripe/faturas até o Eurico dar nova ordem.
+
+context: |
+  **Directiva textual do Eurico:** "o projeto não está nem a 50%, está cheio de
+  erros bugs, falta mais de metade daquilo que é o projeto e tu andas a tratar
+  de cobrar (...) quem seria o louco que ia pagar 1 centimo por isto desta forma,
+  nada a funcionar nada conecta com nada".
+
+  **Hipótese do gap "Done no papel vs funciona na prática":**
+  As stories dos Epics 1-5 passaram os quality gates (lint/typecheck/test/build
+  verdes) MAS isso só prova que o código compila e os testes unitários (muitos
+  com DB/serviços MOCKADOS) passam — NÃO prova que o produto integrado funciona.
+  Sinais acumulados ao longo das sessões:
+    - Bloqueadores externos nunca confirmados como feitos: Auth Hook no Supabase
+      Dashboard (1.5), "Confirm email" (6.1), Sentry/Grafana EU (1.7), Stripe (6.x).
+    - Testes E2E reais inexistentes: a suite Testcontainers/RLS da Story 1.4
+      (integração com Postgres real) NUNCA foi entregue — toda a "integração"
+      testada é com mocks.
+    - O cérebro AI (Epic 2 / pipeline multi-intent) precisa de chaves LLM reais
+      e de estar ligado às tools de Tarefas/Finanças — verificar se isto funciona
+      de facto ponta-a-ponta ou se são peças soltas.
+  => Provável causa de "nada conecta": ambiente/integrações não configurados +
+     fluxos nunca exercitados com dados reais. CONFIRMAR antes de assumir.
+
+  **O que está CONGELADO (não tocar até nova ordem):**
+    - Epic 6 ramo billing: Stories 6.3 (Stripe setup), 6.4 (expire-trials),
+      6.5 (upgrade+checkout), 6.6 (plano pró-rata), 6.10 (faturas).
+    - Follow-ups externos de billing: STRIPE-SETUP (não configurar Stripe agora).
+    - A Story 6.1 (registo+auth+branding) JÁ está Done e em produção — fica;
+      o ramo GDPR/convites (6.7/6.8/6.9) e onboarding (6.2) reavaliam-se DEPOIS
+      do core funcionar (não são billing, mas não são prioridade vs bugs do core).
+
+  **O que NÃO está congelado (a nova prioridade):**
+    - Fazer Epics 1-5 funcionarem de verdade, integrados, com bugs corrigidos.
+    - Auditoria honesta do estado real + plano make-it-work.
+
+  **Estado git no fim desta sessão:**
+    - main pushed até 1164eb3 (ciclo Story 6.1 completo).
+    - Working tree tem alterações NÃO comitadas: docs/epics/epic-6-onboarding-billing.md
+      (fechado em v1.0 Validated nesta sessão — agora parcialmente irrelevante dado
+      o congelamento; manter como registo histórico das DPs), + WIP Epic 5 antigo
+      (STORY-BACKLOG.md, draft 5.10, handoff 5.8) + este handoff + INDEX.
+    - Decisão sobre commitar o epic-6 v1.0: opcional — as DPs validadas são bom
+      registo, mas o ramo billing está congelado. Deixar ao critério do próximo +
+      @devops.
+
+  **Recomendação de arranque no outro terminal:**
+    Começar com uma sessão de auditoria — sugestão: @architect (brownfield/health
+    assessment do estado real) OU @dev a correr a app e a exercitar o fluxo E2E,
+    com o Eurico a confirmar o que vê. O objectivo do primeiro passo é VERDADE
+    sobre o estado, não mais planeamento.
+
+decisions:
+  - 'Billing (Stripe/pagamentos/faturas) é PREMATURO — congelado até o core funcionar e ter valor demonstrável.'
+  - 'Prioridade única: produto a funcionar end-to-end, bugs corrigidos.'
+  - 'Não confiar em status "Done" — auditar o estado real com a app a correr.'
+  - 'Quality gates verdes (com mocks) != produto funcional integrado.'
+
+follow_ups:
+  - id: CORE-STATE-AUDIT
+    severity: CRITICAL
+    status: DONE
+    completed_at: '2026-05-29T22:05:00Z'
+    completed_by: architect
+    output: docs/CORE-STATE-AUDIT-20260529.md
+    description: 'Auditoria honesta do estado real do produto. CONCLUÍDA por @architect. Veredicto: o problema NÃO é falta de código (Epics 1-5 construídos, app arranca, auth protege, APIs respondem) — é CONFIGURAÇÃO EXTERNA por fazer + E2E nunca exercitado. Gaps confirmados c/ evidência: GAP-1 chaves LLM (OPENAI/ANTHROPIC) ausentes => chat AI morto; GAP-2 RESEND ausente => registo/confirm email não envia; GAP-3 DATABASE_URL_SERVICE_ROLE ausente => jobs/quota falham; GAP-4 INNGEST ausente => recorrências mortas; GAP-5 Docker parado => suite RLS nunca corre. PRÓXIMO PASSO = Fase 0: Eurico provisiona ~5 chaves/configs (só ele pode) antes de qualquer make-it-work. Ver doc para plano completo Fase 0-4.'
+    owner: any
+  - id: BILLING-FROZEN
+    severity: INFO
+    description: 'Epic 6 ramo billing (6.3-6.6, 6.10) + STRIPE-SETUP CONGELADOS até o core funcionar. Não retomar sem nova ordem do Eurico.'
+    owner: pm
+  - id: DONE-VS-WORKS-GAP
+    severity: HIGH
+    description: 'Confirmar quais "Done" dependem de config externa nunca feita (Supabase Dashboard Auth Hook + Confirm email, env vars LLM/Resend, etc.) e de integração E2E nunca testada (suite 1.4 Testcontainers nunca entregue).'
+    owner: any
+  - id: GAP-1-LLM-KEYS
+    severity: CRITICAL
+    status: DONE
+    completed_at: '2026-05-30T00:00:00Z'
+    completed_by: aiox-master
+    description: 'Chaves LLM (OPENAI_API_KEY + ANTHROPIC_API_KEY) provisionadas em apps/web/.env.local. Chat AI multi-intent validado a funcionar. Gap "chat morto" da CORE-STATE-AUDIT RESOLVIDO.'
+    owner: any
+  - id: GAP-6-FINANCE-CHAT
+    severity: HIGH
+    status: DONE
+    completed_at: '2026-05-31T00:00:00Z'
+    completed_by: dev
+    description: 'Finanças via chat RESOLVIDAS e em PRODUÇÃO (Story 2.13 deployed, d93369b): conta "Dinheiro" default + context injection. Fluxo cérebro AI -> tool Finanças provado E2E.'
+    owner: any
+  - id: SPEND-CAP
+    severity: HIGH
+    status: OPEN
+    description: 'ÚNICA ação aberta. Com as chaves LLM agora LIVE (GAP-1 resolvido), definir spend cap / usage limit nos consoles Anthropic e OpenAI para travar custo descontrolado. Ação EXCLUSIVAMENTE do Eurico (consoles externos — nenhum agente consegue fazê-la). Anthropic: console.anthropic.com -> Settings -> Limits. OpenAI: platform.openai.com -> Settings -> Limits.'
+    owner: eurico
+  - id: GAP-3-SERVICE-ROLE
+    severity: MEDIUM
+    status: DONE
+    completed_at: '2026-05-31T00:00:00Z'
+    completed_by: aiox-master
+    description: 'DATABASE_URL_SERVICE_ROLE adicionado a apps/web/.env.local (= valor do DIRECT_URL, porta 5432 session pooler). getServiceDb() (packages/db/src/client.ts:71) passa a resolver o caminho service-role -> jobs Inngest/quota/GDPR purge deixam de falhar por falta de connection. Quick win: o valor já existia em packages/db/.env.local, só faltava o alias no env da web.'
+    owner: any
+  - id: E2E-SMOKE-TEST-FASE1
+    severity: HIGH
+    status: DONE
+    completed_at: '2026-05-31T03:50:00Z'
+    completed_by: aiox-master + eurico (guiado clique-a-clique)
+    description: 'FASE 1 da auditoria (smoke test E2E manual) EXECUTADA E PASSOU. Pré-requisitos resolvidos na sessão: GAP-1 (chaves LLM já lá) + GAP-3 (service-role URL adicionado) + Supabase Dashboard configurado (Auth Hook custom_access_token_hook JÁ estava ENABLED; login por email reactivado após toggle acidental; "Confirm email" desligado TEMPORARIAMENTE para teste). Fluxo provado no browser (localhost:3000, conta teste@expressia.pt): registar -> login imediato -> /visao POPULADA com dados reais (gastos -€18,70, 2 tarefas atrasadas, widgets) -> CÉREBRO AI multi-intent: prompt "paguei 15 euros no almoço e amanhã às 10h ligar ao dentista" executou 2 tools numa transacção (create_finance_variable + criar_tarefa) com reverse_op/undo 30s (run 409a218f-12b2-4618-a55a-e6355e747242). VEREDICTO: "nada conecta" DESMENTIDO com evidência. Core vivo E2E (auth+dados+tarefas+finanças+cérebro+undo). Observações menores não-bloqueantes: widget "Gastos do mês" não fez live-refresh do +€15; naming misto EN/PT nos tools (create_finance_variable vs criar_tarefa).'
+    owner: any
+  - id: SUPABASE-CONFIRM-EMAIL-REENABLE
+    severity: MEDIUM
+    status: OPEN
+    description: 'AÇÃO PENDENTE EURICO: "Confirm email" foi DESLIGADO no Supabase Dashboard (Authentication -> Sign In/Providers -> User Signups) apenas para o smoke test. RELIGAR antes de haver utilizadores reais, senão qualquer um regista sem validar email. Também: o RESEND_API_KEY foi adicionado ao .env.local mas o código ainda NÃO o usa (comment "integração futura" em actions.ts:14) — o email de confirmação é enviado pelo Supabase, não pelo Resend. Para email fiável em prod: configurar SMTP custom do Resend no Supabase Dashboard.'
+    owner: eurico
+  - id: SECURITY-ENV-EXAMPLE-LEAK
+    severity: HIGH
+    status: MITIGATED
+    description: 'Ao preparar o commit desta sessão, detectado que .env.example (ficheiro TRACKED, vai para o repo PÚBLICO DaSilvaAlves/expressia) tinha as chaves REAIS ANTHROPIC_API_KEY + OPENAI_API_KEY coladas (sessão anterior colou no template em vez do .env.local). NUNCA foram comitadas/pushed (alteração estava unstaged; origin/main limpo). Mitigado: git restore .env.example -> template voltou a placeholders vazios. As chaves NÃO chegaram ao GitHub. Lição: validar sempre `git diff .env.example` antes de commit; chaves reais SÓ em .env.local (gitignored). Como as chaves apareceram em chat history desta sessão, rotação é opcional (decisão Eurico) — não houve exposição pública.'
+    owner: any
+  - id: PROGRESS-NOTE
+    severity: INFO
+    description: 'RECONCILIAÇÃO 2026-05-31 (aiox-master): a directiva estratégica deste handoff (billing CONGELADO, core-first) MANTÉM-SE válida e pending. O next_action original ("chat AI morto", auditar estado) está CUMPRIDO E SUPERADO — Fase 1 smoke test E2E PASSOU (ver E2E-SMOKE-TEST-FASE1). RESOLVIDOS: CORE-STATE-AUDIT · GAP-1 (chaves LLM) · GAP-3 (service-role URL) · GAP-6 (finanças via chat) · Story 2.12 · Fase 1 E2E. RESTAM: GAP-4 (INNGEST — recorrências, só Eurico), GAP-5 (Docker up + suite RLS 1.4 = Fase 2), religar Confirm email, SPEND-CAP. O core está PROVADO a funcionar E2E; billing continua congelado até decisão do Eurico.'
+    owner: any
+
+files_modified:
+  - docs/handoffs/mj-handoff-refocus-core-freeze-billing-20260529.yaml  # NEW — este handoff
+  - docs/HANDOFF-INDEX.md  # M — linha pending
+  - docs/epics/epic-6-onboarding-billing.md  # M (sessão anterior — v1.0 Validated; billing agora congelado)
+
+blockers:
+  - 'NENHUM técnico. O "bloqueador" é estratégico: parar de construir billing e voltar ao core. Acção do próximo: auditar e fazer funcionar.'

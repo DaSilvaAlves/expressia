@@ -126,8 +126,9 @@ No fim do Epic 2, um utilizador autenticado num household pode enviar um prompt 
 | 2.9   | Cost router + cache + quotas                    | Upstash cache 5min, `consultar_dados` direct-DB, atomic quota increment, hard-stop 110% com mensagem PT-PT.                          | M        | 2.6                         |
 | 2.10  | LLM Benchmark Suite (200 prompts PT-PT)         | `packages/agent-bench` com dataset curated, harness precision/recall, CI nightly + alarme <88%.                                      | L        | 2.5                         |
 | 2.11  | Observability dashboards Agent Health           | Painel Grafana "Agent Health" (latência, custo, accuracy, RLS denials) + alarmes p95>10s e custo>35% MRR.                            | S        | 2.6, 2.10                   |
+| 2.12  | Executor default → Claude Haiku 4.5             | Trocar modelo default do Executor de `claude-sonnet-4-5` para `claude-haiku-4-5-20251001` (migration enum + pricing por modelo + default provider + constantes + testes). | M | 2.5, 2.9 |
 
-**Total estimado:** 11 stories — 2×S, 7×M, 2×L (mais a fronteira XL diluída entre 2.5 e 2.10). Preferi granularidade L max para entrega incremental conforme directiva da missão.
+**Total estimado:** 12 stories — 2×S, 8×M, 2×L. Story 2.12 adicionada 2026-05-30 (decisão de custo Eurico — ADR-001 NO-GO OpenRouter → optimização de regime via Haiku 4.5).
 
 > Nota: 2.3 entrega _contract_ + 2 tools mínimas. As tools cheias de Tarefas (Epic 3) e Finanças (Epic 4) usam o registry deste epic — não duplicar.
 
