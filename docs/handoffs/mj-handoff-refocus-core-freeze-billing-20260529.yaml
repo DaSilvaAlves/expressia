@@ -126,8 +126,10 @@ follow_ups:
     owner: any
   - id: SPEND-CAP
     severity: HIGH
-    status: OPEN
-    description: 'ÚNICA ação aberta. Com as chaves LLM agora LIVE (GAP-1 resolvido), definir spend cap / usage limit nos consoles Anthropic e OpenAI para travar custo descontrolado. Ação EXCLUSIVAMENTE do Eurico (consoles externos — nenhum agente consegue fazê-la). Anthropic: console.anthropic.com -> Settings -> Limits. OpenAI: platform.openai.com -> Settings -> Limits.'
+    status: DONE
+    completed_at: '2026-05-31T16:00:00Z'
+    completed_by: eurico
+    description: 'RESOLVIDO. Eurico definiu spend limit de €10/mês em AMBOS os consoles (console.anthropic.com Settings->Limits + platform.openai.com Settings->Limits). Custo LLM travado para MVP pré-receita. Risco financeiro das chaves LLM agora contido (€10 teto).'
     owner: eurico
   - id: GAP-3-SERVICE-ROLE
     severity: MEDIUM
@@ -145,8 +147,15 @@ follow_ups:
     owner: any
   - id: SUPABASE-CONFIRM-EMAIL-REENABLE
     severity: MEDIUM
+    status: DONE
+    completed_at: '2026-05-31T16:00:00Z'
+    completed_by: eurico
+    description: 'RESOLVIDO. Eurico religou "Confirm email" (ON, verde) no Supabase Dashboard (Authentication -> Sign In/Providers -> User Signups; "Successfully updated settings"). Email provider Enabled. Registo volta a exigir validação de email antes do primeiro login. RESÍDUO OPCIONAL (não bloqueante): o RESEND_API_KEY está no .env.local mas o código ainda NÃO o usa (comment "integração futura" em actions.ts:14) — o email de confirmação é enviado pelo Supabase, não pelo Resend. Para email fiável/branded em prod, configurar SMTP custom do Resend no Supabase Dashboard (futuro).'
+    owner: eurico
+  - id: SECURITY-ENV-LOCAL-SCREENSHOT-LEAK
+    severity: HIGH
     status: OPEN
-    description: 'AÇÃO PENDENTE EURICO: "Confirm email" foi DESLIGADO no Supabase Dashboard (Authentication -> Sign In/Providers -> User Signups) apenas para o smoke test. RELIGAR antes de haver utilizadores reais, senão qualquer um regista sem validar email. Também: o RESEND_API_KEY foi adicionado ao .env.local mas o código ainda NÃO o usa (comment "integração futura" em actions.ts:14) — o email de confirmação é enviado pelo Supabase, não pelo Resend. Para email fiável em prod: configurar SMTP custom do Resend no Supabase Dashboard.'
+    description: 'EXPOSIÇÃO 2026-05-31: Eurico enviou screenshot do apps/web/.env.local ABERTO para o chat, revelando chaves reais em claro: ANTHROPIC_API_KEY, OPENAI_API_KEY, RESEND_API_KEY, SUPABASE_SERVICE_ROLE_KEY (JWT legacy), NEXT_PUBLIC_SUPABASE_SECRET_KEY (sb_secret_*). SEM fuga pública (.env.local é gitignored, nunca pushed; origin/main limpo). Risco financeiro LLM contido por SPEND-CAP €10. RECOMENDAÇÃO (decisão Eurico): rotacionar pelo menos SUPABASE_SERVICE_ROLE_KEY + SECRET_KEY (acesso total à DB ignorando RLS, sem teto de custo) via Supabase Dashboard -> Settings -> API. LLM keys opcionais (teto €10). Lição: NUNCA enviar screenshot do .env.local aberto para o chat.'
     owner: eurico
   - id: SECURITY-ENV-EXAMPLE-LEAK
     severity: HIGH
