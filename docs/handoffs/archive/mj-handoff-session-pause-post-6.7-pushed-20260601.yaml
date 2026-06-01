@@ -2,8 +2,11 @@ id: mj-handoff-session-pause-post-6.7-pushed-20260601
 from_agent: devops
 to_agent: any
 created: '2026-06-01T04:50:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-06-01T12:10:00Z'
+consumed_by: dev
+superseded_by: mj-handoff-session-pause-post-deploy-0020-20260601
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

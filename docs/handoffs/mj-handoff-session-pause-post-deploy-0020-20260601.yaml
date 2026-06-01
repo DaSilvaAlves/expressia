@@ -1,0 +1,99 @@
+id: mj-handoff-session-pause-post-deploy-0020-20260601
+from_agent: dev
+to_agent: any
+created: '2026-06-01T12:10:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: session-pause
+
+summary: |
+  SESSION PAUSE após o DEPLOY da migração 0020 em PROD (db:migrate manual). A
+  função `accept_invite()` + grant estão agora materializados na Supabase de
+  produção → aceitação de convites na app de prod DESBLOQUEADA. O ramo household
+  do Epic 6 está totalmente fechado (6.1 registo/branding + 6.7 convite/membros,
+  ambos em prod, deploy completo). Housekeeping doc-only commitado LOCALMENTE
+  (34832c3) mas AINDA NÃO PUSHADO — HEAD está 1 commit à frente de origin/main.
+  Sucede `mj-handoff-session-pause-post-6.7-pushed-20260601` (next_action 1
+  cumprido nesta sessão). Billing continua CONGELADO.
+
+next_action: |
+  1. **⚠️ PUSH PENDENTE (@devops *push):** HEAD = `34832c3`, 1 commit à frente de
+     origin/main, working tree limpo. O commit é doc-only/housekeeping
+     (`docs(handoffs): deploy 0020 em prod concluído`): marca o deploy 0020 como
+     FEITO no handoff de pausa 6.7 + reconcilia o HANDOFF-INDEX. Zero código de
+     produção, zero billing. Fazer `@devops *push` (fast-forward, sem --force,
+     sem --no-verify). Gates pesados desnecessários (mudança é só docs/yaml/md).
+  2. **Follow-up INVITE-E2E-SMOKE (Eurico/@qa):** smoke E2E na app de PROD agora
+     que a 0020 está aplicada — login → /conta/household → convidar um email →
+     copiar o link gerado → abrir o link noutra sessão/conta cujo email BATE com
+     o do convite (D-6.7.2) → aceitar → confirmar entrada no household. Único
+     ponto não exercido manualmente (C-6.7.1); a lógica está provada em db-test
+     real (160/160, incl. accept_invite 7 casos).
+  3. **Continuar o core (make-it-work):** escolher o próximo passo do produto.
+     Ramo household fechado; ramo billing CONGELADO. Candidatos ainda por fechar:
+     ramo GDPR do Epic 6 (6.8 export, 6.9 eliminação — tabelas data_export_jobs/
+     account_deletion_jobs já no schema), OU onboarding 3-passos (6.2), OU polir
+     o existente. Confirmar prioridade com o Eurico (foco refocus-core = produto
+     a FUNCIONAR E2E, não billing).
+
+context: |
+  **Estado git:** working tree LIMPO. HEAD = `34832c3` (1 commit à frente de
+  origin/main = `9ab1739`). O único commit por pushar é o housekeeping doc-only
+  desta sessão (docs/HANDOFF-INDEX.md + handoff de pausa 6.7 actualizado).
+
+  **DEPLOY 0020 — FEITO nesta sessão (2026-06-01):**
+    `pnpm --filter @meu-jarvis/db db:migrate` corrido contra a Supabase de PROD
+    (DIRECT_URL, ref llpotuxlyiyjvvxzetoo, aws-0-eu-west-1.pooler, porta 5432).
+    Output: `[apply] 0020_accept_invite_function.sql … [done] em 488ms` + as 19
+    migrações anteriores `[skip]` (já em __schema_migrations) → "✅ Todas as
+    migrations aplicadas com sucesso." Runner idempotente confirmado. A 0020 é
+    `create or replace function accept_invite() SECURITY DEFINER` + `grant execute
+    to authenticated` — só cria função+grant, não toca tabelas. Precedente
+    0018/0019 (deploy manual da mesma forma).
+
+  **Story 6.7 (docs/stories/completed/6.7.convite-membros-limites-plano.story.md):**
+    Done v1.2-ARCH-APPROVED, em prod (9ab1739, CI verde run 26750095727). Feature
+    completa: endpoints POST/GET/DELETE /api/conta/household/invites + DELETE
+    /members/[userId] (guard nunca-owner→422) + POST /aceitar-convite + rota
+    /aceitar-convite/[token] + UI household-editor (form + link copiável + revogar
+    + remover). Limites de plano: Pessoal=1/Família=4/Pro=10/Free=1. Email = link
+    manual (Resend congelado). Gate file docs/qa/gates/6.7-architect-gate.md.
+
+  **Gotchas desta fase (continuam válidos):**
+    - auth.users NÃO JOINable via getDb() (42P01) — accept_invite (SECURITY
+      DEFINER) acede auth.users internamente. Ver memória [[auth-users-not-joinable]].
+    - rls-gate do CI corre @meu-jarvis/db-test (Testcontainers) — correr
+      `pnpm --filter @meu-jarvis/db-test test` (Docker UP) antes de push se mexer
+      em migrações/RLS.
+    - NÃO correr `pnpm build` com `pnpm dev` activo na mesma .next (parte o CSS).
+
+  **Como arrancar o ambiente local:**
+    - App: `pnpm --filter @meu-jarvis/web dev` (http://localhost:3000).
+    - Login: euricojsalves@gmail.com (household real, owner, display_name "Eurico").
+    - Gates: lint·typecheck·test·build·check:rls + (se DB/RLS) db-test (Docker UP).
+
+  **2 opcionais antigos do Eurico (não bloqueiam):** saudação /visao só mostra
+  "Eurico" após logout+login (JWT pré-backfill); household ainda "Casa de
+  euricojsalves" (editável no campo Nome em /conta/household).
+
+decisions:
+  - 'DEPLOY 0020 em PROD executado (accept_invite() + grant materializados) — aceitação de convites desbloqueada.'
+  - 'Ramo household do Epic 6 totalmente fechado (6.1 + 6.7 em prod, deploy completo).'
+  - 'Housekeeping doc-only commitado local (34832c3) — PUSH pendente (@devops), HEAD 1 à frente de origin/main.'
+  - 'Billing CONGELADO mantém-se (handoff-mãe refocus-core).'
+
+blockers:
+  - 'NENHUM bloqueante de desenvolvimento. Único item operacional: o commit local 34832c3 (doc-only) ainda não foi pushado — @devops *push.'
+
+follow_ups:
+  - 'PUSH-34832c3 (@devops): push do commit housekeeping doc-only para origin/main.'
+  - 'INVITE-E2E-SMOKE (Eurico/@qa): smoke E2E do ciclo convidar→aceitar na app de prod, agora que a 0020 está aplicada.'
+  - 'OBS-6.7.1 (opcional, LOW): reordenar email-match antes do estado na accept_invite (endurecimento info-disclosure teórico).'
+
+files_modified:
+  - docs/handoffs/mj-handoff-session-pause-post-deploy-0020-20260601.yaml  # NEW — este handoff
+  - docs/HANDOFF-INDEX.md  # M — +pending session-pause, arquivar handoff 6.7-pushed
