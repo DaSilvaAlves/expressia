@@ -56,9 +56,14 @@ create schema if not exists auth;
 -- auth.users mínima — apenas as colunas que as FKs do schema de produção referenciam.
 -- Só id é estritamente necessário para FK; email é útil para uma das policies
 -- (household_invites_select_household_or_invited usa auth.users.email).
+-- raw_user_meta_data: o trigger handle_new_user (migração 0019) lê o nome do
+-- utilizador daqui (options.data.name no signup) → paridade com a auth.users
+-- real do Supabase, que tem esta coluna jsonb. Default '{}' para que inserts
+-- sem metadata (insert into auth.users (id, email)) continuem a funcionar.
 create table if not exists auth.users (
   id uuid primary key,
   email text,
+  raw_user_meta_data jsonb not null default '{}'::jsonb,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

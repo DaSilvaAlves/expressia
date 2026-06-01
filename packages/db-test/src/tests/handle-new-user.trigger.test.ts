@@ -148,8 +148,34 @@ describe('Trigger handle_new_user — auto-criação household no signup', () =>
       currency: 'EUR',
       locale: 'pt-PT',
       timezone: 'Europe/Lisbon',
-      created_via: 'auth.users trigger (handle_new_user)',
+      // Migração 0019 carimba a versão no created_via.
+      created_via: 'auth.users trigger (handle_new_user, 0019)',
     });
+  });
+
+  test('raw_user_meta_data.name → display_name preenchido + "Casa de {primeiro nome}" (0019)', async () => {
+    const sql = admin();
+    const userId = randomUUID();
+
+    // Insert com metadata de nome (equivalente a options.data.name no signup real).
+    await sql`
+      insert into auth.users (id, email, raw_user_meta_data)
+      values (${userId}, 'joao@meu-jarvis.test', ${sql.json({ name: 'João Silva' })})
+    `;
+
+    // household_members.display_name preenchido com o nome completo.
+    const members = await sql<{ display_name: string | null; role: string }[]>`
+      select display_name, role from public.household_members where user_id = ${userId}
+    `;
+    expect(members).toHaveLength(1);
+    expect(members[0]!.display_name).toBe('João Silva');
+    expect(members[0]!.role).toBe('owner');
+
+    // household usa o PRIMEIRO nome, não a parte local do email.
+    const households = await sql<{ name: string }[]>`
+      select name from public.households where owner_user_id = ${userId}
+    `;
+    expect(households[0]?.name).toBe('Casa de João');
   });
 
   test('email com pontos no nome é tratado correctamente (split_part @)', async () => {
