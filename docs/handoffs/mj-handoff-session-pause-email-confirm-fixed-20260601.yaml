@@ -1,0 +1,105 @@
+id: mj-handoff-session-pause-email-confirm-fixed-20260601
+from_agent: aiox-master
+to_agent: any
+created: '2026-06-01T22:10:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: session-pause
+
+summary: |
+  SESSION PAUSE — sessão aiox-master + Eurico de validação pós-Story 6.2.
+  Sucessor de `mj-handoff-session-pause-6.2-prod-20260601` (SUPERSEDED/arquivado).
+
+  Feito nesta sessão (tudo PROVADO, não no papel):
+    1. **SMOKE-6.2 (onboarding) VALIDADO E2E em localhost → PASS.** Conta nova →
+       gate /visao → /bem-vindo (tour 2 passos) → demo canned → trial Família €8,88
+       → "Começar a usar" → /visao?welcome=1 + toast. Bate byte-a-byte com o código.
+    2. **HOTFIX EMAIL-CONFIRM (Story 6.1) — confirmação de email estava PARTIDA →
+       RESOLVIDA, validada E2E e PUSHED.** Era bloqueante p/ aquisição real (todo o
+       utilizador novo via "Link inválido ou expirado"). Causa-raiz provada por log:
+       `AuthPKCECodeVerifierMissingError` (fluxo PKCE ?code= + exchangeCodeForSession
+       perde o cookie code_verifier na navegação cross-site do link de email). Fix:
+       fluxo `token_hash` + `verifyOtp` (stateless, padrão oficial SSR Supabase).
+
+  Pushed 2 commits para origin/main (fast-forward `b7660cb..9cf7f3e`, sem --force):
+  `45ad237` (fix auth callback) + `9cf7f3e` (docs handoff). Working tree LIMPO.
+  CI run `26784797912` a correr no momento da pausa. Billing CONTINUA CONGELADO.
+
+next_action: |
+  Nada bloqueado. Fios possíveis (escolha do Eurico):
+
+  1. **(rápido) Confirmar CI verde + deploy Vercel.** Run `26784797912` (commit
+     `9cf7f3e`). O deploy do main alinha o /callback novo (token_hash) com o email
+     template que JÁ está em prod no Supabase — fecha a janela de inconsistência.
+     Verificar: `gh run list --branch main --limit 1`.
+
+  2. **SMOKE-6.7 (INVITE-E2E) — NUNCA testado com humano.** Convidar membro p/ o
+     household → aceitar pelo link → confirmar que entra como membro. PASSOS:
+       a) auditar código primeiro: `accept_invite()` (migration 0020) + endpoints
+          /api/conta/household + rota `/aceitar-convite/[token]` + UI /conta/household;
+       b) rearrancar dev server (foi PARADO nesta sessão):
+          `pnpm --filter @meu-jarvis/web dev` → http://localhost:3000;
+       c) testar o ciclo. Usar plus-addressing p/ contas (+t3, +t4 — mesma inbox
+          euricojsalves@gmail.com; ver gotcha abaixo).
+
+  3. **CONTINUAR CORE** se preferir feature: ramo GDPR (6.8 export / 6.9 eliminação
+     — tabelas já no schema). Decisão caso-a-caso do Eurico.
+
+  FOLLOW-UPS abertos (não bloqueiam):
+    - FU-EMAIL-1 [MEDIUM, Eurico/@devops] SITE-URL-PROD: Supabase Site URL está em
+      `http://localhost:3000`. ANTES de produção real com domínio: mudar p/
+      `https://expressia.pt` + adicionar `https://expressia.pt/**` (ou URL Vercel) às
+      Redirect URLs. Hoje expressia.pt = NXDOMAIN (sem utilizadores reais).
+    - FU-EMAIL-2 [LOW] CLEANUP-TEST-USERS: contas de teste no Supabase
+      (euricojsalves, +t1, +t2) — limpar via service role quando conveniente.
+    - OBS-6.2-SMOKE-6b [LOW] reload /bem-vindo pós-conclusão mostra o tour de novo
+      (sem caminho de UI, inofensivo) — decisão Eurico = A (aceitar). Fix de ~4 linhas
+      se um dia se quiser a simetria.
+
+context: |
+  **Estado git:** origin/main = `9cf7f3e` (sincronizado, working tree LIMPO após o
+  push do handoff). Cadeia: `b7660cb` (pause 6.2) → `45ad237` (fix email) →
+  `9cf7f3e` (docs) → este handoff.
+
+  **O fix EMAIL-CONFIRM em detalhe (token_hash):**
+    - `apps/web/src/app/(auth)/callback/route.ts`: aceita `token_hash`+`type` via
+      `supabase.auth.verifyOtp({ type, token_hash })` (preferido, stateless), com
+      `code`+`exchangeCodeForSession` como FALLBACK retrocompat. +4 testes (7/7).
+    - **Supabase Dashboard (PROD, projeto llpotuxlyiyjvvxzetoo) — já configurado
+      pelo Eurico nesta sessão:**
+        * Email template "Confirm signup" → link
+          `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email`
+          (`.RedirectTo` reflecte o emailRedirectTo do signUp = {origin}/callback →
+          dev=localhost, prod=expressia.pt; o MESMO template serve dev e prod).
+        * Redirect URLs → adicionado `http://localhost:3000/**`.
+        * Site URL = `http://localhost:3000` (ver FU-EMAIL-1).
+    - Provado E2E (conta euricojsalves+t2@gmail.com): /confirm?status=ok "Email
+      confirmado" → login sem contornar.
+
+  **Gates desta sessão (todos verdes):** lint · typecheck · test web 1056/1056
+  efetivo (1 flaky `tarefas/calendario` timeout de carga → verde isolado 3/3, NÃO
+  regressão, fix não lhe toca) · build MW 94.6 kB · check:rls.
+
+  **Dev server:** foi PARADO no fecho (para build limpo — evita o gotcha .next dev
+  vs build). Para retomar testes manuais, rearrancar e limpar .next se o CSS vier
+  partido.
+
+  **Gotchas reforçados nesta sessão:**
+    - Plus-addressing Gmail: `euricojsalves+SUFIXO@gmail.com` cai na mesma inbox mas
+      é conta nova p/ o Supabase — usar p/ smokes sem esgotar emails.
+    - Confirmação de email Supabase em SSR: usar SEMPRE `token_hash`+`verifyOtp`,
+      NUNCA o fluxo `?code=`+exchangeCodeForSession (perde o code_verifier no link).
+    - auth.users NÃO joinable via getDb; REQ-INLINE-1; db.<ref>.supabase.co não
+      resolve em IPv4 (usar pooler); db:migrate usa DIRECT_URL (5432).
+
+  **Epic 6:** 6.1 + 6.2 + 6.7 Done em prod. Ramo household FECHADO. Ramo billing
+  CONGELADO (6.3/6.4/6.5/6.6/6.10 — não tocar Stripe). Ramo GDPR por fazer (6.8/6.9).
+
+blockers: |
+  Nenhum. Sessão em ponto limpo, sem trabalho a meio. O fix EMAIL-CONFIRM está em
+  origin/main e validado E2E. Para continuar noutra MÁQUINA: `git pull` (código já
+  em `9cf7f3e`). O SMOKE-6.7 e os follow-ups são não-bloqueantes.

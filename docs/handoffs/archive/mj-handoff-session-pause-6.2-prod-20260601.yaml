@@ -2,8 +2,11 @@ id: mj-handoff-session-pause-6.2-prod-20260601
 from_agent: devops
 to_agent: any
 created: '2026-06-01T20:35:00Z'
-status: pending
-consumed: false
+status: superseded
+consumed: true
+consumed_at: '2026-06-01T22:10:00Z'
+consumed_by: aiox-master
+superseded_by: mj-handoff-session-pause-email-confirm-fixed-20260601
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
