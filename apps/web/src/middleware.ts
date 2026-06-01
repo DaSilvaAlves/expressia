@@ -39,9 +39,14 @@ import { NextResponse, type NextRequest } from 'next/server';
  * para o teste de cobertura auto-mantido (`__tests__/middleware.test.ts`), que
  * parte o build se uma rota `(app)/` futura ficar descoberta pelo auth gate.
  *
- * Trace: Story 1.5 AC2 + Story 2.7 PO_FIX_INLINE 4 + Story 5.0-hotfix AC1/AC3.
+ * Story 6.2: `/bem-vindo` (tour de onboarding) é uma rota TOP-LEVEL (não em
+ * `(app)/` — fullscreen sem AppShell, ver [DEV-DECISION D-6.2.1]); como tal NÃO
+ * é apanhada pelo teste de cobertura auto-mantido de `(app)/`. É adicionada aqui
+ * explicitamente (auth-gated) + testada em `middleware.test.ts`.
+ *
+ * Trace: Story 1.5 AC2 + Story 2.7 PO_FIX_INLINE 4 + Story 5.0-hotfix AC1/AC3 + Story 6.2 AC1.
  */
-export const APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta', '/tarefas', '/financas'] as const;
+export const APP_PATH_PREFIXES = ['/visao', '/jarvis', '/conta', '/tarefas', '/financas', '/bem-vindo'] as const;
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   let supabaseResponse = NextResponse.next({ request });

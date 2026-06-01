@@ -66,6 +66,10 @@ vi.mock('@/app/(app)/visao/_components/AddWidgetMenu', () => ({
 vi.mock('@/app/(app)/visao/_components/WidgetConfigStatus', () => ({
   WidgetConfigStatus: () => null,
 }));
+// Story 6.2 — WelcomeToast (Client) mockado como marcador para o teste RSC.
+vi.mock('@/app/(app)/visao/_components/WelcomeToast', () => ({
+  WelcomeToast: () => '<WelcomeToast>',
+}));
 
 const { default: VisaoPage } = await import('@/app/(app)/visao/page');
 
@@ -123,6 +127,17 @@ function mockAggregatesAllEmpty() {
   mocks.getCalendarWeekMock.mockResolvedValue({ days: [] });
 }
 
+/**
+ * Story 6.2 AC2 — a 1ª `execute()` da `/visao` é agora o gate de onboarding.
+ * Este helper faz essa 1ª chamada devolver uma row com `onboarding_completed_at`
+ * preenchido (onboarding já visto) para os testes de render passarem o gate.
+ */
+function mockOnboardingDone() {
+  mocks.executeMock.mockResolvedValueOnce([
+    { onboarding_completed_at: '2026-06-01T10:00:00.000Z' },
+  ]);
+}
+
 describe('/visao RSC page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -139,10 +154,36 @@ describe('/visao RSC page', () => {
     expect(mocks.redirectMock).toHaveBeenCalledWith('/entrar');
   });
 
+  it('redirect /bem-vindo quando onboarding não visto (Story 6.2 AC2)', async () => {
+    mocks.getUserMock.mockResolvedValue({
+      data: { user: { id: 'u1', email: 'x@y.pt', user_metadata: {} } },
+    });
+    // executeMock default = [] → sem row de prefs → onboarding não visto.
+    mocks.redirectMock.mockImplementation((url: string) => {
+      if (url === '/bem-vindo') throw new Error('REDIRECT_ONBOARDING');
+    });
+    await expect(VisaoPage()).rejects.toThrow('REDIRECT_ONBOARDING');
+    expect(mocks.redirectMock).toHaveBeenCalledWith('/bem-vindo');
+  });
+
+  it('NÃO redirect /bem-vindo se onboarding em erro de DB (não prende em loop) [DEV-DECISION D-6.2.2]', async () => {
+    mocks.getUserMock.mockResolvedValue({
+      data: { user: { id: 'u1', email: 'x@y.pt', user_metadata: {} } },
+    });
+    // 1ª execute (gate) rejeita → hasCompletedOnboarding devolve true (deixa passar).
+    mocks.executeMock.mockRejectedValueOnce(new Error('db down'));
+    mockAggregatesNonEmpty();
+    const tree = stringifyTree(await VisaoPage());
+    expect(mocks.redirectMock).not.toHaveBeenCalledWith('/bem-vindo');
+    expect(tree).toContain('<WidgetGrid>');
+    expect(mocks.captureExceptionMock).toHaveBeenCalled();
+  });
+
   it('user válido → header de saudação + WidgetGrid (AC1, AC2)', async () => {
     mocks.getUserMock.mockResolvedValue({
       data: { user: { id: 'u1', email: 'eurico@expressia.pt', user_metadata: {} } },
     });
+    mockOnboardingDone();
     mockAggregatesNonEmpty();
     const result = await VisaoPage();
     const tree = stringifyTree(result);
@@ -156,15 +197,40 @@ describe('/visao RSC page', () => {
     mocks.getUserMock.mockResolvedValue({
       data: { user: { id: 'u1', email: 'x@y.pt', user_metadata: { name: 'João' } } },
     });
+    mockOnboardingDone();
     mockAggregatesNonEmpty();
     const tree = stringifyTree(await VisaoPage());
     expect(tree).toContain('João');
+  });
+
+  it('mostra o WelcomeToast quando ?welcome=1 (Story 6.2 AC8)', async () => {
+    mocks.getUserMock.mockResolvedValue({
+      data: { user: { id: 'u1', email: 'x@y.pt', user_metadata: { name: 'João' } } },
+    });
+    mockOnboardingDone();
+    mockAggregatesNonEmpty();
+    const tree = stringifyTree(
+      await VisaoPage({ searchParams: Promise.resolve({ welcome: '1' }) }),
+    );
+    // O WelcomeToast (Client) é mockado abaixo → render como marcador.
+    expect(tree).toContain('<WelcomeToast>');
+  });
+
+  it('NÃO mostra o WelcomeToast sem ?welcome (navegação normal — AC8)', async () => {
+    mocks.getUserMock.mockResolvedValue({
+      data: { user: { id: 'u1', email: 'x@y.pt', user_metadata: {} } },
+    });
+    mockOnboardingDone();
+    mockAggregatesNonEmpty();
+    const tree = stringifyTree(await VisaoPage({ searchParams: Promise.resolve({}) }));
+    expect(tree).not.toContain('<WelcomeToast>');
   });
 
   it('empty-state global quando todos os agregados a zero (AC7)', async () => {
     mocks.getUserMock.mockResolvedValue({
       data: { user: { id: 'u1', email: 'x@y.pt', user_metadata: {} } },
     });
+    mockOnboardingDone();
     mockAggregatesAllEmpty();
     const tree = stringifyTree(await VisaoPage());
     expect(tree).toContain('<VisaoEmptyState>');
@@ -175,7 +241,8 @@ describe('/visao RSC page', () => {
     mocks.getUserMock.mockResolvedValue({
       data: { user: { id: 'u1', email: 'x@y.pt', user_metadata: {} } },
     });
-    // 1ª chamada (readWidgetsEnabled) rejeita; aggregates resolvem não-vazio.
+    mockOnboardingDone();
+    // 2ª chamada (readWidgetsEnabled) rejeita; aggregates resolvem não-vazio.
     mocks.executeMock.mockRejectedValueOnce(new Error('prefs read failed'));
     mockAggregatesNonEmpty();
     const tree = stringifyTree(await VisaoPage());
@@ -188,6 +255,7 @@ describe('/visao RSC page', () => {
     mocks.getUserMock.mockResolvedValue({
       data: { user: { id: 'u1', email: 'x@y.pt', user_metadata: {} } },
     });
+    mockOnboardingDone();
     mocks.executeMock.mockResolvedValueOnce([
       {
         widgets_enabled: {

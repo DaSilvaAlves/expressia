@@ -13,9 +13,10 @@
  *   - `alwaysPreview` boolean — FR4 toggle preview-then-confirm (Story 2.7).
  *   - `theme` text + CHECK — FR22 modo claro/escuro (Story 5.1, DP2 Epic 5 = C híbrido).
  *   - `widgetsEnabled` jsonb — FR21 config de widgets do dashboard "Visão" (Story 5.1, DP3 Epic 5 = A).
+ *   - `onboardingCompletedAt` timestamptz null — FR30/FR31 estado do tour de onboarding (Story 6.2, DP-6.2.4 Epic 6 = A).
  *
  * Trace: Story 2.7 D29 + AC1 (FR4); Story 5.1 AC1+AC2+AC3 (FR21, FR22);
- * Epic 2 §8 DP2; Epic 5 §8 DP2+DP3.
+ * Story 6.2 AC9 (FR30/FR31); Epic 2 §8 DP2; Epic 5 §8 DP2+DP3; Epic 6 §8 DP-6.2.4.
  */
 import { sql } from 'drizzle-orm';
 import { pgTable, uuid, boolean, jsonb, text, timestamp, index } from 'drizzle-orm/pg-core';
@@ -122,6 +123,13 @@ export const userPrefs = pgTable(
       .$type<WidgetsEnabled>()
       .notNull()
       .default(DEFAULT_WIDGETS_ENABLED),
+    /**
+     * FR30/FR31 — momento em que o utilizador completou ou saltou o tour de
+     * onboarding (Story 6.2). `null` = ainda não viu o tour → a `/visao`
+     * redirecciona para `/bem-vindo` (AC2). Marcação idempotente via UPSERT
+     * (AC7). Nullable sem default (migration 0021): rows pré-6.2 ficam `null`.
+     */
+    onboardingCompletedAt: timestamp('onboarding_completed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .default(sql`now()`),

@@ -23,6 +23,7 @@ import { VisaoEmptyState } from '@/app/(app)/visao/_components/VisaoEmptyState';
 import { WidgetConfigHydrator } from '@/app/(app)/visao/_components/WidgetConfigHydrator';
 import { AddWidgetMenu } from '@/app/(app)/visao/_components/AddWidgetMenu';
 import { WidgetConfigStatus } from '@/app/(app)/visao/_components/WidgetConfigStatus';
+import { WelcomeToast } from '@/app/(app)/visao/_components/WelcomeToast';
 
 export const metadata: Metadata = {
   title: 'Visão — Expressia',
@@ -64,6 +65,37 @@ async function readWidgetsEnabled(userId: string): Promise<WidgetsEnabled> {
       extra: { op: 'readWidgetsEnabled' },
     });
     return DEFAULT_WIDGETS_ENABLED;
+  }
+}
+
+/**
+ * Gate de onboarding (Story 6.2 AC2): `true` se o utilizador já completou OU
+ * saltou o tour (`user_prefs.onboarding_completed_at` não-null).
+ *
+ * Lazy-init: para utilizadores novos a row de `user_prefs` ainda não existe (o
+ * trigger 0019 cria household/membership/conta/subscription, NÃO `user_prefs`)
+ * → sem row = onboarding não visto = `false` → `/visao` redirecciona `/bem-vindo`.
+ *
+ * [DEV-DECISION D-6.2.2] Em erro de DB devolve `true` (deixa passar) para NUNCA
+ * prender o utilizador num loop de redirect `/visao` ⇄ `/bem-vindo`.
+ */
+async function hasCompletedOnboarding(userId: string): Promise<boolean> {
+  try {
+    const db = getDb();
+    const rows = await db.execute<{ onboarding_completed_at: string | null }>(sql`
+      select onboarding_completed_at
+      from public.user_prefs
+      where user_id = ${userId}::uuid
+      limit 1
+    `);
+    return rows[0]?.onboarding_completed_at != null;
+  } catch (err) {
+    captureException(err instanceof Error ? err : new Error(String(err)), {
+      route: '/visao',
+      userId,
+      extra: { op: 'hasCompletedOnboarding' },
+    });
+    return true;
   }
 }
 
@@ -136,14 +168,29 @@ async function isVisaoEmpty(widgetsEnabled: WidgetsEnabled): Promise<boolean> {
  *
  * Renderiza dentro de `<main>` do `AppShell` (Story 5.3 — não tocado aqui).
  *
- * Trace: Story 5.6 AC1, AC2, AC3, AC7; FR21; RLS NFR5 via `getDb()`.
+ * Story 6.2 AC2: gate de onboarding — utilizador que ainda não viu o tour é
+ * redireccionado para `/bem-vindo` (reusa a leitura RSC-direct de `user_prefs`).
+ * O param `?welcome=1` (vindo da server action do tour) mostra o toast (AC8).
+ *
+ * Trace: Story 5.6 AC1, AC2, AC3, AC7; Story 6.2 AC2/AC8; FR21; RLS NFR5 via `getDb()`.
  */
-export default async function VisaoPage(): Promise<React.ReactElement> {
+export default async function VisaoPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ welcome?: string }>;
+} = {}): Promise<React.ReactElement> {
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/entrar');
+
+  // Story 6.2 AC2 — gate de onboarding: primeira utilização → tour /bem-vindo.
+  const onboardingDone = await hasCompletedOnboarding(user.id);
+  if (!onboardingDone) redirect('/bem-vindo');
+
+  const { welcome } = (await searchParams) ?? {};
+  const showWelcome = welcome === '1';
 
   const displayName = resolveDisplayName(user);
   const now = new Date();
@@ -157,6 +204,7 @@ export default async function VisaoPage(): Promise<React.ReactElement> {
 
   return (
     <div className="space-y-6">
+      {showWelcome && <WelcomeToast name={displayName} />}
       <header>
         <h1 className="font-serif text-2xl font-semibold tracking-tight md:text-3xl">
           {greeting}, {displayName}.

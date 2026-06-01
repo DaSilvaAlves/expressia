@@ -131,6 +131,24 @@ describe('middleware — auth gate Story 5.0-hotfix (/tarefas + /financas, AC2)'
   });
 });
 
+describe('middleware — auth gate Story 6.2 (/bem-vindo, AC1)', () => {
+  // `/bem-vindo` é rota TOP-LEVEL (fullscreen sem AppShell), logo NÃO é apanhada
+  // pelo teste de cobertura auto-mantido de `(app)/`. Testada explicitamente aqui.
+  it('redirecciona /bem-vindo → /entrar quando sem sessão', async () => {
+    mocks.getUserMock.mockResolvedValue({ data: { user: null } });
+    const res = await middleware(makeRequest('/bem-vindo') as never);
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toContain('/entrar');
+    expect(res.headers.get('location')).toContain('next=%2Fbem-vindo');
+  });
+
+  it('NÃO redirecciona /bem-vindo quando user tem sessão', async () => {
+    mocks.getUserMock.mockResolvedValue({ data: { user: { id: 'u1', email: 'x@y.pt' } } });
+    const res = await middleware(makeRequest('/bem-vindo') as never);
+    expect(res.status).toBe(200);
+  });
+});
+
 describe('middleware — cobertura auto-mantida do auth gate (Story 5.0-hotfix AC3, DP-HF.A)', () => {
   // Anti-reincidência (CO-2): este bug já reincidiu 2× porque adicionar uma
   // rota `(app)/` nova não obriga a actualizar APP_PATH_PREFIXES. Este teste
