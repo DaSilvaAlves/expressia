@@ -1,0 +1,96 @@
+id: mj-handoff-6.7-po-to-dev-20260601
+from_agent: po
+to_agent: dev
+created: '2026-06-01T02:45:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-06-01T03:35:00Z'
+consumed_by: dev
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: story-ready-for-dev
+
+summary: |
+  @po (Pax) validou a Story 6.7 — "Convite e remoção de membros do household +
+  limites por plano" (FR27, epic-6 §5). Decisão GO 9/10 HIGH. Status Draft → Ready.
+  Anti-hallucination PASS byte-a-byte (a v0.1 tinha um erro factual já corrigido na
+  v0.2). 3 PO-FIX inline aplicados. Pronta para @dev *develop 6.7.
+
+next_action: |
+  @dev *develop 6.7. Ficheiro: docs/stories/active/6.7.convite-membros-limites-plano.story.md.
+  Âmbito = ciclo E2E completo: (1) migration 0020 com a função SQL accept_invite()
+  SECURITY DEFINER (único trabalho de DB novo); (2) POST/GET/DELETE invites +
+  DELETE member; (3) rota /aceitar-convite/{token}; (4) Zod/DTO em households.ts;
+  (5) UI real no household-editor.tsx; (6) testes db-test (accept_invite) + web.
+  CRÍTICO antes do push: correr `pnpm --filter @meu-jarvis/db-test test` com Docker
+  UP (a story toca em migration — rls-gate do CI corre db-test). NÃO fazer push (é
+  do @devops). NÃO escrever código de billing (CONGELADO).
+
+context: |
+  **Ficheiro:** docs/stories/active/6.7.convite-membros-limites-plano.story.md (v1.0, Ready, 11 ACs).
+
+  **Verificação anti-hallucination do @po (byte-a-byte, confirmada):**
+    - Tabela household_invites EXISTE (0000_initial_schema.sql:212-229) → NÃO recriar.
+    - 4 RLS policies EXISTEM (0001_rls_policies.sql:114-148) e já restringem
+      owner/admin (is_household_owner_or_admin); SELECT deixa o convidado ver o
+      próprio convite. Helper is_household_owner_or_admin() existe (0000:70).
+    - household_members RLS já permite self-insert via accept_invite (0001:87-92).
+    - accept_invite() NÃO existe (grep `create function public.accept_invite` = 0
+      matches) → é o trabalho-núcleo de DB (migration 0020).
+    - check:rls já verde (sem exempções no script) → mantém-se sem alterações.
+    - Suite RLS household_invites.rls.test.ts já existe e passa (fixture
+      insertHouseholdInvite em fixtures.ts:378; seedTwoHouseholds cria 2 households
+      plan='familia').
+    - Limites de plano: Pessoal=1/Família=4/Pro=10 (epic-6 §5 linha 96 + §10 FR27 linha 194).
+
+  **3 PO-FIX inline (já no ficheiro da story):**
+    1. Estimate M adicionado (era o único ponto do checklist em falta).
+    2. AC1: a migration deve incluir `grant execute on function
+       public.accept_invite(text) to authenticated` — sem o GRANT a chamada via
+       getDb() (role authenticated) falha. CRÍTICO para a AC6.
+    3. AC1 [PO-NOTE] Free=1 é inferência (epic só lista os 3 planos pagos) → @dev
+       confirma em architecture §5.3/§6.4 ou regista como [DEV-DECISION]. Não
+       bloqueia (trial entra como familia).
+
+  **2 observações LOW (não-bloqueantes, @dev decide e documenta):**
+    - OBS-1: email-match na accept_invite (invite.email == email(auth.uid())) é
+      decisão de segurança a registar como [DEV-DECISION]; mensagem PT-PT clara.
+    - OBS-2: código de status para remover-owner (AC5) "422/403" — @dev escolhe um
+      (sugestão 422) e documenta.
+
+  **Gotchas técnicos (Dev Notes da story):**
+    1. auth.users NÃO JOINable via getDb() (42P01) — convite guarda email como
+       texto; accept_invite (SECURITY DEFINER) valida email vs auth.uid().
+    2. rls-gate do CI corre @meu-jarvis/db-test (Testcontainers) — correr
+       `pnpm --filter @meu-jarvis/db-test test` (Docker UP) ANTES do push (a 0019
+       partiu o CI por não o fazer).
+    3. NÃO correr `pnpm build` com `pnpm dev` activo na mesma .next.
+    4. Autorização owner/admin: a RLS de invites já bloqueia member, mas a app
+       valida e devolve 403 limpo (não confiar só no erro de RLS).
+
+  **Padrões a replicar:** route.ts (ROLES_CAN_EDIT:52, getDb():23, withSpan/
+  childLogger/captureException/apiError, audit estruturado); households.ts
+  (HOUSEHOLD_ROLES + DTOs, REQ-INLINE-1 sem import cross-package no client);
+  household-editor.tsx (canEdit:54, useTransition+fetch+estados; placeholder a
+  substituir :197).
+
+  **Ambiente local:** `pnpm --filter @meu-jarvis/web dev` (localhost:3000). Login
+  euricojsalves@gmail.com (household real, owner, display_name "Eurico"). Gates:
+  lint/typecheck/test/check:rls/build + db-test (Docker).
+
+decisions:
+  - 'GO 9/10 HIGH. Status Draft → Ready. Story 6.7 (FR27, epic-6 §5) — NÃO é 6.3 (Stripe).'
+  - 'household_invites + RLS já existem; só falta accept_invite() (migration 0020).'
+  - 'Ciclo E2E completo + email por link manual (validado Eurico 2026-06-01).'
+  - 'PO-FIX: Estimate M; grant execute na migration; Free=1 e email-match como DEV-DECISION.'
+
+blockers:
+  - 'NENHUM bloqueante. Resend congelado (GAP-2) mitigado por link manual no MVP.'
+
+files_modified:
+  - docs/stories/active/6.7.convite-membros-limites-plano.story.md  # M — v1.0 Ready + PO Validation Report + 3 PO-FIX
+  - docs/handoffs/mj-handoff-6.7-po-to-dev-20260601.yaml  # NEW — este handoff
+  - docs/handoffs/archive/mj-handoff-6.7-drafted-pending-po-validation-20260601.yaml  # M — consumed by po
+  - docs/HANDOFF-INDEX.md  # M — pending sm→po → archived; +pending po→dev

@@ -1,0 +1,94 @@
+id: mj-handoff-6.7-dev-to-architect-20260601
+from_agent: dev
+to_agent: architect
+created: '2026-06-01T03:35:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-06-01T04:05:00Z'
+consumed_by: architect
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: story-ready-for-review
+
+summary: |
+  @dev (Dex) implementou a Story 6.7 — "Convite e remoção de membros do household
+  + limites por plano" (FR27, epic-6 §5). Ready for Review v1.1-DEV. Ciclo E2E
+  completo: migration 0020 (accept_invite SECURITY DEFINER) + 4 endpoints + rota
+  /aceitar-convite + contrato + UI real. 11/11 ACs, 7/7 quality gates GREEN.
+  Pronta para @architect *qa-gate 6.7.
+
+next_action: |
+  @architect *qa-gate 6.7. Ficheiro: docs/stories/active/6.7.convite-membros-limites-plano.story.md.
+  Re-correr independentemente os 7 gates (esperado GREEN):
+    - lint (web): No ESLint warnings (--max-warnings=0)
+    - typecheck (web + db-test): tsc --noEmit limpo
+    - test (web): 1033/1033 (132 files; baseline 1003, net +30)
+    - test (db-test, Docker UP): 160/160 (incl. accept_invite 7 + household_invites.rls 3)
+    - check:rls: EXIT 0 (household_invites já coberto; zero tabelas novas)
+    - build (web): EXIT 0 (Middleware 94.6 kB intacto)
+  Ratificar as 6 [DEV-DECISION] (D-6.7.1 a D-6.7.6). Focar:
+    - accept_invite() SECURITY DEFINER: lock for-update (R-6.5), email-match,
+      limite de plano (Família=4), erros tipados, grant execute to authenticated.
+    - RLS: getDb() only (zero getServiceDb); a única elevação é a função SECURITY
+      DEFINER (justificada).
+    - REQ-INLINE-1 em households.ts (sem import cross-package no client).
+
+context: |
+  **Implementação (12 ficheiros novos + 3 modificados — ver File List na story):**
+    - packages/db/migrations/0020_accept_invite_function.sql (accept_invite + grant)
+    - 4 endpoints: invites (POST/GET), invites/[id] (DELETE), members/[userId]
+      (DELETE, guard owner→422), aceitar-convite (POST, mapAcceptInviteError)
+    - rota /aceitar-convite/[token]: page.tsx (SSR, redirect /entrar?next=) +
+      _components/aceitar-convite.tsx (client)
+    - households.ts: InviteCreateSchema/INVITABLE_ROLES/HouseholdInviteDTO/
+      InviteCreatedResponse/InvitesListResponse (REQ-INLINE-1)
+    - audit.ts: +household_invite_sent/revoked + household_member_removed (aditivo;
+      enum values já existiam na DB 0000:157-163)
+    - household-editor.tsx: UI real (form convite + link copiável + lista pendentes
+      Revogar + Remover membro)
+    - testes: accept_invite.test.ts (7, db-test) + 4 ficheiros de teste web (30 testes)
+
+  **6 [DEV-DECISION] a ratificar:**
+    - D-6.7.1 Free=1 (architecture §6.4 — trial=familia, Free só pós-downgrade).
+    - D-6.7.2 email-match (convite nominal — segurança) → INVITE_EMAIL_MISMATCH (403).
+    - D-6.7.3 link manual na resposta POST (MVP sem Resend).
+    - D-6.7.4 remover owner → 422 OWNER_NOT_REMOVABLE.
+    - D-6.7.5 aceitação via endpoint+página client (não Server Action); endpoint em
+      /aceitar-convite/ (não /invites/) para evitar colisão com /invites/[id].
+    - D-6.7.6 audit via tabela (helper estendido aditivo, precedente Story 4.2);
+      household_invite_accepted inserido pela própria função SQL.
+
+  **CONCERN potencial (honesto, para o gate avaliar):**
+    - C-6.7.1: o fluxo E2E real no browser (convidar→copiar link→logout→login conta
+      convidada→aceitar) NÃO foi exercido manualmente. Cobertura é unit/integração +
+      db-test contra Postgres real (accept_invite provado: sucesso, limite, email,
+      expirado, dupla, já-membro, token inválido). A propagação JWT em getDb() para
+      auth.uid() segue o mesmo mecanismo de is_household_member() (provado em prod).
+      Smoke E2E fica para @qa/Eurico (análogo ao CONCERN C-6.1.1 da Story 6.1).
+
+  **Gotchas respeitados:** auth.users não JOINado via getDb (accept_invite usa
+  auth.users só dentro do SECURITY DEFINER); db-test corrido com Docker UP ANTES
+  do handoff (160/160); build NÃO corrido com dev activo; autorização owner/admin
+  na app (403 limpo) + RLS.
+
+  **DoD:** 11/11 ACs implementados e mapeados a tasks [x]; File List completa;
+  full regression web (1033) + db-test (160) GREEN; sem código de billing
+  (CONGELADO). CodeRabbit SKIPPED (precedente 3.1-6.1).
+
+decisions:
+  - 'Story 6.7 implementada — Ready for Review v1.1-DEV. 11/11 ACs, 7/7 gates GREEN.'
+  - 'Único trabalho de DB = accept_invite() (migration 0020); tabela+RLS já existiam.'
+  - '6 [DEV-DECISION] documentadas (D-6.7.1 a D-6.7.6).'
+  - 'CodeRabbit SKIPPED (precedente fase make-it-work).'
+
+blockers:
+  - 'NENHUM. Smoke E2E browser pendente (C-6.7.1) — não bloqueia o gate (cobertura unit+db-test real).'
+
+files_modified:
+  - docs/stories/active/6.7.convite-membros-limites-plano.story.md  # M — Ready for Review v1.1-DEV
+  - docs/handoffs/mj-handoff-6.7-dev-to-architect-20260601.yaml  # NEW — este handoff
+  - docs/handoffs/archive/mj-handoff-6.7-po-to-dev-20260601.yaml  # M — consumed by dev
+  - docs/HANDOFF-INDEX.md  # M — pending po→dev → archived; +pending dev→architect
+  - 'Código: ver File List na story (12 novos + 3 modificados)'

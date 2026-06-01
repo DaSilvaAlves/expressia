@@ -1,0 +1,84 @@
+id: mj-handoff-6.7-drafted-pending-po-validation-20260601
+from_agent: sm
+to_agent: po
+created: '2026-06-01T02:25:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-06-01T02:45:00Z'
+consumed_by: po
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: story-ready-for-validation
+
+summary: |
+  @sm (River) draftou a Story 6.7 — "Convite e remoção de membros do household
+  + limites por plano" (FR27, epic-6 §5). Fecha o ciclo E2E de gestão de membros
+  da feature Família (já em prod: /conta/household GET+PATCH). Âmbito validado por
+  Eurico: ciclo completo (convidar → listar → revogar → remover membro → ACEITAR)
+  + email por link manual no MVP (Resend congelado). Pronta para
+  @po *validate-story-draft 6.7.
+
+next_action: |
+  @po *validate-story-draft 6.7 (checklist 10 pontos). Foco da validação
+  anti-hallucination (a v0.1 tinha um erro factual já corrigido na v0.2):
+    1. CONFIRMAR que household_invites + 4 RLS policies JÁ existem
+       (0000_initial_schema.sql:212-229 + 0001_rls_policies.sql:114-148) → a story
+       NÃO recria a tabela; só cria a função accept_invite().
+    2. CONFIRMAR que accept_invite() NÃO existe (só comentada em 0000:209/0001:141/
+       tenancy.ts:113) → é o trabalho-núcleo de DB.
+    3. CONFIRMAR que check:rls já passa sem alterações (household_invites já tem as
+       4 policies; o script não tem lista de exempções).
+    4. CONFIRMAR limites de plano (Pessoal=1/Família=4/Pro=10/Free=1) vs epic-6 §2/§5.
+    5. CONFIRMAR padrão de autorização owner/admin (route.ts:52 ROLES_CAN_EDIT) e
+       que a RLS de invites JÁ restringe owner/admin (≠ households).
+
+context: |
+  **Ficheiro da story:** docs/stories/active/6.7.convite-membros-limites-plano.story.md
+  (v0.2, 11 ACs, 7 grupos de tasks).
+
+  **Correcção importante (v0.1 → v0.2):** a v0.1 assumia erradamente que a tabela
+  household_invites e o RLS não existiam (greps Bash falharam de forma intermitente
+  nesta sessão). Verificação byte-a-byte com Grep nativo + Read confirmou que:
+    - Tabela household_invites EXISTE (0000_initial_schema.sql:212-229).
+    - 4 RLS policies EXISTEM (0001_rls_policies.sql:114-148) e já restringem
+      owner/admin no INSERT/UPDATE/DELETE; SELECT deixa o convidado ver o próprio
+      convite (email = auth.users.email). Helper is_household_owner_or_admin() existe.
+    - household_members RLS já permite self-insert via accept_invite (0001:87-92).
+    - Suite RLS household_invites.rls.test.ts já existe e passa (fixture
+      insertHouseholdInvite em fixtures.ts:378).
+    - check:rls já verde (sem alterações; nenhuma exempção no script).
+  O ÚNICO trabalho de DB novo é a função accept_invite() (nunca implementada).
+
+  **Âmbito (validado por Eurico 2026-06-01):**
+    - Ciclo E2E completo numa story (não dividido) — sem aceitação não há valor E2E
+      (directiva refocus-core).
+    - Email de convite = LINK MANUAL na resposta da API (Resend congelado, GAP-2).
+      Diverge do epic-6 §5 ("email Resend"); envio automático = follow-up pós-Resend.
+
+  **11 ACs:** (1) accept_invite() SECURITY DEFINER + limites de plano; (2) POST invites
+  (devolve link); (3) GET invites pendentes; (4) DELETE invite (revogar); (5) DELETE
+  member (guard nunca o owner); (6) rota /aceitar-convite/{token}; (7) Zod/DTO em
+  households.ts (REQ-INLINE-1); (8) UI real no household-editor.tsx; (9) RLS getDb()
+  only + check:rls verde; (10) PT-PT + imports absolutos; (11) testes db-test
+  (accept_invite) + web + gates (correr db-test com Docker antes do push).
+
+  **Gotchas técnicos (nas Dev Notes):** auth.users não JOINable via getDb();
+  rls-gate do CI corre @meu-jarvis/db-test (correr com Docker UP antes do push);
+  não correr build com dev activo; autorização owner/admin na app + reforçada por RLS.
+
+decisions:
+  - 'Story 6.7 alinhada ao epic-6 §5 (FR27). NÃO é 6.3 (Stripe, billing congelado).'
+  - 'household_invites + RLS já existem (0000/0001) — story só cria accept_invite().'
+  - 'Ciclo E2E completo + email por link manual (validado por Eurico 2026-06-01).'
+  - 'Limites de plano: Pessoal=1/Família=4/Pro=10/Free=1 (epic-6 §2/§5).'
+
+blockers:
+  - 'NENHUM bloqueante. Envio de email depende de RESEND (GAP-2, congelado) — mitigado por link manual no MVP.'
+
+files_modified:
+  - docs/stories/active/6.7.convite-membros-limites-plano.story.md  # NEW — story draft v0.2
+  - docs/handoffs/mj-handoff-6.7-drafted-pending-po-validation-20260601.yaml  # NEW — este handoff
+  - docs/handoffs/archive/mj-handoff-convidar-remover-membros-20260601.yaml  # M — consumed by sm
+  - docs/HANDOFF-INDEX.md  # M — pending convidar-remover → archived; +pending 6.7

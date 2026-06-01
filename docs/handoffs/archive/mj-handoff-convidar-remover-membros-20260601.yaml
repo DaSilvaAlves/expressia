@@ -2,8 +2,10 @@ id: mj-handoff-convidar-remover-membros-20260601
 from_agent: devops
 to_agent: any
 created: '2026-06-01T01:30:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-06-01T02:10:00Z'
+consumed_by: sm
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

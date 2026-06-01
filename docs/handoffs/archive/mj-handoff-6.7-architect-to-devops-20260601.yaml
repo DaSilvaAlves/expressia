@@ -1,0 +1,97 @@
+id: mj-handoff-6.7-architect-to-devops-20260601
+from_agent: architect
+to_agent: devops
+created: '2026-06-01T04:05:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-06-01T04:25:00Z'
+consumed_by: devops
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: story-ready-for-push
+
+summary: |
+  @architect (Aria) deu gate PASS 9,3/10 HIGH à Story 6.7 — "Convite e remoção de
+  membros do household + limites por plano" (FR27, epic-6 §5). Done
+  v1.2-ARCH-APPROVED. 7/7 gates re-corridos independentemente GREEN, 11/11 ACs,
+  auditoria de segurança da accept_invite() sólida. Pronta para @devops *push 6.7.
+
+next_action: |
+  @devops *push 6.7. Re-verificar gates rápidos (lint·typecheck·check:rls) +
+  confiar nos pesados já re-corridos pelo @architect (test web 1033/1033, db-test
+  160/160 com Docker, build EXIT 0). **CRÍTICO antes do push:** se re-correres
+  algum gate de DB/RLS, corre `pnpm --filter @meu-jarvis/db-test test` com Docker
+  UP (a migração 0020 é apanhada pelo harness). Migração 0020 corre em prod via
+  `pnpm db:migrate` (DIRECT_URL) — accept_invite() + grant execute. Commitar a
+  feature + housekeeping (story active→completed, gate file, handoffs, INDEX).
+  CodeRabbit SKIPPED (precedente). Billing CONGELADO — não tocar.
+
+context: |
+  **Story:** docs/stories/active/6.7.convite-membros-limites-plano.story.md (Done v1.2).
+  **Gate file:** docs/qa/gates/6.7-architect-gate.md (PASS 9,3/10).
+
+  **Ficheiros a commitar (12 novos + 3 modificados):**
+    Novos:
+      - packages/db/migrations/0020_accept_invite_function.sql
+      - apps/web/src/app/api/conta/household/invites/route.ts (+ __tests__)
+      - apps/web/src/app/api/conta/household/invites/[id]/route.ts (+ __tests__)
+      - apps/web/src/app/api/conta/household/members/[userId]/route.ts (+ __tests__)
+      - apps/web/src/app/api/conta/household/aceitar-convite/route.ts (+ __tests__)
+      - apps/web/src/app/aceitar-convite/[token]/page.tsx
+      - apps/web/src/app/aceitar-convite/[token]/_components/aceitar-convite.tsx
+      - packages/db-test/src/tests/accept_invite.test.ts
+    Modificados:
+      - apps/web/src/lib/api-schemas/households.ts (schemas/DTOs de convite)
+      - apps/web/src/lib/api-helpers/audit.ts (type union + entityTable — aditivo)
+      - apps/web/src/app/(app)/conta/household/_components/household-editor.tsx (UI)
+    Housekeeping (docs):
+      - docs/stories: mover 6.7 active→completed
+      - docs/qa/gates/6.7-architect-gate.md (NEW)
+      - docs/handoffs: arquivar ciclo 6.7 (sm→po, po→dev, dev→architect,
+        architect→devops) + HANDOFF-INDEX
+
+  **Gates (re-corridos independentemente pelo @architect — GREEN):**
+    - lint (web): No ESLint warnings (--max-warnings=0)
+    - typecheck (web + db-test): limpo
+    - test (web): 1033/1033 (132 files; net +30). NOTA: 1 falha FLAKY intermitente
+      na 1ª corrida (ficheiro não-relacionado: connection-mock preferencias/tasks),
+      VERDE na 2ª corrida. As linhas {"level":50} nos logs são ruído intencional
+      (testes que mockam falhas de DB).
+    - test (db-test, Docker UP): 160/160 (incl. accept_invite 7 + household_invites.rls 3)
+    - check:rls: EXIT 0 (household_invites já coberto; zero tabelas novas)
+    - build (web): EXIT 0 (Middleware 94.6 kB intacto)
+
+  **DEPLOY — migração 0020:** corre em prod via `pnpm --filter @meu-jarvis/db db:migrate`
+  (idempotente, tracking em __schema_migrations, DIRECT_URL). Cria a função
+  accept_invite() SECURITY DEFINER + grant execute to authenticated. Sem alteração
+  de tabelas/policies (a tabela household_invites e RLS já existiam em 0000/0001).
+
+  **6 [DEV-DECISION] ratificadas** (D-6.7.1 a D-6.7.6). **1 CONCERN** não-bloqueante
+  (C-6.7.1 smoke E2E → follow-up INVITE-E2E-SMOKE pós-push). 2 OBS LOW (endurecimento
+  opcional — não bloqueiam).
+
+  **Excluir do staging (outros fios, intactos):** qualquer WIP não relacionado com
+  a 6.7 (billing CONGELADO, drafts de outras stories, etc.).
+
+decisions:
+  - 'Gate PASS 9,3/10 HIGH. Story 6.7 Done v1.2-ARCH-APPROVED. Pronta para push.'
+  - 'Migração 0020 (accept_invite SECURITY DEFINER + grant) corre em prod via db:migrate.'
+  - 'Tabela household_invites + RLS já existiam (0000/0001) — só a função é nova.'
+  - 'CodeRabbit SKIPPED (precedente); auditoria manual de segurança cobre o foco crítico.'
+
+blockers:
+  - 'NENHUM. Smoke E2E browser (C-6.7.1) é follow-up pós-push, não bloqueia o merge.'
+
+follow_ups:
+  - 'INVITE-E2E-SMOKE (@qa/Eurico): smoke E2E browser do ciclo convidar→aceitar pós-deploy.'
+  - 'OBS-6.7.1 (opcional): reordenar email-match antes do estado na accept_invite (endurecimento info-disclosure).'
+
+files_modified:
+  - docs/stories/active/6.7.convite-membros-limites-plano.story.md  # M — Done v1.2-ARCH-APPROVED
+  - docs/qa/gates/6.7-architect-gate.md  # NEW — gate PASS 9,3/10
+  - docs/handoffs/mj-handoff-6.7-architect-to-devops-20260601.yaml  # NEW — este handoff
+  - docs/handoffs/archive/mj-handoff-6.7-dev-to-architect-20260601.yaml  # M — consumed by architect
+  - docs/HANDOFF-INDEX.md  # M — pending dev→architect → archived; +pending architect→devops
+  - 'Código: ver File List na story (12 novos + 3 modificados)'
