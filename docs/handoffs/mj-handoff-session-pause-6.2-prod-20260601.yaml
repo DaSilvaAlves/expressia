@@ -1,0 +1,81 @@
+id: mj-handoff-session-pause-6.2-prod-20260601
+from_agent: devops
+to_agent: any
+created: '2026-06-01T20:35:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: session-pause
+
+summary: |
+  SESSION PAUSE — Story 6.2 (Onboarding tour /bem-vindo + confirmação de trial)
+  fechada E EM PRODUÇÃO. Ciclo completo desta sessão: @qa (prioridade) → @sm *draft
+  → @po GO 8,5/10 → @dev *develop → @architect *qa-gate PASS 9,2/10 → @devops *push.
+  Pushed `779fba7` (origin/main, fast-forward), **CI verde**, migração **0021
+  deployada em prod** via db:migrate (coluna `user_prefs.onboarding_completed_at`
+  viva). Story em `docs/stories/completed/`. Working tree LIMPO, sem trabalho a meio.
+  Billing CONTINUA CONGELADO. Sem bloqueadores técnicos.
+
+next_action: |
+  Nada bloqueado — sessão em ponto limpo. Dois fios possíveis para o próximo agente:
+
+  1. **VALIDAÇÃO MANUAL DO EURICO (recomendado primeiro)** — 2 smokes E2E em prod,
+     ambos NÃO-bloqueantes mas pendentes de prova com olhos humanos:
+     - **SMOKE-6.2 (onboarding, NOVO):** registar conta nova em prod → confirmar
+       email → deve aterrar em `/bem-vindo` (tour 2 passos) → Passo 1 "Mostrar o que
+       acontece" revela demo (tarefa+despesa+recorrente) → "Continuar" → Passo 2
+       (trial Família €8,88) → "Começar a usar" → cai em `/visao` com toast
+       "Bem-vindo, {nome}. O Expressia está pronto." Verificar também: (a) "Saltar
+       tudo" no Passo 1 termina e vai para `/visao`; (b) recarregar `/bem-vindo`
+       depois de concluído redirige para `/visao` (não repete o tour); (c) o trial
+       mantém-se `trialing` (saltar não altera subscription).
+     - **SMOKE-6.7 (INVITE-E2E, follow-up herdado):** convidar um membro para o
+       household em prod → aceitar o convite pelo link → confirmar que entra como
+       membro. (Da Story 6.7, já em prod; nunca foi smoke-testado com humano.)
+
+  2. **CONTINUAR O CORE (se o Eurico preferir avançar feature):** próxima decisão é
+     do Eurico caso-a-caso (refocus = produto a FUNCIONAR E2E, billing congelado).
+     Candidatos no Epic 6: ramo GDPR (6.8 export de dados, 6.9 eliminação de conta —
+     tabelas data_export_jobs/account_deletion_jobs já no schema). Ou outro gap do
+     core que o Eurico identifique a usar o produto.
+
+context: |
+  **Estado git:** origin/main = `779fba7` (sincronizado, working tree LIMPO). Os 2
+  commits da 6.2: `5aeab08` (feat onboarding) + `779fba7` (docs housekeeping).
+
+  **O que a 6.2 entregou (em prod):**
+    - Rota top-level `/bem-vindo` (fullscreen sem AppShell): tour de 2 passos —
+      Passo 1 demo multi-intent SIMULADO (canned, zero LLM/writes), Passo 2 trial.
+    - Gate de primeira utilização na `/visao` RSC: `onboarding_completed_at` null →
+      redirect `/bem-vindo` (fail-open em erro de DB — não prende em loop).
+    - `<WelcomeToast>` 1× via `?welcome=1` (sessionStorage guard).
+    - Server action UPSERT idempotente marca o onboarding (saltar mantém o trial).
+    - Migração 0021 (`add column if not exists onboarding_completed_at timestamptz`).
+    - household/trial NÃO tocados (já criados pelo trigger 0019 no signup).
+
+  **Comportamento esperado para utilizadores PRÉ-6.2 em prod:** ficam com
+  `onboarding_completed_at = null` → verão o tour na próxima visita à `/visao`
+  (desejado e documentado). Se o Eurico tiver a própria conta de teste, é normal
+  ela ser redireccionada uma vez para `/bem-vindo`.
+
+  **Observações não-bloqueantes registadas no gate (docs/qa/gates/6.2-architect-gate.md):**
+    - OBS-A [LOW] dupla leitura de user_prefs na /visao (perf sweep futuro).
+    - OBS-1 [LOW] deep-link directo a /tarefas/financas salta o gate (entradas
+      normais via /visao; endurecer no middleware é Fase 2).
+
+  **Epic 6 progresso:** 6.1 Done + 6.7 Done + 6.2 Done — todos em prod. Ramo
+  household FECHADO. Ramo billing CONGELADO (6.3/6.4/6.5/6.6/6.10 — NÃO tocar
+  Stripe). Ramo GDPR por fazer (6.8/6.9).
+
+  **Gotchas conhecidos (não repetir):** auth.users NÃO joinable via getDb;
+  REQ-INLINE-1 (só import type de @meu-jarvis/db em RSC/routes); db.<ref>.supabase.co
+  não resolve em IPv4 (usar pooler); migração futura que recrie handle_new_user
+  parte SEMPRE da 0019; db:migrate usa DIRECT_URL (porta 5432).
+
+blockers: |
+  Nenhum. Sessão em ponto limpo, sem trabalho a meio. As validações do next_action
+  são smokes manuais do Eurico (não-bloqueantes). Para continuar noutra MÁQUINA: o
+  código já está em origin/main (`779fba7`) — basta `git pull`.
