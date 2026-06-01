@@ -16,20 +16,20 @@ summary: |
   → @po *validate (GO 9/10) → @dev *develop → @architect *qa-gate (PASS 9,3/10 HIGH)
   → @devops *push. Feature MERGEADA em origin/main (9ab1739, CI verde run
   26750095727 — 3/3 jobs success: quality, rls-gate, build). SEM trabalho a meio.
-  ATENÇÃO: há 1 acção de DEPLOY pendente (migração 0020 na Supabase de PROD) — ver
-  next_action. Billing continua CONGELADO.
+  ATENÇÃO: [RESOLVIDO 2026-06-01] o DEPLOY da migração 0020 em PROD foi executado
+  com sucesso — ver next_action (1). Restam o smoke E2E (2) e continuar o core (3).
+  Billing continua CONGELADO.
 
 next_action: |
-  1. **⚠️ DEPLOY (acção real — Eurico ou agente com .env.local de PROD):** correr
-     `pnpm --filter @meu-jarvis/db db:migrate` apontando para a Supabase de
-     produção (DIRECT_URL, porta 5432). O CI valida a migração 0020 contra um
-     Postgres efémero, MAS a Supabase real só ganha a função `accept_invite()`
-     depois deste comando. **Até lá, aceitar convites na app de produção (Vercel)
-     falha** com "function accept_invite does not exist" (o resto — criar/listar/
-     revogar convites e remover membros — funciona, só a ACEITAÇÃO depende da
-     função). A migração é idempotente (tracking em __schema_migrations); só cria
-     a função + grant, sem tocar tabelas. Precedente: as migrações 0018/0019
-     correram em prod desta forma manual.
+  1. **[FEITO 2026-06-01 — DEPLOY 0020 EM PROD]** `pnpm --filter @meu-jarvis/db
+     db:migrate` corrido contra a Supabase de produção (DIRECT_URL, ref
+     llpotuxlyiyjvvxzetoo, aws-0-eu-west-1.pooler). Output: `[apply]
+     0020_accept_invite_function.sql … [done] em 488ms` + as 19 anteriores
+     `[skip]` (já em __schema_migrations) → "✅ Todas as migrations aplicadas com
+     sucesso." A função `accept_invite()` + grant existem agora em prod; a
+     ACEITAÇÃO de convites na app de produção está desbloqueada. (Histórico: o
+     CI valida a 0020 contra Postgres efémero, mas a Supabase real só ganhava a
+     função após este comando manual — precedente 0018/0019.)
   2. **Follow-up INVITE-E2E-SMOKE (Eurico/@qa, após o passo 1):** smoke E2E na app —
      login → /conta/household → convidar um email → copiar o link gerado → abrir o
      link noutra sessão/conta (o email do convite TEM de bater com o email da conta
@@ -97,14 +97,14 @@ context: |
 decisions:
   - 'Story 6.7 DONE + mergeada em origin/main (9ab1739), CI verde (run 26750095727, 3/3 jobs).'
   - 'Ramo household do Epic 6 praticamente fechado (6.1 + 6.7 em prod).'
-  - 'DEPLOY da migração 0020 em PROD ainda por correr (db:migrate manual) — bloqueia só a ACEITAÇÃO de convites na app de prod.'
+  - '[FEITO 2026-06-01] DEPLOY da migração 0020 em PROD executado (db:migrate, accept_invite() + grant materializados) — aceitação de convites desbloqueada.'
   - 'Billing CONGELADO mantém-se (handoff-mãe refocus-core).'
 
 blockers:
-  - 'NENHUM bloqueante de desenvolvimento. A migração 0020 em PROD (db:migrate) é uma acção de deploy do Eurico/agente — sem ela a aceitação de convites na app de prod falha (resto da feature funciona).'
+  - 'NENHUM. A migração 0020 em PROD foi aplicada (2026-06-01) — aceitação de convites na app de prod desbloqueada. Feature household completa em prod.'
 
 follow_ups:
-  - 'DEPLOY-0020 (Eurico/devops): correr db:migrate contra Supabase prod para materializar accept_invite().'
+  - '[FEITO 2026-06-01] DEPLOY-0020: db:migrate corrido contra Supabase prod — accept_invite() materializada.'
   - 'INVITE-E2E-SMOKE (Eurico/@qa): smoke E2E do ciclo convidar→aceitar na app, pós-migrate.'
   - 'OBS-6.7.1 (opcional, LOW): reordenar email-match antes do estado na accept_invite (endurecimento info-disclosure teórico).'
 
