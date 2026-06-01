@@ -1,0 +1,108 @@
+id: mj-handoff-convidar-remover-membros-20260601
+from_agent: devops
+to_agent: any
+created: '2026-06-01T01:30:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: feature-next
+
+summary: |
+  Continuação do make-it-work da feature Família. A feature "display_name no
+  onboarding" está DONE e em produção (origin/main 13f53e4, CI verde) — registo
+  capta o NOME, saudação /visao usa user_metadata.name, lista de membros usa
+  household_members.display_name (provado E2E na app: /conta/household mostra
+  "Eurico"). O PRÓXIMO passo do core é o complemento natural: CONVIDAR e REMOVER
+  membros do household (o schema household_invites + RLS já existem). Billing
+  continua CONGELADO.
+
+next_action: |
+  Implementar convidar/remover membros em /conta/household (CLI/data-first, sem
+  billing). Sugestão de fluxo AIOX: @sm *draft → @po *validate → @dev *develop →
+  @qa/@architect gate → @devops *push. OU directo make-it-work (precedente desta
+  fase). Âmbito mínimo proposto:
+    1. POST /api/conta/household/invites — cria convite (email + role), gera token,
+       expires_at. Só owner/admin (mesma regra de autorização do PATCH actual).
+    2. GET — listar convites pendentes do household (opcional, para a UI).
+    3. DELETE /api/conta/household/members/{userId} — remover membro. Só
+       owner/admin; NUNCA remover o próprio owner (guard). Considerar o que
+       acontece aos dados do membro removido (apenas tira o membership; dados do
+       household ficam — household_id não muda).
+    4. DELETE /api/conta/household/invites/{id} — revogar convite pendente.
+    5. Aceitar convite: rota /aceitar-convite/{token} (ver se há SQL function
+       accept_invite() — o comentário em tenancy.ts:115-118 di-lo; CONFIRMAR se
+       existe na DB e nas migrações 0001+). Enviar email do convite depende do
+       RESEND (GAP-2, ainda por configurar — pode ficar com link manual no MVP).
+    6. UI: substituir o texto "Convidar e remover membros chega numa próxima
+       atualização." em household-editor.tsx por controlos reais.
+    7. Testes: web (rotas) + db-test RLS (household_invites já tem suite em
+       packages/db-test/src/tests/household_invites.rls.test.ts).
+
+context: |
+  **Estado da feature Família (já em prod):**
+    - /conta/household: GET (household + membros + myRole) + PATCH (renomear, só
+      owner/admin). Ficheiro: apps/web/src/app/api/conta/household/route.ts.
+    - UI: apps/web/src/app/(app)/conta/household/page.tsx (SSR) +
+      _components/household-editor.tsx (client). O editor já tem displayNameFor/
+      initialsFor que usam fullName (=display_name) → email → fallback.
+    - Contrato: apps/web/src/lib/api-schemas/households.ts (HouseholdMemberDTO,
+      HouseholdResponse, HouseholdPatchSchema). REQ-INLINE-1: enums espelho como
+      tuplos locais, sem import cross-package no client bundle.
+
+  **Schema household_invites (JÁ EXISTE — packages/db/src/schema/tenancy.ts:115):**
+    id, household_id (FK cascade), invited_by_user_id, email, role
+    (household_role default member), token (unique), expires_at, accepted_at,
+    accepted_by_user_id (FK set null), created_at. Unique parcial
+    household_invites_unique_pending(household_id, email). RLS já com suite verde
+    em db-test (household_invites.rls.test.ts). Comentário do schema menciona
+    SQL function accept_invite() com limites de membros — VERIFICAR se foi
+    implementada (procurar em migrations/ por "accept_invite").
+
+  **Gotchas/regras técnicas CRÍTICAS desta fase (ler antes de codar):**
+    1. **auth.users NÃO é JOINable via getDb()** (role authenticated, erro 42P01).
+       Ler só household_members; email/nome de OUTROS membros não vem por SQL —
+       expor só o do próprio (user.email da sessão). Ver memória auth-users-not-joinable.
+    2. **rls-gate do CI corre @meu-jarvis/db-test (Testcontainers), NÃO
+       @meu-jarvis/db.** Se tocares em migrações/trigger/RLS/colunas de auth.users,
+       corre `pnpm --filter @meu-jarvis/db-test test` (Docker UP) ANTES do push —
+       senão o CI fica vermelho (aconteceu nesta sessão: 0019 partiu o mock
+       auth.users). Ver memória ci-rls-gate-uses-db-test.
+    3. **NÃO correr `pnpm build` com o `pnpm dev` a correr na mesma apps/web/.next**
+       — corrompe o dev server (500s intermitentes + CSS partido). Aconteceu nesta
+       sessão. Fix: parar dev, `Remove-Item -Recurse -Force apps/web/.next`,
+       rearrancar. Se a porta 3000 ficar presa (EADDRINUSE), matar o processo node:
+       `Get-NetTCPConnection -LocalPort 3000 -State Listen | %{ Stop-Process -Id $_.OwningProcess -Force }`.
+    4. Autorização de negócio (owner/admin) é aplicada na APP (a RLS de households
+       permite UPDATE a qualquer membro) — replicar o padrão ROLES_CAN_EDIT do
+       route.ts actual para os novos endpoints.
+
+  **Como arrancar o ambiente local (próxima sessão):**
+    - App: `pnpm --filter @meu-jarvis/web dev` (http://localhost:3000) — porta foi
+      libertada no fim desta sessão (dev server desta sessão terminado).
+    - Login: euricojsalves@gmail.com (conta real; household 2dedb1ec-..., owner,
+      display_name "Eurico" já backfilled).
+    - Quality gates pre-push: pnpm lint · typecheck · test · build · check:rls +
+      (se DB/RLS) `pnpm --filter @meu-jarvis/db-test test` (Docker).
+
+  **2 opcionais pendentes do Eurico (não bloqueiam, escolha dele):**
+    - Saudação /visao só mostra "Eurico" após logout+login (JWT actual é pré-backfill).
+    - Household ainda chama-se "Casa de euricojsalves" (backfill não renomeia
+      existentes) — editável no campo "Nome da família" da própria página.
+
+  **Estado git:** origin/main = 13f53e4, working tree limpo (excepto este handoff).
+  Billing CONGELADO (handoff-mãe mj-handoff-refocus-core-freeze-billing-20260529).
+
+decisions:
+  - 'Feature display_name no onboarding DONE + em prod (13f53e4) + provada E2E na app (lista mostra "Eurico").'
+  - 'Próximo passo do core = convidar/remover membros (household_invites + RLS já no schema).'
+  - 'Push exclusivo @devops; fluxo de dev pode ser AIOX SDC ou directo make-it-work (precedente).'
+
+blockers:
+  - 'NENHUM bloqueante. Envio de email de convite depende de RESEND (GAP-2, por configurar) — mitigar com link manual no MVP até o Eurico ligar o Resend.'
+
+files_modified:
+  - docs/handoffs/mj-handoff-convidar-remover-membros-20260601.yaml  # NEW — este handoff
+  - docs/HANDOFF-INDEX.md  # M — linha pending adicionada
