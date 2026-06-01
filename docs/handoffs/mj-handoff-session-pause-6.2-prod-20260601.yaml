@@ -32,6 +32,10 @@ next_action: |
        tudo" no Passo 1 termina e vai para `/visao`; (b) recarregar `/bem-vindo`
        depois de concluído redirige para `/visao` (não repete o tour); (c) o trial
        mantém-se `trialing` (saltar não altera subscription).
+       NOTA (verificado 2026-06-01 por @aiox-master, decisão Eurico=A): o
+       sub-ponto "(b) recarregar /bem-vindo pós-conclusão redirige /visao" foi
+       REMOVIDO do smoke — não está no âmbito da 6.2 (ver OBS-6.2-SMOKE-6b no
+       context). Validar só os pontos restantes.
      - **SMOKE-6.7 (INVITE-E2E, follow-up herdado):** convidar um membro para o
        household em prod → aceitar o convite pelo link → confirmar que entra como
        membro. (Da Story 6.7, já em prod; nunca foi smoke-testado com humano.)
@@ -66,6 +70,20 @@ context: |
     - OBS-1 [LOW] deep-link directo a /tarefas/financas salta o gate (entradas
       normais via /visao; endurecer no middleware é Fase 2).
 
+  **OBS-6.2-SMOKE-6b [LOW] — divergência smoke vs âmbito (auditoria estática
+  @aiox-master 2026-06-01; decisão Eurico = A, ACEITAR):** a página /bem-vindo
+  (`apps/web/src/app/bem-vindo/page.tsx:26-34`) renderiza SEMPRE o tour quando há
+  sessão — não tem gate inverso, e o middleware (`middleware.ts:49`) só protege
+  anónimos. Logo, recarregar /bem-vindo manualmente DEPOIS de concluído mostra o
+  tour outra vez (não redirige para /visao). NÃO é bug: (1) não há caminho de UI
+  para reentrar em /bem-vindo — só digitando o URL à mão (mesmo perfil da OBS-1);
+  (2) repetir é inofensivo — marcação idempotente, não toca subscriptions/trial;
+  (3) nenhum AC da 6.2 cobre este reload (AC2 só especifica o gate na /visao).
+  Os outros 5 pontos do SMOKE-6.2 batem byte-a-byte com o código (verificado:
+  gate /visao redirect, demo canned, trial Família €8,88, toast exacto, "Saltar
+  tudo"). Se um dia se quiser a simetria, é fix de ~4 linhas (reusar
+  `hasCompletedOnboarding` em /bem-vindo → redirect /visao) — não agendado.
+
   **Epic 6 progresso:** 6.1 Done + 6.7 Done + 6.2 Done — todos em prod. Ramo
   household FECHADO. Ramo billing CONGELADO (6.3/6.4/6.5/6.6/6.10 — NÃO tocar
   Stripe). Ramo GDPR por fazer (6.8/6.9).
@@ -79,3 +97,39 @@ blockers: |
   Nenhum. Sessão em ponto limpo, sem trabalho a meio. As validações do next_action
   são smokes manuais do Eurico (não-bloqueantes). Para continuar noutra MÁQUINA: o
   código já está em origin/main (`779fba7`) — basta `git pull`.
+
+session_update_20260601_email_confirm: |
+  **SMOKE-6.2 VALIDADO E2E (localhost) + HOTFIX EMAIL-CONFIRM (aiox-master + Eurico).**
+
+  SMOKE-6.2 (onboarding): PASS. Conta nova → /bem-vindo (gate) → tour 2 passos →
+  demo canned (tarefa+despesa+recorrente) → Passo 2 trial Família €8,88 → "Começar
+  a usar" → /visao?welcome=1 + toast "Bem-vindo, {nome}. O Expressia está pronto."
+  Tudo bate byte-a-byte com o código. Decisão A confirmada para OBS-6.2-SMOKE-6b.
+
+  **ACHADO LATERAL (Story 6.1, não 6.2): confirmação de email partida → RESOLVIDO.**
+  Sintoma: link do email → /confirm?status=error "Link inválido ou expirado";
+  utilizador novo não confirmava pela via normal (só contornando com login direto).
+  Causa-raiz PROVADA por log instrumentado: `AuthPKCECodeVerifierMissingError` —
+  o /callback usava o fluxo PKCE `?code=` + `exchangeCodeForSession`, que exige o
+  cookie `code_verifier` (gerado no signUp) a sobreviver à navegação cross-site do
+  link de email. Não sobrevive (`hasVerifierCookie: false`).
+  FIX (padrão oficial SSR Supabase): trocar para fluxo `token_hash` + `verifyOtp`
+  (stateless, sem cookie, imune a prefetch). 2 peças:
+    1. CÓDIGO: `apps/web/src/app/(auth)/callback/route.ts` aceita `token_hash`+`type`
+       via verifyOtp (com `code`+exchange como fallback retrocompat). +4 testes (7/7).
+    2. SUPABASE DASHBOARD (PROD, projeto llpotuxlyiyjvvxzetoo) — feito pelo Eurico:
+       - Email template "Confirm signup" → link
+         `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email`
+       - Redirect URLs → adicionado `http://localhost:3000/**`
+  PROVADO E2E (localhost, conta euricojsalves+t2@gmail.com): /confirm?status=ok
+  "Email confirmado" → login sem contornar. Gates: lint·typecheck·test 1056/1056
+  efetivo (1 flaky calendário verde isolado)·build MW 94.6 kB·check:rls — todos verdes.
+
+  **FOLLOW-UPS abertos (não bloqueiam):**
+    - FU-EMAIL-1 [MEDIUM, Eurico/@devops] SITE-URL-PROD: a Site URL do Supabase está
+      em `http://localhost:3000` (bom p/ dev). ANTES de produção real com domínio:
+      mudar para `https://expressia.pt` + adicionar `https://expressia.pt/**` (ou o
+      URL Vercel) às Redirect URLs. Hoje expressia.pt = NXDOMAIN (sem utilizadores).
+    - FU-EMAIL-2 [LOW] CLEANUP-TEST-USERS: contas de teste acumuladas no Supabase
+      (euricojsalves, +t1, +t2) — limpar via service role quando conveniente.
+    - OBS-6.2-SMOKE-6b [LOW] já documentada (decisão A, aceitar).
