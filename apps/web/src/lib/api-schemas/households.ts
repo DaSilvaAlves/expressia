@@ -55,3 +55,56 @@ export interface HouseholdResponse {
   readonly members: readonly HouseholdMemberDTO[];
   readonly myRole: (typeof HOUSEHOLD_ROLES)[number];
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Convites (Story 6.7 — convite e remoção de membros)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Papéis que podem ser atribuídos num convite — `owner` é excluído (o owner é
+ * definido na criação do household; convites criam `admin`/`member`).
+ */
+export const INVITABLE_ROLES = ['admin', 'member'] as const;
+export type InvitableRole = (typeof INVITABLE_ROLES)[number];
+
+/**
+ * Body do POST /api/conta/household/invites — criar convite.
+ *
+ * `role` opcional (default `member`). Email normalizado (trim + lowercase) para
+ * casar com o unique parcial `household_invites_unique_pending` e com a
+ * verificação de email da `accept_invite()`.
+ */
+export const InviteCreateSchema = z
+  .object({
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email('Email inválido.')
+      .max(254, 'Email demasiado longo.'),
+    role: z.enum(INVITABLE_ROLES).optional().default('member'),
+  })
+  .strict();
+
+export type InviteCreate = z.infer<typeof InviteCreateSchema>;
+
+/** Convite pendente para a resposta GET (token NUNCA exposto na listagem). */
+export interface HouseholdInviteDTO {
+  readonly id: string;
+  readonly email: string;
+  readonly role: InvitableRole;
+  readonly expiresAt: string;
+  readonly createdAt: string;
+}
+
+/** Resposta POST — inclui o link de aceitação (MVP sem Resend — link manual). */
+export interface InviteCreatedResponse {
+  readonly invite: HouseholdInviteDTO;
+  /** Caminho relativo `/aceitar-convite/{token}` para o owner partilhar. */
+  readonly acceptPath: string;
+}
+
+/** Resposta GET /api/conta/household/invites. */
+export interface InvitesListResponse {
+  readonly invites: readonly HouseholdInviteDTO[];
+}
