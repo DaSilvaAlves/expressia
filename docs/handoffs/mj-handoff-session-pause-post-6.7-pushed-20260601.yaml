@@ -1,0 +1,113 @@
+id: mj-handoff-session-pause-post-6.7-pushed-20260601
+from_agent: devops
+to_agent: any
+created: '2026-06-01T04:50:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: session-pause
+
+summary: |
+  SESSION PAUSE após push da Story 6.7 (convite e remoção de membros do household
+  + limites por plano). Ciclo SDC completo nesta sessão num só terminal: @sm *draft
+  → @po *validate (GO 9/10) → @dev *develop → @architect *qa-gate (PASS 9,3/10 HIGH)
+  → @devops *push. Feature MERGEADA em origin/main (9ab1739, CI verde run
+  26750095727 — 3/3 jobs success: quality, rls-gate, build). SEM trabalho a meio.
+  ATENÇÃO: há 1 acção de DEPLOY pendente (migração 0020 na Supabase de PROD) — ver
+  next_action. Billing continua CONGELADO.
+
+next_action: |
+  1. **⚠️ DEPLOY (acção real — Eurico ou agente com .env.local de PROD):** correr
+     `pnpm --filter @meu-jarvis/db db:migrate` apontando para a Supabase de
+     produção (DIRECT_URL, porta 5432). O CI valida a migração 0020 contra um
+     Postgres efémero, MAS a Supabase real só ganha a função `accept_invite()`
+     depois deste comando. **Até lá, aceitar convites na app de produção (Vercel)
+     falha** com "function accept_invite does not exist" (o resto — criar/listar/
+     revogar convites e remover membros — funciona, só a ACEITAÇÃO depende da
+     função). A migração é idempotente (tracking em __schema_migrations); só cria
+     a função + grant, sem tocar tabelas. Precedente: as migrações 0018/0019
+     correram em prod desta forma manual.
+  2. **Follow-up INVITE-E2E-SMOKE (Eurico/@qa, após o passo 1):** smoke E2E na app —
+     login → /conta/household → convidar um email → copiar o link gerado → abrir o
+     link noutra sessão/conta (o email do convite TEM de bater com o email da conta
+     que aceita — D-6.7.2) → aceitar → confirmar que entrou no household. Único
+     ponto não exercido manualmente (C-6.7.1); a lógica está provada em db-test real.
+  3. **Continuar o core (make-it-work):** escolher o próximo passo do produto. O
+     Epic 6 (Onboarding/Billing) tem o ramo billing CONGELADO; o ramo household
+     está praticamente fechado (6.1 registo/branding + 6.7 convite/membros em prod).
+     Candidatos do core ainda por fechar: ramo GDPR do Epic 6 (6.8 export, 6.9
+     eliminação — tabelas data_export_jobs/account_deletion_jobs já no schema), OU
+     onboarding 3-passos (6.2), OU polir o que já existe. Confirmar prioridade com
+     o Eurico (o foco refocus-core é o produto FUNCIONAR E2E, não billing).
+
+context: |
+  **Estado git:** origin/main = 9ab1739, working tree limpo. 2 commits desta sessão:
+    - 60f3223 feat(conta): convite e remoção de membros (15 ficheiros: migração 0020
+      + 4 endpoints + rota /aceitar-convite + schemas/DTOs + audit helper + UI + testes)
+    - 9ab1739 docs(story): housekeeping (story→completed, gate file, 5 handoffs
+      arquivados, INDEX)
+
+  **Story 6.7 (docs/stories/completed/6.7.convite-membros-limites-plano.story.md):**
+    Done v1.2-ARCH-APPROVED. Gate file docs/qa/gates/6.7-architect-gate.md (PASS
+    9,3/10 HIGH). 11/11 ACs. 6 [DEV-DECISION] ratificadas (D-6.7.1 Free=1; D-6.7.2
+    email-match; D-6.7.3 link manual; D-6.7.4 remover-owner→422; D-6.7.5 endpoint+
+    página vs Server Action; D-6.7.6 audit via tabela).
+
+  **O que foi entregue (FR27):**
+    - Migração 0020: `accept_invite(p_token)` SECURITY DEFINER — lock for-update no
+      convite e no household (R-6.5), valida estado/expiração/email-match/não-membro/
+      limite-de-plano, cria membership + marca aceite + audit. `grant execute to
+      authenticated` (sem ele a chamada via getDb falha).
+    - Endpoints (todos getDb() only, autorização owner/admin na app + RLS):
+      POST/GET `/api/conta/household/invites` (POST devolve acceptPath; GET não
+      expõe token), DELETE `/invites/[id]` (revogar), DELETE `/members/[userId]`
+      (guard nunca-owner→422), POST `/aceitar-convite` (mapAcceptInviteError → PT-PT).
+    - Rota `/aceitar-convite/[token]` (page SSR redirect /entrar?next= + client).
+    - UI household-editor: form convite + link copiável + lista pendentes (Revogar)
+      + Remover por membro (≠ owner, ≠ próprio).
+
+  **Limites de plano (FR27):** Pessoal=1, Família=4, Pro=10, Free=1. Household em
+  trial = plan 'familia' → 4 membros (incl. owner).
+
+  **Gates (push):** lint·typecheck(web+db)·check:rls re-verificados pelo @devops;
+  test web 1033/1033, db-test 160/160 (Docker, incl. accept_invite 7), build (MW
+  94.6 kB) re-corridos pelo @architect (mesmo tree). CI verde confirmou tudo +
+  aplicou a 0020 no rls-gate. CodeRabbit SKIPPED (precedente 3.1-6.x).
+
+  **Gotchas desta fase (continuam válidos):**
+    - auth.users NÃO JOINable via getDb() (42P01) — accept_invite (SECURITY DEFINER)
+      acede auth.users internamente. Ver [[auth-users-not-joinable]].
+    - rls-gate do CI corre @meu-jarvis/db-test (Testcontainers) — correr
+      `pnpm --filter @meu-jarvis/db-test test` (Docker UP) antes de push se mexer
+      em migrações/RLS.
+    - NÃO correr `pnpm build` com `pnpm dev` activo na mesma .next.
+
+  **Como arrancar o ambiente local:**
+    - App: `pnpm --filter @meu-jarvis/web dev` (http://localhost:3000).
+    - Login: euricojsalves@gmail.com (household real, owner, display_name "Eurico").
+    - Gates: lint·typecheck·test·build·check:rls + (se DB/RLS) db-test (Docker).
+
+  **2 opcionais antigos do Eurico (não bloqueiam, pendentes desde o handoff
+  convidar-remover):** saudação /visao só mostra "Eurico" após logout+login (JWT
+  pré-backfill); household ainda "Casa de euricojsalves" (editável no campo Nome).
+
+decisions:
+  - 'Story 6.7 DONE + mergeada em origin/main (9ab1739), CI verde (run 26750095727, 3/3 jobs).'
+  - 'Ramo household do Epic 6 praticamente fechado (6.1 + 6.7 em prod).'
+  - 'DEPLOY da migração 0020 em PROD ainda por correr (db:migrate manual) — bloqueia só a ACEITAÇÃO de convites na app de prod.'
+  - 'Billing CONGELADO mantém-se (handoff-mãe refocus-core).'
+
+blockers:
+  - 'NENHUM bloqueante de desenvolvimento. A migração 0020 em PROD (db:migrate) é uma acção de deploy do Eurico/agente — sem ela a aceitação de convites na app de prod falha (resto da feature funciona).'
+
+follow_ups:
+  - 'DEPLOY-0020 (Eurico/devops): correr db:migrate contra Supabase prod para materializar accept_invite().'
+  - 'INVITE-E2E-SMOKE (Eurico/@qa): smoke E2E do ciclo convidar→aceitar na app, pós-migrate.'
+  - 'OBS-6.7.1 (opcional, LOW): reordenar email-match antes do estado na accept_invite (endurecimento info-disclosure teórico).'
+
+files_modified:
+  - docs/handoffs/mj-handoff-session-pause-post-6.7-pushed-20260601.yaml  # NEW — este handoff
+  - docs/HANDOFF-INDEX.md  # M — +pending session-pause
