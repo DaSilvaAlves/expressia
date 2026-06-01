@@ -1,0 +1,113 @@
+id: mj-handoff-6.2-dev-to-architect-20260601
+from_agent: dev
+to_agent: architect
+created: '2026-06-01T19:35:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-06-01T20:05:00Z'
+consumed_by: architect
+consumed_note: |
+  @architect Aria executou *qa-gate 6.2 → PASS 9,2/10 Confiança Alta. 6/6 gates
+  re-corridos independentemente (db-test 160/160 valida a 0021 contra Postgres
+  real; web 1052/1052 efectivo, flaky calendário verde isolado; check:rls EXIT 0;
+  build /bem-vindo 1.81 kB · MW 94.6 kB). 10/10 ACs. 3 [DEV-DECISION] ratificadas.
+  Gate file docs/qa/gates/6.2-architect-gate.md. Story → Done v1.2-ARCH-APPROVED.
+  Sucessor pending: mj-handoff-6.2-architect-to-devops-20260601.yaml.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: story-cycle
+
+summary: |
+  Story 6.2 (Onboarding — tour pós-registo de 2 passos + confirmação de trial)
+  IMPLEMENTADA pelo @dev em YOLO → Ready for Review v1.1-DEV. 10/10 ACs, 5/5
+  gates verdes (incl. db-test 160/160 a validar a migração 0021 contra Postgres
+  real). Aguarda `@architect *qa-gate 6.2`. Trabalho UNTRACKED (não commitado —
+  precedente: só o @devops commita/pusha no fecho do ciclo). Cadeia desta sessão:
+  @qa (prioridade) → @sm *draft → @po GO 8,5/10 (5 DPs travadas, 1 override) →
+  @dev *develop. Billing CONGELADO. INVITE-E2E-SMOKE continua follow-up aberto.
+
+next_action: |
+  1. **@architect *qa-gate 6.2** — gate independente da Story 6.2. Re-correr os 5
+     gates (lint · typecheck · test web · check:rls · build) + db-test 160/160
+     (Docker UP necessário p/ validar a migração 0021). Auditar os 3
+     [DEV-DECISION] (ver abaixo). Decidir PASS/CONCERNS/FAIL → gate file em
+     `docs/qa/gates/6.2-architect-gate.md`.
+  2. **Se PASS → @devops *push 6.2** + **DEPLOY da migração 0021 em PROD** via
+     `pnpm --filter @meu-jarvis/db db:migrate` (DIRECT_URL, porta 5432) — exactamente
+     como a 0020 foi deployada (precedente 0018/0019/0020). A 0021 é
+     `alter table user_prefs add column if not exists onboarding_completed_at` —
+     idempotente, zero policy nova. **Sem o deploy, o gate de onboarding na /visao
+     falha em prod** (coluna inexistente → query erro → fail-open deixa passar, mas
+     ninguém vê o tour). Deploy é OBRIGATÓRIO no push.
+  3. **Follow-up INVITE-E2E-SMOKE (Eurico/@qa)** — continua aberto, não-bloqueante
+     (smoke convidar→aceitar em prod da Story 6.7).
+
+context: |
+  **Estado git:** working tree com a Story 6.2 UNTRACKED. origin/main = `98b39dd`
+  (sincronizado no início desta sessão pelo @devops). Nada commitado/pushado da 6.2.
+
+  **Ficheiros da 6.2 (diff contido — zero billing, zero não-relacionado):**
+    Criados:
+      - packages/db/migrations/0021_user_prefs_onboarding_completed.sql
+      - apps/web/src/app/bem-vindo/{layout.tsx,page.tsx,actions.ts}
+      - apps/web/src/app/bem-vindo/_components/OnboardingTour.tsx
+      - apps/web/src/app/bem-vindo/_components/__tests__/OnboardingTour.test.tsx
+      - apps/web/src/app/bem-vindo/__tests__/actions.test.ts
+      - apps/web/src/app/(app)/visao/_components/WelcomeToast.tsx
+      - apps/web/src/app/(app)/visao/_components/__tests__/WelcomeToast.test.tsx
+      - docs/stories/active/6.2.onboarding-3-passos-trial.story.md
+    Modificados:
+      - packages/db/src/schema/prefs.ts (coluna onboardingCompletedAt nullable)
+      - apps/web/src/middleware.ts (/bem-vindo em APP_PATH_PREFIXES)
+      - apps/web/src/app/(app)/visao/page.tsx (gate onboarding + searchParams + WelcomeToast)
+      - apps/web/src/app/(app)/visao/__tests__/page.test.tsx (gate+toast+helper mockOnboardingDone)
+      - apps/web/src/__tests__/middleware.test.ts (redirect /bem-vindo)
+
+  **Âmbito da 6.2 (PURAMENTE tour + marcação):** household/trial já são criados
+  ATOMICAMENTE pelo trigger 0019 no signup — a 6.2 NÃO os toca. Tour de 2 passos:
+  Passo 1 = demo multi-intent SIMULADO (canned, zero LLM/writes); Passo 2 = trial
+  (Família €8,88 hero). "Saltar tudo"/"Começar a usar" → server action UPSERT
+  `onboarding_completed_at=now()` → redirect /visao?welcome=1. Gate na /visao RSC:
+  onboarding_completed_at null → redirect /bem-vindo.
+
+  **5 DPs travadas pelo @po (fonte-de-verdade — NÃO reabrir):** DP-6.2.1=B (seguir
+  front-end-spec §5.3) · DP-6.2.2=A OVERRIDE (tour 2 passos; Passo 1 nome/agregado
+  do spec superado — rename household é Fase 2 per Epic §3-OUT/DP8) · DP-6.2.3=B
+  (demo simulado) · DP-6.2.4=A (coluna user_prefs) · DP-6.2.5 (/bem-vindo + gate /visao).
+
+  **3 [DEV-DECISION] a auditar no gate:**
+    - D-6.2.1: rota TOP-LEVEL `app/bem-vindo/` (não `(app)/bem-vindo/`) com layout
+      próprio (só ThemeProvider) — para fullscreen sem AppShell sem converter o
+      (app)/layout em Client. Auth gate via middleware (APP_PATH_PREFIXES) +
+      getUser() defensivo. Consequência: não cai no teste auto-mantido de cobertura
+      de (app)/ → teste de redirect dedicado adicionado em middleware.test.ts.
+    - D-6.2.2: gate "fail-open" — hasCompletedOnboarding devolve true em erro de DB
+      (não prender utilizador em loop /visao⇄/bem-vindo). Coberto por teste.
+    - D-6.2.3: <WelcomeToast> dedicado (não o undoStore) — padrão visual reusado,
+      SEM lib de toast nova; guard "1×" via sessionStorage + trigger ?welcome=1.
+
+  **Gates corridos pelo @dev (re-correr no gate):**
+    lint EXIT 0 · typecheck 10/10 · test web 1052/1052 efectivo (1 falha =
+    tarefas/calendario flaky PRÉ-EXISTENTE sob carga da suite; VERDE isolado 3/3
+    — não tocado nesta story) · test db-test **160/160** (Docker; valida 0021) ·
+    check:rls **EXIT 0** (28 tabelas, user_prefs ✓) · build 10/10 (/bem-vindo ƒ
+    1.81 kB · /visao 2.93 kB · Middleware 94.6 kB intacto).
+    CodeRabbit SKIPPED (precedente 3.1–6.7; coderabbit_integration.enabled:false).
+
+  **Gotchas conhecidos (não repetir):** auth.users NÃO joinable via getDb;
+  REQ-INLINE-1 (só import type de @meu-jarvis/db em RSC/routes); SSR-safety FIX-1
+  (mutar stores só em useEffect); db.<ref>.supabase.co não resolve em IPv4 (usar
+  pooler); migração futura que recrie handle_new_user parte SEMPRE da 0019.
+
+  **Epic 6 progresso:** 6.1 Done + 6.7 Done (ambas em prod) + 6.2 Ready for Review.
+  Ramo household FECHADO. Ramo billing CONGELADO (6.3/6.4/6.5/6.6/6.10). Ramo GDPR
+  por fazer (6.8 export, 6.9 eliminação — tabelas data_export_jobs/
+  account_deletion_jobs já no schema). Prioridade do core decidida pelo Eurico
+  caso-a-caso (refocus = produto a FUNCIONAR E2E, não billing).
+
+blockers: |
+  Nenhum bloqueador técnico. O gate @architect precisa de Docker UP para o db-test
+  (validação da 0021). O deploy da 0021 em prod (passo 2) requer DIRECT_URL da
+  Supabase de produção (mesmo procedimento da 0020).

@@ -1,0 +1,104 @@
+id: mj-handoff-6.2-architect-to-devops-20260601
+from_agent: architect
+to_agent: devops
+created: '2026-06-01T20:05:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-06-01T20:20:00Z'
+consumed_by: devops
+consumed_note: |
+  @devops Gage consumiu e executou *push 6.2. Pré-push re-verificado: git status
+  sincronizado com origin (98b39dd, 0 ahead/behind), diff = exactamente o âmbito 6.2
+  + housekeeping de handoffs (zero billing). Gates rápidos re-corridos em sessão
+  @devops GREEN (lint·typecheck·check:rls EXIT 0); pesados (test web 1052/1052,
+  db-test 160/160, build MW 94.6 kB) confiados ao @architect (mesmo tree, minutos
+  antes). CodeRabbit SKIPPED (precedente 3.1–6.7). Story movida active/→completed/.
+  Migração 0021 deployada em prod via db:migrate (DIRECT_URL).
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: story-cycle
+
+summary: |
+  Story 6.2 (Onboarding — tour pós-registo de 2 passos + confirmação de trial)
+  passou o gate @architect → **PASS 9,2/10, Confiança Alta → Done v1.2-ARCH-APPROVED**.
+  6/6 gates re-corridos independentemente (db-test 160/160 valida a migração 0021
+  contra Postgres real; web 1052/1052 efectivo; check:rls EXIT 0; build verde). 10/10
+  ACs. 3 [DEV-DECISION] ratificadas. Gate file `docs/qa/gates/6.2-architect-gate.md`.
+  Trabalho UNTRACKED (precedente: só o @devops commita/pusha no fecho do ciclo).
+  Cadeia desta sessão: @qa (prioridade) → @sm *draft → @po GO 8,5/10 (5 DPs travadas,
+  1 override) → @dev *develop → @architect *qa-gate. Billing CONGELADO.
+
+next_action: |
+  1. **@devops *push 6.2** — commit + push do ciclo da Story 6.2 para origin/main.
+     Diff = 15 ficheiros (lista abaixo), zero billing, zero não-relacionado.
+     Pré-push: re-verificar `git status` e que o diff é exactamente o âmbito da 6.2.
+     CodeRabbit SKIPPED (precedente 3.1–6.7; coderabbit_integration.enabled:false).
+  2. **DEPLOY OBRIGATÓRIO da migração 0021 em PROD** via
+     `pnpm --filter @meu-jarvis/db db:migrate` (DIRECT_URL, porta 5432) — exactamente
+     como a 0020/0019/0018. A 0021 é `alter table user_prefs add column if not exists
+     onboarding_completed_at timestamptz` — idempotente, zero policy nova, seguro re-run.
+     **SEM o deploy, o gate de onboarding na /visao lê coluna inexistente em prod**
+     (query erro → fail-open deixa passar, mas ninguém vê o tour). NÃO é opcional.
+  3. **Follow-up INVITE-E2E-SMOKE (Eurico/@qa)** — continua aberto, NÃO-bloqueante
+     (smoke convidar→aceitar em prod da Story 6.7). Transita inalterado.
+  4. Após push+deploy: mover a story `active/` → `completed/` e arquivar este handoff.
+
+context: |
+  **Estado git:** working tree com a Story 6.2 UNTRACKED. origin/main = `98b39dd`
+  (sincronizado no início desta sessão). Nada commitado/pushado da 6.2 ainda.
+
+  **Ficheiros da 6.2 (diff contido — 15 itens; zero billing):**
+    Criados:
+      - packages/db/migrations/0021_user_prefs_onboarding_completed.sql
+      - apps/web/src/app/bem-vindo/layout.tsx
+      - apps/web/src/app/bem-vindo/page.tsx
+      - apps/web/src/app/bem-vindo/actions.ts
+      - apps/web/src/app/bem-vindo/_components/OnboardingTour.tsx
+      - apps/web/src/app/bem-vindo/_components/__tests__/OnboardingTour.test.tsx
+      - apps/web/src/app/bem-vindo/__tests__/actions.test.ts
+      - apps/web/src/app/(app)/visao/_components/WelcomeToast.tsx
+      - apps/web/src/app/(app)/visao/_components/__tests__/WelcomeToast.test.tsx
+      - docs/stories/active/6.2.onboarding-3-passos-trial.story.md
+      - docs/qa/gates/6.2-architect-gate.md
+    Modificados:
+      - packages/db/src/schema/prefs.ts (coluna onboardingCompletedAt nullable)
+      - apps/web/src/middleware.ts (/bem-vindo em APP_PATH_PREFIXES)
+      - apps/web/src/app/(app)/visao/page.tsx (gate onboarding + searchParams + WelcomeToast)
+      - apps/web/src/app/(app)/visao/__tests__/page.test.tsx (gate+toast+helper mockOnboardingDone)
+      - apps/web/src/__tests__/middleware.test.ts (redirect /bem-vindo)
+    (+ docs/HANDOFF-INDEX.md e este handoff entram no commit de housekeeping.)
+
+  **Gates re-verificados pelo @architect (podes confiar — mesmo tree, minutos antes;
+  re-corre os rápidos lint/typecheck/check:rls se quiseres dupla-confirmação):**
+    lint EXIT 0 · typecheck EXIT 0 (10/10) · test web 1052/1052 efectivo (1 falha =
+    tarefas/calendario flaky de carga, VERDE isolado 3/3 — não-relacionada com a 6.2) ·
+    db-test 160/160 (Docker 29.1.3; valida a 0021) · check:rls EXIT 0 (28 tabelas,
+    user_prefs ✓) · build EXIT 0 (/bem-vindo ƒ 1.81 kB · /visao 2.93 kB · MW 94.6 kB intacto).
+
+  **3 [DEV-DECISION] ratificadas no gate:** D-6.2.1 (rota top-level fullscreen —
+  cobertura mitigada por teste de redirect dedicado) · D-6.2.2 (gate fail-open —
+  previne loop de redirect; não é fronteira de segurança) · D-6.2.3 (<WelcomeToast>
+  dedicado — separação de responsabilidades, sem lib nova).
+
+  **Cross-cutting verificado:** NFR5 (getDb() only, zero getServiceDb real) ·
+  REQ-INLINE-1 (zero import runtime de @meu-jarvis/db) · tokens semânticos existem
+  no theme (light+dark) e mapeados no tailwind.config · PT-PT limpo · UPSERT
+  idempotente correcto (defaults DB cobrem colunas omitidas) · 5 DPs honradas.
+
+  **Observações não-bloqueantes (registadas no gate, não exigem acção no push):**
+  OBS-A (dupla leitura user_prefs na /visao — perf sweep futuro) · OBS-B
+  (utilizadores pré-6.2 verão o tour na próxima visita à /visao — desejado) ·
+  OBS-C (warning act() cosmético no teste do toast) · OBS-1 herdada (deep-link a
+  /tarefas salta o gate — Fase 2).
+
+  **Epic 6 progresso:** 6.1 Done + 6.7 Done (em prod) + 6.2 Done (a pushar).
+  Ramo household FECHADO. Ramo billing CONGELADO (6.3/6.4/6.5/6.6/6.10). Ramo GDPR
+  por fazer (6.8 export, 6.9 eliminação). Prioridade do core caso-a-caso (Eurico).
+
+blockers: |
+  Nenhum bloqueador técnico. O deploy da 0021 (passo 2) requer DIRECT_URL da
+  Supabase de PRODUÇÃO (mesmo procedimento da 0020 — runbook supabase-setup.md).
+  Se o push for noutra máquina, o código UNTRACKED só existe localmente — o @devops
+  tem de o ter no disco antes de pushar.
