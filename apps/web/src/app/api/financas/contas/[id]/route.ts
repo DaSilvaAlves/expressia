@@ -8,8 +8,12 @@
  *         `accounts_delete_owner_admin` (`0001:454`) — member recebe 403; só
  *         owner/admin arquiva (AC5).
  *
- * RLS: usa `getDb()` (role authenticated, RLS via JWT). Nunca o cliente
- * service-role que ignora RLS — vulnerabilidade crítica R-4.7.
+ * RLS (SEC-3 / ADR-003 Fase 2): a operação principal corre dentro de
+ * `withHousehold` (2.ª rede, RLS activa). O filtro `household_id` (SEC-1, 1.ª rede)
+ * MANTÉM-SE. O `insertAuditLog` permanece best-effort FORA do `withHousehold`
+ * (PO-FIX-2). `resolveHouseholdRole` (DELETE) corre fora — query a
+ * `household_members`, não dados financeiros (T2.3a). Nunca o cliente service-role
+ * que ignora RLS — vulnerabilidade crítica R-4.7.
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -23,7 +27,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { AccountUpdateSchema } from '@/lib/api-schemas/accounts';
 import { requireAuth, resolveHouseholdRole } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
@@ -71,13 +75,16 @@ export async function GET(_req: NextRequest, ctx: RouteContext): Promise<NextRes
       }
 
       try {
-        const db = getDb();
-        const rows = await db.execute<AccountRow>(sql`
-          select ${ACCOUNT_COLUMNS}
-          from public.accounts
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<AccountRow>(sql`
+              select ${ACCOUNT_COLUMNS}
+              from public.accounts
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `),
+        );
 
         const account = rows[0];
         if (!account) {
@@ -129,6 +136,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
         const sets = [];
         if (body.name !== undefined) sets.push(sql`name = ${body.name}`);
@@ -146,11 +154,15 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         sets.push(sql`updated_at = now()`);
         const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
 
-        const rows = await db.execute<AccountRow>(sql`
-          update public.accounts set ${setSql}
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          returning ${ACCOUNT_COLUMNS}
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<AccountRow>(sql`
+              update public.accounts set ${setSql}
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              returning ${ACCOUNT_COLUMNS}
+            `),
+        );
 
         const account = rows[0];
         if (!account) {
@@ -217,14 +229,19 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
         // Soft delete (DP-4.2.2) — `archived_at = now()`, preserva histórico
         // financeiro (a FK `cards.account_id ON DELETE restrict` impede hard delete).
-        const rows = await db.execute<{ id: string }>(sql`
-          update public.accounts set archived_at = now(), updated_at = now()
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          returning id
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<{ id: string }>(sql`
+              update public.accounts set archived_at = now(), updated_at = now()
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              returning id
+            `),
+        );
 
         if (rows.length === 0) {
           annotateSpan(span, { statusCode: 404 });

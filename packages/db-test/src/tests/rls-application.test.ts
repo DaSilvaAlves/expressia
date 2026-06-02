@@ -18,9 +18,17 @@
  *
  * Trace: SEC-2 AC-C1, AC-C2, AC-C3, AC-E3; ADR-003 §3.
  */
+import { randomUUID } from 'node:crypto';
+
 import { afterAll, beforeEach, describe, expect, test } from 'vitest';
 
-import { admin, insertAccount, insertTask, insertTransaction } from '@/helpers/fixtures';
+import {
+  admin,
+  insertAccount,
+  insertCategory,
+  insertTask,
+  insertTransaction,
+} from '@/helpers/fixtures';
 import {
   asUser,
   closeRlsHarness,
@@ -147,6 +155,110 @@ describe('RLS application gate (SEC-2 / ADR-003 Fase 1): transactions', () => {
     expect(blocked).toBe(true);
 
     const rows = await admin()<{ n: number }[]>`select count(*)::int as n from public.transactions`;
+    expect(rows[0]?.n).toBe(0);
+  });
+});
+
+describe('RLS application gate (SEC-3 / ADR-003 Fase 2): accounts', () => {
+  beforeEach(async () => {
+    await resetData();
+  });
+
+  test('userA só vê a sua conta (1 row), 0 de B', async () => {
+    const { householdA, householdB, userA } = await seedTwoHouseholds();
+    await insertAccount(admin(), householdA.id);
+    await insertAccount(admin(), householdB.id);
+
+    await asUser(userA.id, householdA.id, async (sql) => {
+      const rows = await sql<
+        { household_id: string }[]
+      >`select household_id from public.accounts`;
+      expect(rows).toHaveLength(1);
+      expect(rows.every((r) => r.household_id === householdA.id)).toBe(true);
+    });
+  });
+
+  test('SELECT com filtro cruzado (userA, WHERE household_id = B) → 0 rows', async () => {
+    const { householdA, householdB, userA } = await seedTwoHouseholds();
+    await insertAccount(admin(), householdA.id);
+    await insertAccount(admin(), householdB.id);
+
+    await asUser(userA.id, householdA.id, async (sql) => {
+      const rows = await sql`select id from public.accounts where household_id = ${householdB.id}`;
+      expect(rows).toHaveLength(0);
+    });
+  });
+
+  test('INSERT cross-household (userA → household B) é bloqueado por RLS', async () => {
+    const { householdA, householdB, userA } = await seedTwoHouseholds();
+
+    const blocked = await expectRlsBlocks(userA.id, householdA.id, async (sql) => {
+      await insertAccount(sql, householdB.id);
+    });
+    expect(blocked).toBe(true);
+
+    const rows = await admin()<{ n: number }[]>`select count(*)::int as n from public.accounts`;
+    expect(rows[0]?.n).toBe(0);
+  });
+});
+
+describe('RLS application gate (SEC-3 / ADR-003 Fase 2): categories (globais + per-household)', () => {
+  beforeEach(async () => {
+    await resetData();
+  });
+
+  // A policy `categories_select_global_or_member` é a ÚNICA que diverge do template
+  // padrão (permite `household_id IS NULL`). Estes testes provam que um household NÃO
+  // vê categorias *per-household* de outro (só as globais) — fecha o risco de leak de
+  // globais identificado na PO-OBS de SEC-3.
+
+  test('userA vê a sua categoria per-household + as globais, NUNCA a per-household de B', async () => {
+    const { householdA, householdB, userA } = await seedTwoHouseholds();
+    const catA = await insertCategory(admin(), householdA.id, 'Cat A');
+    const catB = await insertCategory(admin(), householdB.id, 'Cat B');
+    // Categoria GLOBAL (household_id NULL) — visível a todos os households (AC-E1).
+    const globalId = randomUUID();
+    await admin()`
+      insert into public.categories (id, household_id, name, is_default, kind)
+      values (${globalId}, ${null}, 'Categoria Global SEC-3', false, 'expense')
+    `;
+
+    await asUser(userA.id, householdA.id, async (sql) => {
+      const rows = await sql<{ id: string; household_id: string | null }[]>`
+        select id, household_id from public.categories
+      `;
+      const ids = rows.map((r) => r.id);
+      // Vê a própria per-household + a global.
+      expect(ids).toContain(catA);
+      expect(ids).toContain(globalId);
+      // NUNCA vê a per-household de B (não-global).
+      expect(ids).not.toContain(catB);
+      // Toda a row visível é ou do próprio household ou global (NULL).
+      expect(
+        rows.every((r) => r.household_id === householdA.id || r.household_id === null),
+      ).toBe(true);
+    });
+  });
+
+  test('SELECT explícito da categoria per-household de B (userA) → 0 rows', async () => {
+    const { householdA, householdB, userA } = await seedTwoHouseholds();
+    const catB = await insertCategory(admin(), householdB.id, 'Cat B');
+
+    await asUser(userA.id, householdA.id, async (sql) => {
+      const rows = await sql`select id from public.categories where id = ${catB}`;
+      expect(rows).toHaveLength(0);
+    });
+  });
+
+  test('INSERT cross-household (userA → categoria de household B) é bloqueado por RLS', async () => {
+    const { householdA, householdB, userA } = await seedTwoHouseholds();
+
+    const blocked = await expectRlsBlocks(userA.id, householdA.id, async (sql) => {
+      await insertCategory(sql, householdB.id, 'INVÁLIDA');
+    });
+    expect(blocked).toBe(true);
+
+    const rows = await admin()<{ n: number }[]>`select count(*)::int as n from public.categories`;
     expect(rows[0]?.n).toBe(0);
   });
 });

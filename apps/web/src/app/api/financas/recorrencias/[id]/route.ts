@@ -11,8 +11,11 @@
  *         `transactions.recurrence_id ON DELETE set null` e perderia a
  *         proveniência das transacções já geradas pelo cron.
  *
- * RLS: usa `getDb()` (role authenticated, RLS via JWT). Nunca o cliente
- * service-role que ignora RLS — vulnerabilidade crítica R-4.7.
+ * RLS (SEC-3 / ADR-003 Fase 2): a operação principal corre dentro de
+ * `withHousehold` (2.ª rede, RLS activa). O filtro `household_id` (SEC-1, 1.ª rede)
+ * MANTÉM-SE. No PATCH, o SELECT prévio (existência) + sub-queries FK + UPDATE
+ * correm no mesmo `tx` (AC5). O `insertAuditLog` permanece best-effort FORA do
+ * `withHousehold` (PO-FIX-2). Nunca o cliente service-role — vulnerabilidade R-4.7.
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -26,7 +29,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { FinanceRecurrenceUpdateSchema } from '@/lib/api-schemas/finance-recurrences';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
@@ -83,13 +86,16 @@ export async function GET(_req: NextRequest, ctx: RouteContext): Promise<NextRes
       }
 
       try {
-        const db = getDb();
-        const rows = await db.execute<RecurrenceRow>(sql`
-          select ${RECURRENCE_COLUMNS}
-          from public.recurrences
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<RecurrenceRow>(sql`
+              select ${RECURRENCE_COLUMNS}
+              from public.recurrences
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `),
+        );
 
         const recurrence = rows[0];
         if (!recurrence) {
@@ -140,106 +146,122 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         return apiError('VALIDATION_ERROR', 'Body inválido — JSON malformado.', 400);
       }
 
+      // Construção dos `sets` é pura (sem IO) — feita antes do `withHousehold`.
+      // Tipo explícito: o array escapa para o callback antes do 1.º push narrow.
+      const sets: ReturnType<typeof sql>[] = [];
+      if (body.description !== undefined) sets.push(sql`description = ${body.description}`);
+      if (body.kind !== undefined) sets.push(sql`kind = ${body.kind}::transaction_kind`);
+      if (body.amount_cents !== undefined) {
+        sets.push(sql`amount_cents = ${body.amount_cents}`);
+      }
+      if (body.account_id !== undefined) sets.push(sql`account_id = ${body.account_id}`);
+      if (body.card_id !== undefined) sets.push(sql`card_id = ${body.card_id}`);
+      if (body.category_id !== undefined) sets.push(sql`category_id = ${body.category_id}`);
+      if (body.payment_method !== undefined) {
+        sets.push(sql`payment_method = ${body.payment_method}::payment_method_finance`);
+      }
+      if (body.frequency !== undefined) {
+        sets.push(sql`frequency = ${body.frequency}::recurrence_freq_finance`);
+      }
+      if (body.interval !== undefined) sets.push(sql`interval = ${body.interval}`);
+      if (body.custom_rrule !== undefined) {
+        sets.push(sql`custom_rrule = ${body.custom_rrule}`);
+      }
+      if (body.starts_on !== undefined) {
+        sets.push(sql`starts_on = ${body.starts_on}::date`);
+      }
+      if (body.ends_on !== undefined) {
+        sets.push(
+          body.ends_on === null ? sql`ends_on = null` : sql`ends_on = ${body.ends_on}::date`,
+        );
+      }
+      if (body.active !== undefined) sets.push(sql`active = ${body.active}`);
+
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
 
-        // SELECT prévio confirma existência (RLS — cross-household → vazio).
-        const existing = await db.execute<{ id: string }>(sql`
-          select id from public.recurrences
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
-        if (!existing[0]) {
+        // AC5/AC6 — SELECT existência + sub-queries FK + UPDATE correm no MESMO `tx`.
+        // Retorno discriminado preserva os early-returns 404/400 sem `return` no callback.
+        const result = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          async (
+            tx,
+          ): Promise<
+            | { error: 'not_found' | 'no_fields' }
+            | { error: 'fk_not_found'; fk: 'account' | 'card' | 'category' }
+            | { recurrence: RecurrenceRow }
+          > => {
+            // SELECT prévio confirma existência (RLS — cross-household → vazio).
+            const existing = await tx.execute<{ id: string }>(sql`
+              select id from public.recurrences
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `);
+            if (!existing[0]) return { error: 'not_found' };
+
+            // AC6(b) — FK fields actualizados têm de pertencer ao household.
+            if (body.account_id) {
+              const rows = await tx.execute<{ id: string }>(sql`
+                select id from public.accounts
+                where id = ${body.account_id}::uuid and household_id = ${auth.householdId}::uuid
+                limit 1
+              `);
+              if (rows.length === 0) return { error: 'fk_not_found', fk: 'account' };
+            }
+            if (body.card_id) {
+              const rows = await tx.execute<{ id: string }>(sql`
+                select id from public.cards
+                where id = ${body.card_id}::uuid and household_id = ${auth.householdId}::uuid
+                limit 1
+              `);
+              if (rows.length === 0) return { error: 'fk_not_found', fk: 'card' };
+            }
+            if (body.category_id) {
+              const rows = await tx.execute<{ id: string }>(sql`
+                select id from public.categories
+                where id = ${body.category_id}::uuid
+                  and (household_id = ${auth.householdId}::uuid or household_id is null)
+                limit 1
+              `);
+              if (rows.length === 0) return { error: 'fk_not_found', fk: 'category' };
+            }
+
+            if (sets.length === 0) return { error: 'no_fields' };
+
+            sets.push(sql`updated_at = now()`);
+            const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
+
+            const updated = await tx.execute<RecurrenceRow>(sql`
+              update public.recurrences set ${setSql}
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              returning ${RECURRENCE_COLUMNS}
+            `);
+            const row = updated[0];
+            if (!row) return { error: 'not_found' };
+            return { recurrence: row };
+          },
+        );
+
+        if ('error' in result) {
+          if (result.error === 'no_fields') {
+            annotateSpan(span, { statusCode: 400 });
+            return apiError('VALIDATION_ERROR', 'Nenhum campo fornecido para actualizar.', 400);
+          }
+          if (result.error === 'fk_not_found') {
+            annotateSpan(span, { statusCode: 404 });
+            const messages = {
+              account: 'Conta não encontrada.',
+              card: 'Cartão não encontrado.',
+              category: 'Categoria não encontrada.',
+            } as const;
+            return apiError('NOT_FOUND', messages[result.fk], 404);
+          }
           annotateSpan(span, { statusCode: 404 });
           return apiError('NOT_FOUND', 'Recorrência não encontrada.', 404);
         }
 
-        // AC6(b) — FK fields actualizados têm de pertencer ao household.
-        if (body.account_id) {
-          const rows = await db.execute<{ id: string }>(sql`
-            select id from public.accounts
-            where id = ${body.account_id}::uuid and household_id = ${auth.householdId}::uuid
-            limit 1
-          `);
-          if (rows.length === 0) {
-            annotateSpan(span, { statusCode: 404 });
-            return apiError('NOT_FOUND', 'Conta não encontrada.', 404);
-          }
-        }
-        if (body.card_id) {
-          const rows = await db.execute<{ id: string }>(sql`
-            select id from public.cards
-            where id = ${body.card_id}::uuid and household_id = ${auth.householdId}::uuid
-            limit 1
-          `);
-          if (rows.length === 0) {
-            annotateSpan(span, { statusCode: 404 });
-            return apiError('NOT_FOUND', 'Cartão não encontrado.', 404);
-          }
-        }
-        if (body.category_id) {
-          const rows = await db.execute<{ id: string }>(sql`
-            select id from public.categories
-            where id = ${body.category_id}::uuid
-              and (household_id = ${auth.householdId}::uuid or household_id is null)
-            limit 1
-          `);
-          if (rows.length === 0) {
-            annotateSpan(span, { statusCode: 404 });
-            return apiError('NOT_FOUND', 'Categoria não encontrada.', 404);
-          }
-        }
-
-        const sets = [];
-        if (body.description !== undefined) sets.push(sql`description = ${body.description}`);
-        if (body.kind !== undefined) sets.push(sql`kind = ${body.kind}::transaction_kind`);
-        if (body.amount_cents !== undefined) {
-          sets.push(sql`amount_cents = ${body.amount_cents}`);
-        }
-        if (body.account_id !== undefined) sets.push(sql`account_id = ${body.account_id}`);
-        if (body.card_id !== undefined) sets.push(sql`card_id = ${body.card_id}`);
-        if (body.category_id !== undefined) sets.push(sql`category_id = ${body.category_id}`);
-        if (body.payment_method !== undefined) {
-          sets.push(sql`payment_method = ${body.payment_method}::payment_method_finance`);
-        }
-        if (body.frequency !== undefined) {
-          sets.push(sql`frequency = ${body.frequency}::recurrence_freq_finance`);
-        }
-        if (body.interval !== undefined) sets.push(sql`interval = ${body.interval}`);
-        if (body.custom_rrule !== undefined) {
-          sets.push(sql`custom_rrule = ${body.custom_rrule}`);
-        }
-        if (body.starts_on !== undefined) {
-          sets.push(sql`starts_on = ${body.starts_on}::date`);
-        }
-        if (body.ends_on !== undefined) {
-          sets.push(
-            body.ends_on === null
-              ? sql`ends_on = null`
-              : sql`ends_on = ${body.ends_on}::date`,
-          );
-        }
-        if (body.active !== undefined) sets.push(sql`active = ${body.active}`);
-
-        if (sets.length === 0) {
-          annotateSpan(span, { statusCode: 400 });
-          return apiError('VALIDATION_ERROR', 'Nenhum campo fornecido para actualizar.', 400);
-        }
-
-        sets.push(sql`updated_at = now()`);
-        const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
-
-        const rows = await db.execute<RecurrenceRow>(sql`
-          update public.recurrences set ${setSql}
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          returning ${RECURRENCE_COLUMNS}
-        `);
-
-        const recurrence = rows[0];
-        if (!recurrence) {
-          annotateSpan(span, { statusCode: 404 });
-          return apiError('NOT_FOUND', 'Recorrência não encontrada.', 404);
-        }
+        const recurrence = result.recurrence;
 
         try {
           await insertAuditLog({
@@ -297,16 +319,21 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
 
         // Soft delete (DP-4.4.3) — `UPDATE set active = false`. Preserva
         // `transactions.recurrence_id` das transacções já geradas pelo cron e
         // pára a geração futura (o cron de Finanças filtra `active = true`).
-        const rows = await db.execute<{ id: string }>(sql`
-          update public.recurrences set active = false, updated_at = now()
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          returning id
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<{ id: string }>(sql`
+              update public.recurrences set active = false, updated_at = now()
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              returning id
+            `),
+        );
 
         if (!rows[0]) {
           annotateSpan(span, { statusCode: 404 });

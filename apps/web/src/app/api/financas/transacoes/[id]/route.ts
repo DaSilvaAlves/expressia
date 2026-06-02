@@ -9,7 +9,11 @@
  * DELETE: Hard delete (DP-4.3.4 — `transactions` não tem `archived_at`). Scope
  *         variable-only — transacção gerada → 409 CONFLICT.
  *
- * RLS: usa `getDb()` (role authenticated, RLS via JWT). Nunca o cliente
+ * RLS (SEC-3 / ADR-003 Fase 2): a operação principal corre dentro de
+ * `withHousehold` (2.ª rede, RLS activa). O filtro `household_id` (SEC-1, 1.ª rede)
+ * MANTÉM-SE. No PATCH/DELETE, o SELECT prévio (scope variable-only) + sub-queries FK
+ * + UPDATE/DELETE correm no mesmo `tx` (AC5/AC6 — atomicidade). O `insertAuditLog`
+ * permanece best-effort FORA do `withHousehold` (PO-FIX-2). Nunca o cliente
  * service-role que ignora RLS — vulnerabilidade crítica R-4.7.
  */
 import { sql } from 'drizzle-orm';
@@ -24,7 +28,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { TransactionUpdateSchema } from '@/lib/api-schemas/transactions';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
@@ -86,13 +90,16 @@ export async function GET(_req: NextRequest, ctx: RouteContext): Promise<NextRes
       }
 
       try {
-        const db = getDb();
-        const rows = await db.execute<TransactionRow>(sql`
-          select ${TRANSACTION_COLUMNS}
-          from public.transactions
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<TransactionRow>(sql`
+              select ${TRANSACTION_COLUMNS}
+              from public.transactions
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `),
+        );
 
         const transaction = rows[0];
         if (!transaction) {
@@ -143,103 +150,124 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         return apiError('VALIDATION_ERROR', 'Body inválido — JSON malformado.', 400);
       }
 
+      // Construção dos `sets` é pura (sem IO) — feita antes do `withHousehold`.
+      const sets = [];
+      if (body.account_id !== undefined) sets.push(sql`account_id = ${body.account_id}`);
+      if (body.card_id !== undefined) sets.push(sql`card_id = ${body.card_id}`);
+      if (body.category_id !== undefined) sets.push(sql`category_id = ${body.category_id}`);
+      if (body.amount_cents !== undefined) sets.push(sql`amount_cents = ${body.amount_cents}`);
+      if (body.kind !== undefined) sets.push(sql`kind = ${body.kind}::transaction_kind`);
+      if (body.description !== undefined) sets.push(sql`description = ${body.description}`);
+      if (body.transaction_date !== undefined) {
+        sets.push(sql`transaction_date = ${body.transaction_date}::date`);
+      }
+      if (body.payment_method !== undefined) {
+        sets.push(sql`payment_method = ${body.payment_method}::payment_method_finance`);
+      }
+      if (body.notes !== undefined) sets.push(sql`notes = ${body.notes}`);
+
+      if (sets.length === 0) {
+        annotateSpan(span, { statusCode: 400 });
+        return apiError('VALIDATION_ERROR', 'Nenhum campo fornecido para actualizar.', 400);
+      }
+
+      sets.push(sql`updated_at = now()`);
+      const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
+
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
 
-        // Scope variable-only (DP-4.3.3) — SELECT prévio confirma existência e
-        // que a transacção NÃO foi gerada por recorrência/prestação.
-        const existing = await db.execute<{
-          id: string;
-          recurrence_id: string | null;
-          installment_id: string | null;
-        }>(sql`
-          select id, recurrence_id, installment_id
-          from public.transactions
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
-        const current = existing[0];
-        if (!current) {
+        // AC5/AC6 — SELECT prévio (scope) + sub-queries FK + UPDATE correm no MESMO
+        // `tx` (atomicidade + contexto RLS consistente). Retorno discriminado preserva
+        // os early-returns 404/409/404-por-FK sem `return` dentro do callback.
+        const result = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          async (
+            tx,
+          ): Promise<
+            | { error: 'not_found' }
+            | { error: 'conflict' }
+            | { error: 'fk_not_found'; fk: 'account' | 'card' | 'category' }
+            | { transaction: TransactionRow }
+          > => {
+            // Scope variable-only (DP-4.3.3) — SELECT prévio confirma existência e
+            // que a transacção NÃO foi gerada por recorrência/prestação.
+            const existing = await tx.execute<{
+              id: string;
+              recurrence_id: string | null;
+              installment_id: string | null;
+            }>(sql`
+              select id, recurrence_id, installment_id
+              from public.transactions
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `);
+            const current = existing[0];
+            if (!current) return { error: 'not_found' };
+            if (current.recurrence_id !== null || current.installment_id !== null) {
+              return { error: 'conflict' };
+            }
+
+            // AC6(b) — FK fields actualizados têm de pertencer ao household.
+            if (body.account_id) {
+              const rows = await tx.execute<{ id: string }>(sql`
+                select id from public.accounts
+                where id = ${body.account_id}::uuid and household_id = ${auth.householdId}::uuid
+                limit 1
+              `);
+              if (rows.length === 0) return { error: 'fk_not_found', fk: 'account' };
+            }
+            if (body.card_id) {
+              const rows = await tx.execute<{ id: string }>(sql`
+                select id from public.cards
+                where id = ${body.card_id}::uuid and household_id = ${auth.householdId}::uuid
+                limit 1
+              `);
+              if (rows.length === 0) return { error: 'fk_not_found', fk: 'card' };
+            }
+            if (body.category_id) {
+              // Categorias globais (household_id IS NULL) são válidas para todos os
+              // households — manter a excepção deliberada da auditoria (AC-E1).
+              const rows = await tx.execute<{ id: string }>(sql`
+                select id from public.categories
+                where id = ${body.category_id}::uuid
+                  and (household_id = ${auth.householdId}::uuid or household_id is null)
+                limit 1
+              `);
+              if (rows.length === 0) return { error: 'fk_not_found', fk: 'category' };
+            }
+
+            const updated = await tx.execute<TransactionRow>(sql`
+              update public.transactions set ${setSql}
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              returning ${TRANSACTION_COLUMNS}
+            `);
+            const row = updated[0];
+            if (!row) return { error: 'not_found' };
+            return { transaction: row };
+          },
+        );
+
+        if ('error' in result) {
+          if (result.error === 'conflict') {
+            annotateSpan(span, { statusCode: 409 });
+            return apiError('CONFLICT', GENERATED_CONFLICT, 409);
+          }
+          if (result.error === 'fk_not_found') {
+            annotateSpan(span, { statusCode: 404 });
+            const messages = {
+              account: 'Conta não encontrada.',
+              card: 'Cartão não encontrado.',
+              category: 'Categoria não encontrada.',
+            } as const;
+            return apiError('NOT_FOUND', messages[result.fk], 404);
+          }
           annotateSpan(span, { statusCode: 404 });
           return apiError('NOT_FOUND', 'Transacção não encontrada.', 404);
         }
-        if (current.recurrence_id !== null || current.installment_id !== null) {
-          annotateSpan(span, { statusCode: 409 });
-          return apiError('CONFLICT', GENERATED_CONFLICT, 409);
-        }
 
-        // AC6(b) — FK fields actualizados têm de pertencer ao household.
-        if (body.account_id) {
-          const rows = await db.execute<{ id: string }>(sql`
-            select id from public.accounts
-            where id = ${body.account_id}::uuid and household_id = ${auth.householdId}::uuid
-            limit 1
-          `);
-          if (rows.length === 0) {
-            annotateSpan(span, { statusCode: 404 });
-            return apiError('NOT_FOUND', 'Conta não encontrada.', 404);
-          }
-        }
-        if (body.card_id) {
-          const rows = await db.execute<{ id: string }>(sql`
-            select id from public.cards
-            where id = ${body.card_id}::uuid and household_id = ${auth.householdId}::uuid
-            limit 1
-          `);
-          if (rows.length === 0) {
-            annotateSpan(span, { statusCode: 404 });
-            return apiError('NOT_FOUND', 'Cartão não encontrado.', 404);
-          }
-        }
-        if (body.category_id) {
-          // Categorias globais (household_id IS NULL) são válidas para todos os
-          // households — manter a excepção deliberada da auditoria (AC-E1).
-          const rows = await db.execute<{ id: string }>(sql`
-            select id from public.categories
-            where id = ${body.category_id}::uuid
-              and (household_id = ${auth.householdId}::uuid or household_id is null)
-            limit 1
-          `);
-          if (rows.length === 0) {
-            annotateSpan(span, { statusCode: 404 });
-            return apiError('NOT_FOUND', 'Categoria não encontrada.', 404);
-          }
-        }
-
-        const sets = [];
-        if (body.account_id !== undefined) sets.push(sql`account_id = ${body.account_id}`);
-        if (body.card_id !== undefined) sets.push(sql`card_id = ${body.card_id}`);
-        if (body.category_id !== undefined) sets.push(sql`category_id = ${body.category_id}`);
-        if (body.amount_cents !== undefined) sets.push(sql`amount_cents = ${body.amount_cents}`);
-        if (body.kind !== undefined) sets.push(sql`kind = ${body.kind}::transaction_kind`);
-        if (body.description !== undefined) sets.push(sql`description = ${body.description}`);
-        if (body.transaction_date !== undefined) {
-          sets.push(sql`transaction_date = ${body.transaction_date}::date`);
-        }
-        if (body.payment_method !== undefined) {
-          sets.push(sql`payment_method = ${body.payment_method}::payment_method_finance`);
-        }
-        if (body.notes !== undefined) sets.push(sql`notes = ${body.notes}`);
-
-        if (sets.length === 0) {
-          annotateSpan(span, { statusCode: 400 });
-          return apiError('VALIDATION_ERROR', 'Nenhum campo fornecido para actualizar.', 400);
-        }
-
-        sets.push(sql`updated_at = now()`);
-        const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
-
-        const rows = await db.execute<TransactionRow>(sql`
-          update public.transactions set ${setSql}
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          returning ${TRANSACTION_COLUMNS}
-        `);
-
-        const transaction = rows[0];
-        if (!transaction) {
-          annotateSpan(span, { statusCode: 404 });
-          return apiError('NOT_FOUND', 'Transacção não encontrada.', 404);
-        }
+        const transaction = result.transaction;
 
         try {
           await insertAuditLog({
@@ -296,36 +324,50 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
 
-        // Scope variable-only (DP-4.3.3) — SELECT prévio antes do hard delete.
-        const existing = await db.execute<{
-          id: string;
-          recurrence_id: string | null;
-          installment_id: string | null;
-        }>(sql`
-          select id, recurrence_id, installment_id
-          from public.transactions
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
-        const current = existing[0];
-        if (!current) {
+        // AC5/AC6 — SELECT prévio (scope) + DELETE correm no MESMO `tx`. Retorno
+        // discriminado preserva os early-returns 404/409 sem `return` no callback.
+        const result = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          async (tx): Promise<{ error: 'not_found' | 'conflict' } | { deleted: true }> => {
+            // Scope variable-only (DP-4.3.3) — SELECT prévio antes do hard delete.
+            const existing = await tx.execute<{
+              id: string;
+              recurrence_id: string | null;
+              installment_id: string | null;
+            }>(sql`
+              select id, recurrence_id, installment_id
+              from public.transactions
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `);
+            const current = existing[0];
+            if (!current) return { error: 'not_found' };
+            if (current.recurrence_id !== null || current.installment_id !== null) {
+              return { error: 'conflict' };
+            }
+
+            // Hard delete (DP-4.3.4) — `transactions` não tem `archived_at`; nada
+            // referencia `transactions.id`. Sob DP1=A (recompute on-read) a remoção
+            // sai correctamente do agregado de saldo.
+            await tx.execute(sql`
+              delete from public.transactions
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+            `);
+            return { deleted: true };
+          },
+        );
+
+        if ('error' in result) {
+          if (result.error === 'conflict') {
+            annotateSpan(span, { statusCode: 409 });
+            return apiError('CONFLICT', GENERATED_CONFLICT, 409);
+          }
           annotateSpan(span, { statusCode: 404 });
           return apiError('NOT_FOUND', 'Transacção não encontrada.', 404);
         }
-        if (current.recurrence_id !== null || current.installment_id !== null) {
-          annotateSpan(span, { statusCode: 409 });
-          return apiError('CONFLICT', GENERATED_CONFLICT, 409);
-        }
-
-        // Hard delete (DP-4.3.4) — `transactions` não tem `archived_at`; nada
-        // referencia `transactions.id`. Sob DP1=A (recompute on-read) a remoção
-        // sai correctamente do agregado de saldo.
-        await db.execute(sql`
-          delete from public.transactions
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-        `);
 
         try {
           await insertAuditLog({

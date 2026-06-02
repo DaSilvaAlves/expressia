@@ -34,7 +34,14 @@ vi.mock('@/lib/agent/db-shim', () => {
     transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({ execute: mocks.dbExecuteMock }),
   };
-  return { getDb: () => dbStub };
+  return {
+    getDb: () => dbStub,
+    // SEC-3: a operação principal (sub-queries FK + transação aninhada) corre dentro
+    // de `withHousehold`. O mock injecta o `dbStub` (que expõe `execute` + `transaction`)
+    // como `tx` — o `tx.transaction()` aninhado herda o mesmo `dbExecuteMock`.
+    withHousehold: (_auth: { userId: string; householdId: string }, fn: (tx: unknown) => unknown) =>
+      fn(dbStub),
+  };
 });
 
 import { NextRequest } from 'next/server';

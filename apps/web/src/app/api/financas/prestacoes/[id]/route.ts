@@ -12,8 +12,13 @@
  *
  * SEM endpoint PATCH (DP-4.4.3) — as compras parceladas são imutáveis no MVP.
  *
- * RLS: usa `getDb()` (role authenticated, RLS via JWT). Nunca o cliente
- * service-role que ignora RLS — vulnerabilidade crítica R-4.7.
+ * RLS (SEC-3 / ADR-003 Fase 2): a operação principal corre dentro de
+ * `withHousehold` (2.ª rede, RLS activa). O filtro `household_id` (SEC-1, 1.ª rede)
+ * MANTÉM-SE. No DELETE (AC6 — transação aninhada), o SELECT prévio + o
+ * `tx.transaction()` (savepoint que herda o contexto RLS) correm no mesmo
+ * `withHousehold`. A ordem de delete (transactions ANTES de installments) é
+ * preservada. O `insertAuditLog` permanece best-effort FORA do `withHousehold`
+ * (PO-FIX-2). Nunca o cliente service-role — vulnerabilidade crítica R-4.7.
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -27,7 +32,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
 
@@ -77,13 +82,16 @@ export async function GET(_req: NextRequest, ctx: RouteContext): Promise<NextRes
       }
 
       try {
-        const db = getDb();
-        const rows = await db.execute<InstallmentRow>(sql`
-          select ${INSTALLMENT_COLUMNS}
-          from public.installments
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<InstallmentRow>(sql`
+              select ${INSTALLMENT_COLUMNS}
+              from public.installments
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `),
+        );
 
         const installment = rows[0];
         if (!installment) {
@@ -122,34 +130,49 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
 
-        // SELECT prévio confirma existência (RLS — cross-household → vazio).
-        const existing = await db.execute<{ id: string }>(sql`
-          select id from public.installments
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
-        if (!existing[0]) {
+        // AC6 — SELECT prévio + transação aninhada (savepoint) correm dentro do
+        // MESMO `withHousehold`. O `tx.transaction()` herda o contexto RLS. Retorno
+        // discriminado preserva o early-return 404 sem `return` dentro do callback.
+        const result = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          async (tx): Promise<{ error: 'not_found' } | { transactionsDeleted: number }> => {
+            // SELECT prévio confirma existência (RLS — cross-household → vazio).
+            const existing = await tx.execute<{ id: string }>(sql`
+              select id from public.installments
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `);
+            if (!existing[0]) return { error: 'not_found' };
+
+            // DP-4.4.5 — hard delete em cascata na transação aninhada (savepoint):
+            // transactions ANTES do installment. A ordem inversa violaria o CHECK
+            // `transactions_installment_index_coherent` via `ON DELETE set null`.
+            const transactionsDeleted = await tx.transaction(async (innerTx) => {
+              const deletedTx = await innerTx.execute<{ id: string }>(sql`
+                delete from public.transactions
+                where installment_id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+                returning id
+              `);
+              await innerTx.execute(sql`
+                delete from public.installments
+                where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              `);
+              return deletedTx.length;
+            });
+
+            return { transactionsDeleted };
+          },
+        );
+
+        if ('error' in result) {
           annotateSpan(span, { statusCode: 404 });
           return apiError('NOT_FOUND', 'Prestação não encontrada.', 404);
         }
 
-        // DP-4.4.5 — hard delete em cascata numa transacção Postgres:
-        // transactions ANTES do installment. A ordem inversa violaria o CHECK
-        // `transactions_installment_index_coherent` via `ON DELETE set null`.
-        const transactionsDeleted = await db.transaction(async (tx) => {
-          const deletedTx = await tx.execute<{ id: string }>(sql`
-            delete from public.transactions
-            where installment_id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-            returning id
-          `);
-          await tx.execute(sql`
-            delete from public.installments
-            where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          `);
-          return deletedTx.length;
-        });
+        const transactionsDeleted = result.transactionsDeleted;
 
         try {
           await insertAuditLog({

@@ -8,8 +8,12 @@
  *       fixo `'EUR'` (default DB). `balance_cents` inicializado = `initial_balance_cents`
  *       (snapshot, DP-4.2.4).
  *
- * RLS: usa `getDb()` (role authenticated, RLS via JWT). Nunca o cliente
- * service-role que ignora RLS — vulnerabilidade crítica R-4.7.
+ * RLS (SEC-3 / ADR-003 Fase 2): a operação principal corre dentro de
+ * `withHousehold`, que abre uma transação com `SET LOCAL ROLE authenticated`
+ * + JWT claims — activa as 104 RLS policies (2.ª rede). O filtro `household_id`
+ * explícito (SEC-1, 1.ª rede) MANTÉM-SE em todas as queries — defense-in-depth.
+ * O `insertAuditLog` permanece best-effort FORA do `withHousehold` (PO-FIX-2).
+ * Nunca o cliente service-role que ignora RLS — vulnerabilidade crítica R-4.7.
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -23,7 +27,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { AccountCreateSchema } from '@/lib/api-schemas/accounts';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
@@ -63,15 +67,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const archived = req.nextUrl.searchParams.get('archived') === 'true';
 
       try {
-        const db = getDb();
-        const rows = await db.execute<AccountRow>(sql`
-          select ${ACCOUNT_COLUMNS}
-          from public.accounts
-          where ${archived ? sql`archived_at is not null` : sql`archived_at is null`}
-            and household_id = ${auth.householdId}::uuid
-          order by name asc
-          limit 200
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<AccountRow>(sql`
+              select ${ACCOUNT_COLUMNS}
+              from public.accounts
+              where ${archived ? sql`archived_at is not null` : sql`archived_at is null`}
+                and household_id = ${auth.householdId}::uuid
+              order by name asc
+              limit 200
+            `),
+        );
         annotateSpan(span, { statusCode: 200 });
         return NextResponse.json({ accounts: rows });
       } catch (err) {
@@ -110,22 +117,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
         // `balance_cents` inicializado = `initial_balance_cents` (snapshot, DP-4.2.4).
-        const rows = await db.execute<AccountRow>(sql`
-          insert into public.accounts
-            (household_id, name, account_type, bank_name, iban_last4, initial_balance_cents, balance_cents)
-          values (
-            ${auth.householdId}::uuid,
-            ${body.name},
-            ${body.account_type}::account_type,
-            ${body.bank_name ?? null},
-            ${body.iban_last4 ?? null},
-            ${body.initial_balance_cents},
-            ${body.initial_balance_cents}
-          )
-          returning ${ACCOUNT_COLUMNS}
-        `);
+        // Operação principal (INSERT) dentro de `withHousehold` (RLS-enforced, 2.ª rede).
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<AccountRow>(sql`
+              insert into public.accounts
+                (household_id, name, account_type, bank_name, iban_last4, initial_balance_cents, balance_cents)
+              values (
+                ${auth.householdId}::uuid,
+                ${body.name},
+                ${body.account_type}::account_type,
+                ${body.bank_name ?? null},
+                ${body.iban_last4 ?? null},
+                ${body.initial_balance_cents},
+                ${body.initial_balance_cents}
+              )
+              returning ${ACCOUNT_COLUMNS}
+            `),
+        );
 
         const account = rows[0];
         if (!account) throw new Error('INSERT account retornou sem rows.');

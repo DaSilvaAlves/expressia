@@ -11,7 +11,11 @@
  *       `is_projected` false (default DB). `household_id` + `created_by_user_id`
  *       via JWT. `currency` fixo `'EUR'`.
  *
- * RLS: usa `getDb()` (role authenticated, RLS via JWT). Nunca o cliente
+ * RLS (SEC-3 / ADR-003 Fase 2): a operação principal corre dentro de
+ * `withHousehold` (2.ª rede, RLS activa). O filtro `household_id` (SEC-1, 1.ª rede)
+ * MANTÉM-SE. No POST, as sub-queries FK `accounts`/`cards`/`categories` correm no
+ * mesmo `tx` que o INSERT `transactions` (AC5 — atomicidade). O `insertAuditLog`
+ * permanece best-effort FORA do `withHousehold` (PO-FIX-2). Nunca o cliente
  * service-role que ignora RLS — vulnerabilidade crítica R-4.7.
  */
 import { sql } from 'drizzle-orm';
@@ -26,7 +30,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import {
   TRANSACTION_KINDS,
   TRANSACTION_ORIGINS,
@@ -139,7 +143,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       }
 
       try {
-        const db = getDb();
         const conditions = [sql`household_id = ${auth.householdId}::uuid`];
         if (filters.from) conditions.push(sql`transaction_date >= ${filters.from}::date`);
         if (filters.to) conditions.push(sql`transaction_date <= ${filters.to}::date`);
@@ -172,13 +175,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             : sql`true`;
 
         // limit + 1 — a row extra sinaliza que há próxima página.
-        const rows = await db.execute<TransactionRow>(sql`
-          select ${TRANSACTION_COLUMNS}
-          from public.transactions
-          where ${whereSql}
-          order by transaction_date desc, id desc
-          limit ${filters.limit + 1}
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<TransactionRow>(sql`
+              select ${TRANSACTION_COLUMNS}
+              from public.transactions
+              where ${whereSql}
+              order by transaction_date desc, id desc
+              limit ${filters.limit + 1}
+            `),
+        );
 
         const hasMore = rows.length > filters.limit;
         const page = hasMore ? rows.slice(0, filters.limit) : rows;
@@ -229,70 +236,85 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
 
-        // AC6(b) + SEC-1-F1 — `account_id`/`card_id`/`category_id` (quando
-        // presentes) têm de pertencer ao household. Filtro `household_id`
-        // app-enforced explícito (RLS inerte em runtime — getDb() liga como role
-        // bypassrls). Categorias globais (`household_id NULL`) são válidas para
-        // todos os households (AC-E1).
-        if (body.account_id) {
-          const rows = await db.execute<{ id: string }>(sql`
-            select id from public.accounts
-            where id = ${body.account_id}::uuid and household_id = ${auth.householdId}::uuid
-            limit 1
-          `);
-          if (rows.length === 0) {
-            annotateSpan(span, { statusCode: 404 });
-            return apiError('NOT_FOUND', 'Conta não encontrada.', 404);
-          }
-        }
-        if (body.card_id) {
-          const rows = await db.execute<{ id: string }>(sql`
-            select id from public.cards
-            where id = ${body.card_id}::uuid and household_id = ${auth.householdId}::uuid
-            limit 1
-          `);
-          if (rows.length === 0) {
-            annotateSpan(span, { statusCode: 404 });
-            return apiError('NOT_FOUND', 'Cartão não encontrado.', 404);
-          }
-        }
-        if (body.category_id) {
-          const rows = await db.execute<{ id: string }>(sql`
-            select id from public.categories
-            where id = ${body.category_id}::uuid
-              and (household_id = ${auth.householdId}::uuid or household_id is null)
-            limit 1
-          `);
-          if (rows.length === 0) {
-            annotateSpan(span, { statusCode: 404 });
-            return apiError('NOT_FOUND', 'Categoria não encontrada.', 404);
-          }
+        // AC5 — sub-queries FK + INSERT correm no MESMO `tx` (atomicidade +
+        // contexto RLS consistente). Retorno discriminado preserva o early-return
+        // 404 por FK sem `return` dentro do callback da transação.
+        const result = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          async (
+            tx,
+          ): Promise<
+            { notFound: 'account' | 'card' | 'category' } | { transaction: TransactionRow }
+          > => {
+            // AC6(b) + SEC-1-F1 — `account_id`/`card_id`/`category_id` (quando
+            // presentes) têm de pertencer ao household (filtro `household_id`
+            // app-enforced explícito, 1.ª rede). Categorias globais
+            // (`household_id NULL`) são válidas para todos os households (AC-E1).
+            if (body.account_id) {
+              const rows = await tx.execute<{ id: string }>(sql`
+                select id from public.accounts
+                where id = ${body.account_id}::uuid and household_id = ${auth.householdId}::uuid
+                limit 1
+              `);
+              if (rows.length === 0) return { notFound: 'account' };
+            }
+            if (body.card_id) {
+              const rows = await tx.execute<{ id: string }>(sql`
+                select id from public.cards
+                where id = ${body.card_id}::uuid and household_id = ${auth.householdId}::uuid
+                limit 1
+              `);
+              if (rows.length === 0) return { notFound: 'card' };
+            }
+            if (body.category_id) {
+              const rows = await tx.execute<{ id: string }>(sql`
+                select id from public.categories
+                where id = ${body.category_id}::uuid
+                  and (household_id = ${auth.householdId}::uuid or household_id is null)
+                limit 1
+              `);
+              if (rows.length === 0) return { notFound: 'category' };
+            }
+
+            const inserted = await tx.execute<TransactionRow>(sql`
+              insert into public.transactions
+                (household_id, created_by_user_id, account_id, card_id, category_id,
+                 amount_cents, kind, description, transaction_date, payment_method, notes)
+              values (
+                ${auth.householdId}::uuid,
+                ${auth.userId}::uuid,
+                ${body.account_id ?? null},
+                ${body.card_id ?? null},
+                ${body.category_id ?? null},
+                ${body.amount_cents},
+                ${body.kind}::transaction_kind,
+                ${body.description},
+                ${body.transaction_date}::date,
+                ${body.payment_method}::payment_method_finance,
+                ${body.notes ?? null}
+              )
+              returning ${TRANSACTION_COLUMNS}
+            `);
+            const row = inserted[0];
+            if (!row) throw new Error('INSERT transaction retornou sem rows.');
+            return { transaction: row };
+          },
+        );
+
+        if ('notFound' in result) {
+          annotateSpan(span, { statusCode: 404 });
+          const messages = {
+            account: 'Conta não encontrada.',
+            card: 'Cartão não encontrado.',
+            category: 'Categoria não encontrada.',
+          } as const;
+          return apiError('NOT_FOUND', messages[result.notFound], 404);
         }
 
-        const rows = await db.execute<TransactionRow>(sql`
-          insert into public.transactions
-            (household_id, created_by_user_id, account_id, card_id, category_id,
-             amount_cents, kind, description, transaction_date, payment_method, notes)
-          values (
-            ${auth.householdId}::uuid,
-            ${auth.userId}::uuid,
-            ${body.account_id ?? null},
-            ${body.card_id ?? null},
-            ${body.category_id ?? null},
-            ${body.amount_cents},
-            ${body.kind}::transaction_kind,
-            ${body.description},
-            ${body.transaction_date}::date,
-            ${body.payment_method}::payment_method_finance,
-            ${body.notes ?? null}
-          )
-          returning ${TRANSACTION_COLUMNS}
-        `);
-
-        const transaction = rows[0];
-        if (!transaction) throw new Error('INSERT transaction retornou sem rows.');
+        const transaction = result.transaction;
 
         try {
           await insertAuditLog({

@@ -9,8 +9,12 @@
  *       forçado `false` (`categories_insert_member`). Validação `parent_id`
  *       (1-nível, AC6c). Nome único — `unique_violation` → 409 (PO_FIX F1).
  *
- * RLS: usa `getDb()` (role authenticated, RLS via JWT). Nunca o cliente
- * service-role que ignora RLS — vulnerabilidade crítica R-4.7.
+ * RLS (SEC-3 / ADR-003 Fase 2): a operação principal corre dentro de
+ * `withHousehold` (2.ª rede, RLS activa via policy `categories_select_global_or_member`).
+ * O filtro `(household_id = X OR household_id IS NULL)` (SEC-1, 1.ª rede — globais
+ * visíveis a todos, AC-E1) MANTÉM-SE INALTERADO. No POST, a sub-query FK `parent_id`
+ * corre no mesmo `tx` que o INSERT (AC5). O `insertAuditLog` permanece best-effort
+ * FORA do `withHousehold` (PO-FIX-2). Nunca o cliente service-role — vulnerabilidade R-4.7.
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -24,7 +28,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { CATEGORY_KINDS, CategoryCreateSchema } from '@/lib/api-schemas/categories';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
@@ -83,7 +87,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       }
 
       try {
-        const db = getDb();
         const conditions = [
           archived ? sql`archived_at is not null` : sql`archived_at is null`,
           // Globais (household_id IS NULL) ficam visíveis a todos os households (AC-E1).
@@ -95,13 +98,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         );
 
         // RLS `categories_select_global_or_member` devolve globais + per-household.
-        const rows = await db.execute<CategoryRow>(sql`
-          select ${CATEGORY_COLUMNS}
-          from public.categories
-          where ${whereSql}
-          order by sort_order asc, name asc
-          limit 200
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<CategoryRow>(sql`
+              select ${CATEGORY_COLUMNS}
+              from public.categories
+              where ${whereSql}
+              order by sort_order asc, name asc
+              limit 200
+            `),
+        );
         annotateSpan(span, { statusCode: 200 });
         return NextResponse.json({ categories: rows });
       } catch (err) {
@@ -140,54 +147,70 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
 
-        // AC6(c) + SEC-1-F1 — `parent_id` tem de resolver a uma categoria visível
-        // (própria ou global), não-arquivada, e de 1.º nível (`parent_id IS NULL`).
-        // Filtro `household_id` app-enforced explícito (RLS inerte em runtime —
-        // getDb() liga como role bypassrls). Mantém `OR household_id IS NULL`:
-        // categorias globais são parents válidos, coerente com a listagem GET
-        // (AC-E1) e a validação de parent na rota [id] [DEV-DECISION D-SEC1.2].
-        if (body.parent_id) {
-          const parentRows = await db.execute<{ id: string; parent_id: string | null }>(sql`
-            select id, parent_id from public.categories
-            where id = ${body.parent_id}::uuid
-              and (household_id = ${auth.householdId}::uuid or household_id is null)
-              and archived_at is null
-            limit 1
-          `);
-          const parent = parentRows[0];
-          if (!parent) {
+        // AC5 — sub-query FK `parent_id` + INSERT correm no MESMO `tx`. Retorno
+        // discriminado preserva os early-returns 404/400 sem `return` no callback.
+        const result = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          async (
+            tx,
+          ): Promise<
+            { error: 'parent_not_found' | 'parent_multilevel' } | { category: CategoryRow }
+          > => {
+            // AC6(c) + SEC-1-F1 — `parent_id` tem de resolver a uma categoria visível
+            // (própria ou global), não-arquivada, e de 1.º nível (`parent_id IS NULL`).
+            // Filtro `household_id` app-enforced explícito (1.ª rede). Mantém
+            // `OR household_id IS NULL`: globais são parents válidos, coerente com a
+            // listagem GET (AC-E1) e a rota [id] [DEV-DECISION D-SEC1.2].
+            if (body.parent_id) {
+              const parentRows = await tx.execute<{ id: string; parent_id: string | null }>(sql`
+                select id, parent_id from public.categories
+                where id = ${body.parent_id}::uuid
+                  and (household_id = ${auth.householdId}::uuid or household_id is null)
+                  and archived_at is null
+                limit 1
+              `);
+              const parent = parentRows[0];
+              if (!parent) return { error: 'parent_not_found' };
+              if (parent.parent_id !== null) return { error: 'parent_multilevel' };
+            }
+
+            const inserted = await tx.execute<CategoryRow>(sql`
+              insert into public.categories
+                (household_id, name, icon, color, parent_id, kind, sort_order)
+              values (
+                ${auth.householdId}::uuid,
+                ${body.name},
+                ${body.icon ?? null},
+                ${body.color},
+                ${body.parent_id ?? null},
+                ${body.kind}::category_kind,
+                ${body.sort_order}
+              )
+              returning ${CATEGORY_COLUMNS}
+            `);
+            const row = inserted[0];
+            if (!row) throw new Error('INSERT category retornou sem rows.');
+            return { category: row };
+          },
+        );
+
+        if ('error' in result) {
+          if (result.error === 'parent_not_found') {
             annotateSpan(span, { statusCode: 404 });
             return apiError('NOT_FOUND', 'Categoria-pai não encontrada.', 404);
           }
-          if (parent.parent_id !== null) {
-            annotateSpan(span, { statusCode: 400 });
-            return apiError(
-              'VALIDATION_ERROR',
-              'Categorias suportam apenas 1 nível de hierarquia.',
-              400,
-            );
-          }
+          annotateSpan(span, { statusCode: 400 });
+          return apiError(
+            'VALIDATION_ERROR',
+            'Categorias suportam apenas 1 nível de hierarquia.',
+            400,
+          );
         }
 
-        const rows = await db.execute<CategoryRow>(sql`
-          insert into public.categories
-            (household_id, name, icon, color, parent_id, kind, sort_order)
-          values (
-            ${auth.householdId}::uuid,
-            ${body.name},
-            ${body.icon ?? null},
-            ${body.color},
-            ${body.parent_id ?? null},
-            ${body.kind}::category_kind,
-            ${body.sort_order}
-          )
-          returning ${CATEGORY_COLUMNS}
-        `);
-
-        const category = rows[0];
-        if (!category) throw new Error('INSERT category retornou sem rows.');
+        const category = result.category;
 
         try {
           await insertAuditLog({

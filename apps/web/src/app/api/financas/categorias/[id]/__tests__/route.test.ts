@@ -25,6 +25,12 @@ vi.mock('@meu-jarvis/auth/server', () => ({
 // service-role (AC4 / R-4.7), portanto o factory não o fornece.
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: () => ({ execute: mocks.dbExecuteMock }),
+  // SEC-3: a operação principal passou a correr dentro de `withHousehold`. O mock
+  // injecta um `tx` equivalente (`execute` é o único exercido pelas queries).
+  withHousehold: (
+    _auth: { userId: string; householdId: string },
+    fn: (tx: { execute: typeof mocks.dbExecuteMock }) => unknown,
+  ) => fn({ execute: mocks.dbExecuteMock }),
 }));
 
 import { NextRequest } from 'next/server';

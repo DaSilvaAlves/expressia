@@ -7,8 +7,11 @@
  * POST: Create — Zod `.strict()` + refinamento credit⇒limit (AC6). `account_id`
  *       tem de pertencer ao household e não estar arquivada (SELECT RLS-scoped).
  *
- * RLS: usa `getDb()` (role authenticated, RLS via JWT). Nunca o cliente
- * service-role que ignora RLS — vulnerabilidade crítica R-4.7.
+ * RLS (SEC-3 / ADR-003 Fase 2): a operação principal corre dentro de
+ * `withHousehold` (2.ª rede, RLS activa). O filtro `household_id` (SEC-1, 1.ª rede)
+ * MANTÉM-SE. No POST, a sub-query FK `accounts` corre no mesmo `tx` que o INSERT
+ * `cards` (AC5 — atomicidade). O `insertAuditLog` permanece best-effort FORA do
+ * `withHousehold` (PO-FIX-2). Nunca o cliente service-role — vulnerabilidade R-4.7.
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -22,7 +25,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { CARD_TYPES, CardCreateSchema } from '@/lib/api-schemas/cards';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
@@ -84,7 +87,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       }
 
       try {
-        const db = getDb();
         const conditions = [
           archived ? sql`archived_at is not null` : sql`archived_at is null`,
           sql`household_id = ${auth.householdId}::uuid`,
@@ -99,13 +101,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           idx === 0 ? c : sql`${acc} and ${c}`,
         );
 
-        const rows = await db.execute<CardRow>(sql`
-          select ${CARD_COLUMNS}
-          from public.cards
-          where ${whereSql}
-          order by name asc
-          limit 200
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<CardRow>(sql`
+              select ${CARD_COLUMNS}
+              from public.cards
+              where ${whereSql}
+              order by name asc
+              limit 200
+            `),
+        );
         annotateSpan(span, { statusCode: 200 });
         return NextResponse.json({ cards: rows });
       } catch (err) {
@@ -144,42 +150,54 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
 
-        // AC6 + SEC-1-F1 — `account_id` tem de existir, pertencer ao household
-        // (filtro `household_id` app-enforced explícito — RLS inerte em runtime,
-        // getDb() liga como role bypassrls) e não estar arquivada (filtro
-        // `archived_at IS NULL` — PO_FIX F1: impede cartão sobre conta arquivada).
-        const accountRows = await db.execute<{ id: string }>(sql`
-          select id from public.accounts
-          where id = ${body.account_id}::uuid
-            and household_id = ${auth.householdId}::uuid
-            and archived_at is null
-          limit 1
-        `);
-        if (accountRows.length === 0) {
+        // AC5 — sub-query FK `accounts` + INSERT `cards` correm no MESMO `tx`
+        // (atomicidade + contexto RLS consistente). Retorno discriminado para
+        // preservar a semântica de early-return 404 sem `return` dentro do callback.
+        const result = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          async (tx): Promise<{ notFound: true } | { card: CardRow }> => {
+            // AC6 + SEC-1-F1 — `account_id` tem de existir, pertencer ao household
+            // (filtro `household_id` app-enforced explícito — 1.ª rede) e não estar
+            // arquivada (PO_FIX F1: impede cartão sobre conta arquivada).
+            const accountRows = await tx.execute<{ id: string }>(sql`
+              select id from public.accounts
+              where id = ${body.account_id}::uuid
+                and household_id = ${auth.householdId}::uuid
+                and archived_at is null
+              limit 1
+            `);
+            if (accountRows.length === 0) return { notFound: true };
+
+            const inserted = await tx.execute<CardRow>(sql`
+              insert into public.cards
+                (household_id, account_id, name, card_type, last4, closing_day, due_day, credit_limit_cents)
+              values (
+                ${auth.householdId}::uuid,
+                ${body.account_id}::uuid,
+                ${body.name},
+                ${body.card_type}::card_type,
+                ${body.last4 ?? null},
+                ${body.closing_day ?? null},
+                ${body.due_day ?? null},
+                ${body.credit_limit_cents ?? null}
+              )
+              returning ${CARD_COLUMNS}
+            `);
+            const row = inserted[0];
+            if (!row) throw new Error('INSERT card retornou sem rows.');
+            return { card: row };
+          },
+        );
+
+        if ('notFound' in result) {
           annotateSpan(span, { statusCode: 404 });
           return apiError('NOT_FOUND', 'Conta não encontrada.', 404);
         }
 
-        const rows = await db.execute<CardRow>(sql`
-          insert into public.cards
-            (household_id, account_id, name, card_type, last4, closing_day, due_day, credit_limit_cents)
-          values (
-            ${auth.householdId}::uuid,
-            ${body.account_id}::uuid,
-            ${body.name},
-            ${body.card_type}::card_type,
-            ${body.last4 ?? null},
-            ${body.closing_day ?? null},
-            ${body.due_day ?? null},
-            ${body.credit_limit_cents ?? null}
-          )
-          returning ${CARD_COLUMNS}
-        `);
-
-        const card = rows[0];
-        if (!card) throw new Error('INSERT card retornou sem rows.');
+        const card = result.card;
 
         try {
           await insertAuditLog({
