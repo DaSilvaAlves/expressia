@@ -2,8 +2,16 @@ id: mj-handoff-session-pause-email-confirm-fixed-20260601
 from_agent: aiox-master
 to_agent: any
 created: '2026-06-01T22:10:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-06-02T16:55:00Z'
+consumed_by: aiox-master
+consumed_note: |
+  next_action SMOKE-6.7 executado na sessão de 02/06 (aiox-master Orion + Eurico) → o smoke
+  apanhou 2 achados reais que deram origem ao sucessor `mj-handoff-smoke-6.7-blocked-authuid-rls-20260602`
+  (também já consumido/arquivado). Ambos resolvidos e em prod: ACHADO-2→Story SEC-1 (6f56e32),
+  ACHADO-1→migration 0022 (aa4e088). Follow-ups EMAIL (SITE-URL-PROD, cleanup test users) transitam
+  como tarefas menores. (Consumo re-aplicado: o staging da sessão anterior foi revertido no push SEC-1.)
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

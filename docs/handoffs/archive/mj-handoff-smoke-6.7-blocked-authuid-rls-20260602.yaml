@@ -3,8 +3,21 @@ from_agent: aiox-master
 to_agent: dev
 also_relevant_to: [architect, data-engineer]
 created: '2026-06-02T00:10:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-06-02T16:55:00Z'
+consumed_by: aiox-master
+consumed_note: |
+  Ambos os achados RESOLVIDOS e provados em prod nesta sessão (aiox-master Orion + Eurico).
+  ACHADO-2 (RLS inerte → confirmado: getDb liga como postgres/rolbypassrls=TRUE) escalou para
+  vulnerabilidade CRITICAL de vazamento cross-tenant; remediado pela Story SEC-1 (app-enforced,
+  ~42 queries + sub-queries FK POST + sub-rotas lifecycle do cérebro AI + SQL injection),
+  QA Loop 3 iterações → PASS 9,4/10, em prod (6f56e32). Auditoria: docs/security/CROSS-TENANT-AUDIT-20260602.md.
+  ACHADO-1 (accept_invite/auth.uid()=NULL) resolvido via migration 0022 (accept_invite(p_token, p_user_id)),
+  gate PASS 9,5/10, em prod (aa4e088 + db:migrate 0022). RE-TESTE E2E CONFIRMADO em runtime real:
+  +t3 aceitou o convite, é member do household do +t2 (verify-invite-smoke.ts PASS).
+  Resíduo (não-bloqueante) transita: task #6 hardening RLS-enforced (repor RLS viva) + follow-ups
+  FU-LOGIN-NEXT, SITE-URL-PROD, CLEANUP-TEST-USERS, nota multi-household.
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

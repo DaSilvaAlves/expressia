@@ -1,0 +1,96 @@
+id: mj-handoff-session-pause-sec1-0022-prod-20260602
+from_agent: aiox-master
+to_agent: any
+created: '2026-06-02T17:00:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: session-pause
+
+summary: |
+  Sessão aiox-master (Orion) + Eurico. Os DOIS achados do SMOKE-6.7 foram RESOLVIDOS
+  e estão EM PRODUÇÃO. Nada a meio.
+
+  ACHADO-2 (RLS inerte em runtime) — CONFIRMADO empiricamente: o `getDb()`
+  (`packages/db/src/client.ts`) liga como role `postgres`, que tem
+  `rolbypassrls=TRUE`, logo as 104 RLS policies (FORCE RLS correcto) NUNCA são
+  avaliadas em runtime. Era um vazamento cross-tenant ACTIVO (incl. saldos
+  bancários/IBAN + IDOR em endpoints `[id]`). Auditoria exaustiva (~120 queries):
+  `docs/security/CROSS-TENANT-AUDIT-20260602.md`. Remediado pela Story **SEC-1**
+  (app-enforced: filtro `household_id` em ~42 queries LEAK/IDOR + sub-queries FK
+  dos POST + sub-rotas lifecycle do cérebro AI + SQL injection no client.ts).
+  QA Loop de 3 iterações (CONCERNS 8,4 → FAIL 6,5 → PASS 9,4) — o gate adversarial
+  do @architect apanhou 2 vectores FORA da auditoria inicial (F1 sub-queries FK,
+  F3 sub-rotas confirm/undo). Varredura final independente = zero vectores
+  residuais. Em prod `6f56e32`.
+
+  ACHADO-1 (aceitação de convite quebrada) — `accept_invite()` (0020) dependia de
+  `auth.uid()`, NULL via getDb runtime. Resolvido pela **migration 0022**
+  `accept_invite(p_token text, p_user_id uuid)` (handler passa `user.id` da sessão
+  validada; todas as validações de segurança da 0020 preservadas, email-match até
+  reforçado). Gate PASS 9,5/10. Em prod `aa4e088` + `db:migrate` da 0022 aplicada.
+  RE-TESTE E2E CONFIRMADO em runtime real (`verify-invite-smoke.ts` PASS): o user
+  `euricojsalves+t3@gmail.com` aceitou o convite e é `member` do household do `+t2`.
+
+next_action: |
+  NADA bloqueado. Trabalho opcional, por prioridade:
+
+  1. **Hardening RLS-enforced (defense-in-depth) — RECOMENDADO.** A RLS continua
+     INERTE em runtime; o isolamento é hoje 100% app-enforced (um filtro
+     `household_id` esquecido numa query nova = leak). Repor a RLS viva: `getDb()`
+     ligar como role `authenticated` (sem bypassrls) com `request.jwt.claims`
+     injectado por request. NUANCE CRÍTICA: pgbouncer transaction-mode (porta 6543)
+     exige `set local role` + `set local request.jwt.claims` DENTRO de transação
+     por request → design não-trivial (wrapper por request ou refactor do client).
+     **Arranque: @architect + @data-engineer DESENHAM primeiro** (ADR), só depois
+     implementação. + endurecer o gate `check-rls-coverage` com um teste de
+     APLICAÇÃO real (ligar como o role do runtime, ler outro household → 0 rows) —
+     hoje o gate só valida que as policies existem, não que são aplicadas.
+
+  2. **Follow-ups menores:**
+     - FU-LOGIN-NEXT [MEDIUM]: o redirect pós-login ignora `?next=` (após login em
+       `/entrar?next=…` o utilizador vai para /conta/household em vez do destino).
+       Quebra o fluxo "login → aceitar convite". Verificar o action de login.
+     - FU-SITE-URL-PROD [MEDIUM]: Supabase Site URL = localhost; mudar p/ expressia.pt
+       antes de produção real (afeta links de email).
+     - FU-CLEANUP-TEST-USERS [LOW]: euricojsalves, +t1, +t2, +t3 no Supabase.
+     - NOTA multi-household [LOW, produto]: todo signup cria household próprio; ao
+       aceitar convite o utilizador fica em 2 households; o /conta/household mostra
+       o do JWT. Avaliar fluxo de "household activo" (não-bloqueante).
+
+  3. **Billing CONTINUA CONGELADO** (directiva Eurico 29/05 — handoff
+     `mj-handoff-refocus-core-freeze-billing-20260529` ainda pending). Foco mantém-se
+     o core a funcionar E2E.
+
+context: |
+  **Estado git:** prod/origin/main após 2 pushes desta sessão:
+    - `6f56e32` fix(security): SEC-1 isolamento cross-tenant app-enforced (62 ficheiros)
+    - `aa4e088` fix(household): accept_invite(p_token, p_user_id) — 0022 (7 ficheiros)
+  Este handoff + a reconciliação do HANDOFF-INDEX + os 2 handoffs arquivados
+  (smoke-6.7, email-confirm) + `verify-invite-smoke.ts` vão num commit doc-only
+  separado (housekeeping) — pedido do Eurico ao fechar a sessão.
+
+  **Migrations em prod:** 0000–0022 todas aplicadas (0022 confirmada esta sessão).
+
+  **Gates baseline:** web 1069/1069 · db-test 166/166 (Docker real) · lint/typecheck/
+  check:rls/build exit 0. Flaky conhecido: `tarefas/calendario/page.test.tsx`
+  (timeout sob carga paralela, passa isolado — NÃO é regressão).
+
+  **Scripts de diagnóstico (em git, padrão verify-000x):** verify-0020,
+  diag-getdb-auth, diag-rls-runtime, diag-rls-visibility, dev-confirm-user (push SEC-1),
+  verify-invite-smoke (este commit doc-only). Úteis para re-verificação do hardening.
+
+  **Dados de teste (Supabase prod):** `euricojsalves+t3@gmail.com` (pass `Smoke12345!`)
+  é agora member do household do +t2 (`74a4d7bc-…`) + owner do próprio
+  (`fa6000dd-…`). O convite do smoke já está aceite (não reutilizável).
+
+  **Gotcha confirmado:** `pnpm build` + `next dev` na mesma `.next` parte o CSS —
+  limpar `.next` antes de `dev` (feito esta sessão).
+
+blockers: |
+  Nenhum. Os dois achados resolvidos e em prod, E2E provado. Billing congelado
+  (directiva mantém-se). O hardening RLS-enforced é melhoria de defense-in-depth,
+  não um bloqueador — a vulnerabilidade activa está tapada (app-enforced).
