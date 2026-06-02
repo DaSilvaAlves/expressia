@@ -25,6 +25,12 @@ vi.mock('@meu-jarvis/auth/server', () => ({
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: () => ({ execute: mocks.dbExecuteMock }),
   getServiceDb: () => ({ execute: mocks.dbExecuteMock }),
+  // SEC-2: o handler GET passou a envolver `listTasksHelper` em `withHousehold`.
+  // O mock injecta um `tx` equivalente (apenas `execute` é exercido pelo helper).
+  withHousehold: (
+    _auth: { userId: string; householdId: string },
+    fn: (tx: { execute: typeof mocks.dbExecuteMock }) => unknown,
+  ) => fn({ execute: mocks.dbExecuteMock }),
 }));
 
 import { NextRequest } from 'next/server';

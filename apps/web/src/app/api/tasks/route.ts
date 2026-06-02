@@ -31,7 +31,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { listTasksHelper, type TaskRow } from '@/lib/api-helpers/list-tasks';
 import { TaskCreateSchema, TaskFiltersSchema } from '@/lib/api-schemas/tasks';
 import { decodeCursor } from '@/lib/api-schemas/pagination';
@@ -81,13 +81,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       }
 
       try {
-        const { tasks, next_cursor } = await listTasksHelper({
-          filters,
-          cursorPayload,
-          householdId: auth.householdId,
-          userId: auth.userId,
-          db: getDb(),
-        });
+        // SEC-2 / ADR-003 Fase 1 (piloto): a listagem corre dentro de
+        // `withHousehold`, que abre uma transação com `SET LOCAL ROLE authenticated`
+        // + JWT claims — activa as 104 RLS policies (2.ª rede). O filtro
+        // `household_id` explícito em `list-tasks.ts:125` (SEC-1, 1.ª rede) MANTÉM-SE
+        // dentro do helper — defense-in-depth, não substituído.
+        const { tasks, next_cursor } = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            listTasksHelper({
+              filters,
+              cursorPayload,
+              householdId: auth.householdId,
+              userId: auth.userId,
+              db: tx,
+            }),
+        );
 
         annotateSpan(span, { statusCode: 200 });
         log.info(

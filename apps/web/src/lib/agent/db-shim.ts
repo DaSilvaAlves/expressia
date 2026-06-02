@@ -54,3 +54,35 @@ export function getServiceDb(): DbShim {
   const mod = require('@meu-jarvis/db/client') as { getServiceDb: () => DbShim };
   return mod.getServiceDb();
 }
+
+/**
+ * Contexto de autenticação per-request passado a `withHousehold` (shape mínimo
+ * — corresponde a `AuthContext` de `@/lib/api-helpers/auth`).
+ */
+export interface WithHouseholdAuth {
+  readonly userId: string;
+  readonly householdId: string;
+}
+
+/**
+ * Carrega `withHousehold` lazy via require (SEC-2 / ADR-003 Fase 1).
+ *
+ * Roteado por este shim — tal como `getDb`/`getServiceDb` — para NÃO reintroduzir
+ * o break de tsc cross-package que o import directo de `@meu-jarvis/db/client`
+ * provoca em apps/web (ver cabeçalho deste ficheiro).
+ *
+ * O `tx` que `withHousehold` injecta no callback é um `Database` real do Drizzle
+ * (`PostgresJsDatabase`), que satisfaz estruturalmente a interface `DbShim`
+ * (`execute`/`transaction`/`insert`). Em testes este módulo é mockado via
+ * `vi.mock('@/lib/agent/db-shim')`.
+ */
+export function withHousehold<T>(
+  auth: WithHouseholdAuth,
+  fn: (tx: DbShim) => Promise<T>,
+): Promise<T> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+  const mod = require('@meu-jarvis/db/client') as {
+    withHousehold: <R>(auth: WithHouseholdAuth, fn: (tx: DbShim) => Promise<R>) => Promise<R>;
+  };
+  return mod.withHousehold(auth, fn);
+}
