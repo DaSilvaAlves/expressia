@@ -134,11 +134,15 @@ interface CalendarTaskRow {
  * Tarefas cujo `due_date` é hoje (Europe/Lisbon) e status NOT IN ('done','archived').
  * `LIMIT 20` defensivo — o `count` satura em 20 (trade-off aceite: widget mostra teaser).
  */
-export async function getTasksToday(db: DbShim): Promise<TasksTodayResponse> {
+export async function getTasksToday(
+  db: DbShim,
+  householdId: string,
+): Promise<TasksTodayResponse> {
   const rows = await db.execute<TaskTodayRow>(sql`
     select id, title, status, priority, due_time
     from public.tasks
-    where due_date = (now() at time zone 'Europe/Lisbon')::date
+    where household_id = ${householdId}::uuid
+      and due_date = (now() at time zone 'Europe/Lisbon')::date
       and status not in ('done', 'archived')
     order by due_time asc nulls last, priority desc, created_at asc
     limit 20
@@ -164,11 +168,15 @@ export async function getTasksToday(db: DbShim): Promise<TasksTodayResponse> {
  * Tarefas em atraso: `due_date < hoje` (Europe/Lisbon), status NOT IN ('done','archived').
  * `count` total via `COUNT(*)` separado (2-query pattern — D-5.5.2/OBS-1); lista `LIMIT 20`.
  */
-export async function getTasksOverdue(db: DbShim): Promise<TasksOverdueResponse> {
+export async function getTasksOverdue(
+  db: DbShim,
+  householdId: string,
+): Promise<TasksOverdueResponse> {
   const countRows = await db.execute<OverdueCountRow>(sql`
     select count(*)::int as total
     from public.tasks
-    where due_date < (now() at time zone 'Europe/Lisbon')::date
+    where household_id = ${householdId}::uuid
+      and due_date < (now() at time zone 'Europe/Lisbon')::date
       and status not in ('done', 'archived')
   `);
   const total = countRows[0]?.total ?? 0;
@@ -176,7 +184,8 @@ export async function getTasksOverdue(db: DbShim): Promise<TasksOverdueResponse>
   const rows = await db.execute<TaskOverdueRow>(sql`
     select id, title, status, priority, due_date, due_time
     from public.tasks
-    where due_date < (now() at time zone 'Europe/Lisbon')::date
+    where household_id = ${householdId}::uuid
+      and due_date < (now() at time zone 'Europe/Lisbon')::date
       and status not in ('done', 'archived')
     order by due_date asc, priority desc
     limit 20
@@ -203,14 +212,18 @@ export async function getTasksOverdue(db: DbShim): Promise<TasksOverdueResponse>
  * Agrega transacções reais (não projecções) do mês corrente, agrupadas por `kind`.
  * Janela inclusiva [primeiro_dia_mês, hoje] em Europe/Lisbon. `is_projected = false`.
  */
-export async function getFinancesMonth(db: DbShim): Promise<FinancesMonthResponse> {
+export async function getFinancesMonth(
+  db: DbShim,
+  householdId: string,
+): Promise<FinancesMonthResponse> {
   const rows = await db.execute<FinanceAggRow>(sql`
     select
       kind,
       sum(amount_cents)::text as total_cents,
       count(*)::int as transaction_count
     from public.transactions
-    where transaction_date >= date_trunc('month', (now() at time zone 'Europe/Lisbon')::date)
+    where household_id = ${householdId}::uuid
+      and transaction_date >= date_trunc('month', (now() at time zone 'Europe/Lisbon')::date)
       and transaction_date <= (now() at time zone 'Europe/Lisbon')::date
       and is_projected = false
     group by kind
@@ -245,11 +258,15 @@ export async function getFinancesMonth(db: DbShim): Promise<FinancesMonthRespons
  * Recorrências activas com `next_run_on` na janela (hoje, hoje+30 dias]. `LIMIT 10`.
  * Índice explorado: `recurrences_next_run_idx`.
  */
-export async function getRecurrencesNext(db: DbShim): Promise<RecurrencesNextResponse> {
+export async function getRecurrencesNext(
+  db: DbShim,
+  householdId: string,
+): Promise<RecurrencesNextResponse> {
   const rows = await db.execute<RecurrenceRow>(sql`
     select id, description, kind, amount_cents, frequency, next_run_on
     from public.recurrences
-    where active = true
+    where household_id = ${householdId}::uuid
+      and active = true
       and next_run_on > (now() at time zone 'Europe/Lisbon')::date
       and next_run_on <= ((now() at time zone 'Europe/Lisbon')::date + interval '30 days')
     order by next_run_on asc
@@ -277,13 +294,17 @@ export async function getRecurrencesNext(db: DbShim): Promise<RecurrencesNextRes
  * Saldo total das contas activas (`archived_at IS NULL`) do household autenticado.
  * `SUM` Drizzle devolve string para `numeric` — `parseFinanceTotal` defensivo.
  */
-export async function getAccountsBalance(db: DbShim): Promise<AccountsBalanceResponse> {
+export async function getAccountsBalance(
+  db: DbShim,
+  householdId: string,
+): Promise<AccountsBalanceResponse> {
   const rows = await db.execute<AccountsAggRow>(sql`
     select
       count(*)::int as account_count,
       sum(balance_cents)::text as total_balance_cents
     from public.accounts
-    where archived_at is null
+    where household_id = ${householdId}::uuid
+      and archived_at is null
   `);
 
   const row = rows[0];
@@ -302,11 +323,15 @@ export async function getAccountsBalance(db: DbShim): Promise<AccountsBalanceRes
  * Tarefas com `due_date` na janela [hoje, hoje+6] (Europe/Lisbon), status NOT IN
  * ('done','archived'). Agrupamento por dia em TS — sempre devolve 7 entradas.
  */
-export async function getCalendarWeek(db: DbShim): Promise<CalendarWeekResponse> {
+export async function getCalendarWeek(
+  db: DbShim,
+  householdId: string,
+): Promise<CalendarWeekResponse> {
   const rows = await db.execute<CalendarTaskRow>(sql`
     select id, title, priority, due_date, due_time
     from public.tasks
-    where due_date >= (now() at time zone 'Europe/Lisbon')::date
+    where household_id = ${householdId}::uuid
+      and due_date >= (now() at time zone 'Europe/Lisbon')::date
       and due_date <= ((now() at time zone 'Europe/Lisbon')::date + interval '6 days')
       and status not in ('done', 'archived')
     order by due_date asc, due_time asc nulls last, priority desc

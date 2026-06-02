@@ -90,7 +90,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         // 1. SELECT actual (RLS bloqueia cross-household → row inexistente)
         const currentRows = await db.execute<KanbanColumnDbRow>(sql`
           select id, household_id, name, sort_order, color, is_done_column
-          from public.kanban_columns where id = ${id}::uuid limit 1
+          from public.kanban_columns
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
         const current = currentRows[0];
         if (!current) {
@@ -143,7 +145,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
             for (let i = 0; i < sets.length; i++) {
               updateSql = i === 0 ? sql`${updateSql}${sets[i]}` : sql`${updateSql}, ${sets[i]}`;
             }
-            updateSql = sql`${updateSql} where id = ${id}::uuid`;
+            updateSql = sql`${updateSql} where id = ${id}::uuid and household_id = ${auth.householdId}::uuid`;
             await db.execute(updateSql);
           }
 
@@ -190,7 +192,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
 
         const updatedRows = await db.execute<KanbanColumnDbRow>(sql`
           select id, household_id, name, sort_order, color, is_done_column
-          from public.kanban_columns where id = ${id}::uuid limit 1
+          from public.kanban_columns
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
         const updated = updatedRows[0];
 
@@ -265,7 +269,9 @@ export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextR
         // SELECT actual + count tasks
         const currentRows = await db.execute<KanbanColumnDbRow>(sql`
           select id, household_id, name, sort_order, color, is_done_column
-          from public.kanban_columns where id = ${id}::uuid limit 1
+          from public.kanban_columns
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
         const current = currentRows[0];
         if (!current) {
@@ -275,7 +281,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextR
 
         const tasksCountRows = await db.execute<{ count: string }>(sql`
           select count(*)::text as count from public.tasks
-          where kanban_column_id = ${id}::uuid
+          where kanban_column_id = ${id}::uuid and household_id = ${auth.householdId}::uuid
         `);
         const tasksCount = Number(tasksCountRows[0]?.count ?? '0');
 
@@ -306,7 +312,9 @@ export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextR
             );
           }
           const destRows = await db.execute<{ id: string }>(sql`
-            select id from public.kanban_columns where id = ${moveTo}::uuid limit 1
+            select id from public.kanban_columns
+            where id = ${moveTo}::uuid and household_id = ${auth.householdId}::uuid
+            limit 1
           `);
           if (destRows.length === 0) {
             annotateSpan(span, { statusCode: 404 });
@@ -321,11 +329,12 @@ export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextR
             await db.execute(sql`
               update public.tasks
               set kanban_column_id = ${moveTo}::uuid, updated_at = now()
-              where kanban_column_id = ${id}::uuid
+              where kanban_column_id = ${id}::uuid and household_id = ${auth.householdId}::uuid
             `);
           }
           await db.execute(sql`
-            delete from public.kanban_columns where id = ${id}::uuid
+            delete from public.kanban_columns
+            where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
           `);
           await db.execute(sql`commit`);
         } catch (txErr) {

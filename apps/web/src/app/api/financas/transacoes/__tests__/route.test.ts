@@ -34,6 +34,35 @@ const { GET, POST } = await import('@/app/api/financas/transacoes/route');
 const USER_UUID = '00000000-0000-0000-0000-000000000001';
 const HOUSEHOLD_UUID = '00000000-0000-0000-0000-000000000002';
 const ACCOUNT_UUID = '00000000-0000-0000-0000-0000000000a1';
+const CATEGORY_UUID = '00000000-0000-0000-0000-0000000000c1';
+
+/**
+ * Extrai recursivamente os valores dos parâmetros bound de um objecto `SQL` do
+ * Drizzle (tagged template literal). Usado para provar que o `household_id`
+ * autenticado é interpolado como parâmetro nas sub-queries de validação de FK
+ * dos POST (isolamento de escrita app-enforced — SEC-1-F1).
+ */
+function boundParamValues(sqlObj: unknown): unknown[] {
+  const out: unknown[] = [];
+  const walkChunks = (chunks: unknown): void => {
+    if (!Array.isArray(chunks)) return;
+    for (const chunk of chunks) {
+      if (chunk != null && typeof chunk === 'object') {
+        const obj = chunk as Record<string, unknown>;
+        if ('queryChunks' in obj) {
+          walkChunks(obj.queryChunks); // SQL aninhado
+        }
+        // StringChunk (`.value` array) é texto SQL, não parâmetro — ignorar.
+      } else {
+        out.push(chunk); // valor primitivo = parâmetro bound
+      }
+    }
+  };
+  if (sqlObj != null && typeof sqlObj === 'object' && 'queryChunks' in (sqlObj as object)) {
+    walkChunks((sqlObj as { queryChunks: unknown }).queryChunks);
+  }
+  return out;
+}
 
 function memberChain(field: string, value: unknown) {
   return {
@@ -175,5 +204,41 @@ describe('POST /api/financas/transacoes', () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.transaction.id).toBe('new-tx');
+  });
+
+  // SEC-1-F1 — IDOR de escrita: a sub-query de validação de FK do account_id tem
+  // de filtrar pelo household autenticado (RLS inerte em runtime). Prova que um
+  // account_id de OUTRO household não pode ser referenciado: a query carrega o
+  // household_id autenticado como parâmetro bound (WHERE ... and household_id = ...).
+  it('SEC-1-F1: validação de account_id no POST é filtrada pelo household autenticado', async () => {
+    authed();
+    mocks.dbExecuteMock.mockResolvedValueOnce([]); // FK-check cross-household → 0 rows
+    const res = await POST(postReq(validBody));
+    expect(res.status).toBe(404); // account_id de outro household não encontrado
+
+    const fkCheck = mocks.dbExecuteMock.mock.calls[0]?.[0];
+    expect(fkCheck).toBeDefined();
+    // O id do recurso E o household autenticado estão bound — sem o segundo, a
+    // query seria um probe-oracle cross-tenant + permitiria FK cross-household.
+    const params = boundParamValues(fkCheck);
+    expect(params).toContain(ACCOUNT_UUID);
+    expect(params).toContain(HOUSEHOLD_UUID);
+  });
+
+  // SEC-1-F1 — a sub-query de validação de category_id tem de carregar o
+  // household autenticado (com a excepção `OR household_id IS NULL` para globais).
+  it('SEC-1-F1: validação de category_id no POST carrega o household autenticado', async () => {
+    authed();
+    mocks.dbExecuteMock
+      .mockResolvedValueOnce([{ id: ACCOUNT_UUID }]) // account_id existe
+      .mockResolvedValueOnce([]); // category_id cross-household → 0 rows
+    const res = await POST(postReq({ ...validBody, category_id: CATEGORY_UUID }));
+    expect(res.status).toBe(404); // category_id de outro household não encontrada
+
+    const catCheck = mocks.dbExecuteMock.mock.calls[1]?.[0];
+    expect(catCheck).toBeDefined();
+    const params = boundParamValues(catCheck);
+    expect(params).toContain(CATEGORY_UUID);
+    expect(params).toContain(HOUSEHOLD_UUID);
   });
 });

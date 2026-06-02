@@ -114,12 +114,15 @@ function buildOrderBy(sort: TaskFiltersInput['sort']): SQL {
 export async function listTasksHelper(
   params: ListTasksParams,
 ): Promise<ListTasksResult> {
-  const { filters, cursorPayload, db } = params;
+  const { filters, cursorPayload, db, householdId } = params;
   const limitPlusOne = filters.limit + 1;
 
-  // Build dynamic WHERE conditions (RLS via JWT já filtra household_id — G4).
+  // Build dynamic WHERE conditions.
+  // SEC-1: isolamento app-enforced — a RLS está inerte em runtime (getDb() liga
+  // como role com bypassrls), por isso o filtro household_id explícito é a
+  // garantia central de isolamento cross-tenant.
   // Story 3.6 T6.0: colunas prefixadas com `tasks.` para desambiguar do LEFT JOIN tags.
-  const conditions = [sql`1=1`];
+  const conditions = [sql`tasks.household_id = ${householdId}::uuid`];
   if (filters.status) conditions.push(sql`tasks.status = ${filters.status}`);
   if (filters.priority) conditions.push(sql`tasks.priority = ${filters.priority}`);
   if (filters.kanban_column_id) {
@@ -139,7 +142,7 @@ export async function listTasksHelper(
   }
   if (filters.tag_id) {
     conditions.push(
-      sql`tasks.id in (select task_id from public.task_tags where tag_id = ${filters.tag_id}::uuid)`,
+      sql`tasks.id in (select task_id from public.task_tags where tag_id = ${filters.tag_id}::uuid and household_id = ${householdId}::uuid)`,
     );
   }
   if (cursorPayload) {

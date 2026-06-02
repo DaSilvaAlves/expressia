@@ -73,7 +73,8 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
 
         const rows = await db.execute<{ id: string; name: string; color: string }>(sql`
-          update public.tags set ${setSql} where id = ${id}::uuid
+          update public.tags set ${setSql}
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
           returning id, household_id, name, color, created_at, updated_at
         `);
 
@@ -146,7 +147,9 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
       try {
         const db = getDb();
         const rows = await db.execute<{ id: string }>(sql`
-          delete from public.tags where id = ${id}::uuid returning id
+          delete from public.tags
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          returning id
         `);
 
         if (rows.length === 0) {

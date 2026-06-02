@@ -89,7 +89,9 @@ export async function GET(_req: NextRequest, ctx: RouteContext): Promise<NextRes
         const db = getDb();
         const rows = await db.execute<TransactionRow>(sql`
           select ${TRANSACTION_COLUMNS}
-          from public.transactions where id = ${id}::uuid limit 1
+          from public.transactions
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
 
         const transaction = rows[0];
@@ -152,7 +154,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
           installment_id: string | null;
         }>(sql`
           select id, recurrence_id, installment_id
-          from public.transactions where id = ${id}::uuid limit 1
+          from public.transactions
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
         const current = existing[0];
         if (!current) {
@@ -167,7 +171,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         // AC6(b) — FK fields actualizados têm de pertencer ao household.
         if (body.account_id) {
           const rows = await db.execute<{ id: string }>(sql`
-            select id from public.accounts where id = ${body.account_id}::uuid limit 1
+            select id from public.accounts
+            where id = ${body.account_id}::uuid and household_id = ${auth.householdId}::uuid
+            limit 1
           `);
           if (rows.length === 0) {
             annotateSpan(span, { statusCode: 404 });
@@ -176,7 +182,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         }
         if (body.card_id) {
           const rows = await db.execute<{ id: string }>(sql`
-            select id from public.cards where id = ${body.card_id}::uuid limit 1
+            select id from public.cards
+            where id = ${body.card_id}::uuid and household_id = ${auth.householdId}::uuid
+            limit 1
           `);
           if (rows.length === 0) {
             annotateSpan(span, { statusCode: 404 });
@@ -184,8 +192,13 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
           }
         }
         if (body.category_id) {
+          // Categorias globais (household_id IS NULL) são válidas para todos os
+          // households — manter a excepção deliberada da auditoria (AC-E1).
           const rows = await db.execute<{ id: string }>(sql`
-            select id from public.categories where id = ${body.category_id}::uuid limit 1
+            select id from public.categories
+            where id = ${body.category_id}::uuid
+              and (household_id = ${auth.householdId}::uuid or household_id is null)
+            limit 1
           `);
           if (rows.length === 0) {
             annotateSpan(span, { statusCode: 404 });
@@ -217,7 +230,8 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
 
         const rows = await db.execute<TransactionRow>(sql`
-          update public.transactions set ${setSql} where id = ${id}::uuid
+          update public.transactions set ${setSql}
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
           returning ${TRANSACTION_COLUMNS}
         `);
 
@@ -291,7 +305,9 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
           installment_id: string | null;
         }>(sql`
           select id, recurrence_id, installment_id
-          from public.transactions where id = ${id}::uuid limit 1
+          from public.transactions
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
         const current = existing[0];
         if (!current) {
@@ -306,7 +322,10 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
         // Hard delete (DP-4.3.4) — `transactions` não tem `archived_at`; nada
         // referencia `transactions.id`. Sob DP1=A (recompute on-read) a remoção
         // sai correctamente do agregado de saldo.
-        await db.execute(sql`delete from public.transactions where id = ${id}::uuid`);
+        await db.execute(sql`
+          delete from public.transactions
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+        `);
 
         try {
           await insertAuditLog({

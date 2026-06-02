@@ -53,7 +53,9 @@ export async function GET(_req: NextRequest, ctx: RouteContext): Promise<NextRes
           select id, household_id, created_by_user_id, assigned_to_user_id, title, description,
                  due_date, due_time, priority, status, kanban_column_id, kanban_position,
                  project, recurrence_id, is_recurrence_template, completed_at, created_at, updated_at
-          from public.tasks where id = ${id}::uuid limit 1
+          from public.tasks
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
 
         const task = rows[0];
@@ -139,7 +141,8 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
 
         const rows = await db.execute<{ id: string; status: string; title: string }>(sql`
-          update public.tasks set ${setSql} where id = ${id}::uuid
+          update public.tasks set ${setSql}
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
           returning id, household_id, created_by_user_id, assigned_to_user_id, title, description,
                     due_date, due_time, priority, status, kanban_column_id, kanban_position,
                     project, recurrence_id, is_recurrence_template, completed_at, created_at, updated_at
@@ -202,7 +205,7 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
         const rows = await db.execute<{ id: string }>(sql`
           update public.tasks
           set status = 'archived'::task_status, updated_at = now()
-          where id = ${id}::uuid
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
           returning id
         `);
 

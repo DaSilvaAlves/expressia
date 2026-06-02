@@ -58,15 +58,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           // RLS é a primeira linha de defesa; este filtro é a segunda (defesa em
           // profundidade). Performance overhead zero (mesmo index scan via
           // `task_tags_tag_idx` + `task_tags_household_idx`).
+          // SEC-1: RLS inerte em runtime — filtro household_id explícito é a
+          // garantia de isolamento (substitui current_household_id() = NULL).
           const tags = await db.execute<TagWithCountRow>(sql`
             select id, household_id, name, color, created_at, updated_at,
               (
                 select count(*)::int
                 from public.task_tags
                 where task_tags.tag_id = tags.id
-                  and task_tags.household_id = current_household_id()
+                  and task_tags.household_id = ${auth.householdId}::uuid
               ) as task_count
             from public.tags
+            where tags.household_id = ${auth.householdId}::uuid
             order by name asc
             limit 200
           `);
@@ -76,7 +79,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
         const tags = await db.execute<TagRow>(sql`
           select id, household_id, name, color, created_at, updated_at
-          from public.tags order by name asc limit 200
+          from public.tags
+          where household_id = ${auth.householdId}::uuid
+          order by name asc limit 200
         `);
         annotateSpan(span, { statusCode: 200 });
         return NextResponse.json({ tags });

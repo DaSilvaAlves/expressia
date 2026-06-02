@@ -36,10 +36,23 @@ import { CalendarWeekWidget } from '@/app/(app)/visao/_components/widgets/Calend
  */
 export interface WidgetGridProps {
   readonly widgetsEnabled: WidgetsEnabled;
+  /** SEC-1 — household_id app-enforced, propagado a cada widget de conteúdo. */
+  readonly householdId: string;
+}
+
+/**
+ * Props comuns dos widgets de conteúdo. O `briefing` é estático (ignora o
+ * `householdId`), mas aceita-o por uniformidade do mapa.
+ */
+interface WidgetProps {
+  readonly householdId: string;
 }
 
 /** Mapa `WidgetId` → componente RSC. */
-const WIDGET_COMPONENTS: Record<WidgetId, () => React.ReactElement | Promise<React.ReactElement | null>> = {
+const WIDGET_COMPONENTS: Record<
+  WidgetId,
+  (props: WidgetProps) => React.ReactElement | Promise<React.ReactElement | null>
+> = {
   briefing: BriefingWidget,
   tasks_today: TasksTodayWidget,
   finance_month: FinanceMonthWidget,
@@ -49,7 +62,7 @@ const WIDGET_COMPONENTS: Record<WidgetId, () => React.ReactElement | Promise<Rea
   calendar_week: CalendarWeekWidget,
 };
 
-export function WidgetGrid({ widgetsEnabled }: WidgetGridProps): React.ReactElement {
+export function WidgetGrid({ widgetsEnabled, householdId }: WidgetGridProps): React.ReactElement {
   const enabledIds = WIDGET_ORDER.filter((id) => widgetsEnabled[id]);
 
   return (
@@ -66,7 +79,7 @@ export function WidgetGrid({ widgetsEnabled }: WidgetGridProps): React.ReactElem
         return (
           <WidgetSlot key={id} widgetId={id} orderClass={orderClass}>
             <Suspense fallback={<WidgetSkeleton />}>
-              <Widget />
+              <Widget householdId={householdId} />
             </Suspense>
           </WidgetSlot>
         );

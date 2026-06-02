@@ -82,8 +82,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       try {
         const db = getDb();
         const whereSql = rawCardId
-          ? sql`card_id = ${rawCardId}::uuid`
-          : sql`true`;
+          ? sql`household_id = ${auth.householdId}::uuid and card_id = ${rawCardId}::uuid`
+          : sql`household_id = ${auth.householdId}::uuid`;
 
         const rows = await db.execute<InstallmentRow>(sql`
           select ${INSTALLMENT_COLUMNS}
@@ -133,11 +133,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       try {
         const db = getDb();
 
-        // AC6(b) — `card_id` (obrigatório) e `category_id` (opcional) têm de
-        // pertencer ao household. SELECT RLS-scoped não encontra rows
-        // cross-household (categorias globais — `household_id NULL` — válidas).
+        // AC6(b) + SEC-1-F1 — `card_id` (obrigatório) e `category_id` (opcional)
+        // têm de pertencer ao household. Filtro `household_id` app-enforced
+        // explícito (RLS inerte em runtime — getDb() liga como role bypassrls).
+        // Categorias globais (`household_id NULL`) são válidas para todos os
+        // households (AC-E1).
         const cardRows = await db.execute<{ id: string }>(sql`
-          select id from public.cards where id = ${body.card_id}::uuid limit 1
+          select id from public.cards
+          where id = ${body.card_id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
         if (cardRows.length === 0) {
           annotateSpan(span, { statusCode: 404 });
@@ -145,7 +149,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
         if (body.category_id) {
           const catRows = await db.execute<{ id: string }>(sql`
-            select id from public.categories where id = ${body.category_id}::uuid limit 1
+            select id from public.categories
+            where id = ${body.category_id}::uuid
+              and (household_id = ${auth.householdId}::uuid or household_id is null)
+            limit 1
           `);
           if (catRows.length === 0) {
             annotateSpan(span, { statusCode: 404 });

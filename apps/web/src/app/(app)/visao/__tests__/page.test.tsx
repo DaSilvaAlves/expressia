@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   redirectMock: vi.fn(),
   captureExceptionMock: vi.fn(),
   executeMock: vi.fn(),
+  resolveHouseholdIdMock: vi.fn(),
   getTasksTodayMock: vi.fn(),
   getTasksOverdueMock: vi.fn(),
   getFinancesMonthMock: vi.fn(),
@@ -38,6 +39,12 @@ vi.mock('@meu-jarvis/observability', () => ({
 
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: () => ({ execute: mocks.executeMock }),
+}));
+
+// SEC-1 — a page resolve o household_id (app-enforced) antes de chamar os
+// agregados; por defeito devolve um household válido.
+vi.mock('@/lib/api-helpers/auth', () => ({
+  resolveHouseholdId: mocks.resolveHouseholdIdMock,
 }));
 
 vi.mock('@/lib/visao/queries', () => ({
@@ -143,6 +150,9 @@ describe('/visao RSC page', () => {
     vi.clearAllMocks();
     // Por defeito, a row de prefs não existe → fallback DEFAULT_WIDGETS_ENABLED.
     mocks.executeMock.mockResolvedValue([]);
+    // SEC-1 — household válido por defeito (os testes de redirect sem sessão /
+    // onboarding não chegam a usar isto).
+    mocks.resolveHouseholdIdMock.mockResolvedValue('hh-test');
   });
 
   it('redirect /entrar quando sem sessão (AC1)', async () => {

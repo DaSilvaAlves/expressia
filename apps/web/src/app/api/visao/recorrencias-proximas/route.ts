@@ -47,7 +47,7 @@ export async function GET(): Promise<NextResponse> {
       if (auth instanceof NextResponse) return auth;
 
       try {
-        const body = await getRecurrencesNext(getDb());
+        const body = await getRecurrencesNext(getDb(), auth.householdId);
 
         const validated = RecurrencesNextResponseSchema.parse(body);
         annotateSpan(span, { statusCode: 200 });

@@ -81,6 +81,7 @@ export async function GET(): Promise<NextResponse> {
           select id, household_id, name, sort_order, color, is_done_column,
                  created_at, updated_at
           from public.kanban_columns
+          where household_id = ${auth.householdId}::uuid
           order by sort_order asc
         `);
         annotateSpan(span, { statusCode: 200 });

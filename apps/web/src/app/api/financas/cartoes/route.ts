@@ -87,6 +87,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         const db = getDb();
         const conditions = [
           archived ? sql`archived_at is not null` : sql`archived_at is null`,
+          sql`household_id = ${auth.householdId}::uuid`,
         ];
         if (filters.account_id) {
           conditions.push(sql`account_id = ${filters.account_id}::uuid`);
@@ -145,13 +146,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       try {
         const db = getDb();
 
-        // AC6 — `account_id` tem de existir, pertencer ao household (RLS-scoped
-        // SELECT não encontra contas cross-household) e não estar arquivada
-        // (filtro `archived_at IS NULL` — PO_FIX F1: impede cartão sobre conta
-        // arquivada).
+        // AC6 + SEC-1-F1 — `account_id` tem de existir, pertencer ao household
+        // (filtro `household_id` app-enforced explícito — RLS inerte em runtime,
+        // getDb() liga como role bypassrls) e não estar arquivada (filtro
+        // `archived_at IS NULL` — PO_FIX F1: impede cartão sobre conta arquivada).
         const accountRows = await db.execute<{ id: string }>(sql`
           select id from public.accounts
-          where id = ${body.account_id}::uuid and archived_at is null
+          where id = ${body.account_id}::uuid
+            and household_id = ${auth.householdId}::uuid
+            and archived_at is null
           limit 1
         `);
         if (accountRows.length === 0) {

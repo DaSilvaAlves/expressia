@@ -241,14 +241,19 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
           if (body.deletes && body.deletes.length > 0) {
             for (const del of body.deletes) {
               if (del.move_to) {
+                // SEC-1-F4: filtro household_id inline (defesa-em-profundidade;
+                // validateInput já garante pertença, mas a RLS está inerte).
                 await db.execute(sql`
                   update public.tasks
                   set kanban_column_id = ${del.move_to}::uuid, updated_at = now()
                   where kanban_column_id = ${del.id}::uuid
+                    and household_id = ${auth.householdId}::uuid
                 `);
               }
               await db.execute(sql`
-                delete from public.kanban_columns where id = ${del.id}::uuid
+                delete from public.kanban_columns
+                where id = ${del.id}::uuid
+                  and household_id = ${auth.householdId}::uuid
               `);
               summary.deletes_count++;
             }
@@ -302,6 +307,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
                 update public.kanban_columns
                 set sort_order = -100 - ${col.sort_order}, updated_at = now()
                 where id = ${col.id}::uuid
+                  and household_id = ${auth.householdId}::uuid
               `);
             }
             // Step 2: apply real sort_order + name + is_done_column
@@ -318,7 +324,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
               for (let i = 0; i < sets.length; i++) {
                 updateSql = i === 0 ? sql`${updateSql}${sets[i]}` : sql`${updateSql}, ${sets[i]}`;
               }
-              updateSql = sql`${updateSql} where id = ${col.id}::uuid`;
+              updateSql = sql`${updateSql} where id = ${col.id}::uuid and household_id = ${auth.householdId}::uuid`;
               await db.execute(updateSql);
 
               summary.updates_count++;

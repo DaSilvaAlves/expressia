@@ -18,11 +18,15 @@ import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
  *
  * Trace: Story 5.6 AC4 (accounts_balance); RLS NFR5.
  */
-export async function AccountsBalanceWidget(): Promise<React.ReactElement> {
+export async function AccountsBalanceWidget({
+  householdId,
+}: {
+  householdId: string;
+}): Promise<React.ReactElement> {
   let totalBalanceCents = 0;
   let accountCount = 0;
   try {
-    const data = await getAccountsBalance(getDb());
+    const data = await getAccountsBalance(getDb(), householdId);
     totalBalanceCents = data.totalBalanceCents;
     accountCount = data.accountCount;
   } catch (err) {

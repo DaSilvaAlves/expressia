@@ -53,6 +53,15 @@ function setupAuth(): void {
     data: { user: { id: TEST_USER_ID, email: 'tester@expressia.pt' } },
     error: null,
   });
+  // SEC-1-F3: resolveHouseholdId() faz `.from('household_members')` via PostgREST.
+  mocks.fromMock.mockReturnValue({
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    maybeSingle: vi
+      .fn()
+      .mockResolvedValue({ data: { household_id: TEST_HOUSEHOLD_ID }, error: null }),
+  });
 }
 
 beforeEach(() => {
@@ -73,6 +82,41 @@ describe('POST /api/agent/prompt/[runId]/undo', () => {
     expect(res.status).toBe(404);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('RUN_NOT_FOUND');
+  });
+
+  it('SEC-1-F3 — a lookup de agent_runs carrega o household autenticado como parâmetro bound', async () => {
+    mocks.dbExecuteMock.mockResolvedValue([]);
+    await POST(makeRequest() as never, makeContext());
+    // 1ª (e única) call = lookup de agent_runs filtrado por household_id.
+    const sqlObj = mocks.dbExecuteMock.mock.calls[0]![0];
+    expect(boundParamValues(sqlObj)).toContain(TEST_HOUSEHOLD_ID);
+  });
+
+  it('SEC-1-F3 — 404 RUN_NOT_FOUND cross-household: service_role nunca aplica reverse ops', async () => {
+    // Run pertence ao household A; o utilizador autenticado é do household B.
+    // A query filtra household_id = B → 0 rows → 404. Sem o filtro, o membro
+    // de B reverteria mutações reais de A via service_role.
+    mocks.dbExecuteMock.mockResolvedValue([]); // 0 rows (filtro household_id)
+    const res = await POST(makeRequest() as never, makeContext());
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('RUN_NOT_FOUND');
+    // Nenhuma op aplicada via service_role.
+    expect(mocks.serviceDbExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('SEC-1-F3 — 404 quando o utilizador não tem household activo', async () => {
+    mocks.fromMock.mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    });
+    const res = await POST(makeRequest() as never, makeContext());
+    expect(res.status).toBe(404);
+    // Nem sequer toca na DB de runs nem no service_role.
+    expect(mocks.dbExecuteMock).not.toHaveBeenCalled();
+    expect(mocks.serviceDbExecuteMock).not.toHaveBeenCalled();
   });
 
   it('AC7 — 409 UNDO_INVALID_STATE quando status=failed', async () => {
@@ -313,3 +357,27 @@ describe('POST /api/agent/prompt/[runId]/undo', () => {
     expect(serviceCallCount).toBeGreaterThanOrEqual(3); // reverse op + UPDATE run + INSERT audit (throw)
   });
 });
+
+/**
+ * Extrai recursivamente os valores dos parâmetros bound de um objecto `SQL` do
+ * Drizzle — prova que o `household_id` autenticado é interpolado como parâmetro
+ * (isolamento app-enforced SEC-1-F3).
+ */
+function boundParamValues(sqlObj: unknown): unknown[] {
+  const out: unknown[] = [];
+  const walkChunks = (chunks: unknown): void => {
+    if (!Array.isArray(chunks)) return;
+    for (const chunk of chunks) {
+      if (chunk != null && typeof chunk === 'object') {
+        const obj = chunk as Record<string, unknown>;
+        if ('queryChunks' in obj) walkChunks(obj.queryChunks);
+      } else {
+        out.push(chunk);
+      }
+    }
+  };
+  if (sqlObj != null && typeof sqlObj === 'object' && 'queryChunks' in (sqlObj as object)) {
+    walkChunks((sqlObj as { queryChunks: unknown }).queryChunks);
+  }
+  return out;
+}

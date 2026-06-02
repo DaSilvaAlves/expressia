@@ -68,7 +68,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
       try {
         const db = getDb();
-        const conditions = [sql`1=1`];
+        const conditions = [sql`household_id = ${auth.householdId}::uuid`];
         if (filters.active !== undefined) conditions.push(sql`active = ${filters.active}`);
         if (filters.frequency) conditions.push(sql`frequency = ${filters.frequency}::recurrence_frequency`);
         const whereSql = conditions.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc} and ${c}`));

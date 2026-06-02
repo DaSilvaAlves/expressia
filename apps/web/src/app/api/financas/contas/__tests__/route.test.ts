@@ -52,6 +52,38 @@ function authed() {
   mocks.fromMock.mockReturnValue(memberChain('household_id', HOUSEHOLD_UUID));
 }
 
+/**
+ * Extrai recursivamente os valores dos parâmetros bound de um objecto `SQL` do
+ * Drizzle (tagged template literal). Usado para provar que o `household_id`
+ * autenticado é interpolado como parâmetro na query (isolamento app-enforced).
+ *
+ * Estrutura do Drizzle `SQL`: `queryChunks` alterna entre `StringChunk`
+ * (objecto com `.value: string[]`) e os parâmetros bound (valores primitivos
+ * directos, ou `SQL` aninhado com o seu próprio `queryChunks`).
+ */
+function boundParamValues(sqlObj: unknown): unknown[] {
+  const out: unknown[] = [];
+  const walkChunks = (chunks: unknown): void => {
+    if (!Array.isArray(chunks)) return;
+    for (const chunk of chunks) {
+      if (chunk != null && typeof chunk === 'object') {
+        const obj = chunk as Record<string, unknown>;
+        if ('queryChunks' in obj) {
+          walkChunks(obj.queryChunks); // SQL aninhado
+        }
+        // StringChunk (`.value` array) é texto SQL, não parâmetro — ignorar.
+      } else {
+        // Valor primitivo no topo de queryChunks = parâmetro bound.
+        out.push(chunk);
+      }
+    }
+  };
+  if (sqlObj != null && typeof sqlObj === 'object' && 'queryChunks' in (sqlObj as object)) {
+    walkChunks((sqlObj as { queryChunks: unknown }).queryChunks);
+  }
+  return out;
+}
+
 function getReq(qs = '') {
   return new NextRequest(new Request(`http://localhost/api/financas/contas${qs}`));
 }
@@ -96,6 +128,34 @@ describe('GET /api/financas/contas', () => {
     mocks.dbExecuteMock.mockResolvedValue([{ id: 'a3', name: 'Conta velha' }]);
     const res = await GET(getReq('?archived=true'));
     expect(res.status).toBe(200);
+  });
+
+  // SEC-1 AC-K2 — isolamento app-enforced ao nível da rota HTTP.
+  it('SEC-1: a query de listagem é filtrada pelo household autenticado', async () => {
+    authed();
+    mocks.dbExecuteMock.mockResolvedValue([]);
+    const res = await GET(getReq());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // Quando a DB (filtrada por household_id app-enforced) não devolve linhas,
+    // a resposta é vazia — NUNCA as contas de outro household.
+    expect(body.accounts).toEqual([]);
+
+    // A query executada tem de carregar o household_id autenticado como parâmetro
+    // bound (prova que o filtro WHERE household_id = ... foi aplicado).
+    const executed = mocks.dbExecuteMock.mock.calls[0]?.[0];
+    expect(executed).toBeDefined();
+    expect(boundParamValues(executed)).toContain(HOUSEHOLD_UUID);
+  });
+
+  // SEC-1: um household sem contas que recebe linhas vazias do filtro nunca vê
+  // as contas de OUTRO household (simula a tentativa de leak — DB devolve []).
+  it('SEC-1: household sem contas vê array vazio (não fuga cross-tenant)', async () => {
+    authed();
+    mocks.dbExecuteMock.mockResolvedValue([]);
+    const res = await GET(getReq());
+    const body = await res.json();
+    expect(body.accounts).toHaveLength(0);
   });
 });
 

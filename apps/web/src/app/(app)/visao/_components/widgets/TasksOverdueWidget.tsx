@@ -22,11 +22,15 @@ import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
  *
  * Trace: Story 5.6 AC4 (tasks_overdue), AC4.b, DP-5.6.E; RLS NFR5.
  */
-export async function TasksOverdueWidget(): Promise<React.ReactElement | null> {
+export async function TasksOverdueWidget({
+  householdId,
+}: {
+  householdId: string;
+}): Promise<React.ReactElement | null> {
   let count = 0;
   let tasks: Awaited<ReturnType<typeof getTasksOverdue>>['tasks'] = [];
   try {
-    const data = await getTasksOverdue(getDb());
+    const data = await getTasksOverdue(getDb(), householdId);
     count = data.count;
     tasks = data.tasks;
   } catch (err) {

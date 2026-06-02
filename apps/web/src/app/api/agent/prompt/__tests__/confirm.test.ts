@@ -89,6 +89,39 @@ describe('POST /api/agent/prompt/[runId]/confirm', () => {
     expect(body.error.code).toBe('RUN_NOT_FOUND');
   });
 
+  it('SEC-1-F3 — a lookup de agent_runs carrega o household autenticado como parâmetro bound', async () => {
+    mocks.dbExecuteMock.mockResolvedValue([]);
+    await POST(makeRequest() as never, makeContext());
+    const sqlObj = mocks.dbExecuteMock.mock.calls[0]![0];
+    expect(boundParamValues(sqlObj)).toContain(TEST_HOUSEHOLD_ID);
+  });
+
+  it('SEC-1-F3 — 404 RUN_NOT_FOUND cross-household: Planner/Executor nunca executam', async () => {
+    // Run pertence ao household A; utilizador autenticado é do household B.
+    // A query filtra household_id = B → 0 rows → 404. Sem o filtro, o membro
+    // de B executaria mutações reais de A (Planner+Executor).
+    mocks.dbExecuteMock.mockResolvedValue([]);
+    const res = await POST(makeRequest() as never, makeContext());
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('RUN_NOT_FOUND');
+    expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('SEC-1-F3 — 404 quando o utilizador não tem household activo', async () => {
+    mocks.fromMock.mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    });
+    const res = await POST(makeRequest() as never, makeContext());
+    expect(res.status).toBe(404);
+    expect(mocks.dbExecuteMock).not.toHaveBeenCalled();
+    expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+  });
+
   it('AC6 — 409 CONFIRM_INVALID_STATE quando status != pending_preview', async () => {
     mocks.dbExecuteMock.mockResolvedValue([
       {
@@ -171,3 +204,27 @@ describe('POST /api/agent/prompt/[runId]/confirm', () => {
     expect(mocks.executorExecuteMock).toHaveBeenCalled();
   });
 });
+
+/**
+ * Extrai recursivamente os valores dos parâmetros bound de um objecto `SQL` do
+ * Drizzle — prova que o `household_id` autenticado é interpolado como parâmetro
+ * (isolamento app-enforced SEC-1-F3).
+ */
+function boundParamValues(sqlObj: unknown): unknown[] {
+  const out: unknown[] = [];
+  const walkChunks = (chunks: unknown): void => {
+    if (!Array.isArray(chunks)) return;
+    for (const chunk of chunks) {
+      if (chunk != null && typeof chunk === 'object') {
+        const obj = chunk as Record<string, unknown>;
+        if ('queryChunks' in obj) walkChunks(obj.queryChunks);
+      } else {
+        out.push(chunk);
+      }
+    }
+  };
+  if (sqlObj != null && typeof sqlObj === 'object' && 'queryChunks' in (sqlObj as object)) {
+    walkChunks((sqlObj as { queryChunks: unknown }).queryChunks);
+  }
+  return out;
+}

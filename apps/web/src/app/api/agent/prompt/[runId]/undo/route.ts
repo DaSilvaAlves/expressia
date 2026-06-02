@@ -17,9 +17,13 @@
  * análoga a GDPR purge — trigger imutabilidade bloqueia mutação terminal
  * em authenticated).
  *
+ * Segurança (SEC-1-F3): pertença do utilizador autenticado ao
+ * `run.household_id` verificada app-enforced (RLS inerte em runtime —
+ * `getDb()` liga como role bypassrls). Cross-household → 404.
+ *
  * Erros:
  *   - 401 AUTH_REQUIRED
- *   - 404 RUN_NOT_FOUND
+ *   - 404 RUN_NOT_FOUND (cross-household ou inexistente — 404 não revela existência)
  *   - 409 UNDO_INVALID_STATE (run não está em success)
  *   - 409 UNDO_EXPIRED (TTL passou)
  *   - 409 UNDO_ALREADY_REVERTED (run já em reverted ou ops já executadas)
@@ -31,6 +35,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import { getDb, getServiceDb } from '@/lib/agent/db-shim';
+import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import {
   childLogger,
   captureException,
@@ -90,13 +95,25 @@ export async function POST(
         return apiError('AUTH_REQUIRED', 'Sessão inválida.', 401);
       }
 
+      // SEC-1-F3: resolver o household do utilizador autenticado para isolar a
+      // run por household app-enforced (RLS inerte em runtime). Sem household
+      // activo → 404 (não revela se o run existe noutro household).
+      const userHouseholdId = await resolveHouseholdId(user.id);
+      if (!userHouseholdId) {
+        annotateAgentPromptSpan(span, { status_code: 404 });
+        return apiError('RUN_NOT_FOUND', 'Run não encontrado.', 404, { run_id: runId });
+      }
+
       const db = getDb();
 
-      // Lookup run via getDb() — RLS bloqueia cross-household
+      // Lookup run — filtro household_id app-enforced (SEC-1-F3): só o household
+      // dono do run o encontra; cross-household → 404. Sem este filtro, um membro
+      // do household B reverteria mutações reais do household A via service_role.
       const runRows = await db.execute<AgentRunRow>(sql`
         select id, household_id, status
         from agent_runs
         where id = ${runId}::uuid
+          and household_id = ${userHouseholdId}::uuid
         limit 1
       `);
 

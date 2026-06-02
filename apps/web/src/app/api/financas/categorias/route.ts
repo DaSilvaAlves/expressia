@@ -86,6 +86,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         const db = getDb();
         const conditions = [
           archived ? sql`archived_at is not null` : sql`archived_at is null`,
+          // Globais (household_id IS NULL) ficam visíveis a todos os households (AC-E1).
+          sql`(household_id = ${auth.householdId}::uuid or household_id is null)`,
         ];
         if (filters.kind) conditions.push(sql`kind = ${filters.kind}::category_kind`);
         const whereSql = conditions.reduce((acc, c, idx) =>
@@ -140,12 +142,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       try {
         const db = getDb();
 
-        // AC6(c) — `parent_id` tem de resolver a uma categoria visível (própria
-        // ou global), não-arquivada, e de 1.º nível (`parent_id IS NULL`).
+        // AC6(c) + SEC-1-F1 — `parent_id` tem de resolver a uma categoria visível
+        // (própria ou global), não-arquivada, e de 1.º nível (`parent_id IS NULL`).
+        // Filtro `household_id` app-enforced explícito (RLS inerte em runtime —
+        // getDb() liga como role bypassrls). Mantém `OR household_id IS NULL`:
+        // categorias globais são parents válidos, coerente com a listagem GET
+        // (AC-E1) e a validação de parent na rota [id] [DEV-DECISION D-SEC1.2].
         if (body.parent_id) {
           const parentRows = await db.execute<{ id: string; parent_id: string | null }>(sql`
             select id, parent_id from public.categories
-            where id = ${body.parent_id}::uuid and archived_at is null
+            where id = ${body.parent_id}::uuid
+              and (household_id = ${auth.householdId}::uuid or household_id is null)
+              and archived_at is null
             limit 1
           `);
           const parent = parentRows[0];

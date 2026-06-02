@@ -56,7 +56,9 @@ export async function GET(_req: NextRequest, ctx: RouteContext): Promise<NextRes
         const rows = await db.execute(sql`
           select id, household_id, template_task_id, frequency, interval, custom_rrule,
                  starts_on, ends_on, next_run_on, active, created_at, updated_at
-          from public.task_recurrences where id = ${id}::uuid limit 1
+          from public.task_recurrences
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
 
         const recurrence = rows[0];
@@ -119,7 +121,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
           starts_on: string;
         }>(sql`
           select frequency, interval, next_run_on, starts_on
-          from public.task_recurrences where id = ${id}::uuid limit 1
+          from public.task_recurrences
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
 
         const current = currentRows[0];
@@ -172,7 +176,8 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
 
         const rows = await db.execute<{ id: string }>(sql`
-          update public.task_recurrences set ${setSql} where id = ${id}::uuid
+          update public.task_recurrences set ${setSql}
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
           returning id, household_id, template_task_id, frequency, interval, custom_rrule,
                     starts_on, ends_on, next_run_on, active, created_at, updated_at
         `);
@@ -231,7 +236,8 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
         // Soft delete: active=false (preserva tasks geradas)
         const rows = await db.execute<{ id: string }>(sql`
           update public.task_recurrences set active = false, updated_at = now()
-          where id = ${id}::uuid returning id
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          returning id
         `);
 
         if (rows.length === 0) {

@@ -86,7 +86,9 @@ export async function GET(_req: NextRequest, ctx: RouteContext): Promise<NextRes
         const db = getDb();
         const rows = await db.execute<RecurrenceRow>(sql`
           select ${RECURRENCE_COLUMNS}
-          from public.recurrences where id = ${id}::uuid limit 1
+          from public.recurrences
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
 
         const recurrence = rows[0];
@@ -143,7 +145,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
 
         // SELECT prévio confirma existência (RLS — cross-household → vazio).
         const existing = await db.execute<{ id: string }>(sql`
-          select id from public.recurrences where id = ${id}::uuid limit 1
+          select id from public.recurrences
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
         if (!existing[0]) {
           annotateSpan(span, { statusCode: 404 });
@@ -153,7 +157,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         // AC6(b) — FK fields actualizados têm de pertencer ao household.
         if (body.account_id) {
           const rows = await db.execute<{ id: string }>(sql`
-            select id from public.accounts where id = ${body.account_id}::uuid limit 1
+            select id from public.accounts
+            where id = ${body.account_id}::uuid and household_id = ${auth.householdId}::uuid
+            limit 1
           `);
           if (rows.length === 0) {
             annotateSpan(span, { statusCode: 404 });
@@ -162,7 +168,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         }
         if (body.card_id) {
           const rows = await db.execute<{ id: string }>(sql`
-            select id from public.cards where id = ${body.card_id}::uuid limit 1
+            select id from public.cards
+            where id = ${body.card_id}::uuid and household_id = ${auth.householdId}::uuid
+            limit 1
           `);
           if (rows.length === 0) {
             annotateSpan(span, { statusCode: 404 });
@@ -171,7 +179,10 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         }
         if (body.category_id) {
           const rows = await db.execute<{ id: string }>(sql`
-            select id from public.categories where id = ${body.category_id}::uuid limit 1
+            select id from public.categories
+            where id = ${body.category_id}::uuid
+              and (household_id = ${auth.householdId}::uuid or household_id is null)
+            limit 1
           `);
           if (rows.length === 0) {
             annotateSpan(span, { statusCode: 404 });
@@ -219,7 +230,8 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
 
         const rows = await db.execute<RecurrenceRow>(sql`
-          update public.recurrences set ${setSql} where id = ${id}::uuid
+          update public.recurrences set ${setSql}
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
           returning ${RECURRENCE_COLUMNS}
         `);
 
@@ -292,7 +304,7 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
         // pára a geração futura (o cron de Finanças filtra `active = true`).
         const rows = await db.execute<{ id: string }>(sql`
           update public.recurrences set active = false, updated_at = now()
-          where id = ${id}::uuid
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
           returning id
         `);
 

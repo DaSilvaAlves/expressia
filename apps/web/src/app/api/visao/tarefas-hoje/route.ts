@@ -49,7 +49,7 @@ export async function GET(): Promise<NextResponse> {
       if (auth instanceof NextResponse) return auth;
 
       try {
-        const body = await getTasksToday(getDb());
+        const body = await getTasksToday(getDb(), auth.householdId);
 
         // Defesa em profundidade — validação de shape antes de devolver.
         const validated = TasksTodayResponseSchema.parse(body);

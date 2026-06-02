@@ -21,10 +21,14 @@ import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
  *
  * Trace: Story 5.6 AC4 (recurrences_next); RLS NFR5.
  */
-export async function RecurrencesNextWidget(): Promise<React.ReactElement> {
+export async function RecurrencesNextWidget({
+  householdId,
+}: {
+  householdId: string;
+}): Promise<React.ReactElement> {
   let recurrences: Awaited<ReturnType<typeof getRecurrencesNext>>['recurrences'] = [];
   try {
-    const data = await getRecurrencesNext(getDb());
+    const data = await getRecurrencesNext(getDb(), householdId);
     recurrences = data.recurrences;
   } catch (err) {
     captureException(err instanceof Error ? err : new Error(String(err)), {

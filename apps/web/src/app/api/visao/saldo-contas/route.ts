@@ -42,7 +42,7 @@ export async function GET(): Promise<NextResponse> {
       if (auth instanceof NextResponse) return auth;
 
       try {
-        const body = await getAccountsBalance(getDb());
+        const body = await getAccountsBalance(getDb(), auth.householdId);
 
         const validated = AccountsBalanceResponseSchema.parse(body);
         annotateSpan(span, { statusCode: 200 });

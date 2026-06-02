@@ -7,6 +7,7 @@ import { captureException } from '@meu-jarvis/observability';
 import type { WidgetsEnabled } from '@meu-jarvis/db';
 
 import { getDb } from '@/lib/agent/db-shim';
+import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import { WidgetsEnabledSchema } from '@/lib/api-schemas/preferences';
 import {
   getAccountsBalance,
@@ -116,29 +117,32 @@ async function hasCompletedOnboarding(userId: string): Promise<boolean> {
  * agregadas, indexadas) é aceite para manter a página simples; uma optimização
  * de partilha de cache fica para a Story 5.10 (perf sweep).
  */
-async function isVisaoEmpty(widgetsEnabled: WidgetsEnabled): Promise<boolean> {
+async function isVisaoEmpty(
+  widgetsEnabled: WidgetsEnabled,
+  householdId: string,
+): Promise<boolean> {
   const db = getDb();
   try {
     const checks: Array<Promise<boolean>> = [];
 
     if (widgetsEnabled.tasks_today) {
-      checks.push(getTasksToday(db).then((d) => d.count === 0));
+      checks.push(getTasksToday(db, householdId).then((d) => d.count === 0));
     }
     if (widgetsEnabled.tasks_overdue) {
-      checks.push(getTasksOverdue(db).then((d) => d.count === 0));
+      checks.push(getTasksOverdue(db, householdId).then((d) => d.count === 0));
     }
     if (widgetsEnabled.finance_month) {
-      checks.push(getFinancesMonth(db).then((d) => d.transactionCount === 0));
+      checks.push(getFinancesMonth(db, householdId).then((d) => d.transactionCount === 0));
     }
     if (widgetsEnabled.recurrences_next) {
-      checks.push(getRecurrencesNext(db).then((d) => d.count === 0));
+      checks.push(getRecurrencesNext(db, householdId).then((d) => d.count === 0));
     }
     if (widgetsEnabled.accounts_balance) {
-      checks.push(getAccountsBalance(db).then((d) => d.accountCount === 0));
+      checks.push(getAccountsBalance(db, householdId).then((d) => d.accountCount === 0));
     }
     if (widgetsEnabled.calendar_week) {
       checks.push(
-        getCalendarWeek(db).then((d) => d.days.every((day) => day.taskCount === 0)),
+        getCalendarWeek(db, householdId).then((d) => d.days.every((day) => day.taskCount === 0)),
       );
     }
 
@@ -189,6 +193,12 @@ export default async function VisaoPage({
   const onboardingDone = await hasCompletedOnboarding(user.id);
   if (!onboardingDone) redirect('/bem-vindo');
 
+  // SEC-1 — isolamento app-enforced: o household_id é necessário para filtrar
+  // todas as queries dos widgets (a RLS está inerte em runtime). Sem household,
+  // o utilizador ainda não completou o registo → tour /bem-vindo.
+  const householdId = await resolveHouseholdId(user.id);
+  if (!householdId) redirect('/bem-vindo');
+
   const { welcome } = (await searchParams) ?? {};
   const showWelcome = welcome === '1';
 
@@ -197,7 +207,7 @@ export default async function VisaoPage({
   const greeting = getGreeting(now);
 
   const widgetsEnabled = await readWidgetsEnabled(user.id);
-  const empty = await isVisaoEmpty(widgetsEnabled);
+  const empty = await isVisaoEmpty(widgetsEnabled, householdId);
   // "Vazio por config" — utilizador removeu todos os widgets (distinto de
   // "vazio por dados" = `empty`). Story 5.7 AC6.
   const allOff = WIDGET_ORDER.every((id) => !widgetsEnabled[id]);
@@ -224,7 +234,7 @@ export default async function VisaoPage({
       ) : empty ? (
         <VisaoEmptyState />
       ) : (
-        <WidgetGrid widgetsEnabled={widgetsEnabled} />
+        <WidgetGrid widgetsEnabled={widgetsEnabled} householdId={householdId} />
       )}
 
       {/* Story 5.7 — controlos de config inline (DP4 = B). Sempre acessíveis,

@@ -78,7 +78,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
           kanban_position: number;
         }>(sql`
           select id, kanban_column_id, kanban_position
-          from public.tasks where id = ${id}::uuid limit 1
+          from public.tasks
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
 
         const current = currentRows[0];
@@ -90,7 +92,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         // 2. Verificar coluna alvo pertence ao household (se não-null)
         if (body.kanban_column_id) {
           const colRows = await db.execute<{ id: string }>(sql`
-            select id from public.kanban_columns where id = ${body.kanban_column_id}::uuid limit 1
+            select id from public.kanban_columns
+            where id = ${body.kanban_column_id}::uuid and household_id = ${auth.householdId}::uuid
+            limit 1
           `);
           if (colRows.length === 0) {
             annotateSpan(span, { statusCode: 404 });
@@ -110,6 +114,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
               update public.tasks
               set kanban_position = kanban_position + 1, updated_at = now()
               where kanban_column_id = ${body.kanban_column_id}::uuid
+                and household_id = ${auth.householdId}::uuid
                 and kanban_position >= ${body.kanban_position}
                 and id != ${id}::uuid
             `);
@@ -121,7 +126,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
             set kanban_column_id = ${body.kanban_column_id}::uuid,
                 kanban_position = ${body.kanban_position},
                 updated_at = now()
-            where id = ${id}::uuid
+            where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
           `);
 
           await db.execute(sql`commit`);
@@ -163,7 +168,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
           select id, household_id, created_by_user_id, assigned_to_user_id, title, description,
                  due_date, due_time, priority, status, kanban_column_id, kanban_position,
                  project, recurrence_id, is_recurrence_template, completed_at, created_at, updated_at
-          from public.tasks where id = ${id}::uuid limit 1
+          from public.tasks
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
 
         annotateSpan(span, {

@@ -45,7 +45,7 @@ export async function GET(): Promise<NextResponse> {
       if (auth instanceof NextResponse) return auth;
 
       try {
-        const body = await getTasksOverdue(getDb());
+        const body = await getTasksOverdue(getDb(), auth.householdId);
 
         const validated = TasksOverdueResponseSchema.parse(body);
         annotateSpan(span, { statusCode: 200 });

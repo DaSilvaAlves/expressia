@@ -80,7 +80,9 @@ export async function GET(_req: NextRequest, ctx: RouteContext): Promise<NextRes
         const db = getDb();
         const rows = await db.execute<InstallmentRow>(sql`
           select ${INSTALLMENT_COLUMNS}
-          from public.installments where id = ${id}::uuid limit 1
+          from public.installments
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
 
         const installment = rows[0];
@@ -124,7 +126,9 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
 
         // SELECT prévio confirma existência (RLS — cross-household → vazio).
         const existing = await db.execute<{ id: string }>(sql`
-          select id from public.installments where id = ${id}::uuid limit 1
+          select id from public.installments
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
         if (!existing[0]) {
           annotateSpan(span, { statusCode: 404 });
@@ -136,11 +140,13 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
         // `transactions_installment_index_coherent` via `ON DELETE set null`.
         const transactionsDeleted = await db.transaction(async (tx) => {
           const deletedTx = await tx.execute<{ id: string }>(sql`
-            delete from public.transactions where installment_id = ${id}::uuid
+            delete from public.transactions
+            where installment_id = ${id}::uuid and household_id = ${auth.householdId}::uuid
             returning id
           `);
           await tx.execute(sql`
-            delete from public.installments where id = ${id}::uuid
+            delete from public.installments
+            where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
           `);
           return deletedTx.length;
         });

@@ -7,13 +7,16 @@
  * Classifier — economiza tokens GPT-4o-mini + latência).
  *
  * Validações:
- *   - household_id == current_household_id() (RLS implícita)
+ *   - SEC-1-F3: pertença do utilizador autenticado ao `run.household_id`
+ *     verificada app-enforced (a RLS está inerte em runtime — `getDb()` liga
+ *     como role bypassrls). Sem este filtro, um membro do household B com um
+ *     `runId` do household A executaria mutações reais do household A.
  *   - status == 'pending_preview'
  *   - now() < confirm_expires_at
  *
  * Erros:
  *   - 401 AUTH_REQUIRED
- *   - 404 RUN_NOT_FOUND (cross-household ou inexistente — bloqueado por RLS)
+ *   - 404 RUN_NOT_FOUND (cross-household ou inexistente — 404 não revela existência)
  *   - 409 CONFIRM_EXPIRED (TTL passou)
  *   - 409 CONFIRM_INVALID_STATE (status != pending_preview)
  *
@@ -29,6 +32,7 @@ import {
   type ClassificationResult,
 } from '@meu-jarvis/classifier';
 import { getDb } from '@/lib/agent/db-shim';
+import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import {
   childLogger,
   captureException,
@@ -91,14 +95,25 @@ export async function POST(
         return apiError('AUTH_REQUIRED', 'Sessão inválida.', 401);
       }
 
+      // SEC-1-F3: resolver o household do utilizador autenticado para isolar a
+      // run por household app-enforced (RLS inerte em runtime). Sem household
+      // activo → 404 (não revela se o run existe noutro household).
+      const userHouseholdId = await resolveHouseholdId(user.id);
+      if (!userHouseholdId) {
+        annotateAgentPromptSpan(span, { status_code: 404 });
+        return apiError('RUN_NOT_FOUND', 'Run não encontrado.', 404, { run_id: runId });
+      }
+
       const db = getDb();
 
-      // Lookup run em pending_preview (RLS bloqueia cross-household)
+      // Lookup run em pending_preview — filtro household_id app-enforced
+      // (SEC-1-F3): só o household dono do run o encontra; cross-household → 404.
       const rows = await db.execute<PendingPreviewRow>(sql`
         select id, household_id, user_id, status, confirm_expires_at,
                intents_detected, trace_id
         from agent_runs
         where id = ${runId}::uuid
+          and household_id = ${userHouseholdId}::uuid
         limit 1
       `);
 

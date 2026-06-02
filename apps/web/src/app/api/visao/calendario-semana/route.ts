@@ -47,7 +47,7 @@ export async function GET(): Promise<NextResponse> {
       if (auth instanceof NextResponse) return auth;
 
       try {
-        const body = await getCalendarWeek(getDb());
+        const body = await getCalendarWeek(getDb(), auth.householdId);
 
         const validated = CalendarWeekResponseSchema.parse(body);
         annotateSpan(span, { statusCode: 200 });

@@ -129,18 +129,20 @@ async function resolveHouseholdId(userId: string): Promise<string | null> {
 async function buildAccountContext(
   db: ReturnType<typeof getDb>,
   log: ReturnType<typeof childLogger>,
+  householdId: string,
 ): Promise<AccountContext | undefined> {
   try {
+    // SEC-1: filtro household_id explícito — a RLS está inerte em runtime.
     const accountRows = await db.execute<{ id: string; name: string; account_type: string }>(sql`
       select id, name, account_type
       from public.accounts
-      where archived_at is null
+      where household_id = ${householdId}::uuid and archived_at is null
       order by created_at asc
     `);
     const cardRows = await db.execute<{ id: string; name: string }>(sql`
       select id, name
       from public.cards
-      where archived_at is null
+      where household_id = ${householdId}::uuid and archived_at is null
       order by created_at asc
     `);
 
@@ -518,7 +520,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // getServiceDb()) das contas/cartões activos (archived_at IS NULL) do
       // household, para alimentar o accountContext do Planner. Falha é
       // não-fatal — o fallback resolveDefaultAccount das tools resolve a jusante.
-      const accountContext = await buildAccountContext(db, log);
+      const accountContext = await buildAccountContext(db, log, householdId);
 
       let plan: PlanResult;
       let outcome: AtomicOutcome;

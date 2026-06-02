@@ -35,6 +35,30 @@ const USER_UUID = '00000000-0000-0000-0000-000000000001';
 const HOUSEHOLD_UUID = '00000000-0000-0000-0000-000000000002';
 const ACCOUNT_UUID = '00000000-0000-0000-0000-0000000000a1';
 
+/**
+ * Extrai os valores dos parâmetros bound de um objecto `SQL` do Drizzle. Usado
+ * para provar que o `household_id` autenticado é interpolado como parâmetro nas
+ * sub-queries de validação de FK do POST (isolamento de escrita — SEC-1-F1).
+ */
+function boundParamValues(sqlObj: unknown): unknown[] {
+  const out: unknown[] = [];
+  const walkChunks = (chunks: unknown): void => {
+    if (!Array.isArray(chunks)) return;
+    for (const chunk of chunks) {
+      if (chunk != null && typeof chunk === 'object') {
+        const obj = chunk as Record<string, unknown>;
+        if ('queryChunks' in obj) walkChunks(obj.queryChunks);
+      } else {
+        out.push(chunk);
+      }
+    }
+  };
+  if (sqlObj != null && typeof sqlObj === 'object' && 'queryChunks' in (sqlObj as object)) {
+    walkChunks((sqlObj as { queryChunks: unknown }).queryChunks);
+  }
+  return out;
+}
+
 function memberChain(field: string, value: unknown) {
   return {
     select: vi.fn().mockReturnValue({
@@ -180,5 +204,21 @@ describe('POST /api/financas/recorrencias', () => {
       postReq({ ...validBody, frequency: 'custom', custom_rrule: 'FREQ=MONTHLY;BYDAY=1MO' }),
     );
     expect(res.status).toBe(201);
+  });
+
+  // SEC-1-F1 — IDOR de escrita: a sub-query de validação de account_id no POST
+  // tem de filtrar pelo household autenticado (RLS inerte em runtime). Sem isto,
+  // uma recorrência podia referenciar uma conta de OUTRO household.
+  it('SEC-1-F1: validação de account_id no POST é filtrada pelo household autenticado', async () => {
+    authed();
+    mocks.dbExecuteMock.mockResolvedValueOnce([]); // FK-check cross-household → 0 rows
+    const res = await POST(postReq(validBody));
+    expect(res.status).toBe(404);
+
+    const fkCheck = mocks.dbExecuteMock.mock.calls[0]?.[0];
+    expect(fkCheck).toBeDefined();
+    const params = boundParamValues(fkCheck);
+    expect(params).toContain(ACCOUNT_UUID);
+    expect(params).toContain(HOUSEHOLD_UUID);
   });
 });

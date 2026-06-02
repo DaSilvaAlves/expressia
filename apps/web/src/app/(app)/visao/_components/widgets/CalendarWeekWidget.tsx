@@ -20,10 +20,14 @@ import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
  *
  * Trace: Story 5.6 AC4 (calendar_week); PO-FIX-1; RLS NFR5.
  */
-export async function CalendarWeekWidget(): Promise<React.ReactElement> {
+export async function CalendarWeekWidget({
+  householdId,
+}: {
+  householdId: string;
+}): Promise<React.ReactElement> {
   let days: Awaited<ReturnType<typeof getCalendarWeek>>['days'] = [];
   try {
-    const data = await getCalendarWeek(getDb());
+    const data = await getCalendarWeek(getDb(), householdId);
     days = data.days;
   } catch (err) {
     captureException(err instanceof Error ? err : new Error(String(err)), {

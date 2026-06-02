@@ -16,11 +16,15 @@ import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
  *
  * Trace: Story 5.6 AC4 (tasks_today); RLS NFR5 via `getDb()`.
  */
-export async function TasksTodayWidget(): Promise<React.ReactElement> {
+export async function TasksTodayWidget({
+  householdId,
+}: {
+  householdId: string;
+}): Promise<React.ReactElement> {
   let count = 0;
   let tasks: Awaited<ReturnType<typeof getTasksToday>>['tasks'] = [];
   try {
-    const data = await getTasksToday(getDb());
+    const data = await getTasksToday(getDb(), householdId);
     count = data.count;
     tasks = data.tasks;
   } catch (err) {

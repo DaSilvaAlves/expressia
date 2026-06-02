@@ -46,6 +46,7 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
         const rows = await db.execute<{ task_id: string }>(sql`
           delete from public.task_tags
           where task_id = ${taskId}::uuid and tag_id = ${tagId}::uuid
+            and household_id = ${auth.householdId}::uuid
           returning task_id
         `);
 

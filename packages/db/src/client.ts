@@ -15,6 +15,7 @@
  *
  * Ver `architecture.md` §3.2, §5.1, §11.2.
  */
+import { sql } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
@@ -93,6 +94,8 @@ export async function setHouseholdContext(
   db: Database,
   householdId: string,
 ): Promise<void> {
-  // Drizzle não expõe `set_config` directamente — usar raw SQL
-  await db.execute(`select set_config('app.current_household_id', '${householdId}', true)`);
+  // SEC-1 (AC-J1): query parametrizada via tagged template literal — evita SQL
+  // injection da interpolação de string anterior. O driver passa `householdId`
+  // como parâmetro bound, nunca concatenado no SQL.
+  await db.execute(sql`select set_config('app.current_household_id', ${householdId}, true)`);
 }

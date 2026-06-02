@@ -68,6 +68,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           select ${ACCOUNT_COLUMNS}
           from public.accounts
           where ${archived ? sql`archived_at is not null` : sql`archived_at is null`}
+            and household_id = ${auth.householdId}::uuid
           order by name asc
           limit 200
         `);

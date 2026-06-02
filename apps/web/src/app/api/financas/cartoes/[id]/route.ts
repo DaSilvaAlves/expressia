@@ -75,7 +75,9 @@ export async function GET(_req: NextRequest, ctx: RouteContext): Promise<NextRes
         const db = getDb();
         const rows = await db.execute<CardRow>(sql`
           select ${CARD_COLUMNS}
-          from public.cards where id = ${id}::uuid limit 1
+          from public.cards
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+          limit 1
         `);
 
         const card = rows[0];
@@ -150,7 +152,8 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
 
         const rows = await db.execute<CardRow>(sql`
-          update public.cards set ${setSql} where id = ${id}::uuid
+          update public.cards set ${setSql}
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
           returning ${CARD_COLUMNS}
         `);
 
@@ -233,7 +236,7 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
         // `cards.account_id ON DELETE restrict` + `transactions.card_id`).
         const rows = await db.execute<{ id: string }>(sql`
           update public.cards set archived_at = now(), updated_at = now()
-          where id = ${id}::uuid
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
           returning id
         `);
 

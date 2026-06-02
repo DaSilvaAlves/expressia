@@ -61,11 +61,14 @@ export async function POST(req: NextRequest, ctx: RouteContext): Promise<NextRes
       try {
         const db = getDb();
 
-        // Verificar task + tag pertencem ao mesmo household (RLS auto-filtra)
+        // SEC-1: isolamento app-enforced — verificar que task + tag pertencem ao
+        // household autenticado (a RLS está inerte em runtime).
         const checkRows = await db.execute<{ task_id: string; tag_id: string }>(sql`
           select
-            (select id from public.tasks where id = ${taskId}::uuid limit 1) as task_id,
-            (select id from public.tags where id = ${body.tag_id}::uuid limit 1) as tag_id
+            (select id from public.tasks
+              where id = ${taskId}::uuid and household_id = ${auth.householdId}::uuid limit 1) as task_id,
+            (select id from public.tags
+              where id = ${body.tag_id}::uuid and household_id = ${auth.householdId}::uuid limit 1) as tag_id
         `);
 
         const check = checkRows[0];

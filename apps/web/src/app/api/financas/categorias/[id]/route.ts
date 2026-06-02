@@ -75,7 +75,10 @@ export async function GET(_req: NextRequest, ctx: RouteContext): Promise<NextRes
         const db = getDb();
         const rows = await db.execute<CategoryRow>(sql`
           select ${CATEGORY_COLUMNS}
-          from public.categories where id = ${id}::uuid limit 1
+          from public.categories
+          where id = ${id}::uuid
+            and (household_id = ${auth.householdId}::uuid or household_id is null)
+          limit 1
         `);
 
         const category = rows[0];
@@ -144,6 +147,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
           const parentRows = await db.execute<{ id: string; parent_id: string | null }>(sql`
             select id, parent_id from public.categories
             where id = ${body.parent_id}::uuid and archived_at is null
+              and (household_id = ${auth.householdId}::uuid or household_id is null)
             limit 1
           `);
           const parent = parentRows[0];
@@ -177,10 +181,12 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         sets.push(sql`updated_at = now()`);
         const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
 
-        // RLS `categories_update_member` exige `household_id NOT NULL` — uma
-        // categoria global não é encontrada e o UPDATE devolve 0 rows → 404.
+        // App-enforced (SEC-1): só actualiza categorias do próprio household.
+        // Globais (household_id IS NULL) ficam read-only — não são encontradas
+        // pelo filtro estrito e o UPDATE devolve 0 rows → 404 (D-SEC1.1).
         const rows = await db.execute<CategoryRow>(sql`
-          update public.categories set ${setSql} where id = ${id}::uuid
+          update public.categories set ${setSql}
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
           returning ${CATEGORY_COLUMNS}
         `);
 
@@ -244,12 +250,12 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
       try {
         const db = getDb();
         // Soft delete (DP-4.3.5) — `archived_at = now()` preserva a categorização
-        // do histórico (`transactions.category_id ON DELETE set null`). O soft-delete
-        // é um UPDATE — a policy `categories_update_member` (household_id NOT NULL)
-        // impede arquivar categorias globais → 0 rows → 404.
+        // do histórico (`transactions.category_id ON DELETE set null`). App-enforced
+        // (SEC-1): o filtro estrito `household_id` impede arquivar categorias globais
+        // (household_id IS NULL) → 0 rows → 404 (D-SEC1.1).
         const rows = await db.execute<{ id: string }>(sql`
           update public.categories set archived_at = now(), updated_at = now()
-          where id = ${id}::uuid
+          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
           returning id
         `);
 
