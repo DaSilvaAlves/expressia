@@ -1,0 +1,92 @@
+id: mj-handoff-session-sec2-rls-enforced-fase1-prod-20260602
+from_agent: aiox-devops
+to_agent: any
+created: '2026-06-02T20:35:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: session-end
+
+summary: |
+  Story SEC-2 (Fase 1 do hardening RLS-enforced, ADR-003) está EM PRODUÇÃO.
+  A RLS deixou de estar inerte em runtime para o piloto de tarefas — adicionada a
+  2.ª rede de isolamento cross-tenant (defense-in-depth) por baixo do app-enforced
+  de SEC-1. Nada a meio.
+
+  O QUE FOI FEITO: `withHousehold(auth, fn)` em `packages/db/src/client.ts` —
+  wrapper transaccional que faz `SET LOCAL ROLE authenticated` + `SET LOCAL
+  request.jwt.claims` por request (reverte no COMMIT — zero fuga entre requests no
+  pool pgbouncer transaction-mode 6543). Comentário falso sobre herança de
+  auth.uid() corrigido. Gate CI endurecido com teste de APLICAÇÃO real
+  (`rls-application.test.ts`): semeia 2 households, liga via withHousehold com o
+  role do runtime, prova 0 rows cross-tenant + INSERT bloqueado (antes só validava
+  existência estática de policies). Piloto: o handler GET /api/tasks envolve
+  listTasksHelper em withHousehold (helper puro intacto, recebe tx injectado —
+  preserva G1). getServiceDb()/service_role intactos (jobs Inngest/migrations).
+  App-enforced (filtro household_id de SEC-1) NUNCA removido — é a 1.ª rede.
+
+  Ciclo completo: @sm draft → @po GO 9,0/10 → @dev develop → @architect adversarial
+  gate PASS 9,5/10 (8/8 focos de segurança limpos, 3/3 DEV-DECISION ratificadas).
+  SEM migration SQL nova (as 104 policies existem desde 0001) → NÃO requereu
+  db:migrate em prod.
+
+next_action: |
+  NADA bloqueado. Trabalho opcional, por prioridade:
+
+  1. **Fase 2 do ADR-003 — RECOMENDADO (incremental, por domínio).** Migrar os ~41
+     call-sites `getDb()` → `withHousehold(auth, fn)` restantes, em stories
+     separadas por domínio (finanças, household, cérebro AI lifecycle, etc.). A
+     mecânica está provada e o gate de aplicação já protege contra regressão. Manter
+     SEMPRE o filtro household_id app-enforced ao migrar — withHousehold é a 2.ª
+     rede, não substitui a 1.ª. Sugestão de ordem: domínios com dados sensíveis
+     primeiro (finanças/IBAN), depois o resto.
+
+  2. **Follow-ups menores (herdados da pausa anterior, ainda abertos):**
+     - FU-LOGIN-NEXT [MEDIUM]: redirect pós-login ignora `?next=` (quebra fluxo
+       login → aceitar convite). Verificar o action de login.
+     - FU-SITE-URL-PROD [MEDIUM]: Supabase Site URL = localhost → mudar p/
+       expressia.pt antes de produção real (afeta links de email).
+     - FU-CLEANUP-TEST-USERS [LOW]: euricojsalves, +t1, +t2, +t3 no Supabase.
+     - NOTA multi-household [LOW, produto]: utilizador em 2 households mostra o do
+       JWT; avaliar fluxo de "household activo".
+
+  3. **Billing CONTINUA CONGELADO** (directiva Eurico 29/05 — handoff
+     `mj-handoff-refocus-core-freeze-billing-20260529` mantém-se pending por design).
+
+context: |
+  **Estado git:** prod/origin/main após 2 pushes desta sessão @devops (fast-forward,
+  sem --force, sem --no-verify):
+    - `98c8176` feat(security): RLS enforced em runtime via withHousehold — Fase 1 [SEC-2] (8 ficheiros)
+    - `<HOUSEKEEPING_SHA>` chore(housekeeping): SEC-2 gate + story completed + handoffs
+
+  **Migrations em prod:** 0000–0022 (inalteradas — SEC-2 não adiciona migration).
+
+  **Gates re-corridos em sessão @devops (mesmo tree do gate @architect):**
+  lint · typecheck · check:rls EXIT 0 (FULL TURBO cache hit confirma tree imutável).
+  Pesados confiados ao @dev+@architect (mesmo tree, minutos antes): web 1068/1069
+  (flaky `tarefas/calendario/page.test.tsx` conhecido, passa isolado — NÃO
+  regressão) · db-test 175/175 (Docker real, inclui rls-application 9/9) ·
+  build MW intacto. CodeRabbit SKIPPED (sem coderabbit_integration em core-config;
+  precedente fase make-it-work 3.1–6.7; @dev já corrido 0 findings).
+
+  **Artefactos:** ADR `docs/adr/ADR-003-rls-enforced-runtime-hardening.md`; gate
+  `docs/qa/gates/SEC-2-architect-gate.md`; story Done v1.3-ARCH-APPROVED em
+  `docs/stories/completed/SEC-2.rls-enforced-runtime-fase1-wrapper-gate.story.md`;
+  diagnóstico Fase 0 `packages/db-test/src/scripts/diag-adr003-phase0.ts`.
+
+  **Como exercer withHousehold noutros call-sites (Fase 2):** o handler envolve a
+  chamada em `withHousehold(auth, (tx) => helper({ ...params, db: tx }))`, passando
+  `tx` em vez de `getDb()`. Ver `apps/web/src/app/api/tasks/route.ts` (GET) como
+  template canónico. `db-shim.ts` em apps/web foi estendido para aceitar o tx.
+
+  **Gotcha mantido:** `pnpm build` + `next dev` na mesma `.next` parte o CSS em dev
+  — limpar `.next` antes de `dev`.
+
+blockers: |
+  Nenhum. SEC-2 em prod, evidência local completa (gate de aplicação real 9/9 contra
+  Postgres real + db-test 175/175). A vulnerabilidade de vazamento cross-tenant
+  estava já tapada pelo app-enforced (SEC-1); SEC-2 adiciona a 2.ª rede. Billing
+  congelado (directiva mantém-se).

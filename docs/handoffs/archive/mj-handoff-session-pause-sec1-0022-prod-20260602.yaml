@@ -2,8 +2,15 @@ id: mj-handoff-session-pause-sec1-0022-prod-20260602
 from_agent: aiox-master
 to_agent: any
 created: '2026-06-02T17:00:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-06-02T20:30:00Z'
+consumed_by: aiox-devops
+consumed_note: |
+  next_action #1 (hardening RLS-enforced) avançado e concretizado na Story SEC-2:
+  ADR-003 desenhado (@architect+@data-engineer Fase 0 GO), withHousehold implementado,
+  gate de aplicação real adicionado, piloto tarefas migrado. Em prod 98c8176.
+  Billing CONTINUA congelado (handoff refocus-core mantém-se pending por design).
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
