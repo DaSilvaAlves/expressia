@@ -1,0 +1,148 @@
+id: mj-handoff-smoke-6.7-blocked-authuid-rls-20260602
+from_agent: aiox-master
+to_agent: dev
+also_relevant_to: [architect, data-engineer]
+created: '2026-06-02T00:10:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: bug-found
+
+summary: |
+  SMOKE-6.7 (INVITE-E2E) executado com humano (aiox-master Orion + Eurico) →
+  ❌ FALHA no caminho feliz. O smioke fez o seu trabalho e apanhou DOIS achados
+  reais ("Done no papel ≠ funciona"):
+
+    ACHADO-1 [HIGH, bloqueia Story 6.7] — `accept_invite()` NUNCA funciona via
+    `getDb()`. A função SQL (migration 0020) depende de `auth.uid()`, mas a
+    conexão runtime do `getDb()` (DATABASE_URL, pgbouncer 6543) liga como role
+    `postgres` SEM injectar `request.jwt.claims` → `auth.uid()` = NULL →
+    `raise AUTH_REQUIRED` → a UI mostra "Sessão inválida. Inicia sessão
+    novamente." apesar de a sessão do browser ser VÁLIDA. Os testes db-test
+    passaram porque lá o JWT/claims é simulado; o runtime real não o injecta.
+    A accept_invite() é a 1ª função a depender de auth.uid() server-side — todas
+    as rotas anteriores contornam passando household_id/user_id EXPLÍCITOS no SQL.
+
+    ACHADO-2 [potencial HIGH/CRITICAL, NFR5 — A INVESTIGAR, não confirmado] — a
+    mesma prova mostrou que a conexão de utilizador final liga como `postgres`
+    (owner, ignora RLS) com `jwt_claims: NULL`. Ou seja, a RLS multi-tenant
+    parece estar INERTE em runtime; o isolamento entre households dependeria
+    inteiramente dos filtros `where household_id = …` explícitos em cada rota.
+    Isto CONTRADIZ o pilar do CLAUDE.md/NFR5 ("cross-household bloqueado pelo
+    Postgres, não pela app"). NÃO confirmado como falha aberta — precisa de
+    @architect/@data-engineer (ver next_action).
+
+  Tudo o resto do fluxo 6.7 funciona E2E: criar convite (POST /invites 201 + link
+  copiável + listagem pendente sem expor token), página de aceitação (auth gate +
+  redirect /entrar?next=), mapeamento de erros PT-PT. Só a chamada final à função
+  é que rebenta. Migration 0020 CONFIRMADA em prod (função existe, SECURITY
+  DEFINER, search_path=public, GRANT EXECUTE a authenticated — verify-0020.ts PASS).
+
+next_action: |
+  Dois fios, delegados (decisão do Eurico = "handoff + delegar"):
+
+  1. **@dev — corrigir ACHADO-1 (idiomático ao codebase).** Opção recomendada:
+     passar o utilizador EXPLICITAMENTE à função em vez de depender de auth.uid()
+     (o handler já valida a sessão via supabase.auth.getUser()). Passos:
+       a) nova migration `0022_accept_invite_user_param.sql`:
+          `create or replace function accept_invite(p_token text, p_user_id uuid)`
+          — substituir `v_user_id := auth.uid()` por `v_user_id := p_user_id`;
+          manter validações restantes; manter GRANT; (decidir se mantém a
+          assinatura antiga (text) por retrocompat ou DROP — só 6.7 a usa);
+       b) handler `apps/web/src/app/api/conta/household/aceitar-convite/route.ts`:
+          chamar `select public.accept_invite(${token}, ${user.id}::uuid)`;
+       c) actualizar testes: `aceitar-convite/__tests__/route.test.ts` +
+          `packages/db-test/src/tests/accept_invite.test.ts` (passar p_user_id);
+       d) gates completos (lint·typecheck·test web+db·check:rls·build) + db:migrate
+          em prod (DIRECT_URL) + RE-TESTAR o E2E (servidor + browser, +t3 já existe);
+       e) ciclo normal @dev→@architect *qa-gate→@devops *push.
+     ⚠️ Validar contra ACHADO-2 antes de fechar: se o role de runtime mudar para
+     `authenticated` com claims, auth.uid() passaria a funcionar e a Opção A pode
+     ser desnecessária — coordenar com a investigação (2).
+
+  2. **@architect + @data-engineer — investigar ACHADO-2 (RLS inerte?).** Confirmar
+     com evidência:
+       - As tabelas de domínio têm `FORCE ROW LEVEL SECURITY`? (Se NÃO, o owner
+         `postgres` bypassa RLS → isolamento só por filtros app — risco real.)
+       - O role de runtime DEVIA ser `authenticated` (não `postgres`)? A
+         DATABASE_URL aponta para que utilizador do pooler? (diag mostrou
+         current_user='postgres'.)
+       - O comentário em `packages/db/src/client.ts:11-13` ("connections como
+         authenticated herdam auth.uid() do JWT") é FALSO face ao runtime — ou
+         actualizar o código para corresponder, ou actualizar o comentário/arch.
+       - Auditar se TODAS as rotas filtram household_id explicitamente (se a RLS
+         está inerte, um único `where` em falta = vazamento cross-tenant).
+       - Cruzar com `scripts/check-rls-coverage.ts` (gate NFR5): o gate valida que
+         as POLICIES existem no SQL, mas NÃO que são APLICADAS em runtime — gap de
+         garantia. Decidir se o gate precisa de um teste de aplicação real.
+
+  FOLLOW-UPS herdados (do handoff anterior, ainda abertos):
+    - FU-EMAIL-1 [MEDIUM] SITE-URL-PROD (Supabase Site URL = localhost; mudar p/
+      expressia.pt antes de produção real).
+    - FU-EMAIL-2 [LOW] CLEANUP-TEST-USERS (euricojsalves, +t1, +t2, +t3 no Supabase).
+    - OBS-6.2-SMOKE-6b [LOW] reload /bem-vindo remostra tour (decisão A = aceitar).
+  FOLLOW-UP novo desta sessão:
+    - FU-LOGIN-NEXT [MEDIUM] o redirect pós-login IGNORA `?next=` — após login em
+      `/entrar?next=/aceitar-convite/{token}` o utilizador foi para /conta/household
+      em vez de voltar ao link. Quebra o fluxo natural "login → aceitar convite".
+      Verificar o action de login (allowlist de next paths? fallback hardcoded?).
+
+context: |
+  **Estado git:** origin/main = `6173fed` (sincronizado, `git pull` deu "Already
+  up to date"). Working tree tinha ficheiros UNTRACKED criados nesta sessão (ver
+  abaixo) — NADA commitado, NADA pushed nesta sessão.
+
+  **Evidência ACHADO-1 (prova empírica):**
+    - Log runtime: `POST /api/conta/household/aceitar-convite 401` com
+      `{"code":"AUTH_REQUIRED","msg":"accept_invite rejeitou (esperado)"}` — a msg
+      vem do CATCH (mapAcceptInviteError), logo passou o auth-check do handler e
+      foi a FUNÇÃO SQL que levantou AUTH_REQUIRED.
+    - `diag-getdb-auth.ts` (DATABASE_URL, igual ao getDb): retornou
+      `current_user='postgres', auth.uid()=NULL, request.jwt.claims=NULL`.
+    - `client.ts:36-56` (getDb): cria `postgres(DATABASE_URL, {prepare:false,…})`
+      e NUNCA faz `set request.jwt.claims` nem `set role authenticated` por request.
+    - `accept_invite()` (0020): linha `v_user_id := auth.uid(); if … is null then
+      raise 'AUTH_REQUIRED'`. → causa directa.
+
+  **Scripts de diagnóstico criados (UNTRACKED — @dev/@devops decide se entram em
+  git; seguem o padrão dos verify-000x já commitados):**
+    - `packages/db/src/scripts/verify-0020.ts` — valida função+grant+secdef+
+      search_path em prod (PASS). RECOMENDO manter (re-verificação pós-fix).
+    - `packages/db/src/scripts/diag-getdb-auth.ts` — prova auth.uid() na conexão
+      runtime. Útil para a investigação do ACHADO-2.
+    - `packages/db/src/scripts/dev-confirm-user.ts` — diagnostica/confirma email de
+      utilizador em auth.users (helper de smoke, espelha dev-create-user.ts).
+
+  **Dados de teste criados nesta sessão:**
+    - Utilizador `euricojsalves+t3@gmail.com` (id `b11472e4-7536-4e58-a2a0-f72be21d097a`,
+      pass `Smoke12345!`) criado via `dev-create-user.ts` (email_confirm:true).
+      Tem household PRÓPRIO (`fa6000dd-84ba-4374-982f-2c112dae57b7`, plano Família).
+    - Convite para `+t3` no household do owner `+t2`
+      (`74a4d7bc-31f4-48ef-b2d4-9790d02dd031`) CONTINUA PENDENTE (token
+      `b3c18eb4b22d229040e2b536ddec80cfadc7cd66757a373acbdb53cbf47e5e8b`,
+      expira em 7d a partir de 01/06). Serve para re-testar o E2E pós-fix.
+
+  **Nota de design (multi-household):** todo o signup cria household próprio
+  (trigger handle_new_user). Logo, ao aceitar um convite, o utilizador fica em DOIS
+  households. O /conta/household mostra o do JWT. Avaliar (não-bloqueante) se o
+  fluxo de convite pretendido precisa de tratar isto (ex.: escolher household
+  activo, ou não criar household no signup quando há convite pendente).
+
+  **Dev server:** ainda A CORRER em background (localhost:3000) no fecho desta
+  mensagem — pode ter sido parado entretanto. Se o CSS vier partido ao rearrancar,
+  limpar `.next` (gotcha conhecido build vs dev).
+
+  **Epic 6:** 6.1 + 6.2 Done em prod. Story 6.7 marcada Done/completed MAS a
+  feature central (aceitar convite) NÃO funciona em runtime → reabrir como bug
+  (ACHADO-1) ou nova story de fix.
+
+blockers: |
+  ACHADO-1 bloqueia a aceitação de convites (feature central da 6.7) em runtime.
+  ACHADO-2 (RLS) é potencialmente CRÍTICO mas NÃO confirmado — não tratar como
+  facto até @architect/@data-engineer validarem (FORCE RLS? role de runtime?).
+  Billing CONTINUA CONGELADO. Nada pushed nesta sessão (só diagnóstico + 1 user de
+  teste). Para retomar: `git pull` (código em `6173fed`), rearrancar dev server,
+  +t3 já existe e o convite continua pendente para re-teste E2E.

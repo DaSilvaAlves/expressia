@@ -2,8 +2,14 @@
  * POST /api/conta/household/aceitar-convite — Story 6.7 (aceitar convite).
  *
  * Chamado pela página `/aceitar-convite/{token}` (utilizador autenticado). Invoca
- * a função SQL `accept_invite(token)` (SECURITY DEFINER) via `getDb()` — valida
- * estado/expiração/email/limite-de-plano e cria o membership atomicamente.
+ * a função SQL `accept_invite(token, user_id)` (SECURITY DEFINER) via `getDb()` —
+ * valida estado/expiração/email/limite-de-plano e cria o membership atomicamente.
+ *
+ * O `user_id` é passado EXPLICITAMENTE (fix ACHADO-1, migration 0022): o `getDb()`
+ * runtime liga como role `postgres` sem `request.jwt.claims`, logo `auth.uid()`
+ * era NULL e a função rejeitava com AUTH_REQUIRED apesar de sessão válida. A
+ * identidade vem do handler (sessão já validada por `supabase.auth.getUser()`),
+ * alinhado com o padrão app-enforced do resto da API (SEC-1).
  *
  * Os erros tipados da função (`raise exception '<CODE>'`) são mapeados para
  * mensagens PT-PT + status HTTP por `mapAcceptInviteError` (exportada p/ testes).
@@ -12,7 +18,7 @@
  * rota dinâmica `/invites/[id]` (DEV-DECISION D-6.7.5: aceitação via endpoint +
  * página client, consistente e testável, em vez de Server Action).
  *
- * RLS: `getDb()` (role authenticated). Trace: Story 6.7 AC6; FR27.
+ * Trace: Story 6.7 AC6; FR27; ACHADO-1 (fix via migration 0022).
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -100,8 +106,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       try {
         const db = getDb();
+        // user.id vem da sessão validada (supabase.auth.getUser acima); passamos
+        // explicitamente porque auth.uid() é NULL na conexão runtime do getDb().
         const rows = await db.execute<{ household_id: string }>(sql`
-          select public.accept_invite(${body.token}) as household_id
+          select public.accept_invite(${body.token}, ${user.id}::uuid) as household_id
         `);
 
         const householdId = rows[0]?.household_id;

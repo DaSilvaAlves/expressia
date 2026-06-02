@@ -30,6 +30,45 @@ function makeReq(body: unknown): NextRequest {
   });
 }
 
+/** Texto SQL de um objecto SQL Drizzle (concatena os StringChunk). */
+function sqlText(sqlObj: unknown): string {
+  let text = '';
+  const walk = (chunks: unknown): void => {
+    if (!Array.isArray(chunks)) return;
+    for (const chunk of chunks) {
+      if (chunk != null && typeof chunk === 'object') {
+        const obj = chunk as Record<string, unknown>;
+        if (Array.isArray(obj.value)) text += (obj.value as string[]).join('');
+        if ('queryChunks' in obj) walk(obj.queryChunks);
+      }
+    }
+  };
+  if (sqlObj != null && typeof sqlObj === 'object' && 'queryChunks' in (sqlObj as object)) {
+    walk((sqlObj as { queryChunks: unknown }).queryChunks);
+  }
+  return text;
+}
+
+/** Valores dos bind params de um objecto SQL Drizzle. */
+function boundParamValues(sqlObj: unknown): unknown[] {
+  const out: unknown[] = [];
+  const walk = (chunks: unknown): void => {
+    if (!Array.isArray(chunks)) return;
+    for (const chunk of chunks) {
+      if (chunk != null && typeof chunk === 'object') {
+        const obj = chunk as Record<string, unknown>;
+        if ('queryChunks' in obj) walk(obj.queryChunks);
+      } else {
+        out.push(chunk);
+      }
+    }
+  };
+  if (sqlObj != null && typeof sqlObj === 'object' && 'queryChunks' in (sqlObj as object)) {
+    walk((sqlObj as { queryChunks: unknown }).queryChunks);
+  }
+  return out;
+}
+
 describe('mapAcceptInviteError', () => {
   const cases: Array<[string, string, number]> = [
     ['INVITE_NOT_FOUND', 'INVITE_NOT_FOUND', 404],
@@ -78,6 +117,21 @@ describe('POST /api/conta/household/aceitar-convite', () => {
     const json = await res.json();
     expect(json.accepted).toBe(true);
     expect(json.householdId).toBe('hh-2');
+  });
+
+  it('passa token E user.id à função accept_invite (fix ACHADO-1)', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-abc' } }, error: null });
+    mockExecute.mockResolvedValueOnce([{ household_id: 'hh-2' }]);
+    const { POST } = await import('../route');
+    await POST(makeReq({ token: 'tok123' }));
+
+    // O SQL recebido pelo execute deve referenciar accept_invite e ligar dois
+    // bind params: o token e o user.id (já não depende de auth.uid()).
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    const sqlObj = mockExecute.mock.calls[0]![0];
+    expect(sqlText(sqlObj).toLowerCase()).toContain('public.accept_invite(');
+    expect(boundParamValues(sqlObj)).toContain('tok123');
+    expect(boundParamValues(sqlObj)).toContain('user-abc');
   });
 
   it('410 quando o convite expirou', async () => {
