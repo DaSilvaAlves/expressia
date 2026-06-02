@@ -2,8 +2,11 @@ id: mj-handoff-session-sec2-rls-enforced-fase1-prod-20260602
 from_agent: aiox-devops
 to_agent: any
 created: '2026-06-02T20:35:00Z'
-status: pending
-consumed: false
+status: superseded
+consumed: true
+consumed_at: '2026-06-02T22:10:00Z'
+consumed_by: devops
+superseded_by: mj-handoff-session-sec3-rls-enforced-fase2-financas-prod-20260602
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
@@ -60,7 +63,7 @@ context: |
   **Estado git:** prod/origin/main após 2 pushes desta sessão @devops (fast-forward,
   sem --force, sem --no-verify):
     - `98c8176` feat(security): RLS enforced em runtime via withHousehold — Fase 1 [SEC-2] (8 ficheiros)
-    - `<HOUSEKEEPING_SHA>` chore(housekeeping): SEC-2 gate + story completed + handoffs
+    - `e5f84db` chore(housekeeping): SEC-2 gate + story completed + handoffs
 
   **Migrations em prod:** 0000–0022 (inalteradas — SEC-2 não adiciona migration).
 

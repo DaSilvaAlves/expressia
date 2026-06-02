@@ -1,0 +1,67 @@
+from_agent: dev
+to_agent: architect
+created: 2026-06-02T21:05:00Z
+status: consumed
+consumed: true
+consumed_at: 2026-06-02T21:40:00Z
+consumed_by: architect
+story_id: SEC-3
+story_path: docs/stories/active/SEC-3.rls-enforced-runtime-fase2-financas-12-handlers.story.md
+branch: main
+
+summary: >
+  Story SEC-3 (ADR-003 Fase 2 — domínio Finanças) implementada e Ready for Review v1.0-DEV.
+  Os 12 route handlers /api/financas/* migrados de getDb() → withHousehold(auth, fn) (2.ª rede
+  RLS-enforced em runtime). Filtros household_id app-enforced (SEC-1, 1.ª rede) INALTERADOS;
+  insertAuditLog mantém-se best-effort FORA do withHousehold com db: getDb() (PO-FIX-2);
+  getServiceDb() intocado; sem migration nova. PO-OBS implementada: gate de aplicação
+  rls-application.test.ts estendido de 9→15 testes (+accounts +categories globais — fecha o
+  único risco residual da policy divergente OR household_id IS NULL). 6/6 gates GREEN.
+
+context: |
+  Pede-se a @architect: *qa-gate SEC-3 (gate adversarial, padrão SEC-1/SEC-2 — CodeRabbit disabled).
+
+  ÂMBITO ENTREGUE (T1-T14 todas [x]):
+  - 12 handlers migrados: contas, contas/[id], cartoes, cartoes/[id], transacoes, transacoes/[id],
+    categorias, categorias/[id], prestacoes, prestacoes/[id], recorrencias, recorrencias/[id].
+  - 12 ficheiros de teste __tests__/route.test.ts actualizados (mock db-shim expõe withHousehold).
+  - packages/db-test/src/tests/rls-application.test.ts: +6 testes (PO-OBS).
+
+  PADRÃO (template tasks/route.ts):
+  - GET puros: getDb() removido; query em withHousehold(auth, (tx) => tx.execute(...)).
+  - Mutações: const db = getDb() MANTIDO (audit best-effort exterior — PO-FIX-2); operação
+    principal (sub-queries FK + INSERT/UPDATE/DELETE + tx aninhada) em withHousehold(auth,(tx)=>...).
+
+  3 [DEV-DECISION] para ratificar:
+  - D-SEC3.1: PO-OBS aceite — gate estendido a accounts(3) + categories globais(3). O teste de
+    categorias prova que userA vê própria per-household + global, NUNCA per-household de B.
+  - D-SEC3.2: handlers com early-return 404/409/400 entre sub-queries FK passaram a usar RETORNO
+    DISCRIMINADO ({error:...}|{row}) do callback de withHousehold; o handler converte para
+    apiError FORA da tx. Preserva status/mensagem byte-a-byte; o early-return faz COMMIT limpo
+    (só SELECTs, zero escrita) em vez de abortar a tx de forma ambígua.
+  - D-SEC3.3: prestacoes POST/DELETE usam tx.transaction() ANINHADA dentro de withHousehold
+    (savepoint Postgres que herda SET LOCAL ROLE authenticated + claims da tx exterior). Ordem
+    de delete (transactions antes de installments) preservada; atomicidade intacta.
+
+  GATES (6/6 GREEN, Docker UP):
+  - pnpm lint: exit 0 (No ESLint warnings or errors).
+  - pnpm typecheck: exit 0 (todos os packages; 1 fix TS7034 em recorrencias/[id] — sets tipado).
+  - pnpm --filter @meu-jarvis/web test: 1068 pass / 1 FAIL flaky PRÉ-EXISTENTE
+    (tarefas/calendario/__tests__/page.test.tsx timeout 5000ms — RSC, sem relação com finanças;
+    já documentado flaky na SEC-2). Finanças isoladas: 107/107 verde.
+  - pnpm --filter @meu-jarvis/db-test test: 181 pass (era 175; rls-application 15/15, era 9/9).
+  - pnpm build: exit 0 (10/10 tasks; .next limpo antes — gotcha conhecido).
+  - pnpm check:rls: exit 0 (104 policies; 6 tabelas finanças cobertas).
+
+  FOCOS DE GATE SUGERIDOS (segurança):
+  1. Confirmar que NENHUM filtro household_id foi removido (incluir OR household_id IS NULL de
+     categorias GET — intacto).
+  2. Confirmar insertAuditLog FORA de withHousehold em todas as mutações (PO-FIX-2).
+  3. Confirmar que os catch de CHECK constraints (cards_credit_needs_limit,
+     transactions_account_or_card, recurrences_account_or_card, categories_unique_global_name)
+     continuam a apanhar o erro propagado via rollback do begin() de withHousehold.
+  4. Confirmar getServiceDb() intocado e que nenhum handler o importa.
+
+next_action: >
+  @architect *qa-gate SEC-3 — gate adversarial. Re-correr os 6 gates (Docker UP para db-test).
+  Se PASS, criar handoff architect→devops para push. Billing CONTINUA CONGELADO.

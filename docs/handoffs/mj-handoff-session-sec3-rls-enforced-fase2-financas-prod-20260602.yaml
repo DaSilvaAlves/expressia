@@ -1,0 +1,73 @@
+id: mj-handoff-session-sec3-rls-enforced-fase2-financas-prod-20260602
+from_agent: aiox-devops
+to_agent: any
+created: '2026-06-02T22:10:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: session-end
+
+story_id: SEC-3
+story_path: docs/stories/completed/SEC-3.rls-enforced-runtime-fase2-financas-12-handlers.story.md
+gate_file: docs/qa/gates/SEC-3-architect-gate.md
+branch: main
+
+summary: >
+  Story SEC-3 (ADR-003 Fase 2 — hardening RLS-enforced no domínio Finanças) EM PRODUÇÃO.
+  Os 12 route handlers /api/financas/* migrados de getDb() para withHousehold(auth, fn),
+  estendendo a 2.ª rede (RLS viva em runtime) ao domínio mais sensível, por baixo do
+  app-enforced de SEC-1. Gate @architect PASS 9,6/10 confiança ALTA. Sem migration nova
+  (104 policies intactas desde 0001). Prod commit ec96445 (feat) + housekeeping. Nada a meio.
+
+context: |
+  CICLO: @sm → @po → @dev → @architect (*qa-gate SEC-3, gate adversarial PASS 9,6/10 HIGH)
+  → @devops (*push). Sucessor da Fase 1 (SEC-2, tarefas) que estava em prod (98c8176).
+
+  O QUE MUDOU (Fase 2 — Finanças, 24 ficheiros de código):
+  - 12 handlers migrados getDb() → withHousehold(auth, fn):
+    apps/web/src/app/api/financas/{contas,contas/[id],cartoes,cartoes/[id],transacoes,
+    transacoes/[id],categorias,categorias/[id],prestacoes,prestacoes/[id],
+    recorrencias,recorrencias/[id]}/route.ts
+  - 12 testes __tests__/route.test.ts adaptados.
+  - packages/db-test/src/tests/rls-application.test.ts estendido 9→15 (accounts + categories);
+    leak de globais de categorias PROVADO fechado (rls-application.test.ts:215-263).
+
+  INVARIANTES PRESERVADOS:
+  - App-enforced (SEC-1) mantido como 1.ª rede — filtro household_id NUNCA removido.
+  - withHousehold: SET LOCAL ROLE authenticated + request.jwt.claims por request, reverte
+    no COMMIT (seguro em pgbouncer transaction-mode 6543, ADR-003 §1.4).
+  - insertAuditLog best-effort FORA da tx (PO-FIX-2) honrado nas 8/8 mutações.
+  - getServiceDb()/service_role INTOCADOS (migrations/jobs Inngest/GDPR/Stripe).
+  - Atomicidade intacta; tx aninhada savepoint correcta; early-returns COMMIT limpo.
+
+  GATES (@devops, esta sessão):
+  - pnpm lint: EXIT 0 (FULL TURBO).
+  - pnpm typecheck: EXIT 0 (FULL TURBO).
+  - pnpm check:rls: EXIT 0 (104 policies; 6 tabelas finanças cobertas).
+  - Pesados confiados via FULL TURBO cache (tree imutável desde @dev+@architect):
+    web 1068 pass + 1 flaky calendário pré-existente (RSC, não-finanças, documentado
+    desde SEC-1/SEC-2); db-test 181/181 incl. rls-application 15/15; build EXIT 0.
+
+  CODERABBIT: SKIPPED — sem coderabbit_integration em core-config (padrão SEC-1/SEC-2 +
+  fase make-it-work); @dev correu com 0 findings; auditoria adversarial de segurança
+  feita pelo @architect (8/8 focos limpos por varredura independente). Decisão autónoma
+  documentada.
+
+  ESTADO GIT (prod/origin/main, fast-forward, sem --force, sem --no-verify):
+  - ec96445 feat(security): RLS enforced em runtime nos 12 handlers /api/financas/* — Fase 2 [SEC-3] (27 ficheiros)
+  - <HK_SHA>  chore(housekeeping): SEC-3 handoffs + HANDOFF-INDEX
+
+  MIGRATIONS EM PROD: 0000–0022 (inalteradas — SEC-3 NÃO adiciona migration; NÃO correr db:migrate).
+
+next_action: >
+  Nada bloqueado. Próximos passos sugeridos:
+  1) SEC-4 — Fase 3 ADR-003: migrar os restantes call-sites getDb() → withHousehold por
+     domínio (SSR pages + lib/ de finanças, rotas de tarefas restantes, cérebro AI). O gate
+     de aplicação (rls-application.test.ts) já protege novos domínios; recomenda-se estender
+     a cobertura à medida que cada domínio migra.
+  2) Follow-ups herdados (menores, não-bloqueantes): FU-LOGIN-NEXT, SITE-URL-PROD,
+     cleanup test users, multi-household.
+  Billing CONTINUA CONGELADO (directiva Eurico, handoff refocus-core pending).

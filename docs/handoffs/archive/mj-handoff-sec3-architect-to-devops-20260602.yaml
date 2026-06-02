@@ -1,0 +1,67 @@
+from_agent: architect
+to_agent: devops
+created: 2026-06-02T21:40:00Z
+status: consumed
+consumed: true
+consumed_at: 2026-06-02T22:10:00Z
+consumed_by: devops
+story_id: SEC-3
+story_path: docs/stories/completed/SEC-3.rls-enforced-runtime-fase2-financas-12-handlers.story.md
+gate_file: docs/qa/gates/SEC-3-architect-gate.md
+branch: main
+
+summary: >
+  SEC-3 (ADR-003 Fase 2 — domínio Finanças) APROVADA no gate adversarial @architect:
+  PASS 9,6/10, confiança ALTA → Done v1.1-ARCH-APPROVED. Os 12 route handlers
+  /api/financas/* migrados de getDb() → withHousehold(auth, fn) (2.ª rede RLS-enforced
+  em runtime). 8/8 focos de segurança limpos por varredura independente; 9/9 ACs MET;
+  3/3 [DEV-DECISION] ratificadas; PO-FIX-2 honrado; leak de globais de categorias provado
+  fechado. Pronto para push. SEM migration SQL nova.
+
+context: |
+  Pede-se a @devops: *push de SEC-3 (Done v1.1-ARCH-APPROVED). CodeRabbit disabled
+  neste projecto (validação via gate adversarial @architect, padrão SEC-1/SEC-2).
+
+  GATES RE-CORRIDOS PELO @architect (Docker UP, esta sessão — todos verdes):
+  - pnpm lint: exit 0 (10/10 FULL TURBO).
+  - pnpm typecheck: exit 0 (web compilou; fix TS7034 em recorrencias/[id] válido sem any).
+  - pnpm --filter @meu-jarvis/web test: 1068 pass / 1 FAIL flaky PRÉ-EXISTENTE
+    (tarefas/calendario/page.test.tsx timeout 5000ms — RSC, ZERO relação com finanças;
+    documentado flaky desde SEC-1/SEC-2). 107/107 finanças verde.
+  - pnpm --filter @meu-jarvis/db-test test: 181 pass; rls-application.test.ts 15/15.
+  - pnpm build: exit 0 (.next limpo antes — gotcha conhecido).
+  - pnpm check:rls: exit 0 (104 policies; 6 tabelas finanças cobertas).
+
+  IMPORTANTE — NÃO há migration nova. NÃO correr db:migrate em prod para esta story.
+
+  FICHEIROS A COMMITAR (24 modificados + gate + story movida + handoffs):
+  - 12 handlers: apps/web/src/app/api/financas/{contas,contas/[id],cartoes,cartoes/[id],
+    transacoes,transacoes/[id],categorias,categorias/[id],prestacoes,prestacoes/[id],
+    recorrencias,recorrencias/[id]}/route.ts
+  - 12 testes: os respectivos __tests__/route.test.ts
+  - packages/db-test/src/tests/rls-application.test.ts (9→15)
+  - docs/qa/gates/SEC-3-architect-gate.md (novo)
+  - docs/stories/completed/SEC-3.rls-enforced-runtime-fase2-financas-12-handlers.story.md
+    (movida de active/ — era untracked, adicionar em completed/)
+  - docs/handoffs/mj-handoff-sec3-dev-to-architect-20260602.yaml (→ archive/, consumed)
+  - docs/handoffs/mj-handoff-sec3-architect-to-devops-20260602.yaml (este)
+  - docs/HANDOFF-INDEX.md (actualizar)
+
+  Sugestão de commit message:
+    feat(security): RLS enforced em runtime nos 12 handlers /api/financas/* — Fase 2 [Story SEC-3]
+
+    ADR-003 Fase 2. Migra os 12 route handlers de Finanças de getDb() para
+    withHousehold(auth, fn), adicionando a 2.ª rede (RLS viva em runtime) ao
+    domínio mais sensível. App-enforced (SEC-1) mantido; insertAuditLog best-effort
+    fora da tx (PO-FIX-2); getServiceDb intocado; sem migration.
+
+    Constraint: pgbouncer transaction-mode — SET LOCAL dentro de tx (ADR-003 §1.4)
+    Rejected: reescrever 104 policies para GUC | perde verificação de pertença (ADR-003 §2 Opção B)
+    Confidence: high
+    Scope-risk: moderate
+    Directive: NUNCA remover o filtro household_id app-enforced ao migrar — é a 1.ª rede
+
+next_action: >
+  @devops *push — commitar os 24 ficheiros + gate + story + handoffs e fazer push para
+  main (ou branch + PR conforme convenção). Sem db:migrate (zero migration nova). Após
+  push, marcar este handoff consumed e mover para archive/.
