@@ -1,0 +1,99 @@
+id: mj-handoff-session-sec5-shipped-next-sec6-20260603
+from_agent: devops
+to_agent: any
+created: '2026-06-03T15:10:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: session-end
+
+related_story: SEC-5 (Done — em produção)
+predecessor_handoff: mj-handoff-sec5-kickoff-tarefas-rls-20260603 (archived/consumed)
+adr: docs/adr/ADR-003-rls-enforced-runtime-hardening.md (Adenda §11 — scoping das fatias A-D)
+branch: main
+commit: d27d9c8
+
+summary: |
+  SEC-5 (Fase 4 Fatia A do ADR-003 — domínio TAREFAS) FECHADA e EM PRODUÇÃO. Nada a meio.
+  Os 21 call-sites getDb() em 12 route handlers (/api/tasks, /api/kanban-columns, /api/tags,
+  /api/recurrences) migrados para withHousehold (2.ª rede RLS viva em runtime). Padrão idêntico
+  a SEC-3 (mutação dentro da tx, insertAuditLog fora em getDb; 5 read-only com getDb removido).
+  Ciclo SDC completo: @sm draft -> @po GO 9,5/10 -> @dev develop -> @architect gate PASS 96/100 ->
+  @devops push (d27d9c8). CI a correr (run 26893672547). Billing CONTINUA CONGELADO.
+
+context: |
+  ESTADO EM PROD (03/06, origin/main = d27d9c8, CI in_progress):
+  - SEC-1 (6f56e32): app-enforced (filtro household_id) em toda a API — 1.ª rede.
+  - SEC-2 (98c8176): wrapper withHousehold + gate de aplicação real; piloto GET /api/tasks.
+  - SEC-3 (ec96445): 12 handlers /api/financas/* RLS-enforced — Fase 2.
+  - SEC-4 (298a122): 5 SSR pages de finanças RLS-enforced — Fase 3. Domínio finanças FECHADO.
+  - SEC-5 (d27d9c8): 12 handlers do domínio Tarefas RLS-enforced — Fase 4 Fatia A. <-- ESTA SESSÃO.
+
+  O QUE SEC-5 ENTREGOU (26 ficheiros, +1733/-724):
+  - 12 handlers migrados: tasks/route(POST), tasks/[id](GET/PATCH/DELETE), tasks/[id]/move,
+    tasks/[id]/tags(POST), tasks/[id]/tags/[tagId](DELETE), kanban-columns/route(GET/POST),
+    kanban-columns/[id](PATCH/DELETE), kanban-columns/batch(PATCH), tags/route(GET/POST),
+    tags/[id](PATCH/DELETE), recurrences/route(GET/POST), recurrences/[id](GET/PATCH/DELETE).
+  - 16 call-sites de mutação: operação dentro de withHousehold, getDb mantido SÓ p/ insertAuditLog
+    best-effort FORA da tx (PO-FIX-2 / D-SEC3). 5 read-only: getDb removido, read via tx.
+  - 4 handlers complexos (move, kanban [id], batch, recurrences POST): begin/commit/rollback inline
+    SUBSTITUÍDO pela transação real do withHousehold (pgSql.begin), com retorno discriminado p/
+    early-returns (404/409/400) e classe BatchInvariantError p/ os 422 do batch (rollback por throw).
+  - Gate de aplicação (packages/db-test/src/tests/rls-application.test.ts) ESTENDIDO com isolamento
+    cross-household (SELECT cross + INSERT bloqueado) p/ tags, task_tags, kanban_columns, task_recurrences.
+  - 9 testes web actualizados (mock withHousehold + sequências sem begin/commit).
+
+  ACHADO POSITIVO (registado no gate @architect): o begin/commit inline anterior corria via execute()
+  separados sobre getDb() em pgbouncer transaction-mode (porta 6543) — statements separados podem cair
+  em backends diferentes => transação NÃO-FIÁVEL. O withHousehold (pgSql.begin) segura 1 conexão para
+  toda a transação. A migração ENDURECEU a atomicidade de 4 handlers, não só adicionou a 2.ª rede.
+
+  INVARIANTES CONFIRMADOS (grep @dev + reproduzidos por @architect):
+  - 43 filtros household_id app-enforced (1.ª rede) — contagem IGUAL à pré-implementação (zero removidos).
+  - 0 getServiceDb em handlers · 0 begin/commit/rollback inline · 16 insertAuditLog (= 16 mutação).
+  - SEM migration nova (104 policies intactas desde 0001 — NÃO correr db:migrate).
+
+  QUALITY GATES (6/6 verdes): lint, typecheck (FULL TURBO cache), web test 88/88 nos 4 domínios
+  (1076/1077 suite — a 1 falha é tarefas/calendario/page.test.tsx, timeout FLAKY por carga paralela,
+  passa isolada em 1,5s, é SSR page FORA do âmbito SEC-5), db-test 196 (Docker), build, check:rls.
+  CodeRabbit SKIPPED (sem coderabbit_integration na story — padrão SEC-1/2/3/4, validação via @architect).
+
+next_action: |
+  VERIFICAR PRIMEIRO (1 min): estado do CI desta push.
+    ! gh run view 26893672547   (ou: gh run list --limit 1)
+    3 jobs esperados: quality (lint+typecheck+test), rls-gate (Postgres 16 + db:migrate + check:rls), build.
+    Se algum falhar -> investigar antes de avançar (improvável; gates locais todos verdes).
+
+  DEPOIS (continuação do ADR-003 Fase 4 — fatias restantes, já scoped na Adenda §11, NÃO re-scopear):
+  - SEC-6 = Fatia B: SSR pages tarefas/* (page/kanban/calendario) + domínio Visão (6 routes api/visao/* +
+    lib/visao/queries.ts helper puro + visao/page.tsx + 6 widgets RSC). GO mecânico read-only, réplica
+    SEC-4 (helper db-injectável intacto, withHousehold nas pages/widgets). Sem pré-req. Sem migration.
+    Arranque: @sm *draft SEC-6 (rigor anti-hallucination byte-a-byte como SEC-5; gate de aplicação já
+    cobre as tabelas via SEC-5). Nota perf (não-bloqueante, Adenda §11.2): 6 widgets => 6 txs withHousehold
+    curtas por render de /visao (aceitável; documentar, não optimizar).
+  - SEC-7 = Fatia C: Household/conta. GO MAS com 1 EXCLUSÃO DURA + 1 confirmação @data-engineer:
+    * aceitar-convite/route.ts NÃO migra (SECURITY DEFINER accept_invite, opera sobre household de que o
+      user ainda não é membro; withHousehold scoparia o household errado). Fica em getDb() permanente.
+    * @data-engineer confirma (Fase 0 leve) que policies de user_prefs/household_members/households/
+      household_invites usam auth.uid()/is_household_member (senão a 2.ª rede fica inerte nalgumas tabelas).
+  - SEC-8 = Fatia D: Cérebro AI. HOLD. NÃO mecânica — exige Adenda §12 de design (@architect, NÃO draftar
+    directamente). Mover a tx do executeAtomic (packages/tools/src/atomic.ts:124) para withHousehold,
+    manter orquestração do route em app-enforced (sem tx longa sobre chamadas LLM), incrementQuota/
+    getServiceDb intocados. Corrigir comentário FALSO em atomic.ts:19-26 ("RLS continua activa" — inerte).
+
+blockers: |
+  Nenhum hard-blocker. SEC-5 fechada e em prod; fatias B/C/D independentes e já scoped.
+  App-enforced (1.ª rede) protege toda a superfície entretanto — não há janela de vulnerabilidade aberta
+  (o trabalho restante é hardening defense-in-depth aditivo, não correcção de leak).
+
+  GOTCHAS herdados:
+  - pnpm build + next dev na mesma .next parte o CSS em dev (limpar .next antes de arrancar dev).
+  - withHousehold é a forma canónica de transação multi-query (pgbouncer 6543 não suporta begin/commit
+    via execute() separados de forma fiável). NUNCA reintroduzir begin/commit inline.
+  - Early-returns dentro de callbacks withHousehold: usar retorno discriminado, nunca return NextResponse
+    dentro da transação.
+
+  Billing CONTINUA CONGELADO (directiva Eurico 29/05). Não escrever código de billing/Stripe.
