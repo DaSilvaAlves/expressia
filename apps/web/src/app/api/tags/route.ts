@@ -5,6 +5,11 @@
  *      Query param opt-in `?with_counts=true` (Story 3.6 [STORY-INVENT-DP-3.6.7]) adiciona
  *      `task_count` ao response — usado pelo `TagsManager` UI. Backward compat 100% sem o param.
  * POST: Create — Zod strict. Unique constraint (household_id, name) → 409.
+ *
+ * RLS (SEC-5 / ADR-003 Fase 4 Fatia A): GET é read-only (sem audit, sem `getDb`);
+ * o POST corre o INSERT dentro de `withHousehold` (2.ª rede, RLS activa). O filtro
+ * `household_id` (SEC-1, 1.ª rede) MANTÉM-SE. O `insertAuditLog` permanece
+ * best-effort FORA do `withHousehold` em `getDb()` (PO-FIX-2 / D-SEC3).
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -18,7 +23,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { TagCreateSchema } from '@/lib/api-schemas/tags';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
@@ -52,37 +57,42 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const withCounts = req.nextUrl.searchParams.get('with_counts') === 'true';
 
       try {
-        const db = getDb();
         if (withCounts) {
-          // G2.2 (Aria) — `current_household_id()` explicit no subquery COUNT.
-          // RLS é a primeira linha de defesa; este filtro é a segunda (defesa em
-          // profundidade). Performance overhead zero (mesmo index scan via
+          // G2.2 (Aria) — filtro `household_id` explicit no subquery COUNT.
+          // 1.ª rede (app-enforced) + 2.ª rede (RLS via withHousehold) — defesa em
+          // profundidade. Performance overhead zero (mesmo index scan via
           // `task_tags_tag_idx` + `task_tags_household_idx`).
-          // SEC-1: RLS inerte em runtime — filtro household_id explícito é a
-          // garantia de isolamento (substitui current_household_id() = NULL).
-          const tags = await db.execute<TagWithCountRow>(sql`
-            select id, household_id, name, color, created_at, updated_at,
-              (
-                select count(*)::int
-                from public.task_tags
-                where task_tags.tag_id = tags.id
-                  and task_tags.household_id = ${auth.householdId}::uuid
-              ) as task_count
-            from public.tags
-            where tags.household_id = ${auth.householdId}::uuid
-            order by name asc
-            limit 200
-          `);
+          const tags = await withHousehold(
+            { userId: auth.userId, householdId: auth.householdId },
+            (tx) =>
+              tx.execute<TagWithCountRow>(sql`
+                select id, household_id, name, color, created_at, updated_at,
+                  (
+                    select count(*)::int
+                    from public.task_tags
+                    where task_tags.tag_id = tags.id
+                      and task_tags.household_id = ${auth.householdId}::uuid
+                  ) as task_count
+                from public.tags
+                where tags.household_id = ${auth.householdId}::uuid
+                order by name asc
+                limit 200
+              `),
+          );
           annotateSpan(span, { statusCode: 200 });
           return NextResponse.json({ tags });
         }
 
-        const tags = await db.execute<TagRow>(sql`
-          select id, household_id, name, color, created_at, updated_at
-          from public.tags
-          where household_id = ${auth.householdId}::uuid
-          order by name asc limit 200
-        `);
+        const tags = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<TagRow>(sql`
+              select id, household_id, name, color, created_at, updated_at
+              from public.tags
+              where household_id = ${auth.householdId}::uuid
+              order by name asc limit 200
+            `),
+        );
         annotateSpan(span, { statusCode: 200 });
         return NextResponse.json({ tags });
       } catch (err) {
@@ -121,12 +131,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
-        const rows = await db.execute<TagRow>(sql`
-          insert into public.tags (household_id, name, color)
-          values (${auth.householdId}::uuid, ${body.name}, ${body.color ?? '#6B7280'})
-          returning id, household_id, name, color, created_at, updated_at
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<TagRow>(sql`
+              insert into public.tags (household_id, name, color)
+              values (${auth.householdId}::uuid, ${body.name}, ${body.color ?? '#6B7280'})
+              returning id, household_id, name, color, created_at, updated_at
+            `),
+        );
 
         const tag = rows[0];
         if (!tag) throw new Error('INSERT tag retornou sem rows.');

@@ -21,6 +21,11 @@ vi.mock('@meu-jarvis/auth/server', () => ({
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: () => ({ execute: mocks.dbExecuteMock }),
   getServiceDb: () => ({ execute: mocks.dbExecuteMock }),
+  // SEC-5: handler envolve as queries de domínio em `withHousehold`.
+  withHousehold: (
+    _auth: { userId: string; householdId: string },
+    fn: (tx: { execute: typeof mocks.dbExecuteMock }) => unknown,
+  ) => fn({ execute: mocks.dbExecuteMock }),
 }));
 
 import { NextRequest } from 'next/server';

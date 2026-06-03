@@ -29,6 +29,12 @@ vi.mock('@meu-jarvis/observability', () => ({
 
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: () => ({ execute: mocks.dbExecuteMock }),
+  // SEC-5: o batch envolve todas as queries de domínio em `withHousehold`. O mock
+  // injecta o mesmo `execute` (mockImplementation por SQL text mantém-se válido).
+  withHousehold: (
+    _auth: { userId: string; householdId: string },
+    fn: (tx: { execute: typeof mocks.dbExecuteMock }) => unknown,
+  ) => fn({ execute: mocks.dbExecuteMock }),
 }));
 
 vi.mock('@/lib/api-helpers/auth', () => ({

@@ -1,0 +1,109 @@
+id: mj-handoff-sec5-kickoff-tarefas-rls-20260603
+from_agent: architect
+to_agent: sm
+created: '2026-06-03T12:00:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-06-03T12:30:00Z'
+consumed_by: sm
+consumed_outcome: |
+  @sm River draftou a Story SEC-5 (docs/stories/active/SEC-5.rls-enforced-runtime-fase4-tarefas-handlers.story.md,
+  Draft v0.1). Verificação byte-a-byte do domínio Tarefas CONFIRMOU a premissa do handoff (≠ SEC-4): os 12
+  handlers já têm 1.ª rede (app-enforced household_id em todas as queries) — SEC-5 é puramente aditivo (só 2.ª
+  rede withHousehold), padrão idêntico a SEC-3. Mapa de 21 call-sites getDb() em 12 ficheiros (5 read-only →
+  getDb removido; 16 mutação → getDb mantido p/ audit best-effort fora do withHousehold, D-SEC3). [SM-DECISION-1]:
+  SEC-5 = só os 12 API handlers; as 3 SSR pages tarefas/* foram carved out para SEC-6 (espelha split finance
+  SEC-3/SEC-4 — Opção 2 do scoping @architect). Sem migration. Próximo: @po *validate-story-draft SEC-5.
+  Fatias seguintes intactas no scoping: SEC-6 (SSR tarefas + Visão), SEC-7 (Household menos aceitar-convite),
+  SEC-8 (Cérebro AI HOLD — Adenda §12). Billing congelado.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: kickoff
+
+related_story: SEC-5 (a draftar)
+predecessor_handoff: mj-handoff-sec4-architect-to-devops-20260603 (archived)
+adr: docs/adr/ADR-003-rls-enforced-runtime-hardening.md (Adenda §11 — produzida nesta sessão)
+branch: main
+
+summary: |
+  Scoping de SEC-5+ concluído por @architect (soft-gate da directiva "arranca o scoping de
+  SEC-5"). Inventário byte-a-byte de TODOS os getDb() restantes em apps/web após SEC-2/3/4.
+  Veredicto registado na Adenda §11 do ADR-003: a cauda restante NÃO é homogénea — split
+  obrigatório em 4 fatias. SEC-5 = Fatia A (domínio TAREFAS), GO mecânico directo, sem
+  design novo. As fatias B (Visão) e C (Household) seguem; a fatia D (Cérebro AI) fica em
+  HOLD até uma Adenda §12 de design dedicado (NÃO é mecânica).
+
+context: |
+  ESTADO EM PROD (03/06, origin/main, CI verde):
+  - SEC-1 (6f56e32): app-enforced (filtro household_id) em toda a API — 1.ª rede.
+  - SEC-2 (98c8176): wrapper withHousehold + gate de aplicação real; piloto GET /api/tasks.
+  - SEC-3 (ec96445): 12 handlers /api/financas/* RLS-enforced — Fase 2.
+  - SEC-4 (298a122): 5 SSR pages de finanças RLS-enforced — Fase 3. Domínio finanças FECHADO.
+
+  PADRÃO PROVADO 3x (agnóstico a route handler vs RSC — Adenda §10.1/§10.3):
+    withHousehold(auth, (tx) => helper({ db: tx }))   // 2.ª rede; app-enforced mantido na 1.ª
+  Infra toda em prod desde SEC-2: withHousehold (packages/db/src/client.ts), gate de aplicação
+  (packages/db-test/src/tests/rls-application.test.ts), re-export shim (apps/web/src/lib/agent/db-shim.ts).
+
+  ÂMBITO DE SEC-5 = FATIA A (domínio Tarefas). Superfície de edição (getDb() -> withHousehold):
+    Handlers (padrão SEC-3):
+      - POST /api/tasks            (o GET já foi migrado no piloto SEC-2 — NÃO retocar)
+      - api/tasks/[id]/route.ts
+      - api/tasks/[id]/move/route.ts
+      - api/tasks/[id]/tags/route.ts
+      - api/tasks/[id]/tags/[tagId]/route.ts
+      - api/kanban-columns/route.ts
+      - api/kanban-columns/[id]/route.ts
+      - api/kanban-columns/batch/route.ts
+      - api/tags/route.ts
+      - api/tags/[id]/route.ts
+      - api/recurrences/route.ts
+      - api/recurrences/[id]/route.ts
+    SSR pages (padrão SEC-4):
+      - (app)/tarefas/page.tsx
+      - (app)/tarefas/kanban/page.tsx
+      - (app)/tarefas/calendario/page.tsx
+    Helper puro (INTACTO — G1, db-injectável, já com filtro SEC-1):
+      - lib/api-helpers/list-tasks.ts  (NÃO migrar; é chamado de dentro do withHousehold)
+
+  INVARIANTES NÃO-NEGOCIÁVEIS (herdados SEC-1/2/3/4):
+  - App-enforced (filtro household_id explícito) MANTIDO em todas as queries — 2.ª rede, não substitui a 1.ª.
+  - getServiceDb()/service_role/Inngest INTOCADO.
+  - insertAuditLog best-effort FORA do withHousehold (PO-FIX-2), onde aplicável.
+  - SEM migration nova (104 policies intactas desde 0001 — confirmar, NÃO correr db:migrate).
+  - Gate de aplicação (rls-application.test.ts) deve ESTENDER-SE às tabelas tocadas (tasks já
+    cobertas desde SEC-2; confirmar cobertura de tags/kanban_columns/task_recurrences se aplicável).
+  - Gotcha: pnpm build + next dev na mesma .next parte o CSS — limpar .next antes de dev.
+
+  DECISÃO DE GRANULARIDADE (à escolha do @sm/@po, ambas defensáveis):
+  - OPÇÃO 1 (recomendada): SEC-5 = domínio Tarefas COMPLETO (12 handlers + 3 SSR + helper) numa
+    story só. O padrão está provado 2x (handlers SEC-3, SSR SEC-4); um único domínio é coerente.
+  - OPÇÃO 2 (se ficar grande de mais para review): split SEC-5 (handlers) / SEC-6 (SSR), espelhando
+    o que finanças fez (SEC-3/SEC-4). Renumerar as fatias seguintes em conformidade.
+
+next_action: |
+  1) [@sm] Draftar Story SEC-5 (Fatia A — Tarefas) com o MESMO rigor de SEC-3/SEC-4:
+     anti-hallucination byte-a-byte (citar ficheiro:linha de cada getDb() a trocar), ACs
+     testáveis, app-enforced explicitamente mantido, gate de aplicação estendido aos dados
+     tocados. Padrão de migração = Adenda §10.3 do ADR-003 (idêntico para handler e RSC).
+     Escolher Opção 1 ou 2 da granularidade acima (coordenar com @po).
+  2) Ciclo SDC normal: @po *validate-story-draft -> @dev *develop -> @architect *qa-gate -> @devops *push.
+
+  FATIAS SEGUINTES (NÃO desta story — já scoped na Adenda §11, não re-scopear):
+  - SEC-6: Fatia B (Visão) — GO mecânico, read-only. Sem pré-req.
+  - SEC-7: Fatia C (Household/conta) — GO, MAS exclui aceitar-convite (SECURITY DEFINER/cross-household,
+    fica em getDb() permanentemente) E exige confirmação @data-engineer de que as policies de
+    user_prefs/household_members/households/household_invites usam auth.uid()/is_household_member.
+  - SEC-8: Fatia D (Cérebro AI) — HOLD. NÃO mecânica. Precisa de Adenda §12 (design): mover a tx
+    do executeAtomic (packages/tools/src/atomic.ts:124) para withHousehold, mantendo orquestração
+    do route em app-enforced (sem tx longa sobre chamadas LLM) e incrementQuota/getServiceDb intocados.
+    Corrige também o comentário FALSO em atomic.ts:19-26 ("RLS continua activa" — é inerte em runtime).
+    Quando chegar a vez de D, devolver a @architect, NÃO draftar directamente.
+
+blockers: |
+  Nenhum hard-blocker para SEC-5. Padrão mecânico provado 3x; infra toda em prod desde SEC-2.
+  App-enforced (1.ª rede) protege todos estes call-sites entretanto — NÃO há janela de
+  vulnerabilidade aberta enquanto SEC-5 não corre (é hardening defense-in-depth aditivo).
+  Billing CONTINUA CONGELADO (directiva Eurico 29/05).

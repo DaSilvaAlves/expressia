@@ -30,6 +30,12 @@ vi.mock('@meu-jarvis/auth/server', () => ({
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: () => ({ execute: mocks.dbExecuteMock }),
   getServiceDb: () => ({ execute: mocks.dbExecuteMock }),
+  // SEC-5: handlers envolvem as queries de domínio em `withHousehold` (substitui
+  // o begin/commit inline — as sequências de mock deixam de incluir BEGIN/COMMIT).
+  withHousehold: (
+    _auth: { userId: string; householdId: string },
+    fn: (tx: { execute: typeof mocks.dbExecuteMock }) => unknown,
+  ) => fn({ execute: mocks.dbExecuteMock }),
 }));
 
 import { NextRequest } from 'next/server';
@@ -265,11 +271,10 @@ describe('PATCH /api/kanban-columns/[id]', () => {
           is_done_column: 'false',
         },
       ])
-      .mockResolvedValueOnce(undefined) // BEGIN
+      // SEC-5: tudo dentro do withHousehold (sem BEGIN/COMMIT inline)
       .mockResolvedValueOnce(undefined) // UPDATE outros set is_done_column=false
       .mockResolvedValueOnce(undefined) // UPDATE coluna principal
-      .mockResolvedValueOnce(undefined) // COMMIT
-      // audit_log skipped (KANBAN_AUDIT_ENABLED off — early return, no db.execute call)
+      // re-fetch do estado final (dentro do withHousehold)
       .mockResolvedValueOnce([
         {
           id: COL2_UUID,
@@ -349,11 +354,10 @@ describe('DELETE /api/kanban-columns/[id]', () => {
       ])
       .mockResolvedValueOnce([{ count: '3' }])
       .mockResolvedValueOnce([{ id: COL2_UUID }]) // destino exists
-      .mockResolvedValueOnce(undefined) // BEGIN
+      // SEC-5: tudo dentro do withHousehold (sem BEGIN/COMMIT inline)
       .mockResolvedValueOnce(undefined) // UPDATE tasks
       .mockResolvedValueOnce(undefined) // DELETE coluna
-      .mockResolvedValueOnce(undefined) // COMMIT
-      .mockResolvedValueOnce(undefined); // audit (skipped)
+      .mockResolvedValueOnce(undefined); // audit (fora, skipped)
     const req = new NextRequest(
       `http://localhost/api/kanban-columns/${COL1_UUID}?move_to=${COL2_UUID}`,
       { method: 'DELETE' },
@@ -439,7 +443,7 @@ describe('PATCH /api/kanban-columns/batch', () => {
           is_done_column: 'true',
         },
       ])
-      .mockResolvedValueOnce(undefined) // BEGIN
+      // SEC-5: tudo dentro do withHousehold (sem BEGIN/COMMIT inline)
       // is_done_column flip — UPDATE others set false (porque newDoneCol existe em columns[])
       .mockResolvedValueOnce(undefined)
       // 3 columns × (step1 negative offset) = 3 calls
@@ -456,9 +460,7 @@ describe('PATCH /api/kanban-columns/batch', () => {
         { id: COL2_UUID, name: 'Em curso', is_done_column: 'false' },
         { id: COL3_UUID, name: 'Concluído', is_done_column: 'true' },
       ])
-      .mockResolvedValueOnce(undefined) // COMMIT
-      // audit_log skipped (flag off — no db.execute call)
-      // final state response
+      // final state response (último SELECT dentro do withHousehold; audit fora, flag off)
       .mockResolvedValueOnce([
         {
           id: COL1_UUID,

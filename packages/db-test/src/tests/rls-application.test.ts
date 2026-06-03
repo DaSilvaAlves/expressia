@@ -26,7 +26,11 @@ import {
   admin,
   insertAccount,
   insertCategory,
+  insertKanbanColumn,
+  insertTag,
   insertTask,
+  insertTaskRecurrence,
+  insertTaskTag,
   insertTransaction,
 } from '@/helpers/fixtures';
 import {
@@ -259,6 +263,163 @@ describe('RLS application gate (SEC-3 / ADR-003 Fase 2): categories (globais + p
     expect(blocked).toBe(true);
 
     const rows = await admin()<{ n: number }[]>`select count(*)::int as n from public.categories`;
+    expect(rows[0]?.n).toBe(0);
+  });
+});
+
+describe('RLS application gate (SEC-5 / ADR-003 Fase 4 Fatia A): tags', () => {
+  beforeEach(async () => {
+    await resetData();
+  });
+
+  test('userA só vê a sua tag (1 row), 0 de B', async () => {
+    const { householdA, householdB, userA } = await seedTwoHouseholds();
+    await insertTag(admin(), householdA.id, 'Tag A');
+    await insertTag(admin(), householdB.id, 'Tag B');
+
+    await asUser(userA.id, householdA.id, async (sql) => {
+      const rows = await sql<{ household_id: string }[]>`select household_id from public.tags`;
+      expect(rows).toHaveLength(1);
+      expect(rows.every((r) => r.household_id === householdA.id)).toBe(true);
+    });
+  });
+
+  test('SELECT com filtro cruzado (userA, WHERE household_id = B) → 0 rows', async () => {
+    const { householdA, householdB, userA } = await seedTwoHouseholds();
+    await insertTag(admin(), householdA.id, 'Tag A');
+    await insertTag(admin(), householdB.id, 'Tag B');
+
+    await asUser(userA.id, householdA.id, async (sql) => {
+      const rows = await sql`select id from public.tags where household_id = ${householdB.id}`;
+      expect(rows).toHaveLength(0);
+    });
+  });
+
+  test('INSERT cross-household (userA → household B) é bloqueado por RLS', async () => {
+    const { householdA, householdB, userA } = await seedTwoHouseholds();
+
+    const blocked = await expectRlsBlocks(userA.id, householdA.id, async (sql) => {
+      await insertTag(sql, householdB.id, 'INVÁLIDA');
+    });
+    expect(blocked).toBe(true);
+
+    const rows = await admin()<{ n: number }[]>`select count(*)::int as n from public.tags`;
+    expect(rows[0]?.n).toBe(0);
+  });
+});
+
+describe('RLS application gate (SEC-5 / ADR-003 Fase 4 Fatia A): task_tags', () => {
+  beforeEach(async () => {
+    await resetData();
+  });
+
+  test('userA só vê a sua associação task_tag (1 row), 0 de B', async () => {
+    const { householdA, householdB, userA, userB } = await seedTwoHouseholds();
+    const taskA = await insertTask(admin(), householdA.id, userA.id, { title: 'Tarefa A' });
+    const tagA = await insertTag(admin(), householdA.id, 'Tag A');
+    await insertTaskTag(admin(), taskA, tagA, householdA.id);
+    const taskB = await insertTask(admin(), householdB.id, userB.id, { title: 'Tarefa B' });
+    const tagB = await insertTag(admin(), householdB.id, 'Tag B');
+    await insertTaskTag(admin(), taskB, tagB, householdB.id);
+
+    await asUser(userA.id, householdA.id, async (sql) => {
+      const rows = await sql<{ household_id: string }[]>`select household_id from public.task_tags`;
+      expect(rows).toHaveLength(1);
+      expect(rows.every((r) => r.household_id === householdA.id)).toBe(true);
+    });
+  });
+
+  test('INSERT cross-household (userA → task_tag de household B) é bloqueado por RLS', async () => {
+    const { householdA, householdB, userA, userB } = await seedTwoHouseholds();
+    const taskB = await insertTask(admin(), householdB.id, userB.id, { title: 'Tarefa B' });
+    const tagB = await insertTag(admin(), householdB.id, 'Tag B');
+
+    const blocked = await expectRlsBlocks(userA.id, householdA.id, async (sql) => {
+      await insertTaskTag(sql, taskB, tagB, householdB.id);
+    });
+    expect(blocked).toBe(true);
+
+    const rows = await admin()<{ n: number }[]>`select count(*)::int as n from public.task_tags`;
+    expect(rows[0]?.n).toBe(0);
+  });
+});
+
+describe('RLS application gate (SEC-5 / ADR-003 Fase 4 Fatia A): kanban_columns', () => {
+  beforeEach(async () => {
+    await resetData();
+  });
+
+  test('userA só vê a sua coluna (1 row), 0 de B', async () => {
+    const { householdA, householdB, userA } = await seedTwoHouseholds();
+    await insertKanbanColumn(admin(), householdA.id, { name: 'Coluna A' });
+    await insertKanbanColumn(admin(), householdB.id, { name: 'Coluna B' });
+
+    await asUser(userA.id, householdA.id, async (sql) => {
+      const rows = await sql<
+        { household_id: string }[]
+      >`select household_id from public.kanban_columns`;
+      expect(rows).toHaveLength(1);
+      expect(rows.every((r) => r.household_id === householdA.id)).toBe(true);
+    });
+  });
+
+  test('SELECT com filtro cruzado (userA, WHERE household_id = B) → 0 rows', async () => {
+    const { householdA, householdB, userA } = await seedTwoHouseholds();
+    await insertKanbanColumn(admin(), householdA.id, { name: 'Coluna A' });
+    await insertKanbanColumn(admin(), householdB.id, { name: 'Coluna B' });
+
+    await asUser(userA.id, householdA.id, async (sql) => {
+      const rows = await sql`select id from public.kanban_columns where household_id = ${householdB.id}`;
+      expect(rows).toHaveLength(0);
+    });
+  });
+
+  test('INSERT cross-household (userA → coluna de household B) é bloqueado por RLS', async () => {
+    const { householdA, householdB, userA } = await seedTwoHouseholds();
+
+    const blocked = await expectRlsBlocks(userA.id, householdA.id, async (sql) => {
+      await insertKanbanColumn(sql, householdB.id, { name: 'INVÁLIDA' });
+    });
+    expect(blocked).toBe(true);
+
+    const rows = await admin()<{ n: number }[]>`select count(*)::int as n from public.kanban_columns`;
+    expect(rows[0]?.n).toBe(0);
+  });
+});
+
+describe('RLS application gate (SEC-5 / ADR-003 Fase 4 Fatia A): task_recurrences', () => {
+  beforeEach(async () => {
+    await resetData();
+  });
+
+  test('userA só vê a sua recorrência (1 row), 0 de B', async () => {
+    const { householdA, householdB, userA, userB } = await seedTwoHouseholds();
+    const tmplA = await insertTask(admin(), householdA.id, userA.id, { title: 'Template A' });
+    await insertTaskRecurrence(admin(), householdA.id, tmplA);
+    const tmplB = await insertTask(admin(), householdB.id, userB.id, { title: 'Template B' });
+    await insertTaskRecurrence(admin(), householdB.id, tmplB);
+
+    await asUser(userA.id, householdA.id, async (sql) => {
+      const rows = await sql<
+        { household_id: string }[]
+      >`select household_id from public.task_recurrences`;
+      expect(rows).toHaveLength(1);
+      expect(rows.every((r) => r.household_id === householdA.id)).toBe(true);
+    });
+  });
+
+  test('INSERT cross-household (userA → recorrência de household B) é bloqueado por RLS', async () => {
+    const { householdA, householdB, userA, userB } = await seedTwoHouseholds();
+    const tmplB = await insertTask(admin(), householdB.id, userB.id, { title: 'Template B' });
+
+    const blocked = await expectRlsBlocks(userA.id, householdA.id, async (sql) => {
+      await insertTaskRecurrence(sql, householdB.id, tmplB);
+    });
+    expect(blocked).toBe(true);
+
+    const rows = await admin()<
+      { n: number }[]
+    >`select count(*)::int as n from public.task_recurrences`;
     expect(rows[0]?.n).toBe(0);
   });
 });

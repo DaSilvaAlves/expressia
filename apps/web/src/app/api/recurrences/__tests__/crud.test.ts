@@ -23,6 +23,12 @@ vi.mock('@meu-jarvis/auth/server', () => ({
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: () => ({ execute: mocks.dbExecuteMock }),
   getServiceDb: () => ({ execute: mocks.dbExecuteMock }),
+  // SEC-5: handlers envolvem as queries de domínio em `withHousehold` (substitui
+  // o begin/commit inline — a sequência de mock do POST deixa de incluir BEGIN/COMMIT).
+  withHousehold: (
+    _auth: { userId: string; householdId: string },
+    fn: (tx: { execute: typeof mocks.dbExecuteMock }) => unknown,
+  ) => fn({ execute: mocks.dbExecuteMock }),
 }));
 
 import { NextRequest } from 'next/server';
@@ -110,7 +116,7 @@ describe('POST /api/recurrences', () => {
   it('201 atomicidade cria task template + recurrence', async () => {
     authed();
     mocks.dbExecuteMock
-      .mockResolvedValueOnce([]) // BEGIN
+      // SEC-5: as 2 escritas correm dentro do withHousehold (sem BEGIN/COMMIT inline)
       .mockResolvedValueOnce([{ id: 'task-uuid' }]) // INSERT task template
       .mockResolvedValueOnce([
         {
@@ -121,8 +127,7 @@ describe('POST /api/recurrences', () => {
           template_task_id: 'task-uuid',
         },
       ]) // INSERT recurrence
-      .mockResolvedValueOnce([]) // COMMIT
-      .mockResolvedValueOnce([]); // audit_log
+      .mockResolvedValueOnce([]); // audit_log (fora do withHousehold)
     const res = await listRoute.POST(
       req({ frequency: 'weekly', starts_on: '2026-05-20', title: 'Limpar casa' }),
     );

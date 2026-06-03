@@ -7,6 +7,13 @@
  *   retorna 422 UNPROCESSABLE_ENTITY (deferred Story 3.7 quando rrule lib
  *   instalada per Epic plan ED7).
  * DELETE: Soft delete — UPDATE active=false (preserva data + tasks geradas).
+ *
+ * RLS (SEC-5 / ADR-003 Fase 4 Fatia A): GET é read-only (sem audit, sem `getDb`);
+ * PATCH corre o SELECT current + UPDATE no MESMO `withHousehold` (2.ª rede +
+ * atomicidade), com retorno discriminado p/ 404/422/400; DELETE corre o UPDATE
+ * dentro de `withHousehold`. O filtro `household_id` (SEC-1, 1.ª rede) MANTÉM-SE.
+ * O `insertAuditLog` permanece best-effort FORA do `withHousehold` em `getDb()`
+ * (PO-FIX-2 / D-SEC3).
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -20,7 +27,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import {
   RecurrenceUpdateSchema,
   computeNextRunOn,
@@ -52,14 +59,17 @@ export async function GET(_req: NextRequest, ctx: RouteContext): Promise<NextRes
       }
 
       try {
-        const db = getDb();
-        const rows = await db.execute(sql`
-          select id, household_id, template_task_id, frequency, interval, custom_rrule,
-                 starts_on, ends_on, next_run_on, active, created_at, updated_at
-          from public.task_recurrences
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute(sql`
+              select id, household_id, template_task_id, frequency, interval, custom_rrule,
+                     starts_on, ends_on, next_run_on, active, created_at, updated_at
+              from public.task_recurrences
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `),
+        );
 
         const recurrence = rows[0];
         if (!recurrence) {
@@ -111,82 +121,102 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
 
-        // SELECT current state para re-compute next_run_on
-        const currentRows = await db.execute<{
-          frequency: (typeof recurrenceFrequencyValues)[number];
-          interval: number;
-          next_run_on: string | null;
-          starts_on: string;
-        }>(sql`
-          select frequency, interval, next_run_on, starts_on
-          from public.task_recurrences
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
+        // SEC-5: SELECT current + UPDATE no MESMO `withHousehold`. A lógica de
+        // re-cálculo (pura) corre dentro do callback; retorno discriminado preserva
+        // os 404/422/400 sem `return` de NextResponse dentro da transação.
+        const result = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          async (
+            tx,
+          ): Promise<
+            | { notFound: true }
+            | { custom422: true }
+            | { noFields: true }
+            | { recurrence: Record<string, unknown> }
+          > => {
+            // SELECT current state para re-compute next_run_on
+            const currentRows = await tx.execute<{
+              frequency: (typeof recurrenceFrequencyValues)[number];
+              interval: number;
+              next_run_on: string | null;
+              starts_on: string;
+            }>(sql`
+              select frequency, interval, next_run_on, starts_on
+              from public.task_recurrences
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `);
 
-        const current = currentRows[0];
-        if (!current) {
+            const current = currentRows[0];
+            if (!current) return { notFound: true };
+
+            // F2 MEDIUM: frequency='custom' PATCH re-compute deferred Story 3.7
+            const newFrequency = body.frequency ?? current.frequency;
+            const newInterval = body.interval ?? current.interval;
+            const frequencyChanged = body.frequency !== undefined && body.frequency !== current.frequency;
+            const intervalChanged = body.interval !== undefined && body.interval !== current.interval;
+
+            if (frequencyChanged || intervalChanged) {
+              if (newFrequency === 'custom') return { custom422: true };
+            }
+
+            const sets = [];
+            if (body.frequency !== undefined) sets.push(sql`frequency = ${body.frequency}::recurrence_frequency`);
+            if (body.interval !== undefined) sets.push(sql`interval = ${body.interval}`);
+            if (body.custom_rrule !== undefined) sets.push(sql`custom_rrule = ${body.custom_rrule}`);
+            if (body.starts_on !== undefined) sets.push(sql`starts_on = ${body.starts_on}::date`);
+            if (body.ends_on !== undefined) sets.push(sql`ends_on = ${body.ends_on}::date`);
+            if (body.active !== undefined) sets.push(sql`active = ${body.active}`);
+
+            // Re-compute next_run_on se preset frequency/interval mudou
+            if ((frequencyChanged || intervalChanged) && newFrequency !== 'custom') {
+              const baseDate = current.next_run_on ? new Date(current.next_run_on) : new Date(current.starts_on);
+              const nextRun = computeNextRunOn(newFrequency, newInterval, baseDate);
+              if (nextRun) {
+                const isoDate = nextRun.toISOString().slice(0, 10);
+                sets.push(sql`next_run_on = ${isoDate}::date`);
+              }
+            }
+
+            if (sets.length === 0) return { noFields: true };
+
+            sets.push(sql`updated_at = now()`);
+            const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
+
+            const rows = await tx.execute<Record<string, unknown>>(sql`
+              update public.task_recurrences set ${setSql}
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              returning id, household_id, template_task_id, frequency, interval, custom_rrule,
+                        starts_on, ends_on, next_run_on, active, created_at, updated_at
+            `);
+
+            const rec = rows[0];
+            if (!rec) return { notFound: true };
+            return { recurrence: rec };
+          },
+        );
+
+        if ('notFound' in result) {
           annotateSpan(span, { statusCode: 404 });
           return apiError('NOT_FOUND', 'Recorrência não encontrada.', 404);
         }
-
-        // F2 MEDIUM: frequency='custom' PATCH re-compute deferred Story 3.7
-        const newFrequency = body.frequency ?? current.frequency;
-        const newInterval = body.interval ?? current.interval;
-        const frequencyChanged = body.frequency !== undefined && body.frequency !== current.frequency;
-        const intervalChanged = body.interval !== undefined && body.interval !== current.interval;
-
-        if (frequencyChanged || intervalChanged) {
-          if (newFrequency === 'custom') {
-            annotateSpan(span, { statusCode: 422 });
-            return apiError(
-              'UNPROCESSABLE_ENTITY',
-              'Re-cálculo de recorrência personalizada (RRULE iCal) disponível apenas a partir da Story 3.7.',
-              422,
-            );
-          }
+        if ('custom422' in result) {
+          annotateSpan(span, { statusCode: 422 });
+          return apiError(
+            'UNPROCESSABLE_ENTITY',
+            'Re-cálculo de recorrência personalizada (RRULE iCal) disponível apenas a partir da Story 3.7.',
+            422,
+          );
         }
-
-        const sets = [];
-        if (body.frequency !== undefined) sets.push(sql`frequency = ${body.frequency}::recurrence_frequency`);
-        if (body.interval !== undefined) sets.push(sql`interval = ${body.interval}`);
-        if (body.custom_rrule !== undefined) sets.push(sql`custom_rrule = ${body.custom_rrule}`);
-        if (body.starts_on !== undefined) sets.push(sql`starts_on = ${body.starts_on}::date`);
-        if (body.ends_on !== undefined) sets.push(sql`ends_on = ${body.ends_on}::date`);
-        if (body.active !== undefined) sets.push(sql`active = ${body.active}`);
-
-        // Re-compute next_run_on se preset frequency/interval mudou
-        if ((frequencyChanged || intervalChanged) && newFrequency !== 'custom') {
-          const baseDate = current.next_run_on ? new Date(current.next_run_on) : new Date(current.starts_on);
-          const nextRun = computeNextRunOn(newFrequency, newInterval, baseDate);
-          if (nextRun) {
-            const isoDate = nextRun.toISOString().slice(0, 10);
-            sets.push(sql`next_run_on = ${isoDate}::date`);
-          }
-        }
-
-        if (sets.length === 0) {
+        if ('noFields' in result) {
           annotateSpan(span, { statusCode: 400 });
           return apiError('VALIDATION_ERROR', 'Nenhum campo fornecido para actualizar.', 400);
         }
 
-        sets.push(sql`updated_at = now()`);
-        const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
-
-        const rows = await db.execute<{ id: string }>(sql`
-          update public.task_recurrences set ${setSql}
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          returning id, household_id, template_task_id, frequency, interval, custom_rrule,
-                    starts_on, ends_on, next_run_on, active, created_at, updated_at
-        `);
-
-        const recurrence = rows[0];
-        if (!recurrence) {
-          annotateSpan(span, { statusCode: 404 });
-          return apiError('NOT_FOUND', 'Recorrência não encontrada.', 404);
-        }
+        const recurrence = result.recurrence;
 
         try {
           await insertAuditLog({
@@ -195,7 +225,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
             userId: auth.userId,
             action: 'recurrence.updated',
             entityTable: 'task_recurrences',
-            entityId: recurrence.id,
+            entityId: id,
           });
         } catch (auditErr) {
           log.warn({ err: auditErr }, 'audit_log INSERT falhou (best-effort)');
@@ -232,13 +262,18 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
         // Soft delete: active=false (preserva tasks geradas)
-        const rows = await db.execute<{ id: string }>(sql`
-          update public.task_recurrences set active = false, updated_at = now()
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          returning id
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<{ id: string }>(sql`
+              update public.task_recurrences set active = false, updated_at = now()
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              returning id
+            `),
+        );
 
         if (rows.length === 0) {
           annotateSpan(span, { statusCode: 404 });

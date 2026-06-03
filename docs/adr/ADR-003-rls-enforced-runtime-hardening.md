@@ -321,6 +321,63 @@ App-enforced intocado · `getServiceDb()`/`service_role` intocado · `insertAudi
 
 ---
 
+## 11. Adenda — scoping da cauda restante (SEC-5+, soft-gate 03/06/2026)
+
+> Adenda produzida por @architect ao arrancar o scoping de SEC-5 (directiva Eurico).
+> Inventário byte-a-byte de **todos** os `getDb()` restantes em `apps/web` após SEC-2/3/4.
+> **Veredicto: a cauda NÃO é homogénea — split obrigatório. GO mecânico para 3 fatias; 1 fatia precisa de design dedicado.**
+
+### 11.1 — Inventário real (excl. testes, finanças-feito, resíduos deliberados)
+
+Estado herdado: SEC-2 migrou **só** `GET /api/tasks` (piloto) + criou o wrapper/gate; SEC-3 os 12 handlers `/api/financas/*`; SEC-4 as 5 SSR pages de finanças. Resíduos legítimos que **ficam** em `getDb()`: `insertAuditLog` best-effort nas finanças (PO-FIX-2, fora da tx household-scoped) e `incrementQuota` (usa `getServiceDb()` por design — RLS bloqueia `agent_quotas` a `authenticated`, D50).
+
+| Fatia | Ficheiros (superfície de edição) | Padrão | Risco |
+|-------|----------------------------------|--------|-------|
+| **A — Tarefas** | `POST /api/tasks` (GET já feito) · `tasks/[id]/{route,move}` · `tasks/[id]/tags/{route,[tagId]}` · `kanban-columns/{route,[id],batch}` · `tags/{route,[id]}` · `recurrences/{route,[id]}` · helper puro `lib/api-helpers/list-tasks.ts` (intacto) · 3 SSR pages `tarefas/{page,kanban,calendario}` | Mecânico — réplica SEC-3 (handlers) + SEC-4 (SSR) | **Baixo** |
+| **B — Visão** | 6 routes `api/visao/*` · `lib/visao/queries.ts` (helper puro) · `visao/page.tsx` · 6 widgets RSC (`Tasks{Today,Overdue}`, `FinanceMonth`, `AccountsBalance`, `RecurrencesNext`, `CalendarWeek`) | Mecânico read-only — réplica SEC-4 (helper `db`-injectável) | **Baixo** |
+| **C — Household/conta** | `conta/household/{route,members/[userId],invites/route,invites/[id]}` · `conta/preferencias/route` · `api/me/route` · `bem-vindo/actions.ts` (onboarding) | Mecânico — `householdId` vem de `resolveHouseholdId` (já inline) | **Médio** (ver 11.3) |
+| **D — Cérebro AI** | `api/agent/prompt/{route,[runId]/confirm,[runId]/undo}` · `lib/agent/cost-router.ts` · **`packages/tools/src/atomic.ts`** · **`packages/planner-executor/src/executor.ts`** | **NÃO mecânico — requer design** | **Alto** (ver 11.4) |
+
+### 11.2 — Fatias A e B: GO directo, zero design novo
+
+A mecânica `withHousehold(auth, tx => helper({ db: tx }))` está provada 3× em prod (SEC-2/3/4) e é agnóstica a Route Handler vs RSC (§10.1). Os helpers de A (`list-tasks.ts`) e B (`visao/queries.ts`) são **puros e `db`-injectáveis** — ficam intactos (G1), exactamente como os 8 helpers `lib/finance/*` em SEC-4. App-enforced (filtro `household_id` SEC-1) **mantido** em todos.
+
+> **Nota B (perf, não-bloqueante):** os 6 widgets de `/visao` são RSCs independentes que chamam `getDb()` cada um → migram para 6 transações `withHousehold` curtas por render (em vez de 1). Aceitável (mesma pool, txs curtas read-only, render paralelo preservado). Documentar, não optimizar prematuramente.
+
+### 11.3 — Fatia C: GO **com 1 exclusão dura + 1 confirmação @data-engineer**
+
+- **EXCLUSÃO DURA — `aceitar-convite/route.ts` NÃO migra.** Opera sobre um household de que o user **ainda não é membro**; `withHousehold(auth, ...)` scoparia o household *errado* (o actual do convidado, não o de destino). Além disso chama `accept_invite()` que é **`SECURITY DEFINER`** (ignora RLS do caller por design) e foi corrigida na 0022 para receber `p_user_id` explícito *precisamente porque* `auth.uid()` é NULL no runtime. Envolvê-la em `withHousehold` seria errado **e** inútil. Fica em `getDb()` — documentar como excepção permanente (gémea do `insertAuditLog`/`incrementQuota`).
+- **CONFIRMAÇÃO @data-engineer (Fase 0 leve antes do draft):** `user_prefs` e `api/me` são **user-scoped** (`where user_id = auth.uid()`), não household-scoped. `withHousehold` injecta `request.jwt.claims.sub = userId` → `auth.uid()` passa a resolver → policies user-scoped **também** activam. Confirmar que as policies de `user_prefs`/`household_members`/`households`/`household_invites` usam `auth.uid()`/`is_household_member` (e não outro mecanismo) para garantir que a 2.ª rede realmente fecha. Sem isto, C é GO mas a RLS pode ficar inerte nalgumas tabelas sem ninguém reparar.
+
+### 11.4 — Fatia D (Cérebro AI): **NÃO mecânico — exige decisão arquitectural antes de qualquer story**
+
+O `POST /api/agent/prompt` **não** pode ser envolvido inteiro em `withHousehold`. Razões factuais (lidas no código):
+
+1. **Transação longa sobre chamadas LLM = anti-padrão duro.** O handler encadeia idempotency → rate-limit → quota → `insertAgentRun` → Classifier (rede OpenAI) → Planner (rede Anthropic) → Executor → audit, tudo no mesmo `db = getDb()`. Uma `withHousehold` à volta de tudo manteria **uma transação Postgres aberta durante segundos de round-trips LLM**, esgotando a pool pgbouncer transaction-mode. Inaceitável.
+2. **A transação que importa já existe — e está RLS-inerte.** As mutações de domínio do cérebro correm em `executeAtomic` (`packages/tools/src/atomic.ts:124`): `ctx.db.transaction(...)` onde `ctx.db = getDb()`. **O comentário §RLS (linhas 19-26) afirma "RLS continua activa dentro da transacção" — é FALSO em runtime** (mesmo root-cause do ADR: `getDb()` liga como role `rolbypassrls`). As tools estão protegidas **só** por app-enforced (householdId explícito nos inserts — SEC-1).
+3. **`getServiceDb()` deliberado no meio.** `incrementQuota` escreve `agent_quotas` via `service_role` porque a RLS bloqueia `authenticated` aí (D50). Tem de continuar a bypassar.
+
+**Caminho arquitectural correcto (a desenhar, não a improvisar):** mover a transação do `executeAtomic` de `ctx.db.transaction(...)` para `withHousehold(auth, tx => ...)`, deixando as leituras de orquestração do route (idempotency/quota/audit/accountContext) em app-enforced `getDb()` (curtas, com filtro `household_id` já presente, fora de qualquer tx longa). Isto:
+- fecha a RLS exactamente onde há escrita de domínio (atomic tools + `agent_reverse_ops`),
+- preserva atomicidade (FR2), reverse_op + janela undo 30s (FR6) e o rollback automático,
+- não segura transação através de chamadas LLM,
+- mantém `incrementQuota`/`getServiceDb` intocados.
+
+Mas é uma mudança **package-level** (`@meu-jarvis/tools` + `@meu-jarvis/planner-executor`): o `ToolExecutionContext`/executor passam a receber `auth` (ou um `txRunner` injectado) em vez de `db`; `confirm`/`undo` (que re-executam reverse_ops noutra request) seguem o mesmo padrão. Corrige também o comentário falso em `atomic.ts`. **Requer Adenda §12 dedicada (design do contrato) + validação @data-engineer + provavelmente a sua própria QA Loop.** Não entra no mesmo balde mecânico de A/B/C.
+
+### 11.5 — Recomendação de sequenciamento
+
+| Story | Âmbito | Veredicto | Pré-req |
+|-------|--------|-----------|---------|
+| **SEC-5** | Fatia A (Tarefas — handlers + SSR + helper) | **GO** mecânico | nenhum |
+| **SEC-6** | Fatia B (Visão — routes + SSR + widgets) | **GO** mecânico | nenhum |
+| **SEC-7** | Fatia C (Household/conta) **menos** `aceitar-convite` | **GO** | confirmação @data-engineer 11.3 |
+| **SEC-8** | Fatia D (Cérebro AI) | **HOLD** até Adenda §12 | design + @data-engineer |
+
+> Ordem honra ADR §6 Fase 2 ("tarefas → … → cérebro AI"). Fatias A/B/C podem correr em paralelo (domínios disjuntos, zero conflito de ficheiros). D fica para o fim, com desenho próprio. **Cada fatia mantém app-enforced intacto, `getServiceDb()`/Inngest intocados, sem migration nova** (104 policies intactas desde 0001). Billing CONGELADO.
+
+---
+
 ## 9. Referências
 
 - Código: `packages/db/src/client.ts` (37-101), `packages/db/migrations/0000_initial_schema.sql` (34-87), `packages/db/migrations/0001_rls_policies.sql` (537-552, 98 ocorrências), `apps/web/src/lib/api-helpers/auth.ts` (24-93)

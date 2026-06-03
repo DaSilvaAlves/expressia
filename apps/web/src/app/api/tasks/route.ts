@@ -16,7 +16,12 @@
  *   - created_by_user_id = user.id do JWT (immutable post-POST).
  *   - Audit log INSERT (task.created).
  *
- * RLS: getDb() role authenticated — RLS filtra automaticamente via JWT.
+ * RLS (SEC-2 GET / SEC-5 POST — ADR-003 Fase 4 Fatia A): a operação de domínio
+ * corre dentro de `withHousehold`, que abre uma transação com
+ * `SET LOCAL ROLE authenticated` + JWT claims — activa as 104 RLS policies
+ * (2.ª rede). O filtro `household_id` explícito (SEC-1, 1.ª rede) MANTÉM-SE em
+ * todas as queries — defense-in-depth. No POST o `insertAuditLog` permanece
+ * best-effort FORA do `withHousehold` em `getDb()` (PO-FIX-2 / D-SEC3).
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -141,31 +146,37 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
-        const rows = await db.execute<TaskRow>(sql`
-          insert into public.tasks (
-            household_id, created_by_user_id, assigned_to_user_id,
-            title, description, due_date, due_time, priority, status,
-            kanban_column_id, kanban_position, project
-          )
-          values (
-            ${auth.householdId}::uuid,
-            ${auth.userId}::uuid,
-            ${body.assigned_to_user_id ?? null}::uuid,
-            ${body.title},
-            ${body.description ?? null},
-            ${body.due_date ?? null}::date,
-            ${body.due_time ?? null},
-            ${body.priority ?? 'medium'}::task_priority,
-            ${body.status ?? 'todo'}::task_status,
-            ${body.kanban_column_id ?? null}::uuid,
-            ${body.kanban_position ?? 0},
-            ${body.project ?? null}
-          )
-          returning id, household_id, created_by_user_id, assigned_to_user_id, title, description,
-                    due_date, due_time, priority, status, kanban_column_id, kanban_position,
-                    project, recurrence_id, is_recurrence_template, completed_at, created_at, updated_at
-        `);
+        // Operação principal (INSERT) dentro de `withHousehold` (RLS-enforced, 2.ª rede).
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<TaskRow>(sql`
+              insert into public.tasks (
+                household_id, created_by_user_id, assigned_to_user_id,
+                title, description, due_date, due_time, priority, status,
+                kanban_column_id, kanban_position, project
+              )
+              values (
+                ${auth.householdId}::uuid,
+                ${auth.userId}::uuid,
+                ${body.assigned_to_user_id ?? null}::uuid,
+                ${body.title},
+                ${body.description ?? null},
+                ${body.due_date ?? null}::date,
+                ${body.due_time ?? null},
+                ${body.priority ?? 'medium'}::task_priority,
+                ${body.status ?? 'todo'}::task_status,
+                ${body.kanban_column_id ?? null}::uuid,
+                ${body.kanban_position ?? 0},
+                ${body.project ?? null}
+              )
+              returning id, household_id, created_by_user_id, assigned_to_user_id, title, description,
+                        due_date, due_time, priority, status, kanban_column_id, kanban_position,
+                        project, recurrence_id, is_recurrence_template, completed_at, created_at, updated_at
+            `),
+        );
 
         const task = rows[0];
         if (!task) {

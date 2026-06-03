@@ -13,6 +13,13 @@
  *
  * Mantém pattern Story 3.2 (`api/tags/route.ts`): withSpan + childLogger + apiError
  * + requireAuth + getDb + insertAuditLog.
+ *
+ * RLS (SEC-5 / ADR-003 Fase 4 Fatia A): GET é read-only (sem audit, sem `getDb`);
+ * o POST corre todas as queries de domínio (count + dup + max sort + insert) no
+ * MESMO `withHousehold` (2.ª rede + atomicidade). O filtro `household_id` (SEC-1,
+ * 1.ª rede) MANTÉM-SE. Retorno discriminado preserva os 409 sem `return` de
+ * NextResponse dentro do callback. O `insertAuditLog` permanece best-effort FORA
+ * do `withHousehold` em `getDb()` (PO-FIX-2 / D-SEC3).
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -26,7 +33,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import {
   CreateKanbanColumnSchema,
   type KanbanColumnRow,
@@ -76,14 +83,17 @@ export async function GET(): Promise<NextResponse> {
       if (auth instanceof NextResponse) return auth;
 
       try {
-        const db = getDb();
-        const rows = await db.execute<KanbanColumnDbRow>(sql`
-          select id, household_id, name, sort_order, color, is_done_column,
-                 created_at, updated_at
-          from public.kanban_columns
-          where household_id = ${auth.householdId}::uuid
-          order by sort_order asc
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<KanbanColumnDbRow>(sql`
+              select id, household_id, name, sort_order, color, is_done_column,
+                     created_at, updated_at
+              from public.kanban_columns
+              where household_id = ${auth.householdId}::uuid
+              order by sort_order asc
+            `),
+        );
         annotateSpan(span, { statusCode: 200 });
         return NextResponse.json(
           { columns: rows.map(normalizeColumn) },
@@ -125,61 +135,75 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
 
-        // 1. Defesa em profundidade — valida count < 6 antes do INSERT (DB CHECK pendente migration 0011).
-        const countRows = await db.execute<{ count: string }>(sql`
-          select count(*)::text as count from public.kanban_columns
-          where household_id = ${auth.householdId}::uuid
-        `);
-        const currentCount = Number(countRows[0]?.count ?? '0');
-        if (currentCount >= MAX_COLUMNS_PER_HOUSEHOLD) {
+        // SEC-5: count + dup + max sort + INSERT correm no MESMO `withHousehold`
+        // (2.ª rede + atomicidade). Retorno discriminado preserva os 409.
+        const result = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          async (
+            tx,
+          ): Promise<{ error: 'limit' | 'duplicate' } | { column: KanbanColumnDbRow }> => {
+            // 1. Defesa em profundidade — valida count < 6 antes do INSERT (DB CHECK pendente migration 0011).
+            const countRows = await tx.execute<{ count: string }>(sql`
+              select count(*)::text as count from public.kanban_columns
+              where household_id = ${auth.householdId}::uuid
+            `);
+            const currentCount = Number(countRows[0]?.count ?? '0');
+            if (currentCount >= MAX_COLUMNS_PER_HOUSEHOLD) return { error: 'limit' };
+
+            // 2. Nome único per household — verificação app-layer.
+            const dupRows = await tx.execute<{ id: string }>(sql`
+              select id from public.kanban_columns
+              where household_id = ${auth.householdId}::uuid and lower(name) = lower(${body.name})
+              limit 1
+            `);
+            if (dupRows.length > 0) return { error: 'duplicate' };
+
+            // 3. sort_order: MAX+1 se omitido.
+            let sortOrder = body.sort_order;
+            if (sortOrder === undefined) {
+              const maxRows = await tx.execute<{ max_order: number | null }>(sql`
+                select coalesce(max(sort_order), -1) as max_order
+                from public.kanban_columns
+                where household_id = ${auth.householdId}::uuid
+              `);
+              sortOrder = (maxRows[0]?.max_order ?? -1) + 1;
+            }
+
+            // 4. INSERT
+            const inserted = await tx.execute<KanbanColumnDbRow>(sql`
+              insert into public.kanban_columns (household_id, name, sort_order, color, is_done_column)
+              values (
+                ${auth.householdId}::uuid,
+                ${body.name},
+                ${sortOrder},
+                ${body.color ?? '#6B7280'},
+                'false'
+              )
+              returning id, household_id, name, sort_order, color, is_done_column,
+                        created_at, updated_at
+            `);
+
+            const col = inserted[0];
+            if (!col) throw new Error('INSERT kanban_columns retornou sem rows.');
+            return { column: col };
+          },
+        );
+
+        if ('error' in result) {
           annotateSpan(span, { statusCode: 409 });
-          return apiError(
-            'COLUMN_LIMIT_REACHED',
-            'Máximo de 6 colunas atingido. Elimina uma antes de criar outra.',
-            409,
-          );
+          return result.error === 'limit'
+            ? apiError(
+                'COLUMN_LIMIT_REACHED',
+                'Máximo de 6 colunas atingido. Elimina uma antes de criar outra.',
+                409,
+              )
+            : apiError('DUPLICATE_NAME', 'Já existe uma coluna com este nome.', 409);
         }
 
-        // 2. Nome único per household — verificação app-layer.
-        const dupRows = await db.execute<{ id: string }>(sql`
-          select id from public.kanban_columns
-          where household_id = ${auth.householdId}::uuid and lower(name) = lower(${body.name})
-          limit 1
-        `);
-        if (dupRows.length > 0) {
-          annotateSpan(span, { statusCode: 409 });
-          return apiError('DUPLICATE_NAME', 'Já existe uma coluna com este nome.', 409);
-        }
-
-        // 3. sort_order: MAX+1 se omitido.
-        let sortOrder = body.sort_order;
-        if (sortOrder === undefined) {
-          const maxRows = await db.execute<{ max_order: number | null }>(sql`
-            select coalesce(max(sort_order), -1) as max_order
-            from public.kanban_columns
-            where household_id = ${auth.householdId}::uuid
-          `);
-          sortOrder = (maxRows[0]?.max_order ?? -1) + 1;
-        }
-
-        // 4. INSERT
-        const inserted = await db.execute<KanbanColumnDbRow>(sql`
-          insert into public.kanban_columns (household_id, name, sort_order, color, is_done_column)
-          values (
-            ${auth.householdId}::uuid,
-            ${body.name},
-            ${sortOrder},
-            ${body.color ?? '#6B7280'},
-            'false'
-          )
-          returning id, household_id, name, sort_order, color, is_done_column,
-                    created_at, updated_at
-        `);
-
-        const column = inserted[0];
-        if (!column) throw new Error('INSERT kanban_columns retornou sem rows.');
+        const column = result.column;
 
         // 5. audit_log (best-effort + feature-flag gated até migration 0011)
         try {

@@ -5,6 +5,12 @@
  * DELETE: Variant `tags_delete_owner_admin` (0001:416-418).
  *   - Member normal: 403 FORBIDDEN
  *   - Owner/admin: hard delete + CASCADE task_tags
+ *
+ * RLS (SEC-5 / ADR-003 Fase 4 Fatia A): a operação de domínio (UPDATE/DELETE)
+ * corre dentro de `withHousehold` (2.ª rede, RLS activa). O filtro `household_id`
+ * (SEC-1, 1.ª rede) MANTÉM-SE. `resolveHouseholdRole` (DELETE) corre FORA — query
+ * a `household_members`, não dados de domínio (mirror SEC-3). O `insertAuditLog`
+ * permanece best-effort FORA do `withHousehold` em `getDb()` (PO-FIX-2 / D-SEC3).
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -18,7 +24,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { TagUpdateSchema } from '@/lib/api-schemas/tags';
 import { requireAuth, resolveHouseholdRole } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
@@ -59,6 +65,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
         const sets = [];
         if (body.name !== undefined) sets.push(sql`name = ${body.name}`);
@@ -72,11 +79,15 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         sets.push(sql`updated_at = now()`);
         const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
 
-        const rows = await db.execute<{ id: string; name: string; color: string }>(sql`
-          update public.tags set ${setSql}
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          returning id, household_id, name, color, created_at, updated_at
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<{ id: string; name: string; color: string }>(sql`
+              update public.tags set ${setSql}
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              returning id, household_id, name, color, created_at, updated_at
+            `),
+        );
 
         const tag = rows[0];
         if (!tag) {
@@ -145,12 +156,17 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
-        const rows = await db.execute<{ id: string }>(sql`
-          delete from public.tags
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          returning id
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<{ id: string }>(sql`
+              delete from public.tags
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              returning id
+            `),
+        );
 
         if (rows.length === 0) {
           annotateSpan(span, { statusCode: 404 });

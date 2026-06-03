@@ -2,6 +2,11 @@
  * DELETE /api/tasks/[id]/tags/[tagId] — Story 3.2 AC4 (detach tag).
  *
  * Hard delete pivot row. Retorna 204 NO_CONTENT.
+ *
+ * RLS (SEC-5 / ADR-003 Fase 4 Fatia A): o DELETE corre dentro de `withHousehold`
+ * (2.ª rede, RLS activa). O filtro `household_id` (SEC-1, 1.ª rede) MANTÉM-SE. O
+ * `insertAuditLog` permanece best-effort FORA do `withHousehold` em `getDb()`
+ * (PO-FIX-2 / D-SEC3).
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -15,7 +20,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
 
@@ -42,13 +47,18 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
-        const rows = await db.execute<{ task_id: string }>(sql`
-          delete from public.task_tags
-          where task_id = ${taskId}::uuid and tag_id = ${tagId}::uuid
-            and household_id = ${auth.householdId}::uuid
-          returning task_id
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<{ task_id: string }>(sql`
+              delete from public.task_tags
+              where task_id = ${taskId}::uuid and tag_id = ${tagId}::uuid
+                and household_id = ${auth.householdId}::uuid
+              returning task_id
+            `),
+        );
 
         if (rows.length === 0) {
           annotateSpan(span, { statusCode: 404 });

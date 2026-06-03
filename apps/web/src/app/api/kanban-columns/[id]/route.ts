@@ -13,6 +13,15 @@
  *         Se coluna tem tasks, `?move_to=<uuid>` é obrigatório. UPDATE tasks
  *         + DELETE em transaction. 409 se tasks existem sem `move_to`.
  *         audit_log entry `kanban_column.deleted` com snapshot.
+ *
+ * RLS (SEC-5 / ADR-003 Fase 4 Fatia A): TODAS as queries de domínio de cada
+ * handler (select + dup/dest checks + flip done + update/delete + re-fetch) correm
+ * num único `withHousehold` (2.ª rede + atomicidade — substitui o `begin/commit`
+ * inline anterior). O filtro `household_id` (SEC-1, 1.ª rede) MANTÉM-SE. Retorno
+ * discriminado preserva os 404/409 sem `return` de NextResponse dentro do callback.
+ * `resolveHouseholdRole` (DELETE) corre FORA — query a `household_members`, não
+ * dados de domínio (mirror SEC-3 T2.3a). O `insertAuditLog` permanece best-effort
+ * FORA do `withHousehold` em `getDb()` (PO-FIX-2 / D-SEC3).
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -27,7 +36,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import {
   UpdateKanbanColumnSchema,
   DeleteKanbanColumnQuerySchema,
@@ -85,84 +94,96 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
 
-        // 1. SELECT actual (RLS bloqueia cross-household → row inexistente)
-        const currentRows = await db.execute<KanbanColumnDbRow>(sql`
-          select id, household_id, name, sort_order, color, is_done_column
-          from public.kanban_columns
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
-        const current = currentRows[0];
-        if (!current) {
+        // SEC-5: select + dup check + flip done + update + re-fetch num único
+        // `withHousehold` (2.ª rede + atomicidade — substitui o `begin/commit` inline).
+        // Retorno discriminado preserva os 404/409.
+        const result = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          async (
+            tx,
+          ): Promise<
+            | { notFound: true }
+            | { duplicate: true }
+            | { current: KanbanColumnDbRow; updated: KanbanColumnDbRow | undefined }
+          > => {
+            // 1. SELECT actual (RLS + filtro household_id bloqueiam cross-household)
+            const currentRows = await tx.execute<KanbanColumnDbRow>(sql`
+              select id, household_id, name, sort_order, color, is_done_column
+              from public.kanban_columns
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `);
+            const current = currentRows[0];
+            if (!current) return { notFound: true };
+
+            // 2. Validação nome único se renaming
+            if (body.name !== undefined && body.name !== current.name) {
+              const dupRows = await tx.execute<{ id: string }>(sql`
+                select id from public.kanban_columns
+                where household_id = ${auth.householdId}::uuid
+                  and lower(name) = lower(${body.name})
+                  and id != ${id}::uuid
+                limit 1
+              `);
+              if (dupRows.length > 0) return { duplicate: true };
+            }
+
+            // 3. Se vai definir is_done_column=true, desliga os outros do household.
+            if (body.is_done_column === true) {
+              await tx.execute(sql`
+                update public.kanban_columns
+                set is_done_column = 'false', updated_at = now()
+                where household_id = ${auth.householdId}::uuid
+                  and id != ${id}::uuid
+                  and is_done_column = 'true'
+              `);
+            }
+
+            // Build UPDATE dinamicamente
+            const sets: ReturnType<typeof sql>[] = [];
+            if (body.name !== undefined) sets.push(sql`name = ${body.name}`);
+            if (body.color !== undefined) sets.push(sql`color = ${body.color}`);
+            if (body.is_done_column !== undefined)
+              sets.push(sql`is_done_column = ${body.is_done_column ? 'true' : 'false'}`);
+            if (body.sort_order !== undefined)
+              sets.push(sql`sort_order = ${body.sort_order}`);
+            sets.push(sql`updated_at = now()`);
+
+            if (sets.length > 1) {
+              // join sets manually (sql template não tem join helper trivial)
+              let updateSql = sql`update public.kanban_columns set `;
+              for (let i = 0; i < sets.length; i++) {
+                updateSql = i === 0 ? sql`${updateSql}${sets[i]}` : sql`${updateSql}, ${sets[i]}`;
+              }
+              updateSql = sql`${updateSql} where id = ${id}::uuid and household_id = ${auth.householdId}::uuid`;
+              await tx.execute(updateSql);
+            }
+
+            // Re-fetch estado final (query de domínio — dentro do mesmo `tx`, AC3)
+            const updatedRows = await tx.execute<KanbanColumnDbRow>(sql`
+              select id, household_id, name, sort_order, color, is_done_column
+              from public.kanban_columns
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `);
+
+            return { current, updated: updatedRows[0] };
+          },
+        );
+
+        if ('notFound' in result) {
           annotateSpan(span, { statusCode: 404 });
           return apiError('NOT_FOUND', 'Coluna Kanban não encontrada.', 404);
         }
-
-        // 2. Validação nome único se renaming
-        if (body.name !== undefined && body.name !== current.name) {
-          const dupRows = await db.execute<{ id: string }>(sql`
-            select id from public.kanban_columns
-            where household_id = ${auth.householdId}::uuid
-              and lower(name) = lower(${body.name})
-              and id != ${id}::uuid
-            limit 1
-          `);
-          if (dupRows.length > 0) {
-            annotateSpan(span, { statusCode: 409 });
-            return apiError('DUPLICATE_NAME', 'Já existe uma coluna com este nome.', 409);
-          }
+        if ('duplicate' in result) {
+          annotateSpan(span, { statusCode: 409 });
+          return apiError('DUPLICATE_NAME', 'Já existe uma coluna com este nome.', 409);
         }
 
-        // 3. UPDATE em transaction (is_done_column flip + sort_order)
-        await db.execute(sql`begin`);
-        try {
-          // Se vai definir is_done_column=true, desliga os outros do household.
-          if (body.is_done_column === true) {
-            await db.execute(sql`
-              update public.kanban_columns
-              set is_done_column = 'false', updated_at = now()
-              where household_id = ${auth.householdId}::uuid
-                and id != ${id}::uuid
-                and is_done_column = 'true'
-            `);
-          }
-
-          // Build UPDATE dinamicamente
-          const sets: ReturnType<typeof sql>[] = [];
-          if (body.name !== undefined) sets.push(sql`name = ${body.name}`);
-          if (body.color !== undefined) sets.push(sql`color = ${body.color}`);
-          if (body.is_done_column !== undefined)
-            sets.push(sql`is_done_column = ${body.is_done_column ? 'true' : 'false'}`);
-          if (body.sort_order !== undefined)
-            sets.push(sql`sort_order = ${body.sort_order}`);
-          sets.push(sql`updated_at = now()`);
-
-          if (sets.length > 1) {
-            // join sets manually (sql template não tem join helper trivial)
-            let updateSql = sql`update public.kanban_columns set `;
-            for (let i = 0; i < sets.length; i++) {
-              updateSql = i === 0 ? sql`${updateSql}${sets[i]}` : sql`${updateSql}, ${sets[i]}`;
-            }
-            updateSql = sql`${updateSql} where id = ${id}::uuid and household_id = ${auth.householdId}::uuid`;
-            await db.execute(updateSql);
-          }
-
-          await db.execute(sql`commit`);
-        } catch (txErr) {
-          await db.execute(sql`rollback`);
-          const message = txErr instanceof Error ? txErr.message : String(txErr);
-          if (/unique|duplicate|23505/i.test(message)) {
-            annotateSpan(span, { statusCode: 409 });
-            return apiError(
-              'CONFLICT',
-              'Conflito ao actualizar coluna — ordem ou nome duplicado.',
-              409,
-            );
-          }
-          throw txErr;
-        }
+        const { current, updated } = result;
 
         // 4. Audit log (best-effort)
         try {
@@ -190,14 +211,6 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
           log.warn({ err: auditErr }, 'audit_log INSERT falhou (best-effort)');
         }
 
-        const updatedRows = await db.execute<KanbanColumnDbRow>(sql`
-          select id, household_id, name, sort_order, color, is_done_column
-          from public.kanban_columns
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
-        const updated = updatedRows[0];
-
         annotateSpan(span, { statusCode: 200 });
         return NextResponse.json({
           column: updated
@@ -211,6 +224,17 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
             : null,
         });
       } catch (err) {
+        // Unique constraint (ordem/nome duplicado) — `withHousehold` faz rollback;
+        // o erro propaga até aqui (substitui o catch da transação inline).
+        const message = err instanceof Error ? err.message : String(err);
+        if (/unique|duplicate|23505/i.test(message)) {
+          annotateSpan(span, { statusCode: 409 });
+          return apiError(
+            'CONFLICT',
+            'Conflito ao actualizar coluna — ordem ou nome duplicado.',
+            409,
+          );
+        }
         annotateSpan(span, { statusCode: 500 });
         log.error({ err }, 'PATCH /api/kanban-columns/[id] falhou');
         captureException(err instanceof Error ? err : new Error(String(err)), {
@@ -264,35 +288,81 @@ export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextR
       const { move_to: moveTo } = queryParsed.data;
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
 
-        // SELECT actual + count tasks
-        const currentRows = await db.execute<KanbanColumnDbRow>(sql`
-          select id, household_id, name, sort_order, color, is_done_column
-          from public.kanban_columns
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
-        const current = currentRows[0];
-        if (!current) {
+        // SEC-5: select + count tasks + validações move_to + (update tasks + delete)
+        // num único `withHousehold` (2.ª rede + atomicidade — substitui o `begin/commit`
+        // inline). Retorno discriminado preserva os 404/409/400.
+        const result = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          async (
+            tx,
+          ): Promise<
+            | { notFound: true }
+            | { hasTasks: number }
+            | { sameColumn: true }
+            | { destNotFound: true }
+            | { ok: true; current: KanbanColumnDbRow; tasksCount: number }
+          > => {
+            // SELECT actual
+            const currentRows = await tx.execute<KanbanColumnDbRow>(sql`
+              select id, household_id, name, sort_order, color, is_done_column
+              from public.kanban_columns
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `);
+            const current = currentRows[0];
+            if (!current) return { notFound: true };
+
+            const tasksCountRows = await tx.execute<{ count: string }>(sql`
+              select count(*)::text as count from public.tasks
+              where kanban_column_id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+            `);
+            const tasksCount = Number(tasksCountRows[0]?.count ?? '0');
+
+            if (tasksCount > 0 && !moveTo) return { hasTasks: tasksCount };
+
+            // Se move_to definido: valida destino ∈ household e ≠ id
+            if (moveTo) {
+              if (moveTo === id) return { sameColumn: true };
+              const destRows = await tx.execute<{ id: string }>(sql`
+                select id from public.kanban_columns
+                where id = ${moveTo}::uuid and household_id = ${auth.householdId}::uuid
+                limit 1
+              `);
+              if (destRows.length === 0) return { destNotFound: true };
+            }
+
+            // UPDATE tasks + DELETE coluna (atomicidade via transação do withHousehold)
+            if (tasksCount > 0 && moveTo) {
+              await tx.execute(sql`
+                update public.tasks
+                set kanban_column_id = ${moveTo}::uuid, updated_at = now()
+                where kanban_column_id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              `);
+            }
+            await tx.execute(sql`
+              delete from public.kanban_columns
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+            `);
+
+            return { ok: true, current, tasksCount };
+          },
+        );
+
+        if ('notFound' in result) {
           annotateSpan(span, { statusCode: 404 });
           return apiError('NOT_FOUND', 'Coluna Kanban não encontrada.', 404);
         }
-
-        const tasksCountRows = await db.execute<{ count: string }>(sql`
-          select count(*)::text as count from public.tasks
-          where kanban_column_id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-        `);
-        const tasksCount = Number(tasksCountRows[0]?.count ?? '0');
-
-        if (tasksCount > 0 && !moveTo) {
+        if ('hasTasks' in result) {
           annotateSpan(span, { statusCode: 409 });
           return NextResponse.json(
             {
               error: {
                 code: 'COLUMN_HAS_TASKS',
-                message: `Esta coluna tem ${tasksCount} tarefa(s). Indica para que coluna mover via ?move_to=<uuid>.`,
-                details: { tasks_count: tasksCount },
+                message: `Esta coluna tem ${result.hasTasks} tarefa(s). Indica para que coluna mover via ?move_to=<uuid>.`,
+                details: { tasks_count: result.hasTasks },
                 timestamp: new Date().toISOString(),
                 requestId: crypto.randomUUID(),
               },
@@ -300,47 +370,20 @@ export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextR
             { status: 409 },
           );
         }
-
-        // Se move_to definido: valida destino ∈ household e ≠ id
-        if (moveTo) {
-          if (moveTo === id) {
-            annotateSpan(span, { statusCode: 400 });
-            return apiError(
-              'VALIDATION_ERROR',
-              'A coluna de destino não pode ser a mesma que está a ser eliminada.',
-              400,
-            );
-          }
-          const destRows = await db.execute<{ id: string }>(sql`
-            select id from public.kanban_columns
-            where id = ${moveTo}::uuid and household_id = ${auth.householdId}::uuid
-            limit 1
-          `);
-          if (destRows.length === 0) {
-            annotateSpan(span, { statusCode: 404 });
-            return apiError('NOT_FOUND', 'Coluna de destino não encontrada.', 404);
-          }
+        if ('sameColumn' in result) {
+          annotateSpan(span, { statusCode: 400 });
+          return apiError(
+            'VALIDATION_ERROR',
+            'A coluna de destino não pode ser a mesma que está a ser eliminada.',
+            400,
+          );
+        }
+        if ('destNotFound' in result) {
+          annotateSpan(span, { statusCode: 404 });
+          return apiError('NOT_FOUND', 'Coluna de destino não encontrada.', 404);
         }
 
-        // Transaction: UPDATE tasks + DELETE coluna
-        await db.execute(sql`begin`);
-        try {
-          if (tasksCount > 0 && moveTo) {
-            await db.execute(sql`
-              update public.tasks
-              set kanban_column_id = ${moveTo}::uuid, updated_at = now()
-              where kanban_column_id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-            `);
-          }
-          await db.execute(sql`
-            delete from public.kanban_columns
-            where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          `);
-          await db.execute(sql`commit`);
-        } catch (txErr) {
-          await db.execute(sql`rollback`);
-          throw txErr;
-        }
+        const { current, tasksCount } = result;
 
         // Audit log
         try {

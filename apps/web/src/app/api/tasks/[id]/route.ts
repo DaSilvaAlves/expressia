@@ -4,6 +4,11 @@
  * GET: Single task. RLS filtra. 404 se não existe ou cross-household.
  * PATCH: Update parcial Zod strict. household_id/created_by_user_id IMMUTABLE.
  * DELETE: Soft delete (DP2-3.2 A) — UPDATE status='archived'. Não hard delete.
+ *
+ * RLS (SEC-5 / ADR-003 Fase 4 Fatia A): a operação de domínio corre dentro de
+ * `withHousehold` (2.ª rede, RLS activa). O filtro `household_id` (SEC-1, 1.ª rede)
+ * MANTÉM-SE. GET é read-only (sem audit, sem `getDb`); PATCH/DELETE mantêm
+ * `getDb()` só para o `insertAuditLog` best-effort FORA do `withHousehold` (PO-FIX-2).
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -18,7 +23,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { TaskUpdateSchema } from '@/lib/api-schemas/tasks';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
@@ -48,15 +53,18 @@ export async function GET(_req: NextRequest, ctx: RouteContext): Promise<NextRes
       annotateSpan(span, { extra: { 'task.id_hash': hashForCorrelation(id) } });
 
       try {
-        const db = getDb();
-        const rows = await db.execute<{ id: string }>(sql`
-          select id, household_id, created_by_user_id, assigned_to_user_id, title, description,
-                 due_date, due_time, priority, status, kanban_column_id, kanban_position,
-                 project, recurrence_id, is_recurrence_template, completed_at, created_at, updated_at
-          from public.tasks
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<{ id: string }>(sql`
+              select id, household_id, created_by_user_id, assigned_to_user_id, title, description,
+                     due_date, due_time, priority, status, kanban_column_id, kanban_position,
+                     project, recurrence_id, is_recurrence_template, completed_at, created_at, updated_at
+              from public.tasks
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `),
+        );
 
         const task = rows[0];
         if (!task) {
@@ -113,6 +121,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
       const isCompletionUpdate = body.status === 'done';
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
 
         // Build dynamic SET clause
@@ -140,13 +149,17 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         sets.push(sql`updated_at = now()`);
         const setSql = sets.reduce((acc, c, idx) => (idx === 0 ? c : sql`${acc}, ${c}`));
 
-        const rows = await db.execute<{ id: string; status: string; title: string }>(sql`
-          update public.tasks set ${setSql}
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          returning id, household_id, created_by_user_id, assigned_to_user_id, title, description,
-                    due_date, due_time, priority, status, kanban_column_id, kanban_position,
-                    project, recurrence_id, is_recurrence_template, completed_at, created_at, updated_at
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<{ id: string; status: string; title: string }>(sql`
+              update public.tasks set ${setSql}
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              returning id, household_id, created_by_user_id, assigned_to_user_id, title, description,
+                        due_date, due_time, priority, status, kanban_column_id, kanban_position,
+                        project, recurrence_id, is_recurrence_template, completed_at, created_at, updated_at
+            `),
+        );
 
         const task = rows[0];
         if (!task) {
@@ -200,14 +213,19 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
       annotateSpan(span, { extra: { 'task.id_hash': hashForCorrelation(id) } });
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
         // Soft delete: status='archived' (DP2-3.2 A — zero schema change)
-        const rows = await db.execute<{ id: string }>(sql`
-          update public.tasks
-          set status = 'archived'::task_status, updated_at = now()
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          returning id
-        `);
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<{ id: string }>(sql`
+              update public.tasks
+              set status = 'archived'::task_status, updated_at = now()
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              returning id
+            `),
+        );
 
         if (rows.length === 0) {
           annotateSpan(span, { statusCode: 404 });

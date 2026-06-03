@@ -13,6 +13,14 @@
  *   6. audit_log INSERT (task.moved).
  *
  * 409 CONFLICT em race condition (unique constraint violation).
+ *
+ * RLS (SEC-5 / ADR-003 Fase 4 Fatia A): TODAS as queries de domínio (select
+ * actual + verificação de coluna + shift de siblings + update + re-fetch) correm
+ * dentro de UM único `withHousehold` (2.ª rede + atomicidade — substitui o
+ * `begin/commit` inline anterior). O filtro `household_id` (SEC-1, 1.ª rede)
+ * MANTÉM-SE. Retorno discriminado preserva os 404 sem `return` de NextResponse
+ * dentro do callback da transação. O `insertAuditLog` permanece best-effort FORA
+ * do `withHousehold` em `getDb()` (PO-FIX-2 / D-SEC3).
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -27,7 +35,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { TaskMoveSchema } from '@/lib/api-schemas/tasks';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
@@ -69,79 +77,103 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
       }
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
 
-        // 1. SELECT actual state (RLS bloqueia cross-household)
-        const currentRows = await db.execute<{
-          id: string;
-          kanban_column_id: string | null;
-          kanban_position: number;
-        }>(sql`
-          select id, kanban_column_id, kanban_position
-          from public.tasks
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
+        // SEC-5: select actual + verificação de coluna + shift + update + re-fetch
+        // correm no MESMO `withHousehold` (atomicidade + contexto RLS consistente —
+        // substitui o `begin/commit` inline anterior). Retorno discriminado preserva
+        // os 404 sem `return` de NextResponse dentro do callback da transação.
+        const result = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          async (
+            tx,
+          ): Promise<
+            | { notFound: 'task' | 'column' }
+            | {
+                current: { kanban_column_id: string | null; kanban_position: number };
+                updated: Record<string, unknown> | undefined;
+              }
+          > => {
+            // 1. SELECT actual state (RLS + filtro household_id bloqueiam cross-household)
+            const currentRows = await tx.execute<{
+              id: string;
+              kanban_column_id: string | null;
+              kanban_position: number;
+            }>(sql`
+              select id, kanban_column_id, kanban_position
+              from public.tasks
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `);
 
-        const current = currentRows[0];
-        if (!current) {
+            const current = currentRows[0];
+            if (!current) return { notFound: 'task' };
+
+            // 2. Verificar coluna alvo pertence ao household (se não-null)
+            if (body.kanban_column_id) {
+              const colRows = await tx.execute<{ id: string }>(sql`
+                select id from public.kanban_columns
+                where id = ${body.kanban_column_id}::uuid and household_id = ${auth.householdId}::uuid
+                limit 1
+              `);
+              if (colRows.length === 0) return { notFound: 'column' };
+            }
+
+            // 3. Shift right siblings na coluna alvo
+            if (body.kanban_column_id !== null) {
+              await tx.execute(sql`
+                update public.tasks
+                set kanban_position = kanban_position + 1, updated_at = now()
+                where kanban_column_id = ${body.kanban_column_id}::uuid
+                  and household_id = ${auth.householdId}::uuid
+                  and kanban_position >= ${body.kanban_position}
+                  and id != ${id}::uuid
+              `);
+            }
+
+            // 4. UPDATE task target
+            await tx.execute(sql`
+              update public.tasks
+              set kanban_column_id = ${body.kanban_column_id}::uuid,
+                  kanban_position = ${body.kanban_position},
+                  updated_at = now()
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+            `);
+
+            // 5. Re-fetch estado final (query de domínio — dentro do mesmo `tx`, AC3)
+            const updatedRows = await tx.execute<Record<string, unknown>>(sql`
+              select id, household_id, created_by_user_id, assigned_to_user_id, title, description,
+                     due_date, due_time, priority, status, kanban_column_id, kanban_position,
+                     project, recurrence_id, is_recurrence_template, completed_at, created_at, updated_at
+              from public.tasks
+              where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
+              limit 1
+            `);
+
+            return {
+              current: {
+                kanban_column_id: current.kanban_column_id,
+                kanban_position: current.kanban_position,
+              },
+              updated: updatedRows[0],
+            };
+          },
+        );
+
+        if ('notFound' in result) {
           annotateSpan(span, { statusCode: 404 });
-          return apiError('NOT_FOUND', 'Tarefa não encontrada.', 404);
+          return apiError(
+            'NOT_FOUND',
+            result.notFound === 'task' ? 'Tarefa não encontrada.' : 'Coluna Kanban não encontrada.',
+            404,
+          );
         }
 
-        // 2. Verificar coluna alvo pertence ao household (se não-null)
-        if (body.kanban_column_id) {
-          const colRows = await db.execute<{ id: string }>(sql`
-            select id from public.kanban_columns
-            where id = ${body.kanban_column_id}::uuid and household_id = ${auth.householdId}::uuid
-            limit 1
-          `);
-          if (colRows.length === 0) {
-            annotateSpan(span, { statusCode: 404 });
-            return apiError('NOT_FOUND', 'Coluna Kanban não encontrada.', 404);
-          }
-        }
-
+        const { current, updated } = result;
         const isCrossColumn = current.kanban_column_id !== body.kanban_column_id;
 
-        // 3-5. Atomic move via transaction (Drizzle não expõe transaction directa
-        // com sql template — usar BEGIN/COMMIT inline via execute)
-        await db.execute(sql`begin`);
-        try {
-          // Shift right siblings na coluna alvo
-          if (body.kanban_column_id !== null) {
-            await db.execute(sql`
-              update public.tasks
-              set kanban_position = kanban_position + 1, updated_at = now()
-              where kanban_column_id = ${body.kanban_column_id}::uuid
-                and household_id = ${auth.householdId}::uuid
-                and kanban_position >= ${body.kanban_position}
-                and id != ${id}::uuid
-            `);
-          }
-
-          // UPDATE task target
-          await db.execute(sql`
-            update public.tasks
-            set kanban_column_id = ${body.kanban_column_id}::uuid,
-                kanban_position = ${body.kanban_position},
-                updated_at = now()
-            where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          `);
-
-          await db.execute(sql`commit`);
-        } catch (txErr) {
-          await db.execute(sql`rollback`);
-          // Postgres unique constraint violation → 23505
-          const message = txErr instanceof Error ? txErr.message : String(txErr);
-          if (/unique|duplicate|23505/i.test(message)) {
-            annotateSpan(span, { statusCode: 409 });
-            return apiError('CONFLICT', 'Conflito ao mover tarefa — tenta novamente.', 409);
-          }
-          throw txErr;
-        }
-
-        // 6. Audit log (best-effort)
+        // 6. Audit log (best-effort) — FORA do `withHousehold` (PO-FIX-2)
         try {
           await insertAuditLog({
             db,
@@ -163,16 +195,6 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
           log.warn({ err: auditErr }, 'audit_log INSERT falhou (best-effort)');
         }
 
-        // Fetch updated task to return
-        const updatedRows = await db.execute(sql`
-          select id, household_id, created_by_user_id, assigned_to_user_id, title, description,
-                 due_date, due_time, priority, status, kanban_column_id, kanban_position,
-                 project, recurrence_id, is_recurrence_template, completed_at, created_at, updated_at
-          from public.tasks
-          where id = ${id}::uuid and household_id = ${auth.householdId}::uuid
-          limit 1
-        `);
-
         annotateSpan(span, {
           statusCode: 200,
           extra: {
@@ -182,8 +204,15 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
             'task.is_cross_column': isCrossColumn,
           },
         });
-        return NextResponse.json({ task: updatedRows[0] });
+        return NextResponse.json({ task: updated });
       } catch (err) {
+        // Postgres unique constraint violation → 23505 (race condition no reorder).
+        // O `withHousehold` faz rollback da transação; o erro propaga até aqui.
+        const message = err instanceof Error ? err.message : String(err);
+        if (/unique|duplicate|23505/i.test(message)) {
+          annotateSpan(span, { statusCode: 409 });
+          return apiError('CONFLICT', 'Conflito ao mover tarefa — tenta novamente.', 409);
+        }
         annotateSpan(span, { statusCode: 500 });
         log.error({ err }, 'PATCH /api/tasks/[id]/move falhou');
         captureException(err instanceof Error ? err : new Error(String(err)), {

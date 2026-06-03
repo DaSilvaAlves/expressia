@@ -23,6 +23,12 @@ vi.mock('@meu-jarvis/auth/server', () => ({
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: () => ({ execute: mocks.dbExecuteMock }),
   getServiceDb: () => ({ execute: mocks.dbExecuteMock }),
+  // SEC-5: handler envolve as queries de domínio em `withHousehold`. O mock injecta
+  // um `tx` equivalente (mesmo `execute` mock) — substitui o begin/commit inline.
+  withHousehold: (
+    _auth: { userId: string; householdId: string },
+    fn: (tx: { execute: typeof mocks.dbExecuteMock }) => unknown,
+  ) => fn({ execute: mocks.dbExecuteMock }),
 }));
 
 import { NextRequest } from 'next/server';
@@ -109,12 +115,10 @@ describe('PATCH /api/tasks/[id]/move', () => {
     mocks.dbExecuteMock
       .mockResolvedValueOnce([{ id: TASK_UUID, kanban_column_id: null, kanban_position: 0 }]) // current
       .mockResolvedValueOnce([{ id: COL_UUID }]) // col check
-      .mockResolvedValueOnce([]) // begin
-      .mockResolvedValueOnce([]) // shift siblings
-      .mockResolvedValueOnce([]) // UPDATE task
-      .mockResolvedValueOnce([]) // commit
-      .mockResolvedValueOnce([]) // audit log
-      .mockResolvedValueOnce([{ id: TASK_UUID, kanban_column_id: COL_UUID, kanban_position: 1 }]); // SELECT updated
+      .mockResolvedValueOnce([]) // shift siblings (dentro do withHousehold)
+      .mockResolvedValueOnce([]) // UPDATE task (dentro do withHousehold)
+      .mockResolvedValueOnce([{ id: TASK_UUID, kanban_column_id: COL_UUID, kanban_position: 1 }]) // re-fetch (dentro do withHousehold)
+      .mockResolvedValueOnce([]); // audit log (fora do withHousehold)
     const res = await PATCH(makeReq({ kanban_column_id: COL_UUID, kanban_position: 1 }), CTX);
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -126,9 +130,9 @@ describe('PATCH /api/tasks/[id]/move', () => {
     mocks.dbExecuteMock
       .mockResolvedValueOnce([{ id: TASK_UUID, kanban_column_id: null, kanban_position: 0 }])
       .mockResolvedValueOnce([{ id: COL_UUID }])
-      .mockResolvedValueOnce([]) // begin
-      .mockRejectedValueOnce(new Error('duplicate key value violates unique constraint (23505)'))
-      .mockResolvedValueOnce([]); // rollback
+      // shift siblings rejeita com unique violation (dentro do withHousehold → rollback
+      // automático da transação; o erro propaga até ao catch externo → 409)
+      .mockRejectedValueOnce(new Error('duplicate key value violates unique constraint (23505)'));
     const res = await PATCH(makeReq({ kanban_column_id: COL_UUID, kanban_position: 0 }), CTX);
     expect(res.status).toBe(409);
     const body = await res.json();

@@ -2,8 +2,13 @@
  * PATCH /api/kanban-columns/batch — Story 3.4 AC11 + DP-3.4.6 (Aria ratify HIGH).
  *
  * Single endpoint atómico para guardar todas as alterações da ColumnConfigSheet.
- * Tudo em `db.transaction()` (BEGIN/COMMIT manual via execute — pattern Story 3.2
- * `/api/tasks/[id]/move`). Rollback total se qualquer operação falhar.
+ * SEC-5 / ADR-003 Fase 4 Fatia A: TODAS as queries de domínio (validateInput +
+ * snapshot + deletes + creates + updates + validateInvariants + fetch final)
+ * correm num único `withHousehold` (2.ª rede + atomicidade — substitui o
+ * `begin/commit` inline anterior). Rollback total via `throw` do callback. Os 422
+ * (invariants input/final) são sinalizados por `BatchInvariantError` tipado e
+ * mapeados FORA do callback. O filtro `household_id` (SEC-1, 1.ª rede) MANTÉM-SE.
+ * O `insertAuditLog` permanece best-effort FORA do `withHousehold` (PO-FIX-2).
  *
  * Guidance Aria aplicada:
  *   - G2.1: Zod `.strict()` em todos os shapes; validação semântica (id ∈ household,
@@ -32,7 +37,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import {
   BatchKanbanColumnsSchema,
   type BatchKanbanColumnsInput,
@@ -44,6 +49,21 @@ import type { DbShim } from '@/lib/agent/db-shim';
 const ROUTE = '/api/kanban-columns/batch';
 const MIN_COLUMNS = 3;
 const MAX_COLUMNS = 6;
+
+/**
+ * Erro tipado para sinalizar violação de invariants DENTRO do callback do
+ * `withHousehold` — força o rollback da transação (via `throw`) e transporta a
+ * lista de violations + a fase para mapeamento ao 422 FORA do callback.
+ */
+class BatchInvariantError extends Error {
+  constructor(
+    readonly phase: 'input' | 'final',
+    readonly violations: InvariantViolation[],
+  ) {
+    super('batch invariant violation');
+    this.name = 'BatchInvariantError';
+  }
+}
 
 interface KanbanColumnDbRow {
   id: string;
@@ -206,172 +226,146 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       };
 
       try {
+        // PO-FIX-2: `getDb()` mantém-se para o `insertAuditLog` best-effort (abaixo).
         const db = getDb();
 
-        // Pre-input validation (G2.1) — referências cross-household + nomes duplicados
-        const inputViolations = await validateInput(db, auth.householdId, body);
-        if (inputViolations.length > 0) {
-          annotateSpan(span, { statusCode: 422 });
-          return NextResponse.json(
-            {
-              error: {
-                code: 'INVARIANT_VIOLATION',
-                message: 'Operação rejeitada: violações de invariants.',
-                details: { violations: inputViolations },
-                timestamp: new Date().toISOString(),
-                requestId: crypto.randomUUID(),
-              },
-            },
-            { status: 422 },
-          );
-        }
+        // SEC-5: validateInput + snapshot + deletes + creates + updates +
+        // validateInvariants + fetch final num único `withHousehold` (2.ª rede +
+        // atomicidade). Violations → `throw BatchInvariantError` (rollback + map 422).
+        const finalRows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          async (tx): Promise<KanbanColumnDbRow[]> => {
+            // Pre-input validation (G2.1) — referências cross-household + nomes duplicados
+            const inputViolations = await validateInput(tx, auth.householdId, body);
+            if (inputViolations.length > 0) {
+              throw new BatchInvariantError('input', inputViolations);
+            }
 
-        // Snapshot pre-batch para audit + renames calc
-        const beforeRows = await db.execute<KanbanColumnDbRow>(sql`
-          select id, household_id, name, sort_order, color, is_done_column
-          from public.kanban_columns
-          where household_id = ${auth.householdId}::uuid
-        `);
-        const beforeById = new Map(beforeRows.map((r) => [r.id, r]));
+            // Snapshot pre-batch para audit + renames calc
+            const beforeRows = await tx.execute<KanbanColumnDbRow>(sql`
+              select id, household_id, name, sort_order, color, is_done_column
+              from public.kanban_columns
+              where household_id = ${auth.householdId}::uuid
+            `);
+            const beforeById = new Map(beforeRows.map((r) => [r.id, r]));
 
-        // Transaction (G2.2 — order: deletes, creates, updates)
-        await db.execute(sql`begin`);
-        try {
-          // (1) DELETEs primeiro — move tasks ANTES de DELETE coluna
-          if (body.deletes && body.deletes.length > 0) {
-            for (const del of body.deletes) {
-              if (del.move_to) {
-                // SEC-1-F4: filtro household_id inline (defesa-em-profundidade;
-                // validateInput já garante pertença, mas a RLS está inerte).
-                await db.execute(sql`
-                  update public.tasks
-                  set kanban_column_id = ${del.move_to}::uuid, updated_at = now()
-                  where kanban_column_id = ${del.id}::uuid
+            // (1) DELETEs primeiro — move tasks ANTES de DELETE coluna
+            if (body.deletes && body.deletes.length > 0) {
+              for (const del of body.deletes) {
+                if (del.move_to) {
+                  // SEC-1-F4: filtro household_id inline (defesa-em-profundidade;
+                  // validateInput já garante pertença, mas é a 1.ª rede mantida).
+                  await tx.execute(sql`
+                    update public.tasks
+                    set kanban_column_id = ${del.move_to}::uuid, updated_at = now()
+                    where kanban_column_id = ${del.id}::uuid
+                      and household_id = ${auth.householdId}::uuid
+                  `);
+                }
+                await tx.execute(sql`
+                  delete from public.kanban_columns
+                  where id = ${del.id}::uuid
+                    and household_id = ${auth.householdId}::uuid
+                `);
+                summary.deletes_count++;
+              }
+            }
+
+            // (2) CREATEs depois
+            if (body.creates && body.creates.length > 0) {
+              for (const create of body.creates) {
+                // sort_order: MAX+1 se omitido
+                let sortOrder = create.sort_order;
+                if (sortOrder === undefined) {
+                  const maxRows = await tx.execute<{ max_order: number | null }>(sql`
+                    select coalesce(max(sort_order), -1) as max_order
+                    from public.kanban_columns
+                    where household_id = ${auth.householdId}::uuid
+                  `);
+                  sortOrder = (maxRows[0]?.max_order ?? -1) + 1;
+                }
+                await tx.execute(sql`
+                  insert into public.kanban_columns (household_id, name, sort_order, color, is_done_column)
+                  values (
+                    ${auth.householdId}::uuid,
+                    ${create.name},
+                    ${sortOrder},
+                    ${create.color ?? '#6B7280'},
+                    'false'
+                  )
+                `);
+                summary.creates_count++;
+              }
+            }
+
+            // (3) UPDATEs — handle is_done_column toggle PRIMEIRO (single invariant)
+            //     Se há um is_done_column=true a definir, desliga todos os outros.
+            const newDoneCol = body.columns.find((c) => c.is_done_column === true);
+            if (newDoneCol) {
+              await tx.execute(sql`
+                update public.kanban_columns
+                set is_done_column = 'false', updated_at = now()
+                where household_id = ${auth.householdId}::uuid
+                  and id != ${newDoneCol.id}::uuid
+                  and is_done_column = 'true'
+              `);
+            }
+
+            // sort_order trick: shift+offset para evitar colisão de unique(household_id, sort_order)
+            //  Step 1: put all column sort_orders in temp negative space
+            if (body.columns.length > 0) {
+              for (const col of body.columns) {
+                await tx.execute(sql`
+                  update public.kanban_columns
+                  set sort_order = -100 - ${col.sort_order}, updated_at = now()
+                  where id = ${col.id}::uuid
                     and household_id = ${auth.householdId}::uuid
                 `);
               }
-              await db.execute(sql`
-                delete from public.kanban_columns
-                where id = ${del.id}::uuid
-                  and household_id = ${auth.householdId}::uuid
-              `);
-              summary.deletes_count++;
-            }
-          }
+              // Step 2: apply real sort_order + name + is_done_column
+              for (const col of body.columns) {
+                const sets: ReturnType<typeof sql>[] = [];
+                sets.push(sql`sort_order = ${col.sort_order}`);
+                if (col.name !== undefined) sets.push(sql`name = ${col.name}`);
+                if (col.is_done_column !== undefined)
+                  sets.push(sql`is_done_column = ${col.is_done_column ? 'true' : 'false'}`);
+                if (col.color !== undefined) sets.push(sql`color = ${col.color}`);
+                sets.push(sql`updated_at = now()`);
 
-          // (2) CREATEs depois
-          if (body.creates && body.creates.length > 0) {
-            for (const create of body.creates) {
-              // sort_order: MAX+1 se omitido
-              let sortOrder = create.sort_order;
-              if (sortOrder === undefined) {
-                const maxRows = await db.execute<{ max_order: number | null }>(sql`
-                  select coalesce(max(sort_order), -1) as max_order
-                  from public.kanban_columns
-                  where household_id = ${auth.householdId}::uuid
-                `);
-                sortOrder = (maxRows[0]?.max_order ?? -1) + 1;
+                let updateSql = sql`update public.kanban_columns set `;
+                for (let i = 0; i < sets.length; i++) {
+                  updateSql = i === 0 ? sql`${updateSql}${sets[i]}` : sql`${updateSql}, ${sets[i]}`;
+                }
+                updateSql = sql`${updateSql} where id = ${col.id}::uuid and household_id = ${auth.householdId}::uuid`;
+                await tx.execute(updateSql);
+
+                summary.updates_count++;
+
+                // Track renames
+                const before = beforeById.get(col.id);
+                if (before && col.name !== undefined && before.name !== col.name) {
+                  summary.renames.push({ id: col.id, from: before.name, to: col.name });
+                }
               }
-              await db.execute(sql`
-                insert into public.kanban_columns (household_id, name, sort_order, color, is_done_column)
-                values (
-                  ${auth.householdId}::uuid,
-                  ${create.name},
-                  ${sortOrder},
-                  ${create.color ?? '#6B7280'},
-                  'false'
-                )
-              `);
-              summary.creates_count++;
             }
-          }
 
-          // (3) UPDATEs — handle is_done_column toggle PRIMEIRO (single invariant)
-          //     Se há um is_done_column=true a definir, desliga todos os outros.
-          const newDoneCol = body.columns.find((c) => c.is_done_column === true);
-          if (newDoneCol) {
-            await db.execute(sql`
-              update public.kanban_columns
-              set is_done_column = 'false', updated_at = now()
+            // (4) Validar invariants pós-batch (G2.3) — `throw` força rollback da transação
+            const violations = await validateInvariants(tx, auth.householdId);
+            if (violations.length > 0) {
+              throw new BatchInvariantError('final', violations);
+            }
+
+            // G2.4: estado final completo do household pós-batch (query de domínio — AC3)
+            return tx.execute<KanbanColumnDbRow>(sql`
+              select id, household_id, name, sort_order, color, is_done_column
+              from public.kanban_columns
               where household_id = ${auth.householdId}::uuid
-                and id != ${newDoneCol.id}::uuid
-                and is_done_column = 'true'
+              order by sort_order asc
             `);
-          }
+          },
+        );
 
-          // sort_order trick: shift+offset para evitar colisão de unique(household_id, sort_order)
-          //  Step 1: put all column sort_orders in temp negative space
-          if (body.columns.length > 0) {
-            for (const col of body.columns) {
-              await db.execute(sql`
-                update public.kanban_columns
-                set sort_order = -100 - ${col.sort_order}, updated_at = now()
-                where id = ${col.id}::uuid
-                  and household_id = ${auth.householdId}::uuid
-              `);
-            }
-            // Step 2: apply real sort_order + name + is_done_column
-            for (const col of body.columns) {
-              const sets: ReturnType<typeof sql>[] = [];
-              sets.push(sql`sort_order = ${col.sort_order}`);
-              if (col.name !== undefined) sets.push(sql`name = ${col.name}`);
-              if (col.is_done_column !== undefined)
-                sets.push(sql`is_done_column = ${col.is_done_column ? 'true' : 'false'}`);
-              if (col.color !== undefined) sets.push(sql`color = ${col.color}`);
-              sets.push(sql`updated_at = now()`);
-
-              let updateSql = sql`update public.kanban_columns set `;
-              for (let i = 0; i < sets.length; i++) {
-                updateSql = i === 0 ? sql`${updateSql}${sets[i]}` : sql`${updateSql}, ${sets[i]}`;
-              }
-              updateSql = sql`${updateSql} where id = ${col.id}::uuid and household_id = ${auth.householdId}::uuid`;
-              await db.execute(updateSql);
-
-              summary.updates_count++;
-
-              // Track renames
-              const before = beforeById.get(col.id);
-              if (before && col.name !== undefined && before.name !== col.name) {
-                summary.renames.push({ id: col.id, from: before.name, to: col.name });
-              }
-            }
-          }
-
-          // (4) Validar invariants pós-batch (G2.3)
-          const violations = await validateInvariants(db, auth.householdId);
-          if (violations.length > 0) {
-            await db.execute(sql`rollback`);
-            annotateSpan(span, { statusCode: 422 });
-            return NextResponse.json(
-              {
-                error: {
-                  code: 'INVARIANT_VIOLATION',
-                  message: 'Estado final viola invariants.',
-                  details: { violations },
-                  timestamp: new Date().toISOString(),
-                  requestId: crypto.randomUUID(),
-                },
-              },
-              { status: 422 },
-            );
-          }
-
-          await db.execute(sql`commit`);
-        } catch (txErr) {
-          await db.execute(sql`rollback`);
-          const message = txErr instanceof Error ? txErr.message : String(txErr);
-          if (/unique|duplicate|23505/i.test(message)) {
-            annotateSpan(span, { statusCode: 409 });
-            return apiError(
-              'CONFLICT',
-              'Conflito ao guardar configuração — ordem ou nome duplicado.',
-              409,
-            );
-          }
-          throw txErr;
-        }
-
-        // Audit log (best-effort + feature flag gated)
+        // Audit log (best-effort + feature flag gated) — FORA do `withHousehold`
         try {
           await insertAuditLog({
             db,
@@ -388,13 +382,6 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
           log.warn({ err: auditErr }, 'audit_log INSERT falhou (best-effort)');
         }
 
-        // G2.4: Response = estado final completo do household pós-batch
-        const finalRows = await db.execute<KanbanColumnDbRow>(sql`
-          select id, household_id, name, sort_order, color, is_done_column
-          from public.kanban_columns
-          where household_id = ${auth.householdId}::uuid
-          order by sort_order asc
-        `);
         annotateSpan(span, {
           statusCode: 200,
           extra: {
@@ -414,6 +401,35 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
           })),
         });
       } catch (err) {
+        // Invariants (input/final) — `withHousehold` já fez rollback ao propagar o throw.
+        if (err instanceof BatchInvariantError) {
+          annotateSpan(span, { statusCode: 422 });
+          return NextResponse.json(
+            {
+              error: {
+                code: 'INVARIANT_VIOLATION',
+                message:
+                  err.phase === 'input'
+                    ? 'Operação rejeitada: violações de invariants.'
+                    : 'Estado final viola invariants.',
+                details: { violations: err.violations },
+                timestamp: new Date().toISOString(),
+                requestId: crypto.randomUUID(),
+              },
+            },
+            { status: 422 },
+          );
+        }
+        // Unique constraint (ordem/nome duplicado) — rollback feito pelo withHousehold.
+        const message = err instanceof Error ? err.message : String(err);
+        if (/unique|duplicate|23505/i.test(message)) {
+          annotateSpan(span, { statusCode: 409 });
+          return apiError(
+            'CONFLICT',
+            'Conflito ao guardar configuração — ordem ou nome duplicado.',
+            409,
+          );
+        }
         annotateSpan(span, { statusCode: 500 });
         log.error({ err }, 'PATCH /api/kanban-columns/batch falhou');
         captureException(err instanceof Error ? err : new Error(String(err)), {
