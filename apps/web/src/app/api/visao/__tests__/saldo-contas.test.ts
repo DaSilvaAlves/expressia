@@ -19,6 +19,10 @@ vi.mock('@meu-jarvis/auth/server', () => ({
 
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: () => ({ execute: mocks.dbExecuteMock }),
+  // SEC-6 — `withHousehold` executa o callback com o fake db (a transação real é
+  // provada pelo gate de aplicação `db-test`, não aqui).
+  withHousehold: (_auth: unknown, fn: (tx: unknown) => unknown) =>
+    fn({ execute: mocks.dbExecuteMock }),
 }));
 
 const { GET } = await import('@/app/api/visao/saldo-contas/route');

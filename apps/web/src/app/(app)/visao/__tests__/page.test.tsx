@@ -38,7 +38,12 @@ vi.mock('@meu-jarvis/observability', () => ({
 }));
 
 vi.mock('@/lib/agent/db-shim', () => ({
+  // Handler misto (SEC-6): `getDb` mantém-se para as leituras `user_prefs`
+  // user-scoped (onboarding + widgets_enabled, carve-out SEC-7); `withHousehold`
+  // serve `isVisaoEmpty` (agregados household-scoped). Ambos usam o mesmo fake db.
   getDb: () => ({ execute: mocks.executeMock }),
+  withHousehold: (_auth: unknown, fn: (tx: unknown) => unknown) =>
+    fn({ execute: mocks.executeMock }),
 }));
 
 // SEC-1 — a page resolve o household_id (app-enforced) antes de chamar os

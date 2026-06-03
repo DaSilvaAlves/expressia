@@ -7,6 +7,8 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { boundParamValues } from '@/lib/finance/__tests__/_sql-bound-params';
+
 const mocks = vi.hoisted(() => ({
   getUserMock: vi.fn(),
   fromMock: vi.fn(),
@@ -28,6 +30,10 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: () => ({ execute: mocks.dbExecuteMock }),
+  // SEC-6 — `withHousehold` executa o callback com o fake db (a 2.ª rede real é
+  // provada pelo gate de aplicação `db-test`).
+  withHousehold: (_auth: unknown, fn: (tx: unknown) => unknown) =>
+    fn({ execute: mocks.dbExecuteMock }),
 }));
 
 vi.mock('@meu-jarvis/observability', () => ({
@@ -183,5 +189,44 @@ describe('TarefasCalendarioPage RSC', () => {
     });
     expect(stringifyTree(result)).toContain('EmptyState:error');
     expect(mocks.captureExceptionMock).toHaveBeenCalled();
+  });
+
+  // SEC-6 AC9.2 — regressão de leak (mandatória): as 3 queries `tasks` tinham leak
+  // cross-household (filtravam só `due_date`/`status`, ignorando o `householdId`
+  // resolvido). Estes testes assertam que o `household_id` autenticado é bound em
+  // TODAS as 3 queries (1.ª rede), e que coexiste com o filtro opcional `tag_id`.
+  it('SEC-6 — as 3 queries tasks filtram household_id bound (sem tag_id)', async () => {
+    authedAsOwner();
+    setupDbExecute([], [], 0);
+
+    const { default: TarefasCalendarioPage } = await import(
+      '@/app/(app)/tarefas/calendario/page'
+    );
+    await TarefasCalendarioPage({ searchParams: Promise.resolve({}) });
+
+    // 3 chamadas (scheduled + unscheduled + count); cada uma tem de filtrar household_id.
+    expect(mocks.dbExecuteMock).toHaveBeenCalledTimes(3);
+    for (const call of mocks.dbExecuteMock.mock.calls) {
+      expect(boundParamValues(call[0])).toContain(HOUSEHOLD_UUID);
+    }
+  });
+
+  it('SEC-6 — household_id mantém-se bound mesmo com tag_id activo (coexiste com tagIdSql)', async () => {
+    authedAsOwner();
+    setupDbExecute([], [], 0);
+    const TAG_UUID = '00000000-0000-0000-0000-0000000000ff';
+
+    const { default: TarefasCalendarioPage } = await import(
+      '@/app/(app)/tarefas/calendario/page'
+    );
+    await TarefasCalendarioPage({ searchParams: Promise.resolve({ tag_id: TAG_UUID }) });
+
+    expect(mocks.dbExecuteMock).toHaveBeenCalledTimes(3);
+    for (const call of mocks.dbExecuteMock.mock.calls) {
+      const params = boundParamValues(call[0]);
+      // Ambos os filtros presentes: household_id (1.ª rede) E o tag_id opcional.
+      expect(params).toContain(HOUSEHOLD_UUID);
+      expect(params).toContain(TAG_UUID);
+    }
   });
 });

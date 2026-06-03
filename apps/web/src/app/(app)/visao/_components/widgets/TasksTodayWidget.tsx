@@ -2,7 +2,7 @@ import type * as React from 'react';
 
 import { captureException } from '@meu-jarvis/observability';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import { getTasksToday } from '@/lib/visao/queries';
 import { formatDueTime, priorityDotClass } from '@/app/(app)/visao/_lib/format';
 import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
@@ -18,13 +18,18 @@ import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
  */
 export async function TasksTodayWidget({
   householdId,
+  userId,
 }: {
   householdId: string;
+  userId: string;
 }): Promise<React.ReactElement> {
   let count = 0;
   let tasks: Awaited<ReturnType<typeof getTasksToday>>['tasks'] = [];
   try {
-    const data = await getTasksToday(getDb(), householdId);
+    // SEC-6 — RLS-enforced em runtime (2.ª rede); 1.ª rede mantida no helper.
+    const data = await withHousehold({ userId, householdId }, (tx) =>
+      getTasksToday(tx, householdId),
+    );
     count = data.count;
     tasks = data.tasks;
   } catch (err) {

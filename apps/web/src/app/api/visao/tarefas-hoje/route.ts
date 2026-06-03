@@ -29,7 +29,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { getTasksToday } from '@/lib/visao/queries';
 import {
@@ -49,7 +49,14 @@ export async function GET(): Promise<NextResponse> {
       if (auth instanceof NextResponse) return auth;
 
       try {
-        const body = await getTasksToday(getDb(), auth.householdId);
+        // SEC-6 — ADR-003 Fase 4 Fatia B: a leitura corre dentro de
+        // `withHousehold`, que abre transação com `SET LOCAL ROLE authenticated`
+        // + JWT claims — activa as 104 RLS policies (2.ª rede). O filtro
+        // `household_id` em `queries.ts` (1.ª rede) MANTÉM-SE — defense-in-depth.
+        const body = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) => getTasksToday(tx, auth.householdId),
+        );
 
         // Defesa em profundidade — validação de shape antes de devolver.
         const validated = TasksTodayResponseSchema.parse(body);

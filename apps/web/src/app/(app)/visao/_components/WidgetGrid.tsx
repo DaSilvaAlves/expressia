@@ -38,14 +38,20 @@ export interface WidgetGridProps {
   readonly widgetsEnabled: WidgetsEnabled;
   /** SEC-1 — household_id app-enforced, propagado a cada widget de conteúdo. */
   readonly householdId: string;
+  /**
+   * SEC-6 — userId, necessário para `withHousehold` (claims JWT `sub`). Propagado
+   * a cada widget de conteúdo a par do `householdId` (a RLS de runtime exige ambos).
+   */
+  readonly userId: string;
 }
 
 /**
- * Props comuns dos widgets de conteúdo. O `briefing` é estático (ignora o
- * `householdId`), mas aceita-o por uniformidade do mapa.
+ * Props comuns dos widgets de conteúdo. O `briefing` é estático (ignora ambos),
+ * mas aceita-os por uniformidade do mapa.
  */
 interface WidgetProps {
   readonly householdId: string;
+  readonly userId: string;
 }
 
 /** Mapa `WidgetId` → componente RSC. */
@@ -62,7 +68,11 @@ const WIDGET_COMPONENTS: Record<
   calendar_week: CalendarWeekWidget,
 };
 
-export function WidgetGrid({ widgetsEnabled, householdId }: WidgetGridProps): React.ReactElement {
+export function WidgetGrid({
+  widgetsEnabled,
+  householdId,
+  userId,
+}: WidgetGridProps): React.ReactElement {
   const enabledIds = WIDGET_ORDER.filter((id) => widgetsEnabled[id]);
 
   return (
@@ -79,7 +89,7 @@ export function WidgetGrid({ widgetsEnabled, householdId }: WidgetGridProps): Re
         return (
           <WidgetSlot key={id} widgetId={id} orderClass={orderClass}>
             <Suspense fallback={<WidgetSkeleton />}>
-              <Widget householdId={householdId} />
+              <Widget householdId={householdId} userId={userId} />
             </Suspense>
           </WidgetSlot>
         );

@@ -14,8 +14,10 @@ import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
  * Trace: Story 5.6 AC4 (linha briefing); CO-5.5.B.
  */
 export async function BriefingWidget(
+  // SEC-6 — aceita `householdId`/`userId` por uniformidade do mapa de widgets,
+  // mas ignora-os (stub estático sem DB → NÃO migra para `withHousehold`).
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _props: { householdId: string },
+  _props: { householdId: string; userId: string },
 ): Promise<React.ReactElement> {
   // Stub síncrono — `await` por uniformidade com os restantes widgets async.
   const briefing = await Promise.resolve(getBriefing());

@@ -6,6 +6,8 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { boundParamValues } from '@/lib/finance/__tests__/_sql-bound-params';
+
 const mocks = vi.hoisted(() => ({
   getUserMock: vi.fn(),
   fromMock: vi.fn(),
@@ -28,6 +30,10 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: () => ({ execute: mocks.dbExecuteMock }),
+  // SEC-6 — `withHousehold` executa o callback com o fake db (a 2.ª rede real é
+  // provada pelo gate de aplicação `db-test`).
+  withHousehold: (_auth: unknown, fn: (tx: unknown) => unknown) =>
+    fn({ execute: mocks.dbExecuteMock }),
 }));
 
 vi.mock('@/lib/api-helpers/list-tasks', () => ({
@@ -152,5 +158,23 @@ describe('TarefasKanbanPage RSC', () => {
     });
     expect(stringifyTree(result)).toContain('EmptyState:error');
     expect(mocks.captureExceptionMock).toHaveBeenCalled();
+  });
+
+  // SEC-6 AC9.2 — regressão de leak (mandatória): a query `kanban_columns` tinha
+  // leak cross-household (sem filtro `household_id`). Este teste asserta que o
+  // `household_id` autenticado é interpolado como parâmetro bound (1.ª rede). Se
+  // alguém remover o filtro no futuro, este teste falha — o leak não reabre em silêncio.
+  it('SEC-6 — query kanban_columns filtra household_id com parâmetro bound (1.ª rede)', async () => {
+    authedAsOwner();
+    mocks.dbExecuteMock.mockResolvedValue([]);
+    mocks.listTasksHelperMock.mockResolvedValue({ tasks: [], next_cursor: null });
+
+    const { default: TarefasKanbanPage } = await import('@/app/(app)/tarefas/kanban/page');
+    await TarefasKanbanPage({ searchParams: Promise.resolve({}) });
+
+    // A 1.ª chamada a `execute()` é a query `kanban_columns` (1.º item do Promise.all).
+    const kanbanSql = mocks.dbExecuteMock.mock.calls[0]?.[0];
+    expect(kanbanSql).toBeDefined();
+    expect(boundParamValues(kanbanSql)).toContain(HOUSEHOLD_UUID);
   });
 });

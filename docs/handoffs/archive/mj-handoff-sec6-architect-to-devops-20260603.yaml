@@ -1,0 +1,65 @@
+id: mj-handoff-sec6-architect-to-devops-20260603
+from_agent: architect
+to_agent: devops
+created: '2026-06-03T20:10:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-06-03T20:18:00Z'
+consumed_by: devops
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: sdc-phase
+related_story: SEC-6 (InReview — QA Gate PASS v1.2-ARCH-APPROVED)
+story_path: docs/stories/active/SEC-6.rls-enforced-runtime-fase4-visao-tarefas-ssr.story.md
+predecessor_handoff: mj-handoff-sec6-dev-to-architect-20260603 (consumed/archived — gate PASS 9,4/10)
+adr: docs/adr/ADR-003-rls-enforced-runtime-hardening.md (Adenda §11 — Fatia B)
+branch: main
+
+summary: |
+  SEC-6 (ADR-003 Fase 4 Fatia B — Visão + 3 SSR pages tarefas/*) passou o QA Gate adversarial do
+  @architect com PASS 9,4/10 (confiança Alta). Leak cross-household HIGH (kanban_columns + 3× tasks)
+  validado adversarialmente: 4 queries com household_id PARÂMETRO BOUND + testes de regressão AC9.2 que
+  falhariam se removido. 1.ª rede mantida na Visão/lista; 2.ª rede withHousehold aditiva em 6 routes +
+  6 widgets + 2 SSR + lista. Gates re-corridos fresh: check:rls ✓ · typecheck ✓ · lint ✓ (0 warn) ·
+  testes-alvo 159✓ + 3 timeouts flaky AC11 (verde isolados 9/9). SEM migration. Pronto para push.
+
+context: |
+  ESTADO: origin/main = d27d9c8 (SEC-5 em prod). SEC-6 NÃO commitada (working tree, 22 ficheiros).
+  Billing CONTINUA CONGELADO (directiva Eurico 29/05).
+
+  GATE PASS — evidência registada na story §"QA Results (Gate Decision)":
+  - Leak fix [PO-DECISION-1]: 4 queries household_id bound (kanban/page.tsx:92; calendario/page.tsx:115,139,150),
+    todas tagged-sql, zero concatenação. Testes AC9.2 (boundParamValues) provam bound + coexistência tag_id.
+  - 1.ª rede mantida (queries.ts 7 filtros, puro G1; listTasksHelper). withHousehold({userId,householdId})
+    em todos os call-sites (db-shim.ts:63-64). getServiceDb/stubs intactos. Sem migration (104 policies).
+  - Gates fresh re-corridos pelo architect (não confiou no handoff): check:rls ✓ / typecheck ✓ / lint ✓ /
+    testes-alvo 159✓; 3 timeouts = flaky AC11 (collect 482s sob carga) → isolados single-thread 9/9 verde.
+
+  HOUSEKEEPING ANTES DO PUSH (atenção @devops): o working tree tem 2 ficheiros suspeitos NÃO rastreados
+  que parecem artefactos acidentais (dump curl à API x.ai + ficheiro "r8_AIXN84pWN2qQ8sMuugdTOsW3zhI8lDe3.txt").
+  NÃO os incluir no commit — eliminar ou ignorar. Nomes exactos:
+    - "curl httpsapi.x.aiv1responses.txt"
+    - "r8_AIXN84pWN2qQ8sMuugdTOsW3zhI8lDe3.txt"
+
+next_action: |
+  @devops *push SEC-6.
+  1) Limpar/ignorar os 2 artefactos acidentais (NÃO commitar) — ver housekeeping acima.
+  2) git add dos 22 ficheiros SEC-6 (File List na secção "Dev Agent Record" da story) + a story atualizada
+     + os handoffs (este pending + dev→architect movido p/ archive) + HANDOFF-INDEX.
+  3) Commit conventional: feat(security): RLS enforced em runtime + leak SSR fix em Visão + 3 SSR tarefas/* — Fase 4 Fatia B [Story SEC-6]
+  4) SEM db:migrate (sem migration nesta story; 104 policies intactas).
+  5) CodeRabbit SKIP (padrão SEC-1→SEC-5, sem coderabbit_integration em core-config.yaml).
+  6) Pre-push gate completo recomendado antes do push: pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:rls.
+     NOTA flaky AC11: se calendario/kanban render falharem por timeout sob carga, isolar com
+     --pool=threads --poolOptions.threads.singleThread (provado verde) — NÃO é regressão.
+
+  ROADMAP RESTANTE (não re-scopear):
+  - SEC-7 = Fatia C (Household/conta + user_prefs user-scoped da visao/page.tsx, carved out): GO com EXCLUSÃO
+    DURA (aceitar-convite/route.ts NÃO migra — SECURITY DEFINER) + confirmação @data-engineer §11.3.
+  - SEC-8 = Fatia D (Cérebro AI): HOLD — exige Adenda §12 de design (@architect), NÃO draftar directamente.
+
+blockers: |
+  Nenhum hard-blocker. SEC-6 verde e com gate PASS; falta só o push.
+  Atenção apenas ao housekeeping (2 artefactos acidentais a não commitar) e ao flaky AC11 (verde isolado).

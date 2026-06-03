@@ -1,0 +1,93 @@
+id: mj-handoff-sec6-drafted-pending-po-validation-20260603
+from_agent: sm
+to_agent: po
+created: '2026-06-03T15:55:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-06-03T19:15:00Z'
+consumed_by: po
+consumed_note: >-
+  @po Pax validou SEC-6 → GO 9,5/10 confiança Alta (4 decisões formais PO-DECISION-1..4).
+  @dev Dex implementou SEC-6 → Ready for Review v1.1-DEV, todos os gates verdes, leak fechado.
+  Sucessor pending: mj-handoff-sec6-dev-to-architect-20260603 (next: @architect *qa-gate).
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: sdc-phase
+related_story: SEC-6 (Draft v0.1)
+story_path: docs/stories/active/SEC-6.rls-enforced-runtime-fase4-visao-tarefas-ssr.story.md
+predecessor_handoff: mj-handoff-session-sec5-shipped-next-sec6-20260603 (archived/superseded)
+adr: docs/adr/ADR-003-rls-enforced-runtime-hardening.md (Adenda §11 — Fatia B + §11.3 Fatia C carve-out)
+branch: main
+
+summary: |
+  CI do SEC-5 (run 26893672547) CONFIRMADO VERDE (3 jobs: quality 2m26s, rls-gate 1m21s,
+  build 1m48s; único aviso = Node 20 deprecation nas Actions, não-bloqueante). SEC-5 estável em prod.
+  SEC-6 (ADR-003 Fase 4 Fatia B — Visão + 3 SSR pages tarefas/* carved out de Fatia A) DRAFTADA
+  (Draft v0.1) com verificação byte-a-byte. ACHADO DE SEGURANÇA confirmado pessoalmente pelo @sm:
+  4 queries inline SEM filtro household_id (leak cross-household SEC-4-style, RLS inerte em runtime)
+  em tarefas/kanban (1: kanban_columns) e tarefas/calendario (3: tasks). SEC-6 é HÍBRIDA: mecânica
+  (Visão + tarefas/lista, réplica SEC-4) + correctiva (kanban + calendario, fecha leak HIGH).
+  Próximo: @po *validate-story-draft SEC-6.
+
+context: |
+  ESTADO: origin/main = d27d9c8 (SEC-5 em prod, CI verde). Billing CONGELADO.
+
+  CADEIA ADR-003 em prod: SEC-1 (6f56e32 app-enforced API) · SEC-2 (98c8176 wrapper+gate+piloto) ·
+  SEC-3 (ec96445 finanças API) · SEC-4 (298a122 finanças SSR) · SEC-5 (d27d9c8 tarefas API). SEC-6 = SSR/RSC.
+
+  SUPERFÍCIE SEC-6 (mapeada byte-a-byte, grep+leitura 03/06):
+  A — VISÃO (mecânica, réplica SEC-4):
+    - 6 routes api/visao/* (tarefas-hoje/-atrasadas, financas-mes, saldo-contas, recorrencias-proximas,
+      calendario-semana): getX(getDb(), auth.householdId) → withHousehold(auth, tx => getX(tx, householdId)).
+      briefing/route.ts = stub sem DB, NÃO tocar.
+    - 6 widgets RSC (_components/widgets/): getX(getDb(), householdId) → withHousehold. ATENÇÃO: widgets só
+      recebem householdId hoje; withHousehold EXIGE userId → propagar userId via WidgetGrid + page (SM-OBS-4).
+      BriefingWidget = stub, NÃO tocar.
+    - visao/page.tsx isVisaoEmpty (household-scoped) MIGRA; readWidgetsEnabled/hasCompletedOnboarding
+      (user_prefs USER-scoped) CARVE-OUT p/ SEC-7 ([SM-DECISION-2]) — tocam user_prefs, tabela da
+      confirmação @data-engineer da Fatia C (§11.3). getDb mantido no ficheiro (handler misto).
+    - lib/visao/queries.ts = PURO/db-injectável, todas as 6 funções filtram household_id. INTACTO (G1).
+  B — SSR TAREFAS:
+    - tarefas/page.tsx (lista): mecânica (listTasksHelper já filtra) — db: getDb() → withHousehold.
+    - tarefas/kanban/page.tsx: LEAK — query kanban_columns (:83-87) sem where household_id. FIX: adicionar
+      1.ª rede + withHousehold (Promise.all kanban_columns + listTasksHelper).
+    - tarefas/calendario/page.tsx: LEAK — 3 queries tasks (:89-111 scheduled, :112-134 unscheduled,
+      :135-141 count) sem household_id (apesar de householdId resolvido na :55). FIX: adicionar 1.ª rede
+      às 3 (cuidado com combinação tagIdSql) + withHousehold.
+
+  DECISÕES DO SM (para o @po ratificar):
+  - SM-OBS-1: achado de leak (4 queries) ESCALADO como HIGH — pedir atenção adversarial dedicada do
+    @architect ao leak fix (espelha SEC-4 finanças + [PO-DECISION-1] SEC-5 batch/recurrences).
+  - SM-OBS-2: granularidade — recomendo MANTER JUNTO (≈13-15 call-sites + 4 leak-fix, comparável SEC-3/5;
+    sub-split possível SEC-6a Visão / SEC-6b SSR tarefas se @po quiser isolar o leak HIGH). Decisão @po.
+  - SM-OBS-4: widgets precisam de prop userId nova (risco de implementação, não cosmético).
+  - SM-OBS-5: carve-out user_prefs ([SM-DECISION-2]) — incluir aqui obrigaria antecipar confirmação
+    @data-engineer §11.3. Recomendo manter carve-out.
+
+  SEM migration (104 policies intactas desde 0001). Gate de aplicação (rls-application.test.ts) já cobre
+  todas as tabelas tocadas (tasks/kanban_columns/tags/task_tags/recurrences SEC-5; accounts/transactions/
+  categories SEC-3) — AC10 só confirma verde.
+
+next_action: |
+  @po *validate-story-draft SEC-6 (checklist 10 pontos).
+  Focos sugeridos para a validação:
+  1) RATIFICAR SM-OBS-1 (leak HIGH) — confirmar que AC5/AC6 fecham as 4 queries; decidir se exige
+     atenção adversarial dedicada do @architect (recomendado).
+  2) DECIDIR SM-OBS-2 (manter junto vs split SEC-6a/6b). Recomendação @sm: manter junto.
+  3) Verificar anti-hallucination: queries.ts puro; withHousehold em db-shim:79/client.ts:119 exige userId;
+     os 4 leaks (ler kanban/calendario pages byte-a-byte para confirmar o achado de forma independente).
+  4) Confirmar carve-out user_prefs ([SM-DECISION-2]) — manter ou antecipar §11.3.
+  DEPOIS: @dev *develop SEC-6 → @architect *qa-gate → @devops *push.
+
+  ROADMAP RESTANTE (herdado do session-end, não re-scopear):
+  - SEC-7 = Fatia C (Household/conta + user_prefs user-scoped da visao/page.tsx): GO com EXCLUSÃO DURA
+    (aceitar-convite/route.ts NÃO migra — SECURITY DEFINER) + confirmação @data-engineer (§11.3: policies
+    user_prefs/household_members/households/household_invites usam auth.uid()/is_household_member).
+  - SEC-8 = Fatia D (Cérebro AI): HOLD — exige Adenda §12 de design (@architect), NÃO draftar directamente.
+
+blockers: |
+  Nenhum hard-blocker. App-enforced protege a API (1.ª rede); o leak SSR de kanban/calendario é a janela
+  aberta que SEC-6 fecha (HIGH mas restrito a 2 SSR pages de leitura — sem mutação cross-tenant).
+  Billing CONTINUA CONGELADO (directiva Eurico 29/05).

@@ -4,7 +4,7 @@ import { parseISO } from 'date-fns';
 import { captureException } from '@meu-jarvis/observability';
 import { DateDisplay, MoneyDisplay } from '@meu-jarvis/ui';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import { getRecurrencesNext } from '@/lib/visao/queries';
 import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
 
@@ -23,12 +23,17 @@ import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
  */
 export async function RecurrencesNextWidget({
   householdId,
+  userId,
 }: {
   householdId: string;
+  userId: string;
 }): Promise<React.ReactElement> {
   let recurrences: Awaited<ReturnType<typeof getRecurrencesNext>>['recurrences'] = [];
   try {
-    const data = await getRecurrencesNext(getDb(), householdId);
+    // SEC-6 — RLS-enforced em runtime (2.ª rede); 1.ª rede mantida no helper.
+    const data = await withHousehold({ userId, householdId }, (tx) =>
+      getRecurrencesNext(tx, householdId),
+    );
     recurrences = data.recurrences;
   } catch (err) {
     captureException(err instanceof Error ? err : new Error(String(err)), {

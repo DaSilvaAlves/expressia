@@ -30,6 +30,9 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: () => ({ execute: vi.fn() }),
+  // SEC-6 — a leitura corre dentro de `withHousehold`; o callback recebe o fake
+  // db e chama o `listTasksHelper` mockado (o `tx` injectado é irrelevante aqui).
+  withHousehold: (_auth: unknown, fn: (tx: unknown) => unknown) => fn({ execute: vi.fn() }),
 }));
 
 vi.mock('@/lib/api-helpers/list-tasks', () => ({

@@ -5,7 +5,7 @@ import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import { captureException } from '@meu-jarvis/observability';
 import { sql } from 'drizzle-orm';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import { listTasksHelper } from '@/lib/api-helpers/list-tasks';
 import { TaskFiltersSchema } from '@/lib/api-schemas/tasks';
@@ -78,21 +78,29 @@ export default async function TarefasKanbanPage({
   let columns: KanbanColumnRow[] = [];
   let tasks;
   try {
-    const db = getDb();
-    const [columnRows, tasksResult] = await Promise.all([
-      db.execute<KanbanColumnDbRow>(sql`
-        select id, name, sort_order, color, is_done_column
-        from public.kanban_columns
-        order by sort_order asc
-      `),
-      listTasksHelper({
-        filters: { ...filters, limit: 100 }, // 100 tasks cap inicial — naive-first (DP-3.4.4)
-        cursorPayload: null,
-        householdId,
-        userId: user.id,
-        db,
-      }),
-    ]);
+    // SEC-6 — LEAK FIX + RLS-enforced em runtime. A query `kanban_columns` não
+    // tinha filtro `household_id` (1.ª rede em falta → leak cross-household com a
+    // RLS inerte em runtime); é adicionado agora com parâmetro bound. Ambas as
+    // leituras correm dentro de um único `withHousehold` (2.ª rede em transação).
+    const [columnRows, tasksResult] = await withHousehold(
+      { userId: user.id, householdId },
+      (tx) =>
+        Promise.all([
+          tx.execute<KanbanColumnDbRow>(sql`
+            select id, name, sort_order, color, is_done_column
+            from public.kanban_columns
+            where household_id = ${householdId}::uuid
+            order by sort_order asc
+          `),
+          listTasksHelper({
+            filters: { ...filters, limit: 100 }, // 100 tasks cap inicial — naive-first (DP-3.4.4)
+            cursorPayload: null,
+            householdId,
+            userId: user.id,
+            db: tx,
+          }),
+        ]),
+    );
     columns = columnRows.map((row) => ({
       id: row.id,
       name: row.name,

@@ -3,7 +3,7 @@ import type * as React from 'react';
 import { captureException } from '@meu-jarvis/observability';
 import { MoneyDisplay } from '@meu-jarvis/ui';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import { getAccountsBalance } from '@/lib/visao/queries';
 import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
 
@@ -20,13 +20,18 @@ import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
  */
 export async function AccountsBalanceWidget({
   householdId,
+  userId,
 }: {
   householdId: string;
+  userId: string;
 }): Promise<React.ReactElement> {
   let totalBalanceCents = 0;
   let accountCount = 0;
   try {
-    const data = await getAccountsBalance(getDb(), householdId);
+    // SEC-6 — RLS-enforced em runtime (2.ª rede); 1.ª rede mantida no helper.
+    const data = await withHousehold({ userId, householdId }, (tx) =>
+      getAccountsBalance(tx, householdId),
+    );
     totalBalanceCents = data.totalBalanceCents;
     accountCount = data.accountCount;
   } catch (err) {

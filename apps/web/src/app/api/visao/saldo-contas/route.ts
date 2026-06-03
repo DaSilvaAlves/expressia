@@ -22,7 +22,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { getAccountsBalance } from '@/lib/visao/queries';
 import {
@@ -42,7 +42,11 @@ export async function GET(): Promise<NextResponse> {
       if (auth instanceof NextResponse) return auth;
 
       try {
-        const body = await getAccountsBalance(getDb(), auth.householdId);
+        // SEC-6 — RLS-enforced em runtime (2.ª rede); 1.ª rede mantida no helper.
+        const body = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) => getAccountsBalance(tx, auth.householdId),
+        );
 
         const validated = AccountsBalanceResponseSchema.parse(body);
         annotateSpan(span, { statusCode: 200 });

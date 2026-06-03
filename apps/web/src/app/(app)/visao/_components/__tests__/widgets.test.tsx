@@ -25,6 +25,9 @@ const q = vi.hoisted(() => ({
 
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: () => ({ execute: vi.fn() }),
+  // SEC-6 — `withHousehold` executa o callback com o fake db; as funções de
+  // `@/lib/visao/queries` estão mockadas, logo o `tx` injectado é irrelevante.
+  withHousehold: (_auth: unknown, fn: (tx: unknown) => unknown) => fn({ execute: vi.fn() }),
 }));
 
 vi.mock('@meu-jarvis/observability', () => ({
@@ -73,7 +76,7 @@ describe('<BriefingWidget>', () => {
       message: 'Briefing diário disponível em breve.',
       generatedAt: null,
     });
-    render(await BriefingWidget({ householdId: 'hh-test' }));
+    render(await BriefingWidget({ householdId: 'hh-test', userId: 'user-test' }));
     expect(screen.getByText('Briefing diário disponível em breve.')).toBeInTheDocument();
   });
 });
@@ -87,7 +90,7 @@ describe('<TasksTodayWidget>', () => {
         { id: 't2', title: 'Ligar médico', status: 'todo', priority: 'low', dueTime: null },
       ],
     });
-    render(await TasksTodayWidget({ householdId: 'hh-test' }));
+    render(await TasksTodayWidget({ householdId: 'hh-test', userId: 'user-test' }));
     expect(screen.getByText('Comprar pão')).toBeInTheDocument();
     expect(screen.getByText('09:00')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /ver todas/i })).toHaveAttribute('href', '/tarefas');
@@ -95,7 +98,7 @@ describe('<TasksTodayWidget>', () => {
 
   it('sem dados — empty inline "Sem tarefas para hoje."', async () => {
     q.getTasksToday.mockResolvedValue({ count: 0, tasks: [] });
-    render(await TasksTodayWidget({ householdId: 'hh-test' }));
+    render(await TasksTodayWidget({ householdId: 'hh-test', userId: 'user-test' }));
     expect(screen.getByText('Sem tarefas para hoje.')).toBeInTheDocument();
   });
 
@@ -110,7 +113,7 @@ describe('<TasksTodayWidget>', () => {
         dueTime: null,
       })),
     });
-    render(await TasksTodayWidget({ householdId: 'hh-test' }));
+    render(await TasksTodayWidget({ householdId: 'hh-test', userId: 'user-test' }));
     expect(screen.getByText('+3 mais')).toBeInTheDocument();
   });
 });
@@ -124,7 +127,7 @@ describe('<FinanceMonthWidget>', () => {
       transactionCount: 5,
       currency: 'EUR',
     });
-    render(await FinanceMonthWidget({ householdId: 'hh-test' }));
+    render(await FinanceMonthWidget({ householdId: 'hh-test', userId: 'user-test' }));
     expect(screen.getByText('5 transacções')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /ver mês/i })).toHaveAttribute(
       'href',
@@ -140,7 +143,7 @@ describe('<FinanceMonthWidget>', () => {
       transactionCount: 0,
       currency: 'EUR',
     });
-    render(await FinanceMonthWidget({ householdId: 'hh-test' }));
+    render(await FinanceMonthWidget({ householdId: 'hh-test', userId: 'user-test' }));
     expect(screen.getByText('Sem movimentos este mês.')).toBeInTheDocument();
   });
 });
@@ -160,7 +163,7 @@ describe('<RecurrencesNextWidget>', () => {
         },
       ],
     });
-    render(await RecurrencesNextWidget({ householdId: 'hh-test' }));
+    render(await RecurrencesNextWidget({ householdId: 'hh-test', userId: 'user-test' }));
     expect(screen.getByText('Netflix')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /ver recorrências/i })).toHaveAttribute(
       'href',
@@ -170,7 +173,7 @@ describe('<RecurrencesNextWidget>', () => {
 
   it('sem dados — empty inline', async () => {
     q.getRecurrencesNext.mockResolvedValue({ count: 0, recurrences: [] });
-    render(await RecurrencesNextWidget({ householdId: 'hh-test' }));
+    render(await RecurrencesNextWidget({ householdId: 'hh-test', userId: 'user-test' }));
     expect(screen.getByText('Sem recorrências próximas.')).toBeInTheDocument();
   });
 });
@@ -190,7 +193,7 @@ describe('<TasksOverdueWidget> (DP-5.6.E hidden se vazio)', () => {
         },
       ],
     });
-    const result = await TasksOverdueWidget({ householdId: 'hh-test' });
+    const result = await TasksOverdueWidget({ householdId: 'hh-test', userId: 'user-test' });
     expect(result).not.toBeNull();
     render(result!);
     expect(screen.getByText('Pagar renda')).toBeInTheDocument();
@@ -200,13 +203,13 @@ describe('<TasksOverdueWidget> (DP-5.6.E hidden se vazio)', () => {
 
   it('count === 0 → não renderiza nada (devolve null)', async () => {
     q.getTasksOverdue.mockResolvedValue({ count: 0, tasks: [] });
-    const result = await TasksOverdueWidget({ householdId: 'hh-test' });
+    const result = await TasksOverdueWidget({ householdId: 'hh-test', userId: 'user-test' });
     expect(result).toBeNull();
   });
 
   it('erro de fetch → devolve null (não bloqueia a Visão)', async () => {
     q.getTasksOverdue.mockRejectedValue(new Error('db down'));
-    const result = await TasksOverdueWidget({ householdId: 'hh-test' });
+    const result = await TasksOverdueWidget({ householdId: 'hh-test', userId: 'user-test' });
     expect(result).toBeNull();
   });
 });
@@ -218,7 +221,7 @@ describe('<AccountsBalanceWidget>', () => {
       accountCount: 3,
       currency: 'EUR',
     });
-    render(await AccountsBalanceWidget({ householdId: 'hh-test' }));
+    render(await AccountsBalanceWidget({ householdId: 'hh-test', userId: 'user-test' }));
     expect(screen.getByText('3 contas')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /ver contas/i })).toHaveAttribute(
       'href',
@@ -232,7 +235,7 @@ describe('<AccountsBalanceWidget>', () => {
       accountCount: 0,
       currency: 'EUR',
     });
-    render(await AccountsBalanceWidget({ householdId: 'hh-test' }));
+    render(await AccountsBalanceWidget({ householdId: 'hh-test', userId: 'user-test' }));
     expect(screen.getByText('Sem contas registadas.')).toBeInTheDocument();
   });
 });
@@ -259,7 +262,7 @@ describe('<CalendarWeekWidget> (PO-FIX-1 rodapé)', () => {
       ],
     };
     q.getCalendarWeek.mockResolvedValue(week);
-    render(await CalendarWeekWidget({ householdId: 'hh-test' }));
+    render(await CalendarWeekWidget({ householdId: 'hh-test', userId: 'user-test' }));
     expect(screen.getByRole('link', { name: /ver calendário/i })).toHaveAttribute(
       'href',
       '/tarefas/calendario',
@@ -268,7 +271,7 @@ describe('<CalendarWeekWidget> (PO-FIX-1 rodapé)', () => {
 
   it('semana sem tarefas — empty inline', async () => {
     q.getCalendarWeek.mockResolvedValue(emptyWeek());
-    render(await CalendarWeekWidget({ householdId: 'hh-test' }));
+    render(await CalendarWeekWidget({ householdId: 'hh-test', userId: 'user-test' }));
     expect(screen.getByText('Sem tarefas esta semana.')).toBeInTheDocument();
   });
 });

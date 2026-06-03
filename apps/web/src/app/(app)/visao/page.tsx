@@ -6,7 +6,7 @@ import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import { captureException } from '@meu-jarvis/observability';
 import type { WidgetsEnabled } from '@meu-jarvis/db';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import { WidgetsEnabledSchema } from '@/lib/api-schemas/preferences';
 import {
@@ -120,37 +120,42 @@ async function hasCompletedOnboarding(userId: string): Promise<boolean> {
 async function isVisaoEmpty(
   widgetsEnabled: WidgetsEnabled,
   householdId: string,
+  userId: string,
 ): Promise<boolean> {
-  const db = getDb();
   try {
-    const checks: Array<Promise<boolean>> = [];
+    // SEC-6 — os ≤6 agregados household-scoped correm num único `withHousehold`
+    // (2.ª rede RLS em runtime). O filtro `household_id` de `queries.ts` (1.ª
+    // rede) MANTÉM-SE dentro de cada `getX` — defense-in-depth.
+    return await withHousehold({ userId, householdId }, async (tx) => {
+      const checks: Array<Promise<boolean>> = [];
 
-    if (widgetsEnabled.tasks_today) {
-      checks.push(getTasksToday(db, householdId).then((d) => d.count === 0));
-    }
-    if (widgetsEnabled.tasks_overdue) {
-      checks.push(getTasksOverdue(db, householdId).then((d) => d.count === 0));
-    }
-    if (widgetsEnabled.finance_month) {
-      checks.push(getFinancesMonth(db, householdId).then((d) => d.transactionCount === 0));
-    }
-    if (widgetsEnabled.recurrences_next) {
-      checks.push(getRecurrencesNext(db, householdId).then((d) => d.count === 0));
-    }
-    if (widgetsEnabled.accounts_balance) {
-      checks.push(getAccountsBalance(db, householdId).then((d) => d.accountCount === 0));
-    }
-    if (widgetsEnabled.calendar_week) {
-      checks.push(
-        getCalendarWeek(db, householdId).then((d) => d.days.every((day) => day.taskCount === 0)),
-      );
-    }
+      if (widgetsEnabled.tasks_today) {
+        checks.push(getTasksToday(tx, householdId).then((d) => d.count === 0));
+      }
+      if (widgetsEnabled.tasks_overdue) {
+        checks.push(getTasksOverdue(tx, householdId).then((d) => d.count === 0));
+      }
+      if (widgetsEnabled.finance_month) {
+        checks.push(getFinancesMonth(tx, householdId).then((d) => d.transactionCount === 0));
+      }
+      if (widgetsEnabled.recurrences_next) {
+        checks.push(getRecurrencesNext(tx, householdId).then((d) => d.count === 0));
+      }
+      if (widgetsEnabled.accounts_balance) {
+        checks.push(getAccountsBalance(tx, householdId).then((d) => d.accountCount === 0));
+      }
+      if (widgetsEnabled.calendar_week) {
+        checks.push(
+          getCalendarWeek(tx, householdId).then((d) => d.days.every((day) => day.taskCount === 0)),
+        );
+      }
 
-    // Sem widgets de conteúdo activos → não há "vazio total" a comunicar aqui.
-    if (checks.length === 0) return false;
+      // Sem widgets de conteúdo activos → não há "vazio total" a comunicar aqui.
+      if (checks.length === 0) return false;
 
-    const results = await Promise.all(checks);
-    return results.every((empty) => empty);
+      const results = await Promise.all(checks);
+      return results.every((empty) => empty);
+    });
   } catch (err) {
     captureException(err instanceof Error ? err : new Error(String(err)), {
       route: '/visao',
@@ -207,7 +212,7 @@ export default async function VisaoPage({
   const greeting = getGreeting(now);
 
   const widgetsEnabled = await readWidgetsEnabled(user.id);
-  const empty = await isVisaoEmpty(widgetsEnabled, householdId);
+  const empty = await isVisaoEmpty(widgetsEnabled, householdId, user.id);
   // "Vazio por config" — utilizador removeu todos os widgets (distinto de
   // "vazio por dados" = `empty`). Story 5.7 AC6.
   const allOff = WIDGET_ORDER.every((id) => !widgetsEnabled[id]);
@@ -234,7 +239,7 @@ export default async function VisaoPage({
       ) : empty ? (
         <VisaoEmptyState />
       ) : (
-        <WidgetGrid widgetsEnabled={widgetsEnabled} householdId={householdId} />
+        <WidgetGrid widgetsEnabled={widgetsEnabled} householdId={householdId} userId={user.id} />
       )}
 
       {/* Story 5.7 — controlos de config inline (DP4 = B). Sempre acessíveis,

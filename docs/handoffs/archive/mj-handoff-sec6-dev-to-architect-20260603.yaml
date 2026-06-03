@@ -1,0 +1,99 @@
+id: mj-handoff-sec6-dev-to-architect-20260603
+from_agent: dev
+to_agent: architect
+created: '2026-06-03T19:15:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-06-03T20:10:00Z'
+consumed_by: architect
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: sdc-phase
+related_story: SEC-6 (Ready for Review v1.1-DEV)
+story_path: docs/stories/active/SEC-6.rls-enforced-runtime-fase4-visao-tarefas-ssr.story.md
+predecessor_handoff: mj-handoff-sec6-drafted-pending-po-validation-20260603 (consumed/archived — PO validou GO 9,5/10)
+adr: docs/adr/ADR-003-rls-enforced-runtime-hardening.md (Adenda §11 — Fatia B)
+branch: main
+
+summary: |
+  SEC-6 (ADR-003 Fase 4 Fatia B — Visão + 3 SSR pages tarefas/*) IMPLEMENTADA e em Ready for Review.
+  Story híbrida: mecânica (2.ª rede withHousehold em 6 routes api/visao/* + 6 widgets RSC + isVisaoEmpty
+  + tarefas/lista) + CORRECTIVA (leak cross-household HIGH fechado em tarefas/kanban + tarefas/calendario).
+  As 4 queries inline que devolviam dados de TODOS os households (RLS inerte em runtime) receberam 1.ª rede
+  household_id com parâmetro bound + regressão mandatória AC9.2. Todos os gates verdes. SEM migration.
+  Aguarda @architect *qa-gate SEC-6 com ATENÇÃO ADVERSARIAL DEDICADA ao leak fix ([PO-DECISION-1]).
+
+context: |
+  ESTADO: origin/main = d27d9c8 (SEC-5 em prod). SEC-6 NÃO commitada (working tree). Billing CONGELADO.
+
+  CADEIA ADR-003 em prod: SEC-1 (6f56e32 app-enforced API) · SEC-2 (98c8176 wrapper+gate+piloto) ·
+  SEC-3 (ec96445 finanças API) · SEC-4 (298a122 finanças SSR) · SEC-5 (d27d9c8 tarefas API). SEC-6 = SSR/RSC + Visão.
+
+  VALIDAÇÃO PO (Pax, GO 9,5/10, confiança Alta): reconfirmou byte-a-byte os 4 leaks + assinatura/tipo
+  withHousehold + pureza queries.ts. 4 decisões formais registadas na story:
+  - [PO-DECISION-1] leak fix é HIGH → @architect dá atenção adversarial DEDICADA ao leak fix no gate
+    (grep das 4 queries com household_id bound + testes de regressão AC9.2 que falhariam se removido).
+  - [PO-DECISION-2] SEC-6 mantida UNIFICADA (contra split 6a/6b) — precedente SEC-4.
+  - [PO-DECISION-3] carve-out user_prefs user-scoped de visao/page.tsx → SEC-7 (Fatia C, §11.3 @data-engineer).
+  - [PO-DECISION-4] assignment @dev/@architect ratificado.
+
+  IMPLEMENTAÇÃO (@dev Dex):
+  LEAK FIX (foco de risco):
+    - tarefas/kanban/page.tsx: query kanban_columns recebeu `where household_id = ${householdId}::uuid`.
+    - tarefas/calendario/page.tsx: 3 queries tasks (scheduled/unscheduled alias `tasks.household_id`;
+      count `household_id`) com `and`, respeitando coexistência com o fragment opcional tagIdSql/tagIdFilter.
+    - Regressão AC9.2 via util SEC-4 boundParamValues: 1 teste kanban + 2 calendario (sem E com tag_id,
+      provando household_id + tag_id ambos bound — Ponto Crítico 5).
+  2.ª REDE withHousehold (aditiva, 1.ª rede mantida onde já existia):
+    - 6 routes api/visao/* (getX(getDb(),hh) → withHousehold(auth, tx => getX(tx,hh))); briefing/route.ts INTACTO.
+    - 6 widgets RSC: assinatura passou a { householdId, userId }; WidgetGrid ganhou prop userId (required) e
+      propaga-a; visao/page.tsx passa userId={user.id}. BriefingWidget aceita ambas mas ignora (stub).
+    - visao/page.tsx isVisaoEmpty migrou para um único withHousehold; readWidgetsEnabled/hasCompletedOnboarding
+      (user_prefs user-scoped) MANTÊM getDb — handler MISTO (carve-out SEC-7).
+    - tarefas/page.tsx (lista): listTasksHelper({db:getDb()}) → withHousehold.
+  INTACTOS por âmbito: briefing/route.ts + BriefingWidget (stubs sem DB); lib/visao/queries.ts +
+    lib/api-helpers/list-tasks.ts (puros, G1); getServiceDb()/service_role (grep: zero introduções).
+
+  FICHEIROS (22 modificados): 6 routes + WidgetGrid + 7 widgets + visao/page.tsx + 3 SSR tarefas +
+  11 testes. File List completa na secção "Dev Agent Record" da story.
+
+  GATES (todos exit 0, re-corridos):
+    - lint ✓ (0 warnings) · typecheck ✓ (10/10 packages) · build ✓.
+    - web test: 1079 passed / 1 flaky. O flaky é tarefas/calendario "renderiza WeekViewClient" — TIMEOUT 5000ms
+      sob carga paralela (collect 339s); CONFIRMADO VERDE ISOLADO (5/5, 1715ms). Comportamento documentado
+      AC11 / pré-existente desde SEC-2/3 — NÃO é regressão.
+    - db-test (Docker): 196 passed; gate de aplicação rls-application.test.ts 25/25 verde isolado (AC10 —
+      cobertura herdada SEC-3/SEC-5 completa, sem extensão necessária).
+    - check:rls ✓ (todas as tabelas cobertas, incl. kanban_columns/tasks/tags/task_tags).
+    - SEM migration (104 policies intactas — db:migrate NÃO corrido).
+
+  CodeRabbit: DISABLED na story (sem coderabbit_integration em core-config.yaml) — validação via gate
+  adversarial @architect, padrão SEC-1→SEC-5.
+
+next_action: |
+  @architect *qa-gate SEC-6 (gate adversarial — padrão SEC-3/SEC-4/SEC-5).
+  FOCO OBRIGATÓRIO ([PO-DECISION-1] — atenção adversarial DEDICADA ao leak fix):
+  1) Confirmar por grep/leitura que as 4 queries têm household_id com PARÂMETRO BOUND (nunca concatenação):
+     - tarefas/kanban/page.tsx → kanban_columns.
+     - tarefas/calendario/page.tsx → 3 queries tasks (scheduled, unscheduled, count).
+  2) Confirmar que os testes de regressão AC9.2 existem e FALHARIAM se o filtro fosse removido (kanban 1,
+     calendario 2 incl. caminho com tag_id).
+  3) Verificar 1.ª rede MANTIDA na Visão (queries.ts) e lista (listTasksHelper) — nenhum filtro removido (AC7).
+  4) Verificar withHousehold recebe { userId, householdId } em TODOS os call-sites (widgets via WidgetGrid;
+     SSR via user.id) — typecheck já apanha required, mas confirmar no gate (SM-OBS-4).
+  5) Confirmar getServiceDb()/stubs/helpers puros intactos; sem migration.
+  Re-correr gates (calendario flaky → isolar se falhar em paralelo, AC11).
+  SE PASS: @devops *push SEC-6 (sem db:migrate; CodeRabbit skip padrão SEC-1→5).
+
+  ROADMAP RESTANTE (não re-scopear):
+  - SEC-7 = Fatia C (Household/conta + user_prefs user-scoped da visao/page.tsx, carved out aqui): GO com
+    EXCLUSÃO DURA (aceitar-convite/route.ts NÃO migra — SECURITY DEFINER) + confirmação @data-engineer §11.3
+    (policies user_prefs/household_members/households/household_invites usam auth.uid()/is_household_member).
+  - SEC-8 = Fatia D (Cérebro AI): HOLD — exige Adenda §12 de design (@architect), NÃO draftar directamente.
+
+blockers: |
+  Nenhum hard-blocker. SEC-6 implementada e verde; aguarda só o gate adversarial.
+  O leak SSR de kanban/calendario (a janela aberta) está FECHADO no working tree — falta validar e pushar.
+  Billing CONTINUA CONGELADO (directiva Eurico 29/05).

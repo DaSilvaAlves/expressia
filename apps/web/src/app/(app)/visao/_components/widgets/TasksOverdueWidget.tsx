@@ -4,7 +4,7 @@ import { parseISO } from 'date-fns';
 import { captureException } from '@meu-jarvis/observability';
 import { DateDisplay } from '@meu-jarvis/ui';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import { getTasksOverdue } from '@/lib/visao/queries';
 import { formatDueTime, priorityDotClass } from '@/app/(app)/visao/_lib/format';
 import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
@@ -24,13 +24,18 @@ import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
  */
 export async function TasksOverdueWidget({
   householdId,
+  userId,
 }: {
   householdId: string;
+  userId: string;
 }): Promise<React.ReactElement | null> {
   let count = 0;
   let tasks: Awaited<ReturnType<typeof getTasksOverdue>>['tasks'] = [];
   try {
-    const data = await getTasksOverdue(getDb(), householdId);
+    // SEC-6 — RLS-enforced em runtime (2.ª rede); 1.ª rede mantida no helper.
+    const data = await withHousehold({ userId, householdId }, (tx) =>
+      getTasksOverdue(tx, householdId),
+    );
     count = data.count;
     tasks = data.tasks;
   } catch (err) {

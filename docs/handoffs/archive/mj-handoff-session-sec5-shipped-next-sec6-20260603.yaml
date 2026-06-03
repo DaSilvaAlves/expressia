@@ -2,8 +2,15 @@ id: mj-handoff-session-sec5-shipped-next-sec6-20260603
 from_agent: devops
 to_agent: any
 created: '2026-06-03T15:10:00Z'
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: '2026-06-03T15:55:00Z'
+consumed_by: sm
+superseded_by: mj-handoff-sec6-drafted-pending-po-validation-20260603
+consumed_note: >-
+  next_action #1 (CI run 26893672547) CONFIRMADO VERDE; next_action #2 (SEC-6 kickoff)
+  executado — Story SEC-6 draftada (Draft v0.1) com achado de leak SEC-4-style (4 queries
+  kanban/calendario). Roadmap SEC-7/SEC-8 transita para o sucessor. Billing CONGELADO mantém-se.
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

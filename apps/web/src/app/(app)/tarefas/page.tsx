@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import { captureException } from '@meu-jarvis/observability';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import { listTasksHelper } from '@/lib/api-helpers/list-tasks';
 import { decodeCursor } from '@/lib/api-schemas/pagination';
@@ -81,13 +81,17 @@ export default async function TarefasPage({ searchParams }: PageProps): Promise<
   let tasks;
   let nextCursor;
   try {
-    const result = await listTasksHelper({
-      filters,
-      cursorPayload,
-      householdId,
-      userId: user.id,
-      db: getDb(),
-    });
+    // SEC-6 — a leitura corre dentro de `withHousehold` (2.ª rede RLS em runtime).
+    // O filtro `household_id` em `list-tasks.ts` (1.ª rede) MANTÉM-SE — defense-in-depth.
+    const result = await withHousehold({ userId: user.id, householdId }, (tx) =>
+      listTasksHelper({
+        filters,
+        cursorPayload,
+        householdId,
+        userId: user.id,
+        db: tx,
+      }),
+    );
     tasks = result.tasks;
     nextCursor = result.next_cursor;
   } catch (err) {

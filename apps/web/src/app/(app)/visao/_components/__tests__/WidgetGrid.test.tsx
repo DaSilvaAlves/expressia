@@ -65,7 +65,7 @@ function renderedWidgetOrder(container: HTMLElement): string[] {
 
 describe('<WidgetGrid>', () => {
   it('renderiza apenas os widgets enabled (5 default-ON, sem accounts/calendar)', () => {
-    const { container } = render(<WidgetGrid widgetsEnabled={DEFAULTS} householdId="hh-test" />);
+    const { container } = render(<WidgetGrid widgetsEnabled={DEFAULTS} householdId="hh-test" userId="user-test" />);
     const ids = renderedWidgetOrder(container);
     expect(ids).toEqual([
       'briefing',
@@ -79,7 +79,7 @@ describe('<WidgetGrid>', () => {
   });
 
   it('renderiza os 7 widgets na ordem canónica quando todos ON', () => {
-    const { container } = render(<WidgetGrid widgetsEnabled={ALL_ON} householdId="hh-test" />);
+    const { container } = render(<WidgetGrid widgetsEnabled={ALL_ON} householdId="hh-test" userId="user-test" />);
     expect(renderedWidgetOrder(container)).toEqual([
       'briefing',
       'tasks_today',
@@ -92,7 +92,7 @@ describe('<WidgetGrid>', () => {
   });
 
   it('aplica as classes de grid responsivo (AC8.a)', () => {
-    const { getByTestId } = render(<WidgetGrid widgetsEnabled={DEFAULTS} householdId="hh-test" />);
+    const { getByTestId } = render(<WidgetGrid widgetsEnabled={DEFAULTS} householdId="hh-test" userId="user-test" />);
     const grid = getByTestId('widget-grid');
     expect(grid.className).toContain('grid-cols-1');
     expect(grid.className).toContain('md:grid-cols-2');
@@ -100,7 +100,7 @@ describe('<WidgetGrid>', () => {
   });
 
   it('DP-5.6.F — tasks_today recebe order-first md:order-none (mobile primeiro)', () => {
-    const { container } = render(<WidgetGrid widgetsEnabled={DEFAULTS} householdId="hh-test" />);
+    const { container } = render(<WidgetGrid widgetsEnabled={DEFAULTS} householdId="hh-test" userId="user-test" />);
     const tasksToday = container.querySelector('[data-widget="tasks_today"]');
     expect(tasksToday?.className).toContain('order-first');
     expect(tasksToday?.className).toContain('md:order-none');
@@ -119,7 +119,7 @@ describe('<WidgetGrid>', () => {
       accounts_balance: false,
       calendar_week: false,
     };
-    const { container } = render(<WidgetGrid widgetsEnabled={NONE} householdId="hh-test" />);
+    const { container } = render(<WidgetGrid widgetsEnabled={NONE} householdId="hh-test" userId="user-test" />);
     expect(renderedWidgetOrder(container)).toEqual([]);
   });
 });
