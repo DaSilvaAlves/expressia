@@ -5,8 +5,11 @@
  * `getCardStatements` é `db`-injectável (padrão D-4.6.7) — testável sem
  * Postgres. Faz 4 queries fixas (cartões; transacções dos cartões numa janela
  * ampla; prestações; progresso das prestações) e faz o bucketing por ciclo
- * em JS — SEM N+1 independentemente do número de cartões (D-4.8.3). O
- * household scoping é feito pela RLS (`getDb()` authenticated).
+ * em JS — SEM N+1 independentemente do número de cartões (D-4.8.3).
+ *
+ * Household scoping (SEC-4, 2 redes): `householdId` injectado pelo chamador +
+ * filtro `household_id` explícito nas 4 queries (1.ª rede app-enforced — fecha
+ * o leak); a page corre dentro de `withHousehold` (2.ª rede RLS viva).
  *
  * Total da fatura = `SUM(expense) − SUM(income)`; `transfer` excluído
  * (D-4.8.6, coerente com R-4.10 do epic).
@@ -101,9 +104,11 @@ function sumWindow(txs: readonly TxRow[], start: string, end: string): number {
 export async function getCardStatements({
   db,
   today,
+  householdId,
 }: {
   db: DbShim;
   today: string;
+  householdId: string;
 }): Promise<{ cards: readonly CardStatementData[] }> {
   const windowStart = formatISO(subMonths(parseISO(today), FETCH_WINDOW_MONTHS), {
     representation: 'date',
@@ -120,6 +125,7 @@ export async function getCardStatements({
       from public.cards c
       left join public.accounts a on a.id = c.account_id
       where c.archived_at is null
+        and c.household_id = ${householdId}::uuid
       order by c.name asc
     `),
     db.execute<TxRow>(sql`
@@ -132,6 +138,7 @@ export async function getCardStatements({
       where card_id is not null
         and transaction_date >= ${windowStart}::date
         and transaction_date <= ${windowEnd}::date
+        and household_id = ${householdId}::uuid
     `),
     db.execute<InstallmentRow>(sql`
       select
@@ -140,6 +147,7 @@ export async function getCardStatements({
         total_amount_cents::int as total_amount_cents,
         num_installments::int as num_installments
       from public.installments
+      where household_id = ${householdId}::uuid
       order by purchased_on desc
     `),
     db.execute<ProgressRow>(sql`
@@ -147,6 +155,7 @@ export async function getCardStatements({
       from public.transactions
       where installment_id is not null
         and transaction_date <= ${today}::date
+        and household_id = ${householdId}::uuid
       group by installment_id
     `),
   ]);

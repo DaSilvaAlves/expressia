@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import { captureException, withSpan } from '@meu-jarvis/observability';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import { getAccountBalances, type NetWorth } from '@/lib/finance/account-balances';
 
@@ -20,8 +20,9 @@ export const metadata: Metadata = {
 /**
  * `/financas/patrimonio` — Vista de Património (Story 4.9).
  *
- * Server Component (RSC) — fetch directo via `getDb()` (RLS authenticated,
- * D-4.6.2 / R-4.9.4). Por conta não-arquivada, computa o saldo on-read
+ * Server Component (RSC) — fetch via `withHousehold` (RLS viva em runtime —
+ * 2.ª rede SEC-4) com filtro `household_id` app-enforced no helper (1.ª rede).
+ * Por conta não-arquivada, computa o saldo on-read
  * (DP1=A) — `initial + income − expense` — agregado por banco (D-4.9.6), com
  * património total destacado e drilldown banco→conta→movimentos (D-4.9.5).
  * Vista read-only — criação de contas via API `/api/financas/contas` (Story
@@ -51,11 +52,13 @@ export default async function FinancasPatrimonioPage(): Promise<React.ReactEleme
 
   let netWorth: NetWorth;
   try {
-    const db = getDb();
     netWorth = await withSpan(
       'finance.patrimony.render',
       { route: '/financas/patrimonio' },
-      async () => getAccountBalances({ db }),
+      async () =>
+        withHousehold({ userId: user.id, householdId }, (tx) =>
+          getAccountBalances({ db: tx, householdId }),
+        ),
     );
   } catch (err) {
     captureException(err instanceof Error ? err : new Error(String(err)), {

@@ -1,0 +1,146 @@
+id: mj-handoff-sec4-ready-dev-develop-20260603
+from_agent: sm
+to_agent: dev
+created: '2026-06-03T00:15:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-06-03T01:45:00Z'
+consumed_by: dev
+consumed_note: >-
+  @dev Dex consumiu e executou *develop SEC-4 (YOLO autónomo). 7/7 tasks, 10/10 ACs,
+  6/6 gates verdes. Story Ready for Review v0.3-DEV. Sucessor pending:
+  mj-handoff-sec4-dev-to-architect-20260603.yaml (next: @architect *qa-gate SEC-4).
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: critical
+type: story-ready-for-dev
+
+related_story: docs/stories/active/SEC-4.rls-enforced-runtime-fase3-financas-ssr-app-enforced.story.md
+story_status: Ready v0.2-PO (GO 9,4/10 — @po Pax)
+predecessor_handoff: mj-handoff-sec4-kickoff-financas-ssr-rls-20260602 (consumed/archive)
+adr: docs/adr/ADR-003-rls-enforced-runtime-hardening.md (Adenda §10 — padrão RSC confirmado)
+leak_confirmation: docs/security/SEC4-FINANCAS-SSR-LEAK-CONFIRMATION-20260602.md
+leak_regression_test: packages/db-test/src/tests/sec4_financas_ssr_leak.test.ts (5/5 PASS, já no repo)
+branch: main
+
+summary: |
+  Story SEC-4 está DRAFTADA + VALIDADA (Ready, GO 9,4/10, zero PO-FIX). Próximo passo
+  único: @dev *develop SEC-4. NÃO é hardening preventivo — é a remediação de uma
+  vulnerabilidade CRITICAL ATIVA em produção: as 5 SSR pages de Finanças vazam dados
+  bancários cross-tenant (provado empiricamente por @architect contra Postgres real,
+  5/5 testes). Toda a análise byte-a-byte já está feita e embebida na story — o @dev
+  só tem de implementar as 7 tasks. Billing CONTINUA CONGELADO.
+
+context: |
+  ===== O QUE É SEC-4 (2 redes, decisão Eurico 02/06) =====
+  Fase 3 do ADR-003. Duas partes numa só story:
+   - PARTE A (1.ª rede — FECHA O LEAK): adicionar param `householdId: string` aos 6
+     helpers de leitura em apps/web/src/lib/finance/ e o filtro `household_id` a cada
+     uma das 16 queries. Espelha exactamente o que SEC-1 fez a lib/visao/queries.ts.
+   - PARTE B (2.ª rede — hardening): envolver o fetch das 5 SSR pages em
+     withHousehold({ userId: user.id, householdId }, (tx) => helper({ db: tx, householdId, ... })).
+     Padrão RSC confirmado em ADR-003 Adenda §10.3 (withSpan outermost, withHousehold inner).
+  A Parte A SOZINHA fecha o leak; a Parte B é defense-in-depth. Implementar AMBAS.
+
+  ===== A VULNERABILIDADE (confirmada, CRITICAL, live) =====
+  - getDb() liga como role postgres/rolbypassrls=TRUE → RLS inerte em runtime (ADR-003 §1.1).
+  - Os 6 helpers lib/finance/* fazem queries de domínio SEM filtro household_id (grep: 0
+    ocorrências em toda a lib/finance/). As pages resolvem householdId mas só o usam no
+    empty-state guard — NUNCA o passam ao helper.
+  - Resultado: utilizador do household A em /financas/{patrimonio,cartoes,este-mes,
+    recorrentes,variaveis} vê contas/IBAN last4/saldos/cartões/transacções/recorrências
+    de TODOS os households. Pior: os totais agregados CONTAMINAM (month total soma os 2
+    households: 17740 = 8870 A + 8870 B no teste de prova).
+  - A auditoria CROSS-TENANT de SEC-1 (docs/security/CROSS-TENANT-AUDIT-20260602.md) NÃO
+    cobriu esta superfície (cobriu /api/financas/* e o RSC da Visão). Gap não-detectado.
+  - PROVA: packages/db-test/src/tests/sec4_financas_ssr_leak.test.ts (Testcontainers,
+    role bypassrls = runtime real, 5/5 PASS). Já está no repo — mantém como regressão.
+
+  ===== FICHEIROS-ALVO (verificados byte-a-byte por @sm + @po) =====
+  SSR pages (5) — apps/web/src/app/(app)/financas/ — getDb() na linha indicada:
+    patrimonio/page.tsx:54  → getAccountBalances
+    cartoes/page.tsx:55     → getCardStatements
+    este-mes/page.tsx:93     → getMonthSummary + getMonthProjection (2 helpers, MESMO callback withHousehold)
+    recorrentes/page.tsx:88  → listRecurrences
+    variaveis/page.tsx:81    → listVariableTransactions + getVariableTxFilterOptions (2 funcs, MESMO callback)
+  Guards householdId já resolvidos nas pages (linhas 39/37/65/59/52) — REUTILIZAR, não re-resolver.
+
+  Helpers de query (6) — apps/web/src/lib/finance/ — 16 queries a filtrar (mapa exacto na AC1 da story):
+    account-balances.ts        (2 queries: accounts:91, transactions:102)
+    list-card-statements.ts    (4: cards:116 alias c, transactions:125, installments:136 SEM where hoje, progress:145)
+    month-summary.ts           (3: totals:85, category:94 alias t, day:109)
+    month-projection.ts        (2: transactions:93, recurrences:106)
+    list-recurrences.ts        (1: recurrences:76 alias r — add condição ao array `conditions`)
+    list-variable-transactions.ts (1 em listVariableTransactions:102 alias t + 3 em getVariableTxFilterOptions: categories:166, accounts:171, cards:176)
+
+  FORA DE ÂMBITO (não tocar): financas/page.tsx (só redirect); helpers puros sem DB
+  card-statement-helpers.ts + finance-recurrence-helpers.ts (G1 intactos); route handlers
+  /api/financas/* (já SEC-3); getServiceDb()/jobs Inngest.
+
+  ===== DECISÕES-CHAVE JÁ FIXADAS NA STORY =====
+  - AC2 (ÚNICO caso divergente): em getVariableTxFilterOptions, a query de CATEGORIAS
+    inclui globais: `and (household_id = $hh::uuid or household_id is null)` — espelha
+    api/financas/categorias/route.ts:93. Accounts/cards são ESTRITOS (= householdId).
+    As queries que fazem LEFT JOIN categories só para o NOME filtram a tabela principal
+    (t./r.household_id), NUNCA o join de categorias (globais legítimas).
+  - AC4: getDb() é REMOVIDO POR COMPLETO das 5 pages (read-only, 0 insertAuditLog —
+    ao contrário de SEC-3 que manteve getDb p/ audit). Trocar import getDb→withHousehold.
+  - AC5: guards (redirect /entrar + UI de erro com FinanceViewTabs current="...") FICAM
+    como estão — NÃO centralizar (ADR-003 §10.2: cada page tem UI de erro própria).
+  - installments:136 GANHA um WHERE novo (não tem hoje) — ponto mais frágil (PO-OBS-2).
+
+  ===== TESTES (AC7 + AC8) =====
+  - 6 testes de helper (lib/finance/__tests__/*.test.ts): passam a chamar com householdId;
+    >=1 teste por helper captura o objecto SQL Drizzle passado a execute e assere que o
+    household_id bound está presente (mirror SEC-1 AC-K2 — regressão anti-leak). Para
+    getVariableTxFilterOptions asserir o ramo `household_id is null` em categories e a
+    AUSÊNCIA dele em accounts/cards.
+  - 5 testes de page ((app)/financas/*/__tests__/page.test.tsx): o mock de
+    '@/lib/agent/db-shim' passa a expor withHousehold:
+      withHousehold: (_auth, fn) => fn({ execute: vi.fn() })
+    e >=1 teste assere que o helper foi chamado com householdId (objectContaining).
+
+  ===== INVARIANTES =====
+  - getServiceDb()/service_role INTOCADO. Sem migration nova (104 policies intactas).
+  - Imports @/ absolutos; sem any; PT-PT em comentários/erros; prepare:false intocado.
+  - Gotcha conhecido: pnpm build + next dev na mesma .next parte o CSS — limpar .next antes de dev.
+
+  ===== PO-OBS (não-bloqueantes, já na story) =====
+  - PO-OBS-1: as linhas de AC1 apontam o INÍCIO do db.execute(...), não a linha do `where`.
+    Localizar a query por tabela+alias, não por offset rígido.
+  - PO-OBS-2: focar a regressão bound-param (AC7) em installments:136 (where novo) e nas 3
+    queries de getVariableTxFilterOptions (onde AC2 diverge).
+
+next_action: |
+  1) [@dev] *develop SEC-4. Implementar T1-T5 (par helper+page cada), T6 (verificar
+     rls-application.test.ts 15/15 + o sec4_financas_ssr_leak.test.ts já existe como
+     prova), T7 (gates). Modo YOLO aceitável (mecânico, story exaustiva). Seguir o mapa
+     de 16 queries da AC1 + AC2 (categorias globais) à letra.
+  2) Correr os 6 gates antes de entregar: pnpm lint · typecheck · web test (5 pages + 6
+     helpers verdes) · db-test test (Docker UP — rls-application 15/15 + sec4 leak 5/5) ·
+     build · check:rls. TODOS exit 0. Docker TEM de estar UP para db-test.
+  3) Marcar story Ready→InProgress→Ready for Review; preencher Dev Agent Record + File List.
+  4) Ciclo SDC: @architect *qa-gate SEC-4 (gate adversarial, padrão SEC-1/2/3) → @devops *push.
+
+  VERIFICAÇÃO ANTI-LEAK FINAL (antes de fechar): grep household_id em lib/finance/ deve
+  passar de 0 para >=16 hits novos; o teste sec4_financas_ssr_leak.test.ts continua verde.
+
+blockers: |
+  Nenhum hard-blocker — story Ready, padrão confirmado, leak provado, testes de regressão
+  já no repo. Pré-requisito operacional: Docker UP para correr o job db-test (Testcontainers).
+
+  HOUSEKEEPING NÃO-COMMITADO (acumulado p/ @devops fazer commit+push — só @devops pode):
+   - docs/stories/active/SEC-4.rls-enforced-runtime-fase3-financas-ssr-app-enforced.story.md (Ready v0.2-PO)
+   - docs/security/SEC4-FINANCAS-SSR-LEAK-CONFIRMATION-20260602.md (novo — @architect)
+   - packages/db-test/src/tests/sec4_financas_ssr_leak.test.ts (novo — regressão @architect)
+   - docs/adr/ADR-003-rls-enforced-runtime-hardening.md (Adenda §10 — @architect)
+   - docs/handoffs/archive/mj-handoff-sec4-kickoff-financas-ssr-rls-20260602.yaml (consumido/movido)
+   - docs/HANDOFF-INDEX.md (pending→archived do kickoff + esta entrada nova)
+   - este handoff: docs/handoffs/mj-handoff-sec4-ready-dev-develop-20260603.yaml
+  Nota: se o próximo terminal for OUTRA máquina, pedir ao @devops para commitar+push este
+  housekeeping ANTES de continuar (senão os ficheiros não existem lá). Se for a mesma
+  máquina/workspace, lê tudo do disco — nada a fazer.
+
+  RECOMENDAÇÃO @architect: congelar merge de novas features de Finanças até a Parte A entrar.
+  Billing CONTINUA CONGELADO (directiva Eurico 29/05).

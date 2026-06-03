@@ -12,6 +12,13 @@
  * Paginação keyset reutiliza `encode/decodeTransactionCursor` da Story 4.3
  * (`@/lib/api-schemas/transactions`) — order `transaction_date desc, id desc`.
  *
+ * Household scoping (SEC-4, 2 redes): `householdId` injectado pelo chamador +
+ * filtro `household_id` app-enforced (1.ª rede); a page corre dentro de
+ * `withHousehold` (2.ª rede RLS viva). As contas e cartões filtram estrito
+ * `= householdId`; as CATEGORIAS incluem as globais (`household_id IS NULL` —
+ * AC2), espelhando `/api/financas/categorias` (24 categorias default são
+ * partilhadas — seed).
+ *
  * Trace: Story 4.7 AC2, D-4.7.2, D-4.7.4, D-4.7.5; API 4.3 `transacoes`.
  */
 import { sql } from 'drizzle-orm';
@@ -68,14 +75,17 @@ interface TxQueryRow {
  */
 export async function listVariableTransactions({
   db,
+  householdId,
   filters,
 }: {
   db: DbShim;
+  householdId: string;
   filters: VariableTxFilters;
 }): Promise<VariableTxPage> {
   const limit = Math.min(Math.max(filters.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
 
   const conditions = [
+    sql`t.household_id = ${householdId}::uuid`,
     sql`t.recurrence_id is null`,
     sql`t.installment_id is null`,
     sql`t.is_projected = false`,
@@ -159,23 +169,31 @@ export interface FinanceFilterOptions {
  */
 export async function getVariableTxFilterOptions({
   db,
+  householdId,
 }: {
   db: DbShim;
+  householdId: string;
 }): Promise<FinanceFilterOptions> {
   const [categories, accounts, cards] = await Promise.all([
+    // AC2 — categorias incluem as globais (`household_id IS NULL`), espelhando
+    // `/api/financas/categorias` (D-SEC1.1). As 24 default são partilhadas.
     db.execute<FinanceFilterOption>(sql`
       select id, name from public.categories
       where archived_at is null
+        and (household_id = ${householdId}::uuid or household_id is null)
       order by name asc
     `),
+    // Contas e cartões NÃO têm globais — filtro estrito `= householdId`.
     db.execute<FinanceFilterOption>(sql`
       select id, name from public.accounts
       where archived_at is null
+        and household_id = ${householdId}::uuid
       order by name asc
     `),
     db.execute<FinanceFilterOption>(sql`
       select id, name from public.cards
       where archived_at is null
+        and household_id = ${householdId}::uuid
       order by name asc
     `),
   ]);

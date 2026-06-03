@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import { captureException, withSpan } from '@meu-jarvis/observability';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import type { FinanceRecurrenceFrequency } from '@/lib/finance/finance-recurrence-helpers';
 import {
@@ -41,8 +41,9 @@ interface PageProps {
 /**
  * `/financas/recorrentes` — Vista de recorrências financeiras (Story 4.7).
  *
- * Server Component (RSC) — fetch directo via `getDb()`. Lista as `recurrences`
- * com filtros `active`/`frequency`/`kind`. Sem paginação (D-4.7.4).
+ * Server Component (RSC) — fetch via `withHousehold` (RLS viva — 2.ª rede
+ * SEC-4) com filtro `household_id` app-enforced no helper (1.ª rede). Lista as
+ * `recurrences` com filtros `active`/`frequency`/`kind`. Sem paginação (D-4.7.4).
  * Create/Update via Jarvis (D-4.7.1); DELETE soft via row action (AC5).
  *
  * Trace: Story 4.7 AC1, AC4, AC5, AC7.
@@ -85,11 +86,13 @@ export default async function FinancasRecorrentesPage({
 
   let rows: readonly RecurrenceListRow[];
   try {
-    const db = getDb();
     const result = await withSpan(
       'finance.recurrence-list.render',
       { route: '/financas/recorrentes' },
-      async () => listRecurrences({ db, filters }),
+      async () =>
+        withHousehold({ userId: user.id, householdId }, (tx) =>
+          listRecurrences({ db: tx, householdId, filters }),
+        ),
     );
     rows = result.rows;
   } catch (err) {

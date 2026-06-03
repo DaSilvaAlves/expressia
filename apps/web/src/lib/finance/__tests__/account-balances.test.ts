@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Tests — helper de agregação da vista "Património" (Story 4.9 AC7, AC2).
+ * Tests — helper de agregação da vista "Património" (Story 4.9 AC7, AC2; SEC-4).
  *
  * `db` injectável. 2 `execute` em ordem fixa: contas, somas por conta+kind.
  * Padrão herdado de `list-card-statements.test.ts` (Story 4.8).
@@ -10,11 +10,18 @@
  * query SQL — testes validam que o helper agrega correctamente o que recebe),
  * agrupamento por banco com grupo "Sem banco" no fim, saldos negativos
  * (descoberto) suportados.
+ *
+ * SEC-4 (AC7): todos os call sites passam `householdId`; um teste captura o
+ * objecto `SQL` Drizzle e assere que o `household_id` autenticado é parâmetro
+ * bound nas 2 queries (regressão do filtro app-enforced — fecha o leak).
  */
 import { describe, expect, it, vi } from 'vitest';
 
 import type { DbShim } from '@/lib/agent/db-shim';
 import { getAccountBalances } from '@/lib/finance/account-balances';
+import { boundParamValues } from '@/lib/finance/__tests__/_sql-bound-params';
+
+const HOUSEHOLD_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
 /** `db` falso — 2 `execute` em ordem: contas, somas. */
 function fakeDb(accounts: unknown[], sums: unknown[]): DbShim {
@@ -23,6 +30,11 @@ function fakeDb(accounts: unknown[], sums: unknown[]): DbShim {
     .mockResolvedValueOnce(accounts)
     .mockResolvedValueOnce(sums);
   return { execute } as unknown as DbShim;
+}
+
+/** Atalho — injecta o `householdId` autenticado em todos os call sites. */
+function netWorthOf(accounts: unknown[], sums: unknown[]) {
+  return getAccountBalances({ db: fakeDb(accounts, sums), householdId: HOUSEHOLD_ID });
 }
 
 function account(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -47,16 +59,14 @@ function sumsFor(
 
 describe('getAccountBalances', () => {
   it('(1) zero contas → groups [], totalCents 0, accountCount 0', async () => {
-    const r = await getAccountBalances({ db: fakeDb([], []) });
+    const r = await netWorthOf([], []);
     expect(r.groups).toEqual([]);
     expect(r.totalCents).toBe(0);
     expect(r.accountCount).toBe(0);
   });
 
   it('(2) uma conta sem transacções → balance = initial', async () => {
-    const r = await getAccountBalances({
-      db: fakeDb([account({ initial_balance_cents: 100000 })], []),
-    });
+    const r = await netWorthOf([account({ initial_balance_cents: 100000 })], []);
     expect(r.totalCents).toBe(100000);
     expect(r.groups).toHaveLength(1);
     expect(r.groups[0]?.accounts[0]?.balanceCents).toBe(100000);
@@ -66,24 +76,20 @@ describe('getAccountBalances', () => {
 
   it('(3) saldo positivo — D-4.9.1 — balance = initial + income − expense', async () => {
     // initial 100000 + income 250000 − expense (34000+7870)=41870 → 308130
-    const r = await getAccountBalances({
-      db: fakeDb(
-        [account({ initial_balance_cents: 100000 })],
-        [sumsFor('acc-1', 250000, 41870)],
-      ),
-    });
+    const r = await netWorthOf(
+      [account({ initial_balance_cents: 100000 })],
+      [sumsFor('acc-1', 250000, 41870)],
+    );
     expect(r.groups[0]?.accounts[0]?.balanceCents).toBe(308130);
     expect(r.totalCents).toBe(308130);
   });
 
   it('(4) saldo NEGATIVO (descoberto) — D-4.9.8 — balance pode ser negativo', async () => {
     // initial 10000 + income 5000 − expense 20000 → -5000
-    const r = await getAccountBalances({
-      db: fakeDb(
-        [account({ initial_balance_cents: 10000 })],
-        [sumsFor('acc-1', 5000, 20000)],
-      ),
-    });
+    const r = await netWorthOf(
+      [account({ initial_balance_cents: 10000 })],
+      [sumsFor('acc-1', 5000, 20000)],
+    );
     expect(r.groups[0]?.accounts[0]?.balanceCents).toBe(-5000);
     expect(r.totalCents).toBe(-5000);
   });
@@ -93,12 +99,10 @@ describe('getAccountBalances', () => {
     // pode aparecer nas SumRows. Helper soma o que recebe. Validamos que o
     // helper NÃO somaria transfer mesmo se chegasse no payload (já que só
     // lê income_cents/expense_cents). initial=100, income=50, expense=10 → 140.
-    const r = await getAccountBalances({
-      db: fakeDb(
-        [account({ initial_balance_cents: 100 })],
-        [sumsFor('acc-1', 50, 10)],
-      ),
-    });
+    const r = await netWorthOf(
+      [account({ initial_balance_cents: 100 })],
+      [sumsFor('acc-1', 50, 10)],
+    );
     expect(r.groups[0]?.accounts[0]?.balanceCents).toBe(140);
     // O contrato é: o helper NÃO lê quaisquer `transfer_cents` — não existem.
     expect(r.groups[0]?.accounts[0]).not.toHaveProperty('transferCents');
@@ -108,15 +112,13 @@ describe('getAccountBalances', () => {
     // Acc-A com somas, Acc-B sem somas (representa caso em que todas as
     // transacções desta conta são is_projected=true ou simplesmente não há
     // transacções reais). Acc-B balance = initial puro.
-    const r = await getAccountBalances({
-      db: fakeDb(
-        [
-          account({ id: 'acc-A', name: 'A', initial_balance_cents: 5000 }),
-          account({ id: 'acc-B', name: 'B', initial_balance_cents: 3000 }),
-        ],
-        [sumsFor('acc-A', 1000, 500)],
-      ),
-    });
+    const r = await netWorthOf(
+      [
+        account({ id: 'acc-A', name: 'A', initial_balance_cents: 5000 }),
+        account({ id: 'acc-B', name: 'B', initial_balance_cents: 3000 }),
+      ],
+      [sumsFor('acc-A', 1000, 500)],
+    );
     const flat = r.groups.flatMap((g) => g.accounts);
     const a = flat.find((x) => x.id === 'acc-A');
     const b = flat.find((x) => x.id === 'acc-B');
@@ -125,16 +127,14 @@ describe('getAccountBalances', () => {
   });
 
   it('(7) D-4.9.6 — agrupamento por banco; grupo "Sem banco" (bank_name NULL) por ÚLTIMO', async () => {
-    const r = await getAccountBalances({
-      db: fakeDb(
-        [
-          account({ id: 'a1', name: 'C1', bank_name: 'Caixa Geral', initial_balance_cents: 1000 }),
-          account({ id: 'a2', name: 'C2', bank_name: null, initial_balance_cents: 500 }),
-          account({ id: 'a3', name: 'C3', bank_name: 'BPI', initial_balance_cents: 2000 }),
-        ],
-        [],
-      ),
-    });
+    const r = await netWorthOf(
+      [
+        account({ id: 'a1', name: 'C1', bank_name: 'Caixa Geral', initial_balance_cents: 1000 }),
+        account({ id: 'a2', name: 'C2', bank_name: null, initial_balance_cents: 500 }),
+        account({ id: 'a3', name: 'C3', bank_name: 'BPI', initial_balance_cents: 2000 }),
+      ],
+      [],
+    );
     expect(r.groups).toHaveLength(3);
     expect(r.groups[0]?.bankName).toBe('BPI');
     expect(r.groups[1]?.bankName).toBe('Caixa Geral');
@@ -142,19 +142,17 @@ describe('getAccountBalances', () => {
   });
 
   it('(8) subtotalCents por grupo + totalCents global correctos', async () => {
-    const r = await getAccountBalances({
-      db: fakeDb(
-        [
-          account({ id: 'a1', name: 'C1', bank_name: 'BPI', initial_balance_cents: 1000 }),
-          account({ id: 'a2', name: 'C2', bank_name: 'BPI', initial_balance_cents: 500 }),
-          account({ id: 'a3', name: 'C3', bank_name: 'Millennium BCP', initial_balance_cents: 2000 }),
-        ],
-        [
-          sumsFor('a1', 100, 0),
-          sumsFor('a3', 0, 500),
-        ],
-      ),
-    });
+    const r = await netWorthOf(
+      [
+        account({ id: 'a1', name: 'C1', bank_name: 'BPI', initial_balance_cents: 1000 }),
+        account({ id: 'a2', name: 'C2', bank_name: 'BPI', initial_balance_cents: 500 }),
+        account({ id: 'a3', name: 'C3', bank_name: 'Millennium BCP', initial_balance_cents: 2000 }),
+      ],
+      [
+        sumsFor('a1', 100, 0),
+        sumsFor('a3', 0, 500),
+      ],
+    );
     // BPI: (1000+100) + (500+0) = 1600. Millennium: (2000-500) = 1500. Total 3100.
     const bpi = r.groups.find((g) => g.bankName === 'BPI');
     const mil = r.groups.find((g) => g.bankName === 'Millennium BCP');
@@ -165,16 +163,27 @@ describe('getAccountBalances', () => {
   });
 
   it('(9) contas dentro de um grupo ordenadas por nome PT-PT case-insensitive', async () => {
-    const r = await getAccountBalances({
-      db: fakeDb(
-        [
-          account({ id: 'a1', name: 'Zebra', bank_name: 'BPI', initial_balance_cents: 0 }),
-          account({ id: 'a2', name: 'álamo', bank_name: 'BPI', initial_balance_cents: 0 }),
-          account({ id: 'a3', name: 'Mediana', bank_name: 'BPI', initial_balance_cents: 0 }),
-        ],
-        [],
-      ),
-    });
+    const r = await netWorthOf(
+      [
+        account({ id: 'a1', name: 'Zebra', bank_name: 'BPI', initial_balance_cents: 0 }),
+        account({ id: 'a2', name: 'álamo', bank_name: 'BPI', initial_balance_cents: 0 }),
+        account({ id: 'a3', name: 'Mediana', bank_name: 'BPI', initial_balance_cents: 0 }),
+      ],
+      [],
+    );
     expect(r.groups[0]?.accounts.map((a) => a.name)).toEqual(['álamo', 'Mediana', 'Zebra']);
+  });
+
+  it('(10) SEC-4 AC7 — household_id autenticado é parâmetro bound nas 2 queries (filtro app-enforced)', async () => {
+    const execute = vi.fn().mockResolvedValue([]);
+    const db = { execute } as unknown as DbShim;
+    await getAccountBalances({ db, householdId: HOUSEHOLD_ID });
+
+    // 2 queries: contas (índice 0) e somas de transacções (índice 1).
+    expect(execute).toHaveBeenCalledTimes(2);
+    const accountsSql = execute.mock.calls[0]?.[0];
+    const txSql = execute.mock.calls[1]?.[0];
+    expect(boundParamValues(accountsSql)).toContain(HOUSEHOLD_ID);
+    expect(boundParamValues(txSql)).toContain(HOUSEHOLD_ID);
   });
 });

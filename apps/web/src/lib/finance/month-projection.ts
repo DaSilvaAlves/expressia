@@ -35,8 +35,10 @@ const PROJECTION_WINDOW_DAYS = 30;
 const MAX_ITERATIONS_PER_RECURRENCE = 60;
 
 export interface MonthProjectionInput {
-  /** Cliente Drizzle RLS-scoped (`getDb()`). */
+  /** Cliente Drizzle injectado pelo RSC (tx de `withHousehold` — 2.ª rede SEC-4). */
   readonly db: DbShim;
+  /** Household autenticado — filtro app-enforced (1.ª rede SEC-4). */
+  readonly householdId: string;
   /** Data corrente — YYYY-MM-DD. */
   readonly today: string;
 }
@@ -83,6 +85,7 @@ interface RecurrenceRow {
  */
 export async function getMonthProjection({
   db,
+  householdId,
   today,
 }: MonthProjectionInput): Promise<MonthProjection> {
   const windowEnd = formatISO(addDays(parseISO(today), PROJECTION_WINDOW_DAYS), {
@@ -101,6 +104,7 @@ export async function getMonthProjection({
         and installment_id is not null
         and transaction_date >= ${today}::date
         and transaction_date <= ${windowEnd}::date
+        and household_id = ${householdId}::uuid
       order by transaction_date asc
     `),
     db.execute<RecurrenceRow>(sql`
@@ -116,6 +120,7 @@ export async function getMonthProjection({
         next_run_on::text as next_run_on
       from public.recurrences
       where active = true
+        and household_id = ${householdId}::uuid
     `),
   ]);
 

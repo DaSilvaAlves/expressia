@@ -1,0 +1,129 @@
+id: mj-handoff-sec4-dev-to-architect-20260603
+from_agent: dev
+to_agent: architect
+created: '2026-06-03T01:45:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-06-03T11:15:00Z'
+consumed_by: architect
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: critical
+type: story-ready-for-review
+
+related_story: docs/stories/active/SEC-4.rls-enforced-runtime-fase3-financas-ssr-app-enforced.story.md
+story_status: Ready for Review v0.3-DEV (@dev Dex)
+predecessor_handoff: mj-handoff-sec4-ready-dev-develop-20260603 (consumed/archive)
+adr: docs/adr/ADR-003-rls-enforced-runtime-hardening.md (Adenda §10 — padrão RSC confirmado)
+leak_confirmation: docs/security/SEC4-FINANCAS-SSR-LEAK-CONFIRMATION-20260602.md
+leak_regression_test: packages/db-test/src/tests/sec4_financas_ssr_leak.test.ts (5/5 PASS — verificado verde nesta sessão)
+branch: main
+
+summary: |
+  SEC-4 IMPLEMENTADA em YOLO autónomo (@dev). O leak cross-tenant CRITICAL nas 5 SSR
+  pages de Finanças está FECHADO com defense-in-depth de 2 redes (paridade com SEC-3).
+  Todas as 7 tasks concluídas, 10/10 ACs cumpridos, 6/6 gates verdes. Story em Ready for
+  Review. Próximo passo único: @architect *qa-gate SEC-4 (gate adversarial, padrão
+  SEC-1/2/3). Sem migration. Billing CONTINUA CONGELADO.
+
+context: |
+  ===== O QUE FOI IMPLEMENTADO =====
+  PARTE A (1.ª rede — fecha o leak): filtro `household_id` app-enforced nas 16 queries
+  dos 6 helpers lib/finance/*, sempre via parâmetro bound (`${householdId}::uuid`), nunca
+  concatenação. Distribuição: account-balances 2 · list-card-statements 4 (incl.
+  installments WHERE NOVO) · month-summary 3 · month-projection 2 · list-recurrences 1
+  (condição no array) · list-variable-transactions 1 + getVariableTxFilterOptions 3.
+  Verificação: grep `household_id` em lib/finance passou de 0 → 16 query-lines (+1 comentário).
+
+  PARTE B (2.ª rede — RLS viva): as 5 pages envolvem o fetch em
+  `withHousehold({ userId: user.id, householdId }, (tx) => helper({ db: tx, householdId }))`
+  DENTRO do `withSpan` (ADR-003 Adenda §10.3). `este-mes` e `variaveis` mantêm o
+  `Promise.all` DENTRO do mesmo callback (partilham tx/contexto RLS — AC3). `getDb()`
+  REMOVIDO por completo das 5 pages (grep: 0); import trocado para `withHousehold` via
+  `@/lib/agent/db-shim` (AC4/AC5). Guards (redirect /entrar + UI de erro por-página com
+  FinanceViewTabs) INALTERADOS (AC5 — não centralizado).
+
+  ===== DECISÕES HONRADAS (já fixadas pela story) =====
+  - AC2: getVariableTxFilterOptions → categorias `and (household_id = $hh::uuid or
+    household_id is null)` (globais partilhadas); accounts/cards ESTRITOS. Os LEFT JOIN
+    categories (month-summary/list-recurrences/list-variable) filtram a tabela principal
+    (t./r.household_id), NUNCA o join — confirmado.
+  - AC6: getServiceDb()/jobs/helpers puros (card-statement-helpers, finance-recurrence-helpers)
+    INTOCADOS. Sem migration (104 policies intactas).
+
+  ===== TESTES (AC7/AC8) =====
+  - AC7 (regressão bound-param): os 6 testes de helper capturam o objecto SQL Drizzle
+    passado a `execute` e asserem `household_id` nos params bound, via util partilhado NOVO
+    `apps/web/src/lib/finance/__tests__/_sql-bound-params.ts` (mirror SEC-1 AC-K2 —
+    `boundParamValues`, sem sufixo .test. → não é colectado como suite). PO-OBS-2 honrada:
+    card-statements assere as 4 queries (incl. installments nova); month-summary as 3;
+    variable-tx-options as 3 + discriminante AC2 (`household_id is null` SÓ em categorias,
+    ausente em accounts/cards).
+  - AC8: mock de `@/lib/agent/db-shim` nas 5 pages passou a expor
+    `withHousehold: (_auth, fn) => fn({ execute: vi.fn() })`; cada page assere o helper
+    chamado com `householdId: 'h1'` (objectContaining).
+
+  ===== FILE LIST (24 ficheiros) =====
+  6 helpers + 5 pages + 6 testes helper + 5 testes page + 1 util novo (_sql-bound-params.ts)
+  + 1 diag pré-existente verificado (sec4_financas_ssr_leak.test.ts). Lista completa na
+  secção File List da story.
+
+  ===== DEV-DECISIONS A RATIFICAR NO GATE =====
+  - [DEV-DECISION-1] AC9.1: o diag `sec4_financas_ssr_leak.test.ts` (criado no kickoff) NÃO
+    foi expandido para as 16 queries — cobre as 5 query-shapes principais (accounts,
+    transactions/month, cards, recurrences, variable-tx) com role bypassrls, e o
+    bound-param assert (AC7) cobre as 16 ao nível unitário. Justificação: AC9.3 permite
+    [DEV-DECISION] desde que AC7 (mandatório) se mantenha como regressão mínima — feito.
+
+  ===== RESULTADO DOS GATES (AC10) =====
+  - pnpm lint → EXIT 0 · pnpm typecheck → EXIT 0 (10/10) · pnpm build → EXIT 0 (10/10,
+    MW intacto) · pnpm check:rls → EXIT 0 (todas as tabelas cobertas).
+  - pnpm --filter @meu-jarvis/db-test test (Docker UP) → 186/186, incl.
+    sec4_financas_ssr_leak 5/5 + rls-application 15/15 + cross_tenant_isolation 4/4.
+  - pnpm --filter @meu-jarvis/web test → alterações de Finanças 100% verdes (account-balances
+    10/10, list-card-statements 7/7, month-summary 11/11, month-projection 10/10,
+    list-recurrences 7/7, list-variable-transactions 9/9; 5 pages 5+5+5+4+5). Suite completa
+    1076/1077 — a única falha é `tarefas/calendario/page.test.tsx` (timeout flaky 5000ms sob
+    carga paralela, collect 425s), VERDE isolado (41/41), SEM relação com SEC-4 (mesmo flaky
+    pré-existente registado em SEC-2/SEC-3/6.2).
+
+next_action: |
+  1) [@architect] *qa-gate SEC-4 — gate adversarial (padrão SEC-1/2/3). Focos sugeridos:
+     a) varrer as 16 queries (mapa AC1) e confirmar filtro bound em cada (nenhuma esquecida);
+     b) AC2 — confirmar globais SÓ em categorias de getVariableTxFilterOptions e estrito em
+        accounts/cards; LEFT JOIN categories não filtrado;
+     c) AC3 — Promise.all dentro do MESMO callback withHousehold em este-mes/variaveis;
+     d) AC4 — 0 getDb/getServiceDb nas 5 pages;
+     e) ratificar DEV-DECISION-1 (escopo do diag empírico vs AC7 unitário).
+  2) Re-correr os 6 gates independentemente (Docker UP para db-test).
+  3) Se PASS → mover story active/→completed/, Done v1.x-ARCH-APPROVED, gate file
+     docs/qa/gates/SEC-4-architect-gate.md, criar handoff architect→devops.
+  4) @devops *push (fast-forward, sem --force/--no-verify). SEM db:migrate (zero migration).
+
+  VERIFICAÇÃO ANTI-REGRESSÃO: o sec4_financas_ssr_leak.test.ts continua verde (prova que o
+  fix mantém o isolamento). CodeRabbit DISABLED nesta story (sem coderabbit_integration —
+  padrão SEC-1/2/3).
+
+blockers: |
+  Nenhum hard-blocker — story Ready for Review, 10/10 ACs, 6/6 gates verdes, leak provado
+  fechado. Pré-requisito operacional: Docker UP para o gate re-correr db-test (Testcontainers).
+
+  HOUSEKEEPING NÃO-COMMITADO (acumulado p/ @devops fazer commit+push — só @devops pode):
+   - docs/stories/active/SEC-4.*.story.md (Ready for Review v0.3-DEV — checkboxes + Dev Agent Record + Change Log)
+   - apps/web/src/lib/finance/*.ts (6 helpers modificados)
+   - apps/web/src/app/(app)/financas/{patrimonio,cartoes,este-mes,recorrentes,variaveis}/page.tsx (5 pages)
+   - apps/web/src/lib/finance/__tests__/*.test.ts (6 testes helper) + _sql-bound-params.ts (NOVO)
+   - apps/web/src/app/(app)/financas/*/__tests__/page.test.tsx (5 testes page)
+   - packages/db-test/src/tests/sec4_financas_ssr_leak.test.ts (do kickoff @architect)
+   - docs/security/SEC4-FINANCAS-SSR-LEAK-CONFIRMATION-20260602.md (do kickoff @architect)
+   - docs/adr/ADR-003-rls-enforced-runtime-hardening.md (Adenda §10 — do kickoff)
+   - docs/handoffs/archive/mj-handoff-sec4-kickoff-financas-ssr-rls-20260602.yaml (já consumido)
+   - docs/handoffs/archive/mj-handoff-sec4-ready-dev-develop-20260603.yaml (consumido nesta sessão)
+   - docs/handoffs/mj-handoff-sec4-dev-to-architect-20260603.yaml (este)
+   - docs/HANDOFF-INDEX.md (pending→archived do ready-dev + esta entrada nova)
+  Nota: se o próximo terminal for OUTRA máquina, pedir ao @devops para commitar+push este
+  housekeeping ANTES de continuar (senão os ficheiros não existem lá). Se for a mesma
+  máquina/workspace, lê tudo do disco — nada a fazer.
+
+  Billing CONTINUA CONGELADO (directiva Eurico 29/05).

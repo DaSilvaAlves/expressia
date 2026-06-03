@@ -5,8 +5,14 @@
  * `getAccountBalances` é `db`-injectável (padrão D-4.6.7) — testável sem
  * Postgres. Faz exactamente 2 queries fixas (contas não arquivadas; somas de
  * transacções por conta e kind) e faz o agrupamento por banco em JS — SEM
- * N+1 independentemente do número de contas (D-4.9.4). O household scoping é
- * feito pela RLS (`getDb()` authenticated, R-4.9.4).
+ * N+1 independentemente do número de contas (D-4.9.4).
+ *
+ * Household scoping (SEC-4, defense-in-depth de 2 redes):
+ *   1.ª rede (app-enforced) — `householdId` injectado pelo chamador e filtro
+ *      `household_id = ${householdId}` explícito em ambas as queries. Fecha o
+ *      leak cross-tenant (a RLS sozinha está inerte em runtime — ADR-003 §1.1).
+ *   2.ª rede (RLS viva) — a page corre dentro de `withHousehold` (SET LOCAL
+ *      household_id), activando as 104 policies em runtime.
  *
  * Saldo por conta = `initial_balance_cents + SUM(income) − SUM(expense)`:
  *   - Base do recompute = `initial_balance_cents` (imutável por D-4.2.A;
@@ -84,8 +90,10 @@ interface SumRow {
  */
 export async function getAccountBalances({
   db,
+  householdId,
 }: {
   db: DbShim;
+  householdId: string;
 }): Promise<NetWorth> {
   const [accountRows, sumRows] = await Promise.all([
     db.execute<AccountRow>(sql`
@@ -98,6 +106,7 @@ export async function getAccountBalances({
         initial_balance_cents::int as initial_balance_cents
       from public.accounts
       where archived_at is null
+        and household_id = ${householdId}::uuid
     `),
     db.execute<SumRow>(sql`
       select
@@ -107,6 +116,7 @@ export async function getAccountBalances({
       from public.transactions
       where account_id is not null
         and is_projected = false
+        and household_id = ${householdId}::uuid
       group by account_id
     `),
   ]);

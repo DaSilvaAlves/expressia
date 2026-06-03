@@ -1,0 +1,78 @@
+id: mj-handoff-sec4-architect-to-devops-20260603
+from_agent: architect
+to_agent: devops
+created: '2026-06-03T11:15:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-06-03T11:25:00Z'
+consumed_by: devops
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: critical
+type: story-done-ready-for-push
+
+related_story: docs/stories/completed/SEC-4.rls-enforced-runtime-fase3-financas-ssr-app-enforced.story.md
+story_status: Done v1.0-ARCH-APPROVED (@architect Aria)
+gate_file: docs/qa/gates/SEC-4-architect-gate.md
+predecessor_handoff: mj-handoff-sec4-dev-to-architect-20260603 (consumed/archive)
+adr: docs/adr/ADR-003-rls-enforced-runtime-hardening.md (Adenda §10)
+branch: main
+
+summary: |
+  SEC-4 PASS no gate adversarial @architect (score 9,6/10, confidence HIGH). O leak
+  cross-tenant CRITICAL nas 5 SSR pages de Finanças está fechado com defense-in-depth de
+  2 redes (paridade com SEC-3). Inspecção byte-a-byte limpa + 6/6 gates re-executados
+  independentemente por mim. Story movida active/→completed/. Único passo restante:
+  @devops *push (fast-forward, SEM db:migrate — zero migration). Billing CONTINUA CONGELADO.
+
+context: |
+  ===== O QUE FOI VALIDADO NO GATE =====
+  - AC1: 16/16 queries dos 6 helpers com filtro `household_id = ${householdId}::uuid`
+    (bound, zero concatenação), incl. installments com WHERE novo. Mapa byte-a-byte OK.
+  - AC2: globais (`OR household_id IS NULL`) SÓ em categorias de getVariableTxFilterOptions;
+    accounts/cards estritos; LEFT JOIN categories filtra tabela principal (t./r.).
+  - AC3: Promise.all dentro do MESMO callback withHousehold em este-mes/variaveis.
+  - AC4: grep zero getDb/getServiceDb/insertAuditLog nas 5 pages e 6 helpers.
+  - AC6: helpers puros (card-statement-helpers, finance-recurrence-helpers) intactos;
+    ZERO migration nova (104 policies intactas).
+  - DEV-DECISION-1 RATIFICADA (escopo do diag empírico vs AC7 unitário).
+
+  ===== GATES RE-EXECUTADOS POR MIM (Docker UP, Postgres 16 efémero) =====
+  - pnpm lint → EXIT 0 · pnpm typecheck → EXIT 0 (10/10) · pnpm check:rls → EXIT 0
+  - pnpm build → EXIT 0 (5 rotas financas/* dynamic; middleware intacto 94,6 kB)
+  - pnpm --filter @meu-jarvis/web test (finanças) → 111/111 (6 helpers + 5 pages + 2 puros)
+  - pnpm --filter @meu-jarvis/db-test test → 186/186 (sec4_financas_ssr_leak 5/5 +
+    rls-application 15/15 + cross_tenant_isolation 4/4)
+
+  ===== HOUSEKEEPING A COMMITAR+PUSH (só @devops) =====
+  Modificados (M):
+   - apps/web/src/lib/finance/{account-balances,list-card-statements,month-summary,
+     month-projection,list-recurrences,list-variable-transactions}.ts (6 helpers)
+   - apps/web/src/lib/finance/__tests__/{...}.test.ts (6 testes helper)
+   - apps/web/src/app/(app)/financas/{patrimonio,cartoes,este-mes,recorrentes,variaveis}/page.tsx (5 pages)
+   - apps/web/src/app/(app)/financas/*/__tests__/page.test.tsx (5 testes page)
+   - docs/HANDOFF-INDEX.md · docs/adr/ADR-003-rls-enforced-runtime-hardening.md
+  Novos (??):
+   - apps/web/src/lib/finance/__tests__/_sql-bound-params.ts (util partilhado)
+   - packages/db-test/src/tests/sec4_financas_ssr_leak.test.ts (diag empírico)
+   - docs/security/SEC4-FINANCAS-SSR-LEAK-CONFIRMATION-20260602.md
+   - docs/stories/completed/SEC-4.*.story.md (movida de active/ — Done v1.0-ARCH-APPROVED)
+   - docs/qa/gates/SEC-4-architect-gate.md (gate file)
+   - docs/handoffs/archive/mj-handoff-sec4-kickoff-financas-ssr-rls-20260602.yaml (consumido)
+   - docs/handoffs/archive/mj-handoff-sec4-ready-dev-develop-20260603.yaml (consumido)
+   - docs/handoffs/archive/mj-handoff-sec4-dev-to-architect-20260603.yaml (consumido neste gate)
+   - docs/handoffs/mj-handoff-sec4-architect-to-devops-20260603.yaml (este)
+
+next_action: |
+  1) [@devops] git add -A (housekeeping SEC-4 completo acima).
+  2) Commit sugerido:
+       feat(security): RLS enforced em runtime + leak app-enforced nas 5 SSR pages de Finanças — Fase 3 [Story SEC-4]
+     (referenciar Story SEC-4; pode incluir trailers Constraint/Confidence conforme commit_protocol).
+  3) @devops *push — fast-forward, SEM --force, SEM --no-verify. Pre-push gates correm normalmente.
+  4) NÃO correr db:migrate — zero migration nesta story (104 policies intactas).
+  5) Pós-push: marcar este handoff consumed:true + mover para archive/; actualizar HANDOFF-INDEX.
+
+blockers: |
+  Nenhum. Story Done, 10/10 ACs, gate PASS, 6/6 gates verdes re-verificados.
+  Billing CONTINUA CONGELADO (directiva Eurico 29/05) — esta story não toca billing.

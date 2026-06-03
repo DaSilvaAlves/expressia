@@ -16,6 +16,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { DbShim } from '@/lib/agent/db-shim';
 import { getMonthSummary } from '@/lib/finance/month-summary';
+import { boundParamValues } from '@/lib/finance/__tests__/_sql-bound-params';
+
+const HOUSEHOLD_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
 /** `db` falso — 3 `execute()` em ordem: totais, categorias, dias. */
 function fakeDb(totals: unknown[], categories: unknown[], days: unknown[]): DbShim {
@@ -27,7 +30,11 @@ function fakeDb(totals: unknown[], categories: unknown[], days: unknown[]): DbSh
   return { execute } as unknown as DbShim;
 }
 
-const RANGE = { monthStart: '2026-05-01', monthEnd: '2026-05-31' } as const;
+const RANGE = {
+  householdId: HOUSEHOLD_ID,
+  monthStart: '2026-05-01',
+  monthEnd: '2026-05-31',
+} as const;
 
 describe('getMonthSummary', () => {
   it('(1) mês vazio → todos os agregados a zero', async () => {
@@ -170,5 +177,22 @@ describe('getMonthSummary', () => {
     );
     const r = await getMonthSummary({ db, ...RANGE });
     expect(r.netCents).toBe(60000); // 100000 − 40000; o transfer (999999) é ignorado
+  });
+
+  it('(11) SEC-4 AC7 — household_id é parâmetro bound nas 3 queries (totais, categorias, dias)', async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce([{ total_income_cents: 0, total_expense_cents: 0 }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    const db = { execute } as unknown as DbShim;
+    await getMonthSummary({ db, ...RANGE });
+
+    expect(execute).toHaveBeenCalledTimes(3);
+    // PO-OBS-2 — 3 queries de transactions; a de categorias filtra t.household_id
+    // (tabela principal), nunca o LEFT JOIN categories (globais partilhadas).
+    expect(boundParamValues(execute.mock.calls[0]?.[0])).toContain(HOUSEHOLD_ID);
+    expect(boundParamValues(execute.mock.calls[1]?.[0])).toContain(HOUSEHOLD_ID);
+    expect(boundParamValues(execute.mock.calls[2]?.[0])).toContain(HOUSEHOLD_ID);
   });
 });

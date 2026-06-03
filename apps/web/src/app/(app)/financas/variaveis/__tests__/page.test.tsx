@@ -23,7 +23,9 @@ vi.mock('@meu-jarvis/observability', () => ({
   captureException: mocks.captureExceptionMock,
   withSpan: (_n: unknown, _a: unknown, fn: () => unknown) => fn(),
 }));
-vi.mock('@/lib/agent/db-shim', () => ({ getDb: () => ({ execute: vi.fn() }) }));
+vi.mock('@/lib/agent/db-shim', () => ({
+  withHousehold: (_auth: unknown, fn: (tx: unknown) => unknown) => fn({ execute: vi.fn() }),
+}));
 vi.mock('@/lib/api-helpers/auth', () => ({ resolveHouseholdId: mocks.resolveHouseholdIdMock }));
 vi.mock('@/lib/finance/list-variable-transactions', () => ({
   listVariableTransactions: mocks.listVariableTransactionsMock,
@@ -91,6 +93,13 @@ describe('/financas/variaveis RSC page', () => {
     mocks.getVariableTxFilterOptionsMock.mockResolvedValue(OPTIONS);
     const result = await VariaveisPage({ searchParams: Promise.resolve({}) });
     expect(stringifyTree(result)).toContain('<VariableTxList:t1,t2>');
+    // SEC-4 AC8 — ambos os helpers chamados com o householdId resolvido (1.ª rede).
+    expect(mocks.listVariableTransactionsMock).toHaveBeenCalledWith(
+      expect.objectContaining({ householdId: 'h1' }),
+    );
+    expect(mocks.getVariableTxFilterOptionsMock).toHaveBeenCalledWith(
+      expect.objectContaining({ householdId: 'h1' }),
+    );
   });
 
   it('renderiza no-results quando lista vazia', async () => {

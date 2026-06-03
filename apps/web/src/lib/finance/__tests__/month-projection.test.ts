@@ -16,6 +16,9 @@ vi.mock('@meu-jarvis/observability', () => ({
 
 import type { DbShim } from '@/lib/agent/db-shim';
 import { getMonthProjection } from '@/lib/finance/month-projection';
+import { boundParamValues } from '@/lib/finance/__tests__/_sql-bound-params';
+
+const HOUSEHOLD_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
 /** `db` falso — 2 `execute()` em ordem: prestações, recorrências. */
 function fakeDb(installments: unknown[], recurrences: unknown[]): DbShim {
@@ -24,6 +27,15 @@ function fakeDb(installments: unknown[], recurrences: unknown[]): DbShim {
     .mockResolvedValueOnce(installments)
     .mockResolvedValueOnce(recurrences);
   return { execute } as unknown as DbShim;
+}
+
+/** Atalho — injecta `householdId` + `today` autenticados nos call sites. */
+function projectionOf(installments: unknown[], recurrences: unknown[]) {
+  return getMonthProjection({
+    db: fakeDb(installments, recurrences),
+    householdId: HOUSEHOLD_ID,
+    today: TODAY,
+  });
 }
 
 /** Recorrência de teste com defaults sensatos. */
@@ -46,7 +58,7 @@ const TODAY = '2026-05-22';
 
 describe('getMonthProjection', () => {
   it('(1) zero prestações + zero recorrências → vazio', async () => {
-    const r = await getMonthProjection({ db: fakeDb([], []), today: TODAY });
+    const r = await projectionOf([], []);
     expect(r.items).toEqual([]);
     expect(r.projectedIncomeCents).toBe(0);
     expect(r.projectedExpenseCents).toBe(0);
@@ -57,7 +69,7 @@ describe('getMonthProjection', () => {
       [{ date: '2026-06-10', description: 'Portátil 3/12', kind: 'expense', amount_cents: 10000 }],
       [],
     );
-    const r = await getMonthProjection({ db, today: TODAY });
+    const r = await getMonthProjection({ db, householdId: HOUSEHOLD_ID, today: TODAY });
     expect(r.items).toHaveLength(1);
     expect(r.items[0]?.source).toBe('installment');
     expect(r.projectedExpenseCents).toBe(10000);
@@ -65,7 +77,7 @@ describe('getMonthProjection', () => {
 
   it('(3) recorrência monthly com next_run_on futuro na janela → item source=recurrence', async () => {
     const db = fakeDb([], [rec({ next_run_on: '2026-06-08' })]);
-    const r = await getMonthProjection({ db, today: TODAY });
+    const r = await getMonthProjection({ db, householdId: HOUSEHOLD_ID, today: TODAY });
     expect(r.items).toHaveLength(1);
     expect(r.items[0]).toMatchObject({
       date: '2026-06-08',
@@ -79,7 +91,7 @@ describe('getMonthProjection', () => {
     // next_run_on = today; próxima ocorrência (06-22) cai fora da janela
     // (windowEnd = 06-21) → zero items.
     const db = fakeDb([], [rec({ next_run_on: TODAY })]);
-    const r = await getMonthProjection({ db, today: TODAY });
+    const r = await getMonthProjection({ db, householdId: HOUSEHOLD_ID, today: TODAY });
     expect(r.items).toEqual([]);
   });
 
@@ -88,7 +100,7 @@ describe('getMonthProjection', () => {
       [],
       [rec({ frequency: 'weekly', next_run_on: null, starts_on: '2026-05-25' })],
     );
-    const r = await getMonthProjection({ db, today: TODAY });
+    const r = await getMonthProjection({ db, householdId: HOUSEHOLD_ID, today: TODAY });
     expect(r.items.length).toBeGreaterThan(0);
     expect(r.items[0]?.date).toBe('2026-05-25');
     expect(r.items[0]?.source).toBe('recurrence');
@@ -101,7 +113,7 @@ describe('getMonthProjection', () => {
       [],
       [rec({ next_run_on: '2026-05-25', ends_on: '2026-05-25' })],
     );
-    const r = await getMonthProjection({ db, today: TODAY });
+    const r = await getMonthProjection({ db, householdId: HOUSEHOLD_ID, today: TODAY });
     expect(r.items).toHaveLength(1);
     expect(r.items[0]?.date).toBe('2026-05-25');
   });
@@ -115,7 +127,7 @@ describe('getMonthProjection', () => {
         rec({ description: 'Poupança', kind: 'transfer', amount_cents: 30000, next_run_on: '2026-06-10' }),
       ],
     );
-    const r = await getMonthProjection({ db, today: TODAY });
+    const r = await getMonthProjection({ db, householdId: HOUSEHOLD_ID, today: TODAY });
     expect(r.projectedIncomeCents).toBe(250000);
     expect(r.projectedExpenseCents).toBe(80000);
     // transfer aparece na lista mas não nos subtotais
@@ -127,12 +139,22 @@ describe('getMonthProjection', () => {
       [{ date: '2026-06-10', description: 'Parcela', kind: 'expense', amount_cents: 10000 }],
       [rec({ next_run_on: '2026-06-01' })],
     );
-    const r = await getMonthProjection({ db, today: TODAY });
+    const r = await getMonthProjection({ db, householdId: HOUSEHOLD_ID, today: TODAY });
     expect(r.items.map((it) => it.date)).toEqual(['2026-06-01', '2026-06-10']);
   });
 
   it('(9) windowEnd = today + 30 dias', async () => {
-    const r = await getMonthProjection({ db: fakeDb([], []), today: TODAY });
+    const r = await projectionOf([], []);
     expect(r.windowEnd).toBe('2026-06-21');
+  });
+
+  it('(10) SEC-4 AC7 — household_id é parâmetro bound nas 2 queries (prestações, recorrências)', async () => {
+    const execute = vi.fn().mockResolvedValue([]);
+    const db = { execute } as unknown as DbShim;
+    await getMonthProjection({ db, householdId: HOUSEHOLD_ID, today: TODAY });
+
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(boundParamValues(execute.mock.calls[0]?.[0])).toContain(HOUSEHOLD_ID);
+    expect(boundParamValues(execute.mock.calls[1]?.[0])).toContain(HOUSEHOLD_ID);
   });
 });

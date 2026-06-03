@@ -5,6 +5,10 @@
  * Função pura de leitura `db`-injectável (padrão D-4.6.7). Sem paginação —
  * a API `recorrencias` (Story 4.4) tem hard cap 200 e volume baixo (D-4.7.4).
  *
+ * Household scoping (SEC-4, 2 redes): `householdId` injectado pelo chamador +
+ * condição `r.household_id` no array `conditions` (1.ª rede app-enforced); a
+ * page corre dentro de `withHousehold` (2.ª rede RLS viva).
+ *
  * Trace: Story 4.7 AC4, D-4.7.4, D-4.7.5; API 4.4 `recorrencias`.
  */
 import { sql } from 'drizzle-orm';
@@ -56,12 +60,14 @@ interface RecurrenceQueryRow {
  */
 export async function listRecurrences({
   db,
+  householdId,
   filters,
 }: {
   db: DbShim;
+  householdId: string;
   filters: RecurrenceFilters;
 }): Promise<{ rows: readonly RecurrenceListRow[] }> {
-  const conditions = [sql`true`];
+  const conditions = [sql`r.household_id = ${householdId}::uuid`];
   if (filters.active !== undefined) {
     conditions.push(sql`r.active = ${filters.active}`);
   }

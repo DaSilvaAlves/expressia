@@ -261,6 +261,66 @@ Alta reversibilidade. Cada fase é independente:
 
 ---
 
+## 10. Adenda — padrão RSC/SSR (confirmação para SEC-4, 02/06/2026)
+
+> Adenda produzida por @architect ao consumir `mj-handoff-sec4-kickoff-financas-ssr-rls-20260602`.
+> Soft-gate do handoff (confirmar a mecânica de `auth`+`withHousehold` em Server Components
+> antes do draft de SEC-4). **Veredicto: GO.**
+
+### 10.1 — A mecânica é trivialmente a mesma do route handler
+
+`withHousehold(auth, fn)` (`client.ts:119-153`) recebe **apenas** `{ userId, householdId }` e abre uma transação na pool partilhada de `getDb()` (`getDbSql()` reutiliza o mesmo singleton `_dbSql`). **Não tem qualquer dependência de `Span`, `NextRequest`/`NextResponse`, nem do ciclo request/response.** Corre no mesmo runtime Node.js de servidor — é indiferente que o chamador seja um Route Handler (Fases 1-2, já em prod nos 12 handlers `/api/financas/*` — SEC-3) ou um Server Component. O `set local role authenticated` + `set_config('request.jwt.claims', ...)` provados em SEC-2/SEC-3 aplicam-se identicamente. **Nenhum padrão novo de DB é necessário.**
+
+### 10.2 — A única diferença real é a aquisição de `auth` (já resolvida nas pages)
+
+O equivalente RSC do `requireAuth(span)` **já existe inline** em cada uma das 5 pages:
+
+```typescript
+const supabase = await createServerSupabaseClient();
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) redirect('/entrar');                 // RSC: redirect (não NextResponse 401)
+const householdId = await resolveHouseholdId(user.id);
+if (!householdId) { return <UI de erro por-página>; }  // RSC: UI própria (não 404)
+```
+
+**Decisão deliberada: NÃO centralizar este bloco num helper RSC que controle o fluxo de erro.** Cada página tem UI de erro específica (o `FinanceViewTabs current="..."` correcto, e em `este-mes` ainda o `MonthNavigation`). Um helper que fizesse `redirect`/render de erro internamente perderia esse contexto por-página. O `resolveHouseholdId` (`auth.ts:24`) já é o ponto DRY partilhado. Manter as guardas inline.
+
+### 10.3 — Padrão de migração SEC-4 (mecânico, idêntico nas 5 pages)
+
+Trocar **apenas** o bloco de fetch, preservando guardas de auth, `redirect`, UI de erro por-página, `withSpan` e os helpers puros:
+
+```typescript
+// ANTES
+const db = getDb();
+const data = await withSpan('finance.X.render', { route }, async () => helper({ db }));
+
+// DEPOIS (withSpan outermost — consistente com api/tasks/route.ts; withHousehold dentro)
+const data = await withSpan('finance.X.render', { route }, async () =>
+  withHousehold({ userId: user.id, householdId }, (tx) => helper({ db: tx })),
+);
+```
+
+### 10.4 — Sem fricção com streaming/Suspense (Next 15 App Router)
+
+A página faz `await` dos dados **antes** de devolver JSX: a transação abre → corre → `COMMIT` → devolve dados serializáveis (`NetWorth`, `MonthSummary` — objectos planos) → só então renderiza. A transação **não** permanece aberta através da fronteira de render/stream. É o mesmo modelo temporal do `getDb()` actual (que também faz `await` antes do render). **Zero risco de Suspense.**
+
+### 10.5 — Âmbito confirmado de SEC-4 (fechar domínio finanças)
+
+| Item | Contagem real | Acção |
+|------|---------------|-------|
+| SSR pages com `getDb()` | **5** (`patrimonio`, `cartoes`, `recorrentes`, `variaveis`, `este-mes`) | Migrar `getDb()` → `withHousehold(auth, tx)` |
+| `financas/page.tsx` (raiz) | 1 | **Fora de âmbito** — só `redirect('/financas/este-mes')`, sem `getDb()`/auth |
+| Helpers `lib/finance/*` | 8, todos puros (`db`-injectável) | **Intactos** (G1). `getDb()` neles só aparece em comentários — ajuste cosmético opcional |
+| Migration / 104 policies | — | **NENHUMA** (confirmado — infra `withHousehold` já em prod desde SEC-2) |
+
+> Correcção factual ao handoff: este referia "4 lib helpers" — na realidade há **8** helpers e **nenhum** chama `getDb()` (são todos puros). A superfície de edição de produção são as **5 pages**, não 9 ficheiros. App-enforced (filtro `household_id`) **mantido** em todas — `withHousehold` é a 2.ª rede.
+
+### 10.6 — Invariantes herdados (manter em SEC-4)
+
+App-enforced intocado · `getServiceDb()`/`service_role` intocado · `insertAuditLog` best-effort fora de `withHousehold` (onde aplicável) · sem migration nova · limpar `.next` antes de `next dev` se houve `pnpm build` (gotcha CSS).
+
+---
+
 ## 9. Referências
 
 - Código: `packages/db/src/client.ts` (37-101), `packages/db/migrations/0000_initial_schema.sql` (34-87), `packages/db/migrations/0001_rls_policies.sql` (537-552, 98 ocorrências), `apps/web/src/lib/api-helpers/auth.ts` (24-93)

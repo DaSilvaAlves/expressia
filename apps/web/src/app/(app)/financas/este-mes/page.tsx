@@ -6,7 +6,7 @@ import { pt } from 'date-fns/locale';
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import { captureException, withSpan } from '@meu-jarvis/observability';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import { getMonthProjection, type MonthProjection } from '@/lib/finance/month-projection';
 import { getMonthSummary, type MonthSummary } from '@/lib/finance/month-summary';
@@ -45,10 +45,12 @@ function resolveMonth(raw: string | undefined): { monthKey: string; monthStartDa
 /**
  * `/financas/este-mes` — Vista mensal de Finanças (Story 4.6).
  *
- * Server Component (RSC) que faz fetch server-side directo via `getDb()`
- * (RLS authenticated — D-4.6.2, precedente Story 3.3). Agrega o mês real
- * (`getMonthSummary`) e, no mês corrente, a projecção dos próximos 30 dias
- * (`getMonthProjection` — DP2=C). Navegação de meses livre via `?mes=`
+ * Server Component (RSC) que faz fetch via `withHousehold` (RLS viva — 2.ª
+ * rede SEC-4) com filtro `household_id` app-enforced nos helpers (1.ª rede).
+ * Agrega o mês real (`getMonthSummary`) e, no mês corrente, a projecção dos
+ * próximos 30 dias (`getMonthProjection` — DP2=C). Ambos os fetches correm no
+ * MESMO callback `withHousehold` (partilham transação/contexto RLS).
+ * Navegação de meses livre via `?mes=`
  * (DP3=B). Instrumentado com `withSpan` (AC7).
  *
  * Trace: Story 4.6 AC1, AC5, AC6, AC7; epic DP2=C, DP3=B, FR18.
@@ -90,16 +92,21 @@ export default async function FinancasEsteMesPage({
   let summary: MonthSummary;
   let projection: MonthProjection | null;
   try {
-    const db = getDb();
     [summary, projection] = await withSpan(
       'finance.month-view.render',
       { route: '/financas/este-mes' },
       async (span) => {
         span.setAttribute('finance.month', monthKey);
-        return Promise.all([
-          getMonthSummary({ db, monthStart, monthEnd }),
-          isCurrentMonth ? getMonthProjection({ db, today }) : Promise.resolve(null),
-        ]);
+        // Ambos os fetches no MESMO callback withHousehold — partilham a
+        // transação/contexto RLS (AC3).
+        return withHousehold({ userId: user.id, householdId }, (tx) =>
+          Promise.all([
+            getMonthSummary({ db: tx, householdId, monthStart, monthEnd }),
+            isCurrentMonth
+              ? getMonthProjection({ db: tx, householdId, today })
+              : Promise.resolve(null),
+          ]),
+        );
       },
     );
   } catch (err) {

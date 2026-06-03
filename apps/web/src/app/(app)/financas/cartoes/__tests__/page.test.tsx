@@ -22,7 +22,9 @@ vi.mock('@meu-jarvis/observability', () => ({
   captureException: mocks.captureExceptionMock,
   withSpan: (_n: unknown, _a: unknown, fn: () => unknown) => fn(),
 }));
-vi.mock('@/lib/agent/db-shim', () => ({ getDb: () => ({ execute: vi.fn() }) }));
+vi.mock('@/lib/agent/db-shim', () => ({
+  withHousehold: (_auth: unknown, fn: (tx: unknown) => unknown) => fn({ execute: vi.fn() }),
+}));
 vi.mock('@/lib/api-helpers/auth', () => ({ resolveHouseholdId: mocks.resolveHouseholdIdMock }));
 vi.mock('@/lib/finance/list-card-statements', () => ({
   getCardStatements: mocks.getCardStatementsMock,
@@ -79,6 +81,10 @@ describe('/financas/cartoes RSC page', () => {
     const tree = stringifyTree(await CartoesPage());
     expect(tree).toContain('<CardStatementCard:c1>');
     expect(tree).toContain('<CardStatementCard:c2>');
+    // SEC-4 AC8 — helper chamado com o householdId resolvido (1.ª rede).
+    expect(mocks.getCardStatementsMock).toHaveBeenCalledWith(
+      expect.objectContaining({ householdId: 'h1' }),
+    );
   });
 
   it('renderiza no-results quando não há cartões', async () => {

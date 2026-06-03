@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import { captureException, withSpan } from '@meu-jarvis/observability';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import {
   getVariableTxFilterOptions,
@@ -34,9 +34,11 @@ interface PageProps {
 /**
  * `/financas/variaveis` — Vista de transacções variáveis (Story 4.7).
  *
- * Server Component (RSC) — fetch directo via `getDb()` (RLS authenticated,
- * D-4.6.2). Lista as transacções manuais (`origin=manual` — D-4.7.2) com
- * filtros e paginação keyset. Create/Update via Jarvis (D-4.7.1).
+ * Server Component (RSC) — fetch via `withHousehold` (RLS viva — 2.ª rede
+ * SEC-4) com filtro `household_id` app-enforced nos helpers (1.ª rede). Lista
+ * as transacções manuais (`origin=manual` — D-4.7.2) com filtros e paginação
+ * keyset. Ambos os fetches correm no MESMO callback withHousehold (AC3).
+ * Create/Update via Jarvis (D-4.7.1).
  *
  * Trace: Story 4.7 AC1, AC3, AC5, AC7.
  */
@@ -78,15 +80,16 @@ export default async function FinancasVariaveisPage({
   let page: VariableTxPage;
   let options: FinanceFilterOptions;
   try {
-    const db = getDb();
     [page, options] = await withSpan(
       'finance.variable-list.render',
       { route: '/financas/variaveis' },
       async () =>
-        Promise.all([
-          listVariableTransactions({ db, filters }),
-          getVariableTxFilterOptions({ db }),
-        ]),
+        withHousehold({ userId: user.id, householdId }, (tx) =>
+          Promise.all([
+            listVariableTransactions({ db: tx, householdId, filters }),
+            getVariableTxFilterOptions({ db: tx, householdId }),
+          ]),
+        ),
     );
   } catch (err) {
     captureException(err instanceof Error ? err : new Error(String(err)), {

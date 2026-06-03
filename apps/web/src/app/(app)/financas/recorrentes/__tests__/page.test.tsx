@@ -20,7 +20,9 @@ vi.mock('@meu-jarvis/observability', () => ({
   captureException: mocks.captureExceptionMock,
   withSpan: (_n: unknown, _a: unknown, fn: () => unknown) => fn(),
 }));
-vi.mock('@/lib/agent/db-shim', () => ({ getDb: () => ({ execute: vi.fn() }) }));
+vi.mock('@/lib/agent/db-shim', () => ({
+  withHousehold: (_auth: unknown, fn: (tx: unknown) => unknown) => fn({ execute: vi.fn() }),
+}));
 vi.mock('@/lib/api-helpers/auth', () => ({ resolveHouseholdId: mocks.resolveHouseholdIdMock }));
 vi.mock('@/lib/finance/list-recurrences', () => ({
   listRecurrences: mocks.listRecurrencesMock,
@@ -76,6 +78,10 @@ describe('/financas/recorrentes RSC page', () => {
     mocks.listRecurrencesMock.mockResolvedValue({ rows: [{ id: 'r1' }, { id: 'r2' }] });
     const result = await RecorrentesPage({ searchParams: Promise.resolve({}) });
     expect(stringifyTree(result)).toContain('<RecurrenceList:r1,r2>');
+    // SEC-4 AC8 — helper chamado com o householdId resolvido (1.ª rede).
+    expect(mocks.listRecurrencesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ householdId: 'h1' }),
+    );
   });
 
   it('renderiza no-results quando lista vazia', async () => {

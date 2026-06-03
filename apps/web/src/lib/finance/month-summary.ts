@@ -20,8 +20,10 @@ import type { DbShim } from '@/lib/agent/db-shim';
 export type FinanceKind = 'expense' | 'income' | 'transfer';
 
 export interface MonthSummaryInput {
-  /** Cliente Drizzle RLS-scoped (`getDb()`) — injectado pelo RSC. */
+  /** Cliente Drizzle injectado pelo RSC (tx de `withHousehold` — 2.ª rede SEC-4). */
   readonly db: DbShim;
+  /** Household autenticado — filtro app-enforced (1.ª rede SEC-4). */
+  readonly householdId: string;
   /** Primeiro dia do mês visualizado — YYYY-MM-DD. */
   readonly monthStart: string;
   /** Último dia do mês visualizado — YYYY-MM-DD. */
@@ -78,6 +80,7 @@ interface DayRow {
  */
 export async function getMonthSummary({
   db,
+  householdId,
   monthStart,
   monthEnd,
 }: MonthSummaryInput): Promise<MonthSummary> {
@@ -90,6 +93,7 @@ export async function getMonthSummary({
       where transaction_date >= ${monthStart}::date
         and transaction_date <= ${monthEnd}::date
         and is_projected = false
+        and household_id = ${householdId}::uuid
     `),
     db.execute<CategoryRow>(sql`
       select
@@ -103,6 +107,7 @@ export async function getMonthSummary({
       where t.transaction_date >= ${monthStart}::date
         and t.transaction_date <= ${monthEnd}::date
         and t.is_projected = false
+        and t.household_id = ${householdId}::uuid
       group by t.category_id, c.name, t.kind
       order by total_cents desc
     `),
@@ -115,6 +120,7 @@ export async function getMonthSummary({
       where transaction_date >= ${monthStart}::date
         and transaction_date <= ${monthEnd}::date
         and is_projected = false
+        and household_id = ${householdId}::uuid
       group by transaction_date
       order by transaction_date asc
     `),

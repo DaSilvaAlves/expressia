@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import { captureException, withSpan } from '@meu-jarvis/observability';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import { getCardStatements, type CardStatementData } from '@/lib/finance/list-card-statements';
 
@@ -20,8 +20,9 @@ export const metadata: Metadata = {
 /**
  * `/financas/cartoes` — Vista de cartões (Story 4.8).
  *
- * Server Component (RSC) — fetch directo via `getDb()` (RLS authenticated,
- * D-4.6.2). Por cartão, mostra a fatura corrente e a próxima calculadas
+ * Server Component (RSC) — fetch via `withHousehold` (RLS viva — 2.ª rede
+ * SEC-4) com filtro `household_id` app-enforced no helper (1.ª rede). Por
+ * cartão, mostra a fatura corrente e a próxima calculadas
  * on-the-fly do ciclo `closing_day`/`due_day` (DP7=A) e as prestações
  * associadas. Vista read-only — create/edit via Jarvis (D-4.8.7).
  *
@@ -52,11 +53,13 @@ export default async function FinancasCartoesPage(): Promise<React.ReactElement>
 
   let cards: readonly CardStatementData[];
   try {
-    const db = getDb();
     const result = await withSpan(
       'finance.cards.render',
       { route: '/financas/cartoes' },
-      async () => getCardStatements({ db, today }),
+      async () =>
+        withHousehold({ userId: user.id, householdId }, (tx) =>
+          getCardStatements({ db: tx, today, householdId }),
+        ),
     );
     cards = result.cards;
   } catch (err) {

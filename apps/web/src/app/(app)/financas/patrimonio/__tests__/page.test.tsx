@@ -22,7 +22,9 @@ vi.mock('@meu-jarvis/observability', () => ({
   captureException: mocks.captureExceptionMock,
   withSpan: (_n: unknown, _a: unknown, fn: () => unknown) => fn(),
 }));
-vi.mock('@/lib/agent/db-shim', () => ({ getDb: () => ({ execute: vi.fn() }) }));
+vi.mock('@/lib/agent/db-shim', () => ({
+  withHousehold: (_auth: unknown, fn: (tx: unknown) => unknown) => fn({ execute: vi.fn() }),
+}));
 vi.mock('@/lib/api-helpers/auth', () => ({ resolveHouseholdId: mocks.resolveHouseholdIdMock }));
 vi.mock('@/lib/finance/account-balances', () => ({
   getAccountBalances: mocks.getAccountBalancesMock,
@@ -103,6 +105,10 @@ describe('/financas/patrimonio RSC page', () => {
     expect(tree).toContain('<NetWorthSummary:1500:2>');
     expect(tree).toContain('<BankGroup:BPI>');
     expect(tree).toContain('<BankGroup:null>');
+    // SEC-4 AC8 — o helper é chamado com o householdId resolvido (1.ª rede).
+    expect(mocks.getAccountBalancesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ householdId: 'h1' }),
+    );
   });
 
   it('renderiza error + captureException quando o helper falha', async () => {

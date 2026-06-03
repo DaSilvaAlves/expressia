@@ -1,0 +1,106 @@
+id: mj-handoff-sec4-kickoff-financas-ssr-rls-20260602
+from_agent: aiox-master
+to_agent: architect
+created: '2026-06-02T22:30:00Z'
+status: consumed
+consumed: true
+consumed_at: '2026-06-02T23:05:00Z'
+consumed_by: architect
+consumed_outcome: |
+  GO. Mecânica de auth+withHousehold em RSC/SSR confirmada e documentada na Adenda §10
+  do ADR-003. withHousehold é agnóstico ao tipo de handler (só recebe {userId, householdId};
+  zero dependência de Span/NextResponse/streaming). Auth RSC já existe inline nas 5 pages
+  (createServerSupabaseClient + auth.getUser + resolveHouseholdId) — NÃO centralizar (UI de
+  erro por-página). Âmbito refinado: superfície de edição = 5 SSR pages (patrimonio, cartoes,
+  recorrentes, variaveis, este-mes), 1 getDb() cada. Os 8 helpers lib/finance são puros e
+  ficam intactos (handoff dizia "4 helpers"; correcção factual na Adenda §10.5). Sem migration
+  nova. Próximo: @sm draftar SEC-4 com o padrão da Adenda §10.3.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: kickoff
+
+related_story: SEC-4 (a draftar)
+predecessor_handoff: mj-handoff-session-sec3-rls-enforced-fase2-financas-prod-20260602
+adr: docs/adr/ADR-003-rls-enforced-runtime-hardening.md
+branch: main
+
+summary: |
+  Arrancar a Story SEC-4 (Fase 3 do hardening RLS-enforced, ADR-003): continuar a
+  migração getDb() -> withHousehold(auth, fn) para os call-sites RESTANTES, fechando
+  primeiro o domínio FINANÇAS por completo (SSR pages + lib helpers).
+
+  AVISO TÉCNICO CENTRAL (porque o to_agent é @architect, não @sm): ao contrário das
+  Fases 1-2 (route handlers, que já tinham requireAuth(span) a devolver
+  { userId, householdId }), os call-sites desta fase são SERVER COMPONENTS / RSC e
+  funções de lib chamadas por RSC. A forma de obter `auth` em RSC NÃO é a mesma que
+  num route handler. Isto é padrão NOVO e tem de ser confirmado por @architect ANTES
+  de o @sm draftar — caso contrário a story arrancaria com uma premissa por validar.
+
+context: |
+  ESTADO EM PROD (02/06, tudo em origin/main, CI verde):
+  - SEC-1 (6f56e32): app-enforced (filtro household_id) em toda a API — 1.ª rede.
+  - SEC-2 (98c8176): wrapper withHousehold + gate de aplicação real; piloto GET /api/tasks
+    com RLS viva — 2.ª rede (Fase 1).
+  - SEC-3 (ec96445 + housekeeping): 12 route handlers /api/financas/* com RLS viva — Fase 2.
+
+  ONDE A RLS JÁ ESTÁ VIVA EM RUNTIME (2.ª rede activa):
+  - GET /api/tasks (piloto SEC-2)
+  - 12 handlers /api/financas/* (contas, cartoes, transacoes, categorias, prestacoes,
+    recorrencias + cada [id]) — SEC-3
+  Todo o resto continua protegido SÓ pelo app-enforced (1.ª rede) — seguro, mas sem a 2.ª.
+
+  CALL-SITES RESTANTES (getDb(), ~57 ficheiros no total; alvo de SEC-4 e seguintes):
+  Domínio FINANÇAS (fechar primeiro — recomendação do ciclo SEC-3):
+    - SSR pages: apps/web/src/app/(app)/financas/{patrimonio,cartoes,recorrentes,
+      variaveis,este-mes}/page.tsx  (5 ficheiros, RSC)
+    - lib helpers: apps/web/src/lib/finance/{account-balances,list-card-statements,
+      month-projection,month-summary}.ts  (4 ficheiros — puros, recebem db; preservar G1)
+  Outros domínios (SEC-5+, NÃO desta story):
+    - Tarefas restantes: api/tasks/[id]/*, api/kanban-columns/*, api/tags/*, api/recurrences/*,
+      SSR (app)/tarefas/* (só o GET /api/tasks foi migrado no piloto SEC-2)
+    - Cérebro AI lifecycle: api/agent/prompt/route.ts + [runId]/confirm + [runId]/undo,
+      lib/agent/{audit-log,cost-router}.ts, db-shim.ts
+    - Household: api/conta/household/* (route, members/[userId], invites, aceitar-convite)
+    - Visão: api/visao/* (7 rotas) + (app)/visao/* widgets + lib/visao/queries.ts
+    - Preferências: api/conta/preferencias, app/bem-vindo/actions.ts, api/me
+
+  PADRÃO DE REFERÊNCIA (provado, route handler): apps/web/src/app/api/tasks/route.ts (GET)
+  + apps/web/src/lib/api-helpers/list-tasks.ts (helper puro) + packages/db/src/client.ts
+  (assinatura withHousehold) + apps/web/src/lib/agent/db-shim.ts (re-export).
+  A variante RSC/SSR ainda NÃO existe — é o que @architect tem de desenhar.
+
+  INVARIANTES NÃO-NEGOCIÁVEIS (manter em SEC-4, herdados de SEC-1/2/3):
+  - App-enforced (filtro household_id) MANTIDO — withHousehold é a 2.ª rede, não substitui a 1.ª.
+  - getServiceDb()/service_role INTOCADO (jobs Inngest/migrations/GDPR/Stripe).
+  - insertAuditLog (onde aplicável) best-effort FORA do withHousehold (PO-FIX-2, SEC-3).
+  - Sem alteração às 104 policies; SEM migration nova esperada (confirmar).
+  - Gotcha: pnpm build + next dev na mesma .next parte o CSS — limpar .next antes de dev.
+
+next_action: |
+  1) [@architect] CONFIRMAR A MECÂNICA DE auth EM RSC/SSR antes de qualquer draft:
+     - Como obter { userId, householdId } dentro de um Server Component / função de lib
+       chamada por RSC (equivalente RSC do requireAuth(span) dos route handlers)?
+       Verificar o que já existe em apps/web/src/lib/api-helpers/auth.ts e como as SSR
+       pages actuais de finanças obtêm o utilizador (ler 1-2 das 5 pages reais).
+     - Confirmar que withHousehold (transação + SET LOCAL) funciona a partir de RSC sem
+       quebrar streaming/Suspense do Next 15 App Router; se houver fricção, decidir o
+       padrão (ex.: helper RSC dedicado que abre a tx e devolve dados serializáveis).
+     - Produzir uma adenda curta ao ADR-003 (ou nota de decisão) com o padrão RSC, OU
+       confirmar GO directo se o padrão for trivialmente o mesmo.
+     - Decidir o ÂMBITO de SEC-4: recomendação = fechar domínio finanças (5 SSR pages +
+       4 lib helpers, 9 ficheiros). NÃO misturar outros domínios.
+  2) [@sm] Com o padrão RSC confirmado, draftar Story SEC-4 (mesmo rigor de SEC-3:
+     anti-hallucination byte-a-byte, ACs testáveis, app-enforced mantido, gate de
+     aplicação estendido aos dados tocados).
+  3) Ciclo SDC normal: @po validate -> @dev develop -> @architect *qa-gate -> @devops *push.
+
+  Billing CONTINUA CONGELADO (directiva Eurico 29/05, handoff refocus-core pending).
+
+blockers: |
+  Nenhum hard-blocker. O único "soft gate" é a confirmação arquitectural do padrão de
+  auth em RSC/SSR (next_action 1) — sem isso o draft de SEC-4 arrancaria com premissa
+  por validar. Toda a infra (withHousehold, gate de aplicação, db-shim) já está em prod
+  desde SEC-2/SEC-3. App-enforced protege todos estes call-sites entretanto — não há
+  janela de vulnerabilidade aberta enquanto SEC-4 não corre.

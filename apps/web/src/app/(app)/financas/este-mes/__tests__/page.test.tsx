@@ -34,7 +34,7 @@ vi.mock('@meu-jarvis/observability', () => ({
 }));
 
 vi.mock('@/lib/agent/db-shim', () => ({
-  getDb: () => ({ execute: vi.fn() }),
+  withHousehold: (_auth: unknown, fn: (tx: unknown) => unknown) => fn({ execute: vi.fn() }),
 }));
 
 vi.mock('@/lib/api-helpers/auth', () => ({
@@ -153,6 +153,13 @@ describe('/financas/este-mes RSC page', () => {
     expect(tree).toContain('<MonthTotalsCard>');
     expect(tree).toContain('<CategoryBreakdown>');
     expect(tree).toContain('<DayBreakdown>');
+    // SEC-4 AC8 — ambos os helpers chamados com o householdId resolvido (1.ª rede).
+    expect(mocks.getMonthSummaryMock).toHaveBeenCalledWith(
+      expect.objectContaining({ householdId: 'h1' }),
+    );
+    expect(mocks.getMonthProjectionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ householdId: 'h1' }),
+    );
   });
 
   it('renderiza no-movements quando o mês não tem transacções reais', async () => {
