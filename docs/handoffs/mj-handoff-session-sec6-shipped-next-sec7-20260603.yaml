@@ -1,0 +1,73 @@
+id: mj-handoff-session-sec6-shipped-next-sec7-20260603
+from_agent: devops
+to_agent: any
+created: '2026-06-03T20:25:00Z'
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: session-end
+related_story: SEC-6 (Done — em produção)
+story_path: docs/stories/active/SEC-6.rls-enforced-runtime-fase4-visao-tarefas-ssr.story.md
+adr: docs/adr/ADR-003-rls-enforced-runtime-hardening.md (Adenda §11)
+branch: main
+
+summary: |
+  SESSION END pós SEC-6 (ADR-003 Fase 4 Fatia B — Visão + 3 SSR pages tarefas/*) EM PRODUÇÃO; nada a meio.
+  Ciclo SDC completo (sm→po→dev→architect→devops, todos consumidos/archived). Leak cross-household HIGH
+  fechado em tarefas/kanban + tarefas/calendario (4 queries com household_id bound + regressão AC9.2) +
+  2.ª rede withHousehold aditiva na Visão/lista. Gate adversarial @architect PASS 9,4/10. Push prod
+  `18220b6`, fast-forward. SEM migration. DUAS acções pendentes só-Eurico (rotação de chaves) — ver abaixo.
+
+context: |
+  ESTADO: origin/main = 18220b6 (SEC-6 em prod, fast-forward de 67d5fa8). Working tree LIMPO/sincronizado.
+  Billing CONTINUA CONGELADO (directiva Eurico 29/05).
+
+  CADEIA ADR-003 em prod: SEC-1 (6f56e32 app-enforced API) · SEC-2 (98c8176 wrapper+gate+piloto) ·
+  SEC-3 (ec96445 finanças API) · SEC-4 (298a122 finanças SSR) · SEC-5 (d27d9c8 tarefas API) ·
+  SEC-6 (18220b6 Visão RSC + 3 SSR tarefas/* + leak fix kanban/calendario). Fatias restantes: SEC-7, SEC-8.
+
+  SEC-6 ENTREGUE (commit 18220b6, 36 ficheiros +1087/-165):
+  - LEAK FIX HIGH: tarefas/kanban/page.tsx (kanban_columns) + tarefas/calendario/page.tsx (3 queries tasks)
+    receberam 1.ª rede `household_id = ${householdId}::uuid` (parâmetro bound, coexiste com tagIdSql).
+    Regressão mandatória AC9.2 via boundParamValues: kanban 1 teste + calendario 2 (com/sem tag_id).
+  - 2.ª rede withHousehold aditiva: 6 routes api/visao/* + 6 widgets RSC + isVisaoEmpty + tarefas/lista.
+    WidgetGrid propaga userId (required). visao/page.tsx handler MISTO (getDb p/ user_prefs user-scoped
+    carved out → SEC-7 + withHousehold p/ agregados household).
+  - INTACTOS: briefing/route.ts + BriefingWidget (stubs sem DB); lib/visao/queries.ts + list-tasks.ts
+    (puros G1); getServiceDb()/service_role (zero introduções). Sem migration (104 policies intactas).
+  - GATE @architect PASS 9,4/10 (foco dedicado ao leak fix, PO-DECISION-1): 4 queries household_id bound
+    confirmadas por leitura+grep; testes AC9.2 falhariam se removido (prova mecânica boundParamValues).
+  - PRE-PUSH GATE COMPLETO VERDE: lint·typecheck·check:rls·build EXIT 0; web test 1079/1080 — única falha
+    é o flaky AC11 (calendario "renderiza WeekViewClient", timeout sob carga/collect>480s) → RE-PROVADO
+    ISOLADO single-thread 5/5 verde. NÃO é regressão; pré-existente desde SEC-2/3.
+
+  HOUSEKEEPING DE SEGURANÇA (feito nesta sessão): 2 ficheiros untracked com CREDENCIAIS REAIS em texto
+  foram eliminados ANTES do git add (nunca commitados; git history confirmado vazio):
+    - "curl httpsapi.x.aiv1responses.txt" (continha chave xAI + chave Google + token Cloudflare cfat_)
+    - "r8_AIXN84pWN2qQ8sMuugdTOsW3zhI8lDe3.txt" (token Replicate r8_)
+
+next_action: |
+  Nada bloqueado — escolher o próximo passo do roadmap ADR-003:
+
+  1) (SÓ EURICO — SEGURANÇA, prioritário) ROTACIONAR as 4 chaves expostas (continuam válidas até revogar):
+     - xAI (console x.ai) · Google Cloud API key · Cloudflare token (cfat_) · Replicate (r8_).
+     Eliminar do disco não revoga — gerar novas + invalidar antigas nos painéis.
+
+  2) (AGENTE) SEC-7 = Fatia C (Household/conta + user_prefs user-scoped da visao/page.tsx, carved out aqui).
+     Arranque: @architect kickoff/confirmação OU @data-engineer §11.3 ANTES de draftar — confirmar que
+     policies de user_prefs/household_members/households/household_invites usam auth.uid()/is_household_member.
+     EXCLUSÃO DURA: aceitar-convite/route.ts NÃO migra (SECURITY DEFINER). Depois @sm *draft SEC-7.
+
+  3) (HOLD — não draftar directamente) SEC-8 = Fatia D (Cérebro AI): exige Adenda §12 de design pelo
+     @architect primeiro.
+
+  Follow-ups antigos ainda abertos (não-bloqueantes): FU-LOGIN-NEXT, SITE-URL-PROD, cleanup test users,
+  multi-household; GAP-2 (RESEND + Supabase confirm email) e GAP-4/GAP-5 só-Eurico/máquina.
+
+blockers: |
+  Nenhum hard-blocker técnico. SEC-6 em prod e working tree limpo.
+  Pendente só-Eurico: rotação das 4 chaves API expostas (segurança).
+  Billing CONTINUA CONGELADO.
