@@ -1,0 +1,51 @@
+id: mj-handoff-sec7-drafted-pending-po-validation-20260603
+from_agent: sm
+to_agent: po
+created: "2026-06-03T00:00:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-03T21:30:00Z"
+consumed_by: po
+
+summary: >
+  Story SEC-7 draftada (Draft v0.1) — ADR-003 Fase 4 Fatia C (Household/conta).
+  6 ficheiros migram getDb()→withHousehold: api/conta/household/route.ts,
+  api/conta/preferencias/route.ts, api/conta/household/invites/route.ts,
+  invites/[id]/route.ts, members/[userId]/route.ts, bem-vindo/actions.ts.
+  Excepção permanente: aceitar-convite (SECURITY DEFINER). Fora de âmbito: api/me (PostgREST).
+  3 handlers mistos (invites/route, invites/[id], members/[userId]) com insertAuditLog best-effort
+  fora do withHousehold (padrão SEC-3/SEC-5). Gate db-test: extensão obrigatória domínio Household.
+  Sem migration (104 policies intactas). Aguarda @po *validate-story-draft SEC-7.
+
+context:
+  story_path: docs/stories/active/SEC-7.rls-enforced-runtime-fase4-household-conta.story.md
+  story_id: SEC-7
+  story_status: Draft v0.1
+  depends_on:
+    - SEC-2 (Done, 98c8176) — withHousehold + gate
+    - SEC-3 (Done, ec96445) — padrão handlers com audit
+    - SEC-5 (Done, d27d9c8) — padrão handler misto insertAuditLog
+    - SEC-6 (InReview PASS, 18220b6) — Visão + SSR Tarefas
+  surface:
+    files_migrating: 6
+    files_excluded_permanent: 1  # aceitar-convite SECURITY DEFINER
+    files_out_of_scope: 1        # api/me PostgREST
+    mixed_handlers: 3            # invites/route, invites/[id], members/[userId] — insertAuditLog fora da tx
+  key_decisions:
+    - "aceitar-convite EXCLUÍDO PERMANENTE: SECURITY DEFINER opera sobre household não-membro → withHousehold scoparia errado"
+    - "insertAuditLog mantém-se em getDb() fora do withHousehold (best-effort, padrão SEC-3/SEC-5 — não pode ser engolido pela tx de domínio)"
+    - "api/me fora de âmbito: usa PostgREST (createServerSupabaseClient), zero getDb() directo — RLS-via-JWT já activo"
+    - "R-2 smoke audit obrigatório: handlers mistos AC3/AC4/AC5 devem confirmar que insertAuditLog continua a gravar após migração"
+    - "Gate db-test extensão OBRIGATÓRIA: domínio Household não estava coberto por SEC-3/SEC-5 (ao contrário de SEC-6 que herdou cobertura)"
+  no_migration: true  # 104 policies intactas, NÃO correr db:migrate
+  pattern: "REQ-INLINE-1 — getDb/withHousehold de @/lib/agent/db-shim, nunca directo de @meu-jarvis/db"
+
+next_action: "@po *validate-story-draft SEC-7"
+
+notes: >
+  Para o @po: âmbito é mais pequeno que SEC-5/SEC-6 (6 ficheiros vs 12/9) mas tem
+  nuance do handler misto (insertAuditLog fora da tx) em 3 ficheiros e excepção permanente
+  do aceitar-convite. O R-2 smoke audit é a principal verificação de regressão a confirmar.
+  A extensão do gate db-test (AC11) é a única diferença estrutural face a SEC-6 (que herdou
+  cobertura — SEC-7 precisa de criar a cobertura do domínio Household de raiz).
+  Billing CONGELADO (directiva Eurico 29/05/2026 — handoff pending mj-handoff-refocus-core-freeze-billing-20260529).

@@ -1,0 +1,63 @@
+id: mj-handoff-session-sec7-shipped-20260603
+from_agent: devops
+to_agent: any
+created: "2026-06-03T22:35:00Z"
+status: pending
+
+summary: >
+  SESSION END — Story SEC-7 (ADR-003 Fase 4 Fatia C — Household/conta) EM PRODUÇÃO;
+  nada a meio. Com SEC-7 a Fase 4 do ADR-003 (RLS viva em runtime via withHousehold)
+  está COMPLETA em TODOS os domínios: Finanças (SEC-3/4), Tarefas-API (SEC-5),
+  Visão/SSR (SEC-6) e agora Household/conta (SEC-7). Defense-in-depth de duas redes
+  (1.ª app-enforced household_id/user_id + 2.ª RLS viva em runtime) cobre o domínio
+  todo. CodeRabbit SKIP (padrão SEC-1→6). SEM migration (104 policies intactas).
+
+context:
+  story_id: SEC-7
+  story_status: Done v1.3-ARCH-APPROVED (em prod)
+  branch: main
+  prod_sha_feat: "<FEAT_SHA>"
+  prod_sha_housekeeping: "<HK_SHA>"
+  gate_file: docs/qa/gates/SEC-7-architect-gate.md
+  gate_verdict: "PASS 9,6/10 confiança Alta (re-gate adversarial INDEPENDENTE @architect)"
+
+  what_shipped:
+    - "6 ficheiros migrados getDb()->withHousehold no domínio Household/conta (household route, preferencias, invites, invites/[id], members/[userId], bem-vindo/actions)."
+    - "aceitar-convite INTOCADO (excepção permanente SECURITY DEFINER — só +8 linhas JSDoc)."
+    - "1.ª rede (filtro household_id/user_id app-enforced, SEC-1) preservada byte-a-byte (git diff: única mudança db.execute->tx.execute + indentação)."
+    - "insertAuditLog FORA da tx nos 3 mistos (R-2 smoke provado nos testes)."
+    - "Gate db-test rls-application.test.ts estendido ao domínio Household (+6 testes não-tautológicos: household_invites household-scoped + user_prefs user-scoped com caso discriminante) — 202/202 Postgres real."
+    - "Zero getServiceDb real introduzido; api/me PostgREST intocado; zero migration."
+
+  gates_devops:
+    lint: "exit 0 (FULL TURBO cache, 10/10) — RE-CORRIDO"
+    typecheck: "exit 0 (FULL TURBO cache, 10/10) — RE-CORRIDO"
+    check_rls: "exit 0 (20 tabelas incl. user_prefs/households/household_members/household_invites) — RE-CORRIDO real"
+    db_test: "202/202 (37 ficheiros, Postgres Testcontainers) — CONFIADO no relatório @architect (mesmo tree byte-idêntico, minutos antes)"
+    web_test_conta_bemvindo: "79/79 (8 ficheiros) — CONFIADO no relatório @architect (mesmo tree)"
+    build: "exit 0 — CONFIADO FULL TURBO cache (source inalterado, padrão SEC-3/SEC-4)"
+    flaky_calendario: "não-regressão (pré-existente, fora da superfície SEC-7; isolado passa 5/5)"
+    coderabbit: "SKIP (padrão SEC-1->6; validação adversarial já feita pela lane @architect)"
+
+  housekeeping_seguranca: >
+    git status untracked inspeccionado ANTES do git add: APENAS handoffs SEC-7 + gate +
+    story (zero ficheiros com credenciais). O problema do SEC-6 (2 ficheiros com chaves
+    xAI/Google/Cloudflare/Replicate) NÃO se repetiu nesta sessão.
+
+next_action: >
+  Nada bloqueado. Resíduos por owner:
+  1) (SÓ EURICO — pendente desde SEC-6, AINDA POR FAZER) ROTACIONAR as 4 chaves expostas
+     (xAI/Google/Cloudflare/Replicate) — os ficheiros nunca entraram no git history mas as
+     chaves continuam válidas até serem revogadas nos respectivos painéis.
+  2) SEC-8 Fatia D (Cérebro AI) = HOLD — exige Adenda §12 do @architect antes de qualquer
+     draft (mecânica withHousehold dentro de transacções multi-tool atómicas do executor).
+  3) Billing CONTINUA CONGELADO (directiva Eurico 29/05/2026) — não escrever código de billing.
+  4) (housekeeping não-bloqueante, recomendação @architect) materializar ADR-003 como ficheiro
+     físico — NOTA: o ADR JÁ EXISTE em docs/adr/ADR-003-rls-enforced-runtime-hardening.md
+     (o @architect procurou pelo slug errado). NÃO criar duplicado.
+
+notes: >
+  Fase 4 do ADR-003 COMPLETA. Padrão de push das stories SEC consolidado: gates rápidos
+  re-corridos pelo @devops, pesados confiados ao relatório @architect quando o working tree
+  é byte-idêntico, CodeRabbit SKIP, sem db:migrate, story movida active/->completed/, push
+  fast-forward sem --force/--no-verify. @architect NÃO faz push (autoridade @devops).

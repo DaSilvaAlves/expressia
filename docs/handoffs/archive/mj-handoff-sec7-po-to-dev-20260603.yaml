@@ -1,0 +1,95 @@
+id: mj-handoff-sec7-po-to-dev-20260603
+from_agent: po
+to_agent: dev
+created: "2026-06-03T21:30:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-03T21:45:00Z"
+consumed_by: dev
+
+summary: >
+  Story SEC-7 VALIDADA por @po — GO 9,0/10 confiança Alta (checklist 10 pontos AIOX,
+  verificação byte-a-byte dos 6 call-sites + ADR §10.3/§11.3 + gate db-test + harness).
+  Status → Ready for Dev v1.1. ADR-003 Fase 4 Fatia C (Household/conta): 6 ficheiros migram
+  getDb()→withHousehold (2.ª rede RLS aditiva); aceitar-convite EXCLUÍDO (SECURITY DEFINER);
+  api/me fora de âmbito (PostgREST). 4 PO-FIX inline obrigatórios antes de *develop — o
+  PO-FIX-1 (CRÍTICO) corrige uma premissa de auth errada no draft. Sem migration (104 policies).
+
+context:
+  story_path: docs/stories/active/SEC-7.rls-enforced-runtime-fase4-household-conta.story.md
+  story_id: SEC-7
+  story_status: Ready for Dev v1.1
+  verdict: "GO · Readiness 9,0/10 · Confiança Alta"
+  branch: main
+  depends_on:
+    - SEC-2 (Done, 98c8176) — withHousehold + gate de aplicação
+    - SEC-3 (Done, ec96445) — padrão handler com audit best-effort
+    - SEC-5 (Done, d27d9c8) — padrão handler misto
+    - SEC-6 (Done/prod, 18220b6) — Visão + SSR Tarefas
+
+  po_fixes:
+    - id: PO-FIX-1
+      severity: CRITICO
+      where: "AC1 (L69-77), AC2, AC9 (L114), Dev Notes ponto 1 (L192), T1.1"
+      issue: >
+        O draft afirma que requireAuth(span) é a fonte de auth em TODOS os route handlers.
+        FALSO para 2 de 5: api/conta/household/route.ts (AC1) e api/conta/preferencias/route.ts (AC2)
+        usam createServerSupabaseClient()+supabase.auth.getUser()+resolveHouseholdId(user.id) INLINE
+        (padrão RSC §10.2/§10.3) — NÃO têm auth.userId/auth.householdId.
+      fix: >
+        Em household + preferencias o callback é withHousehold({ userId: user.id, householdId }, (tx)=>...)
+        — user.id vem do getUser(); householdId vem do resolveHouseholdId. NÃO usar auth.userId/auth.householdId.
+        Só os 3 handlers mistos (invites/route, invites/[id], members/[userId]) usam requireAuth →
+        { userId: auth.userId, householdId: auth.householdId }. Ajustar AC1/T1.1 em conformidade.
+    - id: PO-FIX-2
+      severity: MENOR
+      where: "AC6 (L96-98), Dev Notes ponto 7, T6.1 — bem-vindo/actions.ts"
+      issue: "completeOnboarding faz db.execute (L66-70) e DEPOIS redirect('/visao?welcome=1') (L73, NEXT_REDIRECT, fora de try/catch)."
+      fix: "Só o db.execute entra no callback withHousehold; o redirect fica DEPOIS do await withHousehold(...). Envolver o redirect na tx faria rollback do NEXT_REDIRECT."
+    - id: PO-FIX-3
+      severity: MENOR
+      where: "AC11 (L131-133), T8.1 — extensão gate db-test"
+      issue: "Fixtures já existem: insertHouseholdInvite (fixtures.ts:378) + insertUserPrefs (fixtures.ts:470); seedTwoHouseholds cria household_members(owner A/B)+households; tabelas já em TABLES_TO_TRUNCATE."
+      fix: >
+        Caso household-scoped: preferir household_invites (fixture directa) — userA não vê o invite de B.
+        Caso user-scoped: inserir prefs PARA userB (insertUserPrefs(admin(), userB.id, householdB.id)) e provar
+        que asUser(userA...) vê 0 rows de B (user_prefs é PK 1:1 fechada por auth.uid()=user_id).
+        Réplica fiel dos blocos SEC-3/SEC-5 do rls-application.test.ts.
+    - id: PO-FIX-4
+      severity: MENOR
+      where: "AC10 (L122-127), T1.2/T2.2/T6.2 + teste preferencias existente"
+      issue: "Mock snippet inclui getDb+withHousehold. Mas household/preferencias/bem-vindo ficam SEM getDb após migração."
+      fix: >
+        Mock desses 3 expõe só withHousehold; os 3 handlers mistos mantêm getDb+withHousehold.
+        ACTUALIZAR o teste preferencias/__tests__/route.test.ts:234 ('AC11 — usa getDb()') → 'usa withHousehold'
+        senão falha após migração.
+
+  confirmed_byte_for_byte:
+    call_sites:
+      - "api/conta/household/route.ts: getDb() L125 (GET) + L293 (PATCH)"
+      - "api/conta/preferencias/route.ts: getDb() L124 (GET) + L261 (PATCH)"
+      - "api/conta/household/invites/route.ts: domínio L91 (GET) + L160 (POST); insertAuditLog L183 (try/catch best-effort)"
+      - "api/conta/household/invites/[id]/route.ts: domínio L57; insertAuditLog L72"
+      - "api/conta/household/members/[userId]/route.ts: domínio L61; insertAuditLog L100"
+      - "bem-vindo/actions.ts: getDb() L65"
+    excluded_permanent: "aceitar-convite/route.ts — accept_invite(token, user_id) SECURITY DEFINER (migration 0022), user.id explícito; AC7 inequívoco. NÃO TOCAR."
+    out_of_scope: "api/me/route.ts — 100% PostgREST (.from('household_members')), zero getDb(). NÃO TOCAR."
+    withHousehold_signature: "db-shim.ts:79 — (auth: { userId, householdId }, fn) — confirmado"
+    db_test_gate: "rls-application.test.ts NÃO cobre Household (cobre tasks/transactions/accounts/categories/tags/task_tags/kanban_columns/task_recurrences + service_role) → AC11 extensão obrigatória correcta"
+    existing_tests: "Todos os 6 ficheiros têm testes (incl. bem-vindo/__tests__/actions.test.ts); aceitar-convite tem teste de mapeamento de erros (intocado)"
+
+  invariants:
+    - "1.ª rede (app-enforced household_id) MANTIDA onde existe — withHousehold é aditivo"
+    - "getServiceDb()/service_role/jobs Inngest INTOCADOS"
+    - "insertAuditLog best-effort fora do withHousehold (PO-FIX-2/D-SEC3) nos 3 handlers mistos"
+    - "REQ-INLINE-1: getDb/withHousehold/sql de @/lib/agent/db-shim, nunca @meu-jarvis/db directo"
+    - "SEM migration nova (104 policies intactas — NÃO correr db:migrate)"
+    - "withSpan outermost, withHousehold dentro (§10.3)"
+
+next_action: "@dev *develop SEC-7 — aplicar os 4 PO-FIX (PO-FIX-1 muda a fonte de auth em household+preferencias), migrar os 6 ficheiros, estender o gate db-test (AC11), R-2 smoke audit nos 3 handlers mistos. Depois @architect *qa-gate."
+
+notes: >
+  Billing CONGELADO (directiva Eurico 29/05/2026). CodeRabbit SKIP (padrão SEC-1→6, sem coderabbit_integration).
+  O único PO-FIX que muda código face ao escrito é o PO-FIX-1 (auth source). Os outros 3 são de precisão
+  de teste/mock/fixture. Gate de qualidade: lint·typecheck·test (web + db-test Docker incl. extensão T8.1)·build·check:rls
+  todos exit 0. db-test corre com Docker (Testcontainers) — confirmar Docker up antes de T8.1.

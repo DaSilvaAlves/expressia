@@ -1,0 +1,86 @@
+id: mj-handoff-sec7-architect-to-devops-20260603
+from_agent: architect
+to_agent: devops
+created: "2026-06-03T22:05:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-03T22:30:00Z"
+consumed_by: devops
+
+summary: >
+  Story SEC-7 (ADR-003 Fase 4 Fatia C — Household/conta) APROVADA pelo re-gate
+  adversarial @architect: PASS 9,6/10 confiança Alta → Done v1.3-ARCH-APPROVED.
+  Completa a 2.ª rede (RLS viva em runtime via withHousehold) para o domínio
+  Household/conta — fecha a Fase 4 do ADR-003 em TODOS os domínios (Finanças
+  SEC-3/4, Tarefas-API SEC-5, Visão/SSR SEC-6, Household SEC-7). Pronta para
+  `@devops *push SEC-7`. SEM migration (104 policies intactas). CodeRabbit SKIP
+  (padrão SEC-1→6).
+
+context:
+  story_path: docs/stories/active/SEC-7.rls-enforced-runtime-fase4-household-conta.story.md
+  story_id: SEC-7
+  story_status: Done v1.3-ARCH-APPROVED
+  branch: main
+  gate_file: docs/qa/gates/SEC-7-architect-gate.md
+
+  verdict: "PASS 9,6/10 — Confiança Alta. 8/8 focos de segurança MET; 12/12 ACs MET; D-SEC7.1/2/3 RATIFICADAS; zero vectores residuais na varredura adversarial independente."
+
+  security_focos_verified:
+    - "F1 withHousehold correcto: withSpan outermost, queries de domínio sobre tx, zero getDb() solto dentro de callback (6 ficheiros)."
+    - "F2 PO-FIX-1: household+preferencias usam auth RSC inline { userId: user.id, householdId } (getUser+resolveHouseholdId), NÃO requireAuth; 3 mistos usam requireAuth. Shape real confirmado."
+    - "F3 1.ª rede household_id/user_id PRESERVADA byte-a-byte — git diff prova só db.execute→tx.execute + indentação."
+    - "F4 insertAuditLog FORA da tx nos 3 mistos + R-2 smoke provado nos testes (household_invite_sent/revoked/member_removed)."
+    - "F5 aceitar-convite lógica INTOCADA (só JSDoc de excepção permanente SECURITY DEFINER)."
+    - "F6 zero getServiceDb real introduzido + zero migration (packages/db/migrations vazio; 104 policies)."
+    - "F7 gate db-test estendido NÃO-tautológico: dados de B via admin() lidos via asUser role authenticated — falharia se RLS falhasse. household_invites (household-scoped) + user_prefs (user-scoped, caso discriminante L502-512). 202/202 Postgres real."
+    - "F8 api/me PostgREST intocado (zero getDb real, só comentário)."
+
+  dev_decisions_ratified:
+    - "D-SEC7.1 RATIFICADA — withHousehold por bloco, decisão HTTP fora; household GET partilha 1 wrapper. Réplica fiel do padrão SEC-3. TOCTOU em members inofensiva (DELETE idempotente household-scoped + RLS)."
+    - "D-SEC7.2 RATIFICADA — preferencias GET lazy-init UPSERT+SELECT no mesmo withHousehold; parsing Zod fora."
+    - "D-SEC7.3 RATIFICADA — mock (_auth, fn) => fn({ execute: mockExecute }); preserva toHaveBeenCalledTimes; padrão SEC-2/4/5/6."
+
+  gates_rerun_by_architect:
+    check_rls: "exit 0 — RE-CORRIDO real (20 tabelas, incl. user_prefs/households/household_members/household_invites)"
+    db_test: "202/202 (37 ficheiros, Postgres Testcontainers, incl. extensão SEC-7) — RE-CORRIDO real (gate de segurança crítico)"
+    web_test_conta_bemvindo: "79/79 (8 ficheiros) — RE-CORRIDO real (superfície SEC-7)"
+    flaky_calendario: "5/5 isolado (1894ms) — RE-CORRIDO isolado, não-regressão (timeout sob carga, pré-existente, fora da superfície SEC-7)"
+    lint_typecheck_build: "exit 0 — FULL TURBO cache válido (source inalterado; padrão SEC-3/SEC-4)"
+
+  files_to_commit:
+    code:
+      - apps/web/src/app/api/conta/household/route.ts
+      - apps/web/src/app/api/conta/preferencias/route.ts
+      - apps/web/src/app/api/conta/household/invites/route.ts
+      - apps/web/src/app/api/conta/household/invites/[id]/route.ts
+      - apps/web/src/app/api/conta/household/members/[userId]/route.ts
+      - apps/web/src/app/bem-vindo/actions.ts
+      - apps/web/src/app/api/conta/household/aceitar-convite/route.ts
+    tests:
+      - apps/web/src/app/api/conta/household/__tests__/route.test.ts
+      - apps/web/src/app/api/conta/preferencias/__tests__/route.test.ts
+      - apps/web/src/app/api/conta/household/invites/__tests__/route.test.ts
+      - apps/web/src/app/api/conta/household/invites/[id]/__tests__/route.test.ts
+      - apps/web/src/app/api/conta/household/members/[userId]/__tests__/route.test.ts
+      - apps/web/src/app/bem-vindo/__tests__/actions.test.ts
+      - packages/db-test/src/tests/rls-application.test.ts
+    docs:
+      - docs/stories/active/SEC-7.rls-enforced-runtime-fase4-household-conta.story.md (mover para completed/ no push)
+      - docs/qa/gates/SEC-7-architect-gate.md
+      - docs/HANDOFF-INDEX.md (housekeeping)
+
+next_action: >
+  @devops *push SEC-7. NÃO correr db:migrate (zero migration — 104 policies intactas).
+  Re-correr gates rápidos (lint·typecheck·check:rls) antes do push; pesados (db-test
+  202/202, web, build) podem confiar no cache/relatório @architect (mesmo tree, minutos
+  antes). CodeRabbit SKIP (padrão SEC-1→6, sem coderabbit_integration). Push fast-forward
+  sem --force/--no-verify. Mover a story para completed/. Consumir este handoff (archive +
+  INDEX).
+
+notes: >
+  Billing CONGELADO (directiva Eurico 29/05/2026). Obs housekeeping NÃO-BLOQUEANTE: o
+  ADR-003 não existe como ficheiro físico no repo (docs/adr/ ausente) apesar de ser
+  referenciado por todas as stories SEC-1→7 — recomendado materializar em
+  docs/adr/ADR-003-rls-runtime-enforcement.md (§3 contrato withHousehold, §10 padrão
+  migração, §11 Fatias A-C + excepções). Não é trabalho desta story. A Fase 4 do ADR-003
+  está agora COMPLETA para todos os domínios. @architect NÃO faz push (autoridade @devops).

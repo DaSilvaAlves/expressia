@@ -1,0 +1,75 @@
+id: mj-handoff-sec7-dev-to-architect-20260603
+from_agent: dev
+to_agent: architect
+created: "2026-06-03T21:50:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-03T22:05:00Z"
+consumed_by: architect
+
+summary: >
+  Story SEC-7 IMPLEMENTADA por @dev (Dex) — Ready for Review v1.2-DEV. ADR-003 Fase 4
+  Fatia C (Household/conta): 6 ficheiros migrados getDb()→withHousehold (2.ª rede RLS
+  aditiva; 1.ª rede app-enforced SEC-1 INALTERADA). `aceitar-convite` intocado +
+  comentário de excepção permanente (AC7). Gate db-test estendido obrigatoriamente ao
+  domínio Household (+6 testes). 4 PO-FIX aplicados (PO-FIX-1 CRÍTICO confirmado
+  byte-a-byte). SEM migration (104 policies intactas). 6/6 gates GREEN. Aguarda re-gate
+  adversarial @architect (CodeRabbit disabled — padrão SEC-1→6).
+
+context:
+  story_path: docs/stories/active/SEC-7.rls-enforced-runtime-fase4-household-conta.story.md
+  story_id: SEC-7
+  story_status: Ready for Review v1.2-DEV
+  branch: main
+
+  po_fixes_applied:
+    - "PO-FIX-1 (CRÍTICO): confirmado por leitura byte-a-byte — household/route.ts e preferencias/route.ts NÃO usam requireAuth; usam createServerSupabaseClient()+getUser()+resolveHouseholdId(user.id) inline. Wrapper recebe { userId: user.id, householdId }, NÃO auth.*. Os 3 handlers mistos (invites, invites/[id], members) usam requireAuth → { userId: auth.userId, householdId: auth.householdId }."
+    - "PO-FIX-2: bem-vindo/actions.ts — só db.execute no callback withHousehold; redirect('/visao?welcome=1') FORA (após o await), evita rollback do NEXT_REDIRECT."
+    - "PO-FIX-3: gate db-test user-scoped insere prefs de userB e prova userA vê 0 rows; +1 caso household-scoped household_invites."
+    - "PO-FIX-4: mock dos 3 ficheiros migrados (household/preferencias/bem-vindo) expõe SÓ withHousehold; os 3 mistos mantêm getDb+withHousehold. Teste preferencias AC11 actualizado getDb→withHousehold."
+
+  dev_decisions:
+    - "D-SEC7.1: handlers com múltiplas queries+early-returns (household GET/PATCH, members DELETE) usam withHousehold por bloco de query; decisão de resposta (404/403/422) SEMPRE fora do callback (AC9). household GET partilha 1 withHousehold p/ household+members retornando { householdRows, memberRows }."
+    - "D-SEC7.2: preferencias GET — lazy-init UPSERT + SELECT no mesmo withHousehold (callback async); parsing/fallback Zod fora do callback."
+    - "D-SEC7.3: mock de teste withHousehold = (_auth, fn) => fn({ execute: mockExecute }) — preserva asserções toHaveBeenCalledTimes (padrão SEC-2/4/5/6)."
+
+  invariants_respected:
+    - "1.ª rede (filtro household_id SEC-1) MANTIDA em todas as queries — withHousehold aditivo."
+    - "getServiceDb()/service_role/jobs Inngest INTOCADOS."
+    - "insertAuditLog best-effort FORA do withHousehold em getDb() nos 3 handlers mistos (R-2 smoke audit confirmado nos testes)."
+    - "REQ-INLINE-1: getDb/withHousehold de @/lib/agent/db-shim, nunca @meu-jarvis/db directo."
+    - "SEM migration nova (104 policies intactas — NÃO corrido db:migrate)."
+    - "aceitar-convite/route.ts intocado (SECURITY DEFINER — AC7); api/me fora de âmbito (PostgREST)."
+
+  gates:
+    lint: "exit 0 — No ESLint warnings or errors"
+    typecheck: "exit 0 — 10/10 packages"
+    check_rls: "exit 0 — 16 tabelas (incl. household_members/household_invites/user_prefs)"
+    web_test: "1079/1080 — 1 flaky pré-existente (calendario/page.test.tsx timeout sob carga); passa isolado 1551ms → não-regressão (protocolo SEC-5/SEC-6)"
+    db_test: "202/202 (Docker UP, Testcontainers) — incl. extensão SEC-7 (6 testes: 3 household_invites + 3 user_prefs)"
+    build: "exit 0"
+
+  files_modified:
+    code:
+      - apps/web/src/app/api/conta/household/route.ts
+      - apps/web/src/app/api/conta/preferencias/route.ts
+      - apps/web/src/app/api/conta/household/invites/route.ts
+      - apps/web/src/app/api/conta/household/invites/[id]/route.ts
+      - apps/web/src/app/api/conta/household/members/[userId]/route.ts
+      - apps/web/src/app/bem-vindo/actions.ts
+      - apps/web/src/app/api/conta/household/aceitar-convite/route.ts (só comentário de excepção — lógica intocada)
+    tests:
+      - apps/web/src/app/api/conta/household/__tests__/route.test.ts
+      - apps/web/src/app/api/conta/preferencias/__tests__/route.test.ts
+      - apps/web/src/app/api/conta/household/invites/__tests__/route.test.ts
+      - apps/web/src/app/api/conta/household/invites/[id]/__tests__/route.test.ts
+      - apps/web/src/app/api/conta/household/members/[userId]/__tests__/route.test.ts
+      - apps/web/src/app/bem-vindo/__tests__/actions.test.ts
+      - packages/db-test/src/tests/rls-application.test.ts
+
+next_action: "@architect *qa-gate SEC-7 — re-gate adversarial. Confirmar: (1) PO-FIX-1 auth source correcta nos 2 RSC-inline; (2) 1.ª rede household_id preservada em todos os call-sites; (3) insertAuditLog fora da tx nos 3 mistos (R-2); (4) gate db-test cobre Household (household_invites + user_prefs); (5) aceitar-convite intocado. Ratificar D-SEC7.1/2/3."
+
+notes: >
+  Billing CONGELADO (directiva Eurico 29/05/2026). CodeRabbit SKIP (padrão SEC-1→6).
+  @dev NÃO faz git push nem qa-gate (autoridade @devops / @architect respectivamente).
+  Handoff po→dev consumido e movido para archive/.
