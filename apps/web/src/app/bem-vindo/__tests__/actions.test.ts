@@ -5,6 +5,9 @@
  * Cobre: UPSERT idempotente em user_prefs.onboarding_completed_at + redirect
  * /visao?welcome=1; redirect /entrar sem sessão; redirect /entrar sem household.
  * NÃO toca em subscriptions (trial preservado — verificado por ausência de query).
+ *
+ * SEC-7 (PO-FIX-2): a escrita de domínio migrou para `withHousehold`; o
+ * `redirect()` fica FORA do wrapper. O mock invoca o callback com o fake db.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -35,7 +38,10 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/lib/agent/db-shim', () => ({
-  getDb: () => ({ execute: mocks.executeMock }),
+  // SEC-7 — `actions.ts` migrou de `getDb()` para `withHousehold`; o mock invoca
+  // o callback com o fake db (`executeMock` partilhado mantém a contagem de calls).
+  withHousehold: (_auth: unknown, fn: (tx: { execute: typeof mocks.executeMock }) => unknown) =>
+    fn({ execute: mocks.executeMock }),
 }));
 
 const { completeOnboarding } = await import('@/app/bem-vindo/actions');

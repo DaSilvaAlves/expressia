@@ -24,8 +24,13 @@
  *   - Retorna os campos enviados (do body) + `updated_at = now()`.
  *   - Audit log entry (NFR16) — action `user_prefs.updated`.
  *
- * RLS: usa `getDb()` (role authenticated, RLS via JWT) — NUNCA `getServiceDb()`.
- * Trace: Story 2.7 AC4+AC5+D32; Story 5.7 AC1; NFR5/NFR13/NFR16.
+ * RLS (SEC-7 — ADR-003 Fase 4 Fatia C): a operação de domínio corre dentro de
+ * `withHousehold` (role authenticated + JWT claims — 2.ª rede). A auth vem
+ * inline via `getUser()` + `resolveHouseholdId(user.id)` (padrão RSC
+ * §10.2/§10.3) — `{ userId: user.id, householdId }`. `user_prefs` é user-scoped
+ * (`is_household_member AND auth.uid() = user_id`); a 2.ª rede é aditiva.
+ * NUNCA `getServiceDb()`.
+ * Trace: Story 2.7 AC4+AC5+D32; Story 5.7 AC1; NFR5/NFR13/NFR16; ADR-003 §11.3.
  */
 import { sql, type SQL } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -41,7 +46,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import {
   PreferencesPatchSchema,
   ThemeSchema,
@@ -121,24 +126,28 @@ export async function GET(): Promise<NextResponse> {
       annotateSpan(span, { householdId });
 
       try {
-        const db = getDb();
+        // SEC-7 — lazy-init + leitura dentro de `withHousehold` (2.ª rede RLS).
+        const rows = await withHousehold(
+          { userId: user.id, householdId },
+          async (tx) => {
+            // Lazy-init UPSERT — idempotente (D32).
+            await tx.execute(sql`
+              insert into public.user_prefs (user_id, household_id, always_preview)
+              values (${user.id}::uuid, ${householdId}::uuid, false)
+              on conflict (user_id) do nothing
+            `);
 
-        // Lazy-init UPSERT — idempotente (D32).
-        await db.execute(sql`
-          insert into public.user_prefs (user_id, household_id, always_preview)
-          values (${user.id}::uuid, ${householdId}::uuid, false)
-          on conflict (user_id) do nothing
-        `);
-
-        const rows = await db.execute<{
-          always_preview: boolean;
-          widgets_enabled: unknown;
-          theme: unknown;
-        }>(sql`
-          select always_preview, widgets_enabled, theme from public.user_prefs
-          where user_id = ${user.id}::uuid
-          limit 1
-        `);
+            return tx.execute<{
+              always_preview: boolean;
+              widgets_enabled: unknown;
+              theme: unknown;
+            }>(sql`
+              select always_preview, widgets_enabled, theme from public.user_prefs
+              where user_id = ${user.id}::uuid
+              limit 1
+            `);
+          },
+        );
 
         const alwaysPreview = rows[0]?.always_preview ?? false;
         // Valida o JSONB lido — tolera shape drift / row recém-criada;
@@ -258,8 +267,6 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       }
 
       try {
-        const db = getDb();
-
         // UPSERT parcial de 1 statement — só os campos presentes entram no
         // INSERT e no DO UPDATE SET = excluded.* (os ausentes mantêm o valor
         // actual / default da coluna). Nomes de coluna vêm de whitelist do
@@ -284,12 +291,15 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
         }
         updateSets.push(sql`updated_at = now()`);
 
-        await db.execute(sql`
-          insert into public.user_prefs (${sql.raw(insertCols.join(', '))})
-          values (${sql.join(insertVals, sql`, `)})
-          on conflict (user_id) do update
-            set ${sql.join(updateSets, sql`, `)}
-        `);
+        // SEC-7 — UPSERT dentro de `withHousehold` (2.ª rede RLS).
+        await withHousehold({ userId: user.id, householdId }, (tx) =>
+          tx.execute(sql`
+            insert into public.user_prefs (${sql.raw(insertCols.join(', '))})
+            values (${sql.join(insertVals, sql`, `)})
+            on conflict (user_id) do update
+              set ${sql.join(updateSets, sql`, `)}
+          `),
+        );
 
         // Audit log: [DEV-FIX-INLINE D36] enum `audit_action` actual não tem
         // `user_prefs.updated`. Adicionar enum value requer migration nova

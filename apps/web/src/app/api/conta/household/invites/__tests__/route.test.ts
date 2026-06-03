@@ -7,12 +7,22 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
  * Mocks: helpers de auth (requireAuth/resolveHouseholdRole), db-shim, audit,
  * observability. Não toca DB real (unit). Cobre autorização owner/admin (403),
  * criação com link (201), unique (409), validação (400) e listagem (200).
+ *
+ * SEC-7 (handler misto): a operação de domínio migrou para `withHousehold`; o
+ * `insertAuditLog` permanece FORA do wrapper em `getDb()` (best-effort). O mock
+ * expõe ambos. R-2 smoke: o teste 201 confirma que `insertAuditLog` é chamado
+ * após a operação de domínio (AC10).
  */
 
 const mockExecute = vi.fn();
 
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: vi.fn(() => ({ execute: mockExecute })),
+  // SEC-7 — INSERT/SELECT de domínio dentro de `withHousehold`; o mock invoca
+  // o callback com o mesmo fake db (`mockExecute` partilhado).
+  withHousehold: vi.fn((_auth: unknown, fn: (tx: { execute: typeof mockExecute }) => unknown) =>
+    fn({ execute: mockExecute }),
+  ),
 }));
 
 vi.mock('@/lib/api-helpers/auth', () => ({
@@ -33,6 +43,7 @@ vi.mock('@meu-jarvis/observability', () => ({
 }));
 
 import { requireAuth, resolveHouseholdRole } from '@/lib/api-helpers/auth';
+import { insertAuditLog } from '@/lib/api-helpers/audit';
 
 const AUTH = { userId: 'user-1', householdId: 'hh-1' };
 
@@ -89,6 +100,10 @@ describe('/api/conta/household/invites', () => {
       const json = await res.json();
       expect(json.invite.email).toBe('novo@b.pt');
       expect(json.acceptPath).toMatch(/^\/aceitar-convite\/[a-f0-9]{64}$/);
+      // R-2 smoke (SEC-7 AC10): audit log gravado após a operação de domínio.
+      expect(insertAuditLog as Mock).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'household_invite_sent', entityId: 'inv-1' }),
+      );
     });
 
     it('409 quando há convite pendente duplicado (unique)', async () => {

@@ -14,18 +14,23 @@
  * fornece `household_id` (NOT NULL) resolvido do membership — mesmo padrão de
  * `/api/conta/preferencias` (D32).
  *
- * RLS (NFR5): escrita via `getDb()` (role authenticated, RLS por JWT) — NUNCA
- * `getServiceDb()`. REQ-INLINE-1: `sql` vem de `drizzle-orm` (não de
- * `@meu-jarvis/db`); o cliente vem do shim `@/lib/agent/db-shim`.
+ * RLS (NFR5; SEC-7 — ADR-003 Fase 4 Fatia C): a escrita de domínio corre dentro
+ * de `withHousehold` (role authenticated + JWT claims — 2.ª rede). A auth vem
+ * inline via `getUser()` + `resolveHouseholdId(user.id)` — `{ userId: user.id,
+ * householdId }`. O `redirect()` lança `NEXT_REDIRECT` e fica FORA do callback
+ * `withHousehold` (PO-FIX-2 — envolvê-lo na tx faria rollback da escrita de
+ * `onboarding_completed_at`). NUNCA `getServiceDb()`. REQ-INLINE-1: `sql` vem de
+ * `drizzle-orm`; o cliente vem do shim `@/lib/agent/db-shim`.
  *
- * Trace: Story 6.2 AC6/AC7; FR30/FR31; precedente `/api/conta/preferencias` D32.
+ * Trace: Story 6.2 AC6/AC7; FR30/FR31; precedente `/api/conta/preferencias` D32;
+ * ADR-003 §11.3.
  */
 import { sql } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 
 /**
  * Resolve o `household_id` activo do user (primeiro household do membership).
@@ -62,13 +67,16 @@ export async function completeOnboarding(): Promise<void> {
   // trigger 0019 cria-o atomicamente). Devolve ao fluxo de auth sem crashar.
   if (!householdId) redirect('/entrar');
 
-  const db = getDb();
-  await db.execute(sql`
-    insert into public.user_prefs (user_id, household_id, onboarding_completed_at)
-    values (${user.id}::uuid, ${householdId}::uuid, now())
-    on conflict (user_id) do update set onboarding_completed_at = now()
-  `);
+  // SEC-7 — escrita de domínio dentro de `withHousehold` (2.ª rede RLS).
+  await withHousehold({ userId: user.id, householdId }, (tx) =>
+    tx.execute(sql`
+      insert into public.user_prefs (user_id, household_id, onboarding_completed_at)
+      values (${user.id}::uuid, ${householdId}::uuid, now())
+      on conflict (user_id) do update set onboarding_completed_at = now()
+    `),
+  );
 
-  // redirect() lança internamente (NEXT_REDIRECT) — deve ficar fora de try/catch.
+  // redirect() lança internamente (NEXT_REDIRECT) — deve ficar FORA do
+  // `withHousehold` (PO-FIX-2) e fora de try/catch (a tx já fez commit acima).
   redirect('/visao?welcome=1');
 }

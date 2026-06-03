@@ -4,11 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 /**
  * Testes de `/api/conta/household` (GET + PATCH) — Story 6.x.
  *
- * Mock de Supabase auth (resolveHouseholdId via PostgREST) + `getDb` (db-shim).
- * Não toca DB real (unit). Cobre auth, papel insuficiente (403), validação e
- * caminhos felizes.
+ * Mock de Supabase auth (resolveHouseholdId via PostgREST) + `withHousehold`
+ * (db-shim — SEC-7). Não toca DB real (unit). Cobre auth, papel insuficiente
+ * (403), validação e caminhos felizes. O mock de `withHousehold` invoca o
+ * callback com o fake db (`fn({ execute: mockExecute })`) — as asserções de
+ * número de calls a `mockExecute` mantêm-se válidas após a migração SEC-7.
  *
- * Trace: Story 6.x AC1-AC4; NFR5.
+ * Trace: Story 6.x AC1-AC4; NFR5; SEC-7 AC1/AC10.
  */
 
 const mockGetUser = vi.fn();
@@ -23,7 +25,12 @@ vi.mock('@meu-jarvis/auth/server', () => ({
 }));
 
 vi.mock('@/lib/agent/db-shim', () => ({
-  getDb: vi.fn(() => ({ execute: mockExecute })),
+  // SEC-7 — `household/route.ts` migrou de `getDb()` para `withHousehold`.
+  // O mock invoca o callback com o fake db; o `mockExecute` partilhado mantém
+  // a contagem/ordem de calls que as asserções esperam.
+  withHousehold: vi.fn((_auth: unknown, fn: (tx: { execute: typeof mockExecute }) => unknown) =>
+    fn({ execute: mockExecute }),
+  ),
 }));
 
 vi.mock('@meu-jarvis/observability', () => ({

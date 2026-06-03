@@ -36,8 +36,11 @@ vi.mock('@meu-jarvis/auth/server', () => ({
 }));
 
 vi.mock('@/lib/agent/db-shim', () => ({
-  getDb: () => ({ execute: mocks.dbExecuteMock }),
-  getServiceDb: () => ({ execute: mocks.dbExecuteMock }),
+  // SEC-7 — `preferencias/route.ts` migrou de `getDb()` para `withHousehold`.
+  // O mock invoca o callback com o fake db; o `dbExecuteMock` partilhado mantém
+  // a contagem de calls (lazy-init UPSERT + SELECT / UPSERT parcial) intacta.
+  withHousehold: (_auth: unknown, fn: (tx: { execute: typeof mocks.dbExecuteMock }) => unknown) =>
+    fn({ execute: mocks.dbExecuteMock }),
 }));
 
 import { GET, PATCH } from '@/app/api/conta/preferencias/route';
@@ -231,15 +234,16 @@ describe('PATCH /api/conta/preferencias', () => {
     expect(r2.status).toBe(200);
   });
 
-  it('AC11 — RLS isolation by design: usa getDb() (RLS via JWT), não getServiceDb()', async () => {
-    // Verifica que o handler usa o cliente RLS-aware. Test indirecto: o mock
-    // do db-shim devolve a mesma instância (o que importa é nunca importar
-    // explicitamente getServiceDb). Verifica via mock module spy.
+  it('AC11 / SEC-7 — RLS isolation by design: usa withHousehold (2.ª rede, role authenticated), não getServiceDb()', async () => {
+    // SEC-7: o handler migrou para `withHousehold`, que abre uma transação com
+    // `SET LOCAL ROLE authenticated` + JWT claims (2.ª rede RLS). Test indirecto:
+    // o mock do db-shim só expõe `withHousehold` (não há `getServiceDb`). O facto
+    // de o execute ser chamado prova que o callback de domínio correu dentro do
+    // wrapper RLS-aware.
     await PATCH(makePatch({ always_preview: true }) as never);
     expect(mocks.dbExecuteMock).toHaveBeenCalled();
     // RLS via JWT é garantido pelo Supabase Auth Hook (migration 0002) +
-    // role authenticated do cliente postgres-js (packages/db/src/client.ts:
-    // getDb usa role authenticated).
+    // role authenticated do `withHousehold` (packages/db/src/client.ts).
   });
 });
 

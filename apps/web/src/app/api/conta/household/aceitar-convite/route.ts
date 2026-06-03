@@ -18,7 +18,13 @@
  * rota dinâmica `/invites/[id]` (DEV-DECISION D-6.7.5: aceitação via endpoint +
  * página client, consistente e testável, em vez de Server Action).
  *
- * Trace: Story 6.7 AC6; FR27; ACHADO-1 (fix via migration 0022).
+ * EXCEPÇÃO PERMANENTE SEC-7: `accept_invite()` é SECURITY DEFINER (migration
+ * 0022) e opera sobre um household de que o utilizador ainda NÃO é membro no
+ * momento da chamada. `withHousehold` scoparia o household errado e seria inútil
+ * (DEFINER ignora a RLS do caller). Por isso este ficheiro mantém `getDb()` e
+ * NÃO migra para `withHousehold` (ADR-003 §11.3; SEC-7 AC7). Não migrar.
+ *
+ * Trace: Story 6.7 AC6; FR27; ACHADO-1 (fix via migration 0022); SEC-7 AC7.
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';

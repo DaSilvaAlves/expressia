@@ -5,8 +5,11 @@
  * limpo na app; a RLS `household_invites_delete_owner_admin` reforça). 404 se o
  * convite não existir ou não pertencer ao household (a RLS filtra por household).
  *
- * RLS: `getDb()` (role authenticated). Nunca `getServiceDb()`.
- * Trace: Story 6.7 AC4; 0001:143-148 (RLS delete owner/admin); FR27.
+ * RLS (SEC-7 — ADR-003 Fase 4 Fatia C): o DELETE de domínio corre dentro de
+ * `withHousehold` (role authenticated + JWT claims — 2.ª rede). O
+ * `insertAuditLog` permanece best-effort FORA do `withHousehold` em `getDb()`
+ * (handler misto — import expõe ambos). Nunca `getServiceDb()`.
+ * Trace: Story 6.7 AC4; 0001:143-148 (RLS delete owner/admin); FR27; ADR-003 §11.3.
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -19,7 +22,7 @@ import {
   withSpan,
 } from '@meu-jarvis/observability';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
 import { requireAuth, resolveHouseholdRole } from '@/lib/api-helpers/auth';
 import { apiError } from '@/lib/errors';
@@ -54,13 +57,19 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
       }
 
       try {
+        // `getDb()` mantém-se para o `insertAuditLog` best-effort (fora da tx).
         const db = getDb();
-        const rows = await db.execute<{ id: string; email: string }>(sql`
-          delete from public.household_invites
-          where id = ${id}::uuid
-            and household_id = ${auth.householdId}::uuid
-          returning id, email
-        `);
+        // SEC-7 — DELETE de domínio dentro de `withHousehold` (2.ª rede RLS).
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<{ id: string; email: string }>(sql`
+              delete from public.household_invites
+              where id = ${id}::uuid
+                and household_id = ${auth.householdId}::uuid
+              returning id, email
+            `),
+        );
 
         const deleted = rows[0];
         if (!deleted) {

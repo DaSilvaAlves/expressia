@@ -7,10 +7,13 @@
  * removível"). Remove apenas o membership; os dados do household (tarefas,
  * finanças) ficam (o `household_id` não muda).
  *
- * RLS: `getDb()` (role authenticated). A policy `household_members_delete_*`
- * permite owner/admin (ou auto-saída); a regra de negócio "nunca o owner" é
- * aplicada na app. Nunca `getServiceDb()`.
- * Trace: Story 6.7 AC5; 0001:94-110 (RLS household_members); FR27.
+ * RLS (SEC-7 — ADR-003 Fase 4 Fatia C): as queries de domínio (papel do alvo +
+ * DELETE) correm dentro de `withHousehold` (role authenticated + JWT claims —
+ * 2.ª rede). A policy `household_members_delete_*` permite owner/admin (ou
+ * auto-saída); a regra de negócio "nunca o owner" é aplicada na app (decisão
+ * de resposta FORA do callback — AC9). O `insertAuditLog` permanece best-effort
+ * FORA do `withHousehold` em `getDb()` (handler misto). Nunca `getServiceDb()`.
+ * Trace: Story 6.7 AC5; 0001:94-110 (RLS household_members); FR27; ADR-003 §11.3.
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -23,7 +26,7 @@ import {
   withSpan,
 } from '@meu-jarvis/observability';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
 import { requireAuth, resolveHouseholdRole } from '@/lib/api-helpers/auth';
 import { apiError } from '@/lib/errors';
@@ -58,15 +61,21 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
       }
 
       try {
+        // `getDb()` mantém-se para o `insertAuditLog` best-effort (fora da tx).
         const db = getDb();
 
-        // Papel do membro-alvo (404 se não pertence ao household).
-        const targetRows = await db.execute<{ role: string }>(sql`
-          select role from public.household_members
-          where household_id = ${auth.householdId}::uuid
-            and user_id = ${targetUserId}::uuid
-          limit 1
-        `);
+        // SEC-7 — papel do membro-alvo dentro de `withHousehold` (2.ª rede RLS).
+        // Decisão de resposta (404/422) FORA do callback (AC9).
+        const targetRows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<{ role: string }>(sql`
+              select role from public.household_members
+              where household_id = ${auth.householdId}::uuid
+                and user_id = ${targetUserId}::uuid
+              limit 1
+            `),
+        );
 
         const targetRole = targetRows[0]?.role;
         if (!targetRole) {
@@ -84,12 +93,17 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
           );
         }
 
-        const deleted = await db.execute<{ user_id: string }>(sql`
-          delete from public.household_members
-          where household_id = ${auth.householdId}::uuid
-            and user_id = ${targetUserId}::uuid
-          returning user_id
-        `);
+        // SEC-7 — DELETE de domínio dentro de `withHousehold` (2.ª rede RLS).
+        const deleted = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<{ user_id: string }>(sql`
+              delete from public.household_members
+              where household_id = ${auth.householdId}::uuid
+                and user_id = ${targetUserId}::uuid
+              returning user_id
+            `),
+        );
 
         if (deleted.length === 0) {
           annotateSpan(span, { statusCode: 404 });

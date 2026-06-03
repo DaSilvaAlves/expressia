@@ -10,8 +10,12 @@
  * GET: lista os convites PENDENTES do household (`accepted_at is null and
  *   expires_at > now()`). O `token` NUNCA é exposto na listagem.
  *
- * RLS: `getDb()` (role authenticated, RLS via JWT). Nunca `getServiceDb()`.
- * Trace: Story 6.7 AC2/AC3; 0001:117-133 (RLS select/insert); FR27.
+ * RLS (SEC-7 — ADR-003 Fase 4 Fatia C): as operações de domínio correm dentro
+ * de `withHousehold` (role authenticated + JWT claims — 2.ª rede). O
+ * `insertAuditLog` permanece best-effort FORA do `withHousehold` em `getDb()`
+ * (padrão SEC-3/SEC-5 — deve gravar mesmo que a tx de domínio reverta). Handler
+ * misto: o import expõe `getDb` E `withHousehold`. Nunca `getServiceDb()`.
+ * Trace: Story 6.7 AC2/AC3; 0001:117-133 (RLS select/insert); FR27; ADR-003 §11.3.
  */
 import { randomBytes } from 'node:crypto';
 
@@ -27,7 +31,7 @@ import {
   withSpan,
 } from '@meu-jarvis/observability';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import {
   InviteCreateSchema,
   type HouseholdInviteDTO,
@@ -88,15 +92,19 @@ export async function GET(): Promise<NextResponse> {
       if (auth instanceof NextResponse) return auth;
 
       try {
-        const db = getDb();
-        const rows = await db.execute<InviteRow>(sql`
-          select id, email, role, expires_at, created_at
-          from public.household_invites
-          where household_id = ${auth.householdId}::uuid
-            and accepted_at is null
-            and expires_at > now()
-          order by created_at desc
-        `);
+        // SEC-7 — listagem de domínio dentro de `withHousehold` (2.ª rede RLS).
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<InviteRow>(sql`
+              select id, email, role, expires_at, created_at
+              from public.household_invites
+              where household_id = ${auth.householdId}::uuid
+                and accepted_at is null
+                and expires_at > now()
+              order by created_at desc
+            `),
+        );
 
         annotateSpan(span, { statusCode: 200 });
         const body: InvitesListResponse = { invites: rows.map(toDTO) };
@@ -157,21 +165,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const token = randomBytes(32).toString('hex');
 
       try {
+        // `getDb()` mantém-se para o `insertAuditLog` best-effort (fora da tx).
         const db = getDb();
-        const rows = await db.execute<InviteRow>(sql`
-          insert into public.household_invites (
-            household_id, invited_by_user_id, email, role, token, expires_at
-          )
-          values (
-            ${auth.householdId}::uuid,
-            ${auth.userId}::uuid,
-            ${body.email},
-            ${body.role}::household_role,
-            ${token},
-            now() + interval '7 days'
-          )
-          returning id, email, role, expires_at, created_at
-        `);
+        // SEC-7 — INSERT de domínio dentro de `withHousehold` (2.ª rede RLS).
+        const rows = await withHousehold(
+          { userId: auth.userId, householdId: auth.householdId },
+          (tx) =>
+            tx.execute<InviteRow>(sql`
+              insert into public.household_invites (
+                household_id, invited_by_user_id, email, role, token, expires_at
+              )
+              values (
+                ${auth.householdId}::uuid,
+                ${auth.userId}::uuid,
+                ${body.email},
+                ${body.role}::household_role,
+                ${token},
+                now() + interval '7 days'
+              )
+              returning id, email, role, expires_at, created_at
+            `),
+        );
 
         const created = rows[0];
         if (!created) {

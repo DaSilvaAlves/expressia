@@ -20,8 +20,14 @@
  *   - Retorna `{ household: { id, name, plan } }` actualizado.
  *   - Audit (NFR16) via logger estruturado (action `household.updated`).
  *
- * RLS: usa `getDb()` (role authenticated, RLS via JWT) — NUNCA `getServiceDb()`.
- * Trace: Story 6.x AC1-AC4; db-schema §2; NFR5/NFR13/NFR16.
+ * RLS (SEC-7 — ADR-003 Fase 4 Fatia C): a operação de domínio corre dentro de
+ * `withHousehold`, que abre uma transação com `SET LOCAL ROLE authenticated`
+ * + JWT claims — activa as 104 RLS policies (2.ª rede). A auth vem inline via
+ * `getUser()` + `resolveHouseholdId(user.id)` (padrão RSC §10.2/§10.3) — o
+ * objecto passado ao wrapper é `{ userId: user.id, householdId }`. O filtro
+ * `household_id` explícito (SEC-1, 1.ª rede) MANTÉM-SE — defense-in-depth.
+ * NUNCA `getServiceDb()`.
+ * Trace: Story 6.x AC1-AC4; db-schema §2; NFR5/NFR13/NFR16; ADR-003 §11.3.
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -36,7 +42,7 @@ import {
   withSpan,
 } from '@meu-jarvis/observability';
 
-import { getDb } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import { HouseholdPatchSchema } from '@/lib/api-schemas/households';
 import type {
   HouseholdMemberDTO,
@@ -122,18 +128,42 @@ export async function GET(): Promise<NextResponse> {
       annotateSpan(span, { householdId });
 
       try {
-        const db = getDb();
+        // SEC-7 — leituras de domínio dentro de `withHousehold` (2.ª rede RLS).
+        const { householdRows, memberRows } = await withHousehold(
+          { userId: user.id, householdId },
+          async (tx) => {
+            // Household (RLS households_select via is_household_member).
+            const householdRows = await tx.execute<{
+              id: string;
+              name: string;
+              plan: string;
+            }>(sql`
+              select id, name, plan from public.households
+              where id = ${householdId}::uuid
+              limit 1
+            `);
 
-        // Household (RLS households_select via is_household_member).
-        const householdRows = await db.execute<{
-          id: string;
-          name: string;
-          plan: string;
-        }>(sql`
-          select id, name, plan from public.households
-          where id = ${householdId}::uuid
-          limit 1
-        `);
+            // Membros — lê APENAS `household_members` (RLS
+            // household_members_select permite ver os memberships do household).
+            // `auth.users` está no schema `auth` e não é acessível via role
+            // `authenticated` por SQL directo, por isso o nome vem de
+            // `display_name`; o email só é exposto para o próprio utilizador
+            // (obtido da sessão). Trace: db-schema §2 (auth.users isolado);
+            // tenancy.ts (household_members.display_name/joined_at).
+            const memberRows = await tx.execute<{
+              user_id: string;
+              role: string;
+              display_name: string | null;
+              joined_at: string | Date;
+            }>(sql`
+              select user_id, role, display_name, joined_at
+              from public.household_members
+              where household_id = ${householdId}::uuid
+            `);
+
+            return { householdRows, memberRows };
+          },
+        );
 
         const household = householdRows[0];
         if (!household) {
@@ -144,24 +174,6 @@ export async function GET(): Promise<NextResponse> {
             404,
           );
         }
-
-        // Membros — lê APENAS `household_members` (RLS
-        // household_members_select permite ver os memberships do household).
-        // `auth.users` está no schema `auth` e não é acessível via role
-        // `authenticated` por SQL directo (getDb), por isso o nome vem de
-        // `display_name`; o email só é exposto para o próprio utilizador
-        // (obtido da sessão). Trace: db-schema §2 (auth.users isolado);
-        // tenancy.ts (household_members.display_name/joined_at).
-        const memberRows = await db.execute<{
-          user_id: string;
-          role: string;
-          display_name: string | null;
-          joined_at: string | Date;
-        }>(sql`
-          select user_id, role, display_name, joined_at
-          from public.household_members
-          where household_id = ${householdId}::uuid
-        `);
 
         const members: HouseholdMemberDTO[] = memberRows
           .map((row) => ({
@@ -290,17 +302,20 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       }
 
       try {
-        const db = getDb();
-
-        // Autorização de negócio: confirmar papel do user no household.
-        // A RLS permite o UPDATE a qualquer membro; restringimos a owner/admin
-        // ao nível da aplicação (db-schema §2).
-        const roleRows = await db.execute<{ role: string }>(sql`
-          select role from public.household_members
-          where household_id = ${householdId}::uuid
-            and user_id = ${user.id}::uuid
-          limit 1
-        `);
+        // SEC-7 — confirmação de papel dentro de `withHousehold` (2.ª rede RLS).
+        // Autorização de negócio: a RLS permite o UPDATE a qualquer membro;
+        // restringimos a owner/admin ao nível da aplicação (db-schema §2). A
+        // decisão de resposta (403) fica FORA do callback (AC9).
+        const roleRows = await withHousehold(
+          { userId: user.id, householdId },
+          (tx) =>
+            tx.execute<{ role: string }>(sql`
+              select role from public.household_members
+              where household_id = ${householdId}::uuid
+                and user_id = ${user.id}::uuid
+              limit 1
+            `),
+        );
 
         const myRole = roleRows[0]?.role as HouseholdRole | undefined;
         if (!myRole || !ROLES_CAN_EDIT.includes(myRole)) {
@@ -316,16 +331,20 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
           );
         }
 
-        const updatedRows = await db.execute<{
-          id: string;
-          name: string;
-          plan: string;
-        }>(sql`
-          update public.households
-          set name = ${body.name}, updated_at = now()
-          where id = ${householdId}::uuid
-          returning id, name, plan
-        `);
+        const updatedRows = await withHousehold(
+          { userId: user.id, householdId },
+          (tx) =>
+            tx.execute<{
+              id: string;
+              name: string;
+              plan: string;
+            }>(sql`
+              update public.households
+              set name = ${body.name}, updated_at = now()
+              where id = ${householdId}::uuid
+              returning id, name, plan
+            `),
+        );
 
         const updated = updatedRows[0];
         if (!updated) {
