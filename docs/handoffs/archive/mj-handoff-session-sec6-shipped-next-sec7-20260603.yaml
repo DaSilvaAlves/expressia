@@ -2,8 +2,15 @@ id: mj-handoff-session-sec6-shipped-next-sec7-20260603
 from_agent: devops
 to_agent: any
 created: '2026-06-03T20:25:00Z'
-status: pending
-consumed: false
+status: superseded
+consumed: true
+consumed_at: '2026-06-03T22:45:00Z'
+consumed_by: aiox-master
+superseded_by: mj-handoff-session-sec7-shipped-20260603
+superseded_note: >
+  next_action #2 (SEC-7 Fatia C) CUMPRIDO nesta sessão — ciclo SDC completo
+  (data-engineer Fase 0 → sm → po → dev → architect PASS 9,6/10 → devops push 80f97b9).
+  Fase 4 do ADR-003 agora COMPLETA em todos os domínios. Sucessor: mj-handoff-session-sec7-shipped-20260603.
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
