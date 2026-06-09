@@ -2,7 +2,15 @@ id: mj-handoff-session-sec7-shipped-20260603
 from_agent: devops
 to_agent: any
 created: "2026-06-03T22:35:00Z"
-status: pending
+status: superseded
+consumed: true
+consumed_at: "2026-06-09T20:35:00Z"
+consumed_by: devops
+superseded_by: mj-handoff-session-keys-rotated-next-roadmap-20260609
+superseded_note: >
+  next_action #1 (rotação das 4 chaves expostas) CUMPRIDO nesta sessão (09/06) — ver
+  progress_update abaixo. Resíduos remanescentes (SEC-8 HOLD, billing CONGELADO) transitam
+  para o sucessor mj-handoff-session-keys-rotated-next-roadmap-20260609.
 
 progress_update:
   - "[2026-06-09 — devops/Gage] RESÍDUO DE SEGURANÇA FECHADO: as 4 chaves expostas (next_action #1) foram ROTACIONADAS pelo Eurico, guiado passo-a-passo: (1) xAI 'squad' xai-…QRE9 APAGADA; (2) Google Cloud 2× Gemini API Key APAGADAS; (3) Cloudflare token 'Workers AI' (cfat_) APAGADO — n8n-content-pipeline mantido (não vazou); (4) Replicate 'videoaipt' r8_AIX… DESACTIVADO (prefixo bateu byte-a-byte com o nome do ficheiro vazado; pratovivo/Default mantidos). Os ficheiros nunca entraram no git history; chaves antigas agora inválidas nos painéis. Resta apenas SEC-8 (HOLD) e billing CONGELADO."

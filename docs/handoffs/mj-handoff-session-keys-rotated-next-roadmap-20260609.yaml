@@ -1,0 +1,93 @@
+id: mj-handoff-session-keys-rotated-next-roadmap-20260609
+from_agent: devops
+to_agent: any
+created: "2026-06-09T20:35:00Z"
+status: pending
+
+supersedes: mj-handoff-session-sec7-shipped-20260603
+supersedes_note: >
+  Esta sessão (@devops Gage + Eurico) fechou o ÚLTIMO resíduo accionável do handoff
+  SEC-7 — a rotação das 4 chaves API expostas (next_action #1, pendente desde SEC-6).
+  Os resíduos remanescentes (SEC-8 HOLD, billing CONGELADO) transitam intactos para
+  este sucessor.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: session-end
+
+summary: >
+  SESSION END — RESÍDUO DE SEGURANÇA FECHADO; nada a meio, nada bloqueado.
+  As 4 chaves API expostas (xAI/Google/Cloudflare/Replicate, pendentes desde SEC-6)
+  foram ROTACIONADAS pelo Eurico, guiado passo-a-passo nos painéis. Housekeeping
+  doc-only commitado e pushed (origin/main = 60e4b69, fast-forward). Com isto, a
+  cadeia ADR-003 (Fase 4 RLS-enforced runtime) está COMPLETA em todos os domínios E
+  sem dívidas de segurança em aberto. Próximo passo é uma DECISÃO de roadmap do Eurico
+  (SEC-8 exige design do @architect antes de draftar; ou retomar core/outra prioridade).
+
+context: |
+  ESTADO GIT: origin/main = 60e4b69 (fast-forward de 80f97b9). Working tree LIMPO,
+  0 ahead / 0 behind. Zero untracked.
+
+  O QUE ESTA SESSÃO FEZ (rotação de chaves — owner Eurico, guiado por @devops):
+    - xAI: chave 'squad' (xai-…QRE9) → APAGADA (Delete key no console.x.ai). Não recriada.
+    - Google Cloud: 2× 'Gemini API Key' → APAGADAS (Credentials, projecto agente-de-organizacao).
+      Os OAuth 2.0 client IDs (Cliente Web 2/3) NÃO foram tocados (não são API keys, não vazaram).
+    - Cloudflare: token de conta 'Workers AI' (cfat_) → APAGADO. O token 'n8n-content-pipeline'
+      foi MANTIDO (nome próprio de automação activa, só leitura de TLS certs, não pertence ao
+      padrão do dump de chaves AI). Global API Key NÃO tocada.
+    - Replicate: token 'videoaipt' (r8_AIX…) → DESACTIVADO. PROVA forte: o prefixo r8_AIX bateu
+      byte-a-byte com o nome do ficheiro vazado (r8_AIXN84pWN2qQ8sMuugdTOsW3zhI8lDe3.txt).
+      Tokens 'pratovivo' (r8_b4I…) e 'Default' (r8_ETi…) mantidos (prefixos diferentes).
+
+  NOTAS DE SEGURANÇA:
+    - Os 2 ficheiros que continham as chaves foram eliminados do disco na sessão SEC-6 e
+      NUNCA entraram no git history como ficheiros de credenciais (confirmado por grep).
+    - O nome do ficheiro Replicate (que é o próprio token r8_AIX…) ficou em texto dentro dos
+      handoffs YAML commitados em docs/handoffs/archive/. Agora INERTE (token desactivado).
+      Não se fez rewrite de git history (overkill — o token já está morto).
+    - LIÇÃO REFORÇADA: nunca pedir/aceitar chaves coladas no chat nem screenshots de .env aberto.
+    - LIÇÃO @devops: não silenciar stderr do `git add` (2>/dev/null) — escondeu um pathspec
+      inválido e o 1.º commit (f213ab7) saiu incompleto; corrigido com --amend ANTES do push,
+      logo o history remoto está limpo.
+
+  ESTAS 4 CHAVES NÃO SÃO USADAS PELO EXPRESSIA (que corre com Anthropic + OpenAI + Supabase).
+  Eram chaves pessoais do Eurico noutros projectos — por isso não há .env.local deste repo
+  para actualizar.
+
+next_action: |
+  Nada bloqueado, nada a meio. Próximo passo é ESCOLHA do Eurico:
+
+  1) (DECISÃO — roadmap ADR-003) SEC-8 = Fatia D (Cérebro AI) continua em HOLD.
+     NÃO draftar directamente: exige Adenda §12 de design do @architect primeiro
+     (mecânica de withHousehold dentro das transacções multi-tool atómicas do executor).
+     Arranque se escolhido: @architect kickoff/design da Adenda §12 ANTES de @sm *draft.
+
+  2) (ALTERNATIVA) Retomar o core/make-it-work ou outra prioridade que o Eurico definir.
+     A cadeia de segurança ADR-003 está fechada — o foco volta a ser produto.
+
+  3) Billing CONTINUA CONGELADO (directiva Eurico 29/05/2026 —
+     mj-handoff-refocus-core-freeze-billing-20260529, ainda pending por desenho).
+     NÃO escrever código de billing/Stripe/faturas sem nova ordem.
+
+  Follow-ups antigos não-bloqueantes ainda abertos: FU-LOGIN-NEXT, SITE-URL-PROD,
+  cleanup test users, multi-household; GAP-2 (RESEND + confirm email) e GAP-4 (INNGEST
+  chaves prod) — todos owner Eurico/máquina.
+
+decisions:
+  - 'Rotação das 4 chaves expostas CONCLUÍDA (xApagada/Gemini×2 apagadas/Cloudflare WorkersAI apagado/Replicate videoaipt desactivado).'
+  - 'n8n-content-pipeline (Cloudflare) e pratovivo/Default (Replicate) mantidos — não vazaram.'
+  - 'Sem rewrite de git history — token Replicate no nome de ficheiro já está inerte (desactivado).'
+  - 'SEC-8 mantém-se HOLD até Adenda §12 @architect; billing CONGELADO.'
+
+blockers:
+  - 'NENHUM. origin/main = 60e4b69, working tree limpo. SEC-8 não é blocker — é decisão de roadmap.'
+
+files_modified:
+  - docs/handoffs/mj-handoff-session-keys-rotated-next-roadmap-20260609.yaml  # NEW — este handoff
+  - docs/handoffs/mj-handoff-session-sec7-shipped-20260603.yaml  # superseded → archive
+  - docs/HANDOFF-INDEX.md  # M — pending/archived
+
+related:
+  - docs/adr/ADR-003-rls-enforced-runtime-hardening.md
+  - docs/handoffs/mj-handoff-refocus-core-freeze-billing-20260529.yaml
