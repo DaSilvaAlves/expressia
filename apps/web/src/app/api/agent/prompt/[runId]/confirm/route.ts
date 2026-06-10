@@ -31,7 +31,7 @@ import {
   ClassificationSchema,
   type ClassificationResult,
 } from '@meu-jarvis/classifier';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import {
   childLogger,
@@ -212,7 +212,16 @@ export async function POST(
           db,
         );
 
-        const executor = new Executor({ dbResolver: () => db });
+        // SEC-8 (ADR-003 Fase 4 Fatia D): tx de escrita aberta via withHousehold
+        // (role authenticated + claims → RLS viva, 2.ª rede). A auth vem da RUN
+        // PERSISTIDA (run.user_id/run.household_id) — o MESMO par já passado a
+        // executor.execute abaixo, NUNCA a identidade do request. Um membro
+        // diferente do household a confirmar continua a passar
+        // is_household_member(run.household_id). withHousehold via db-shim
+        // (REQ-INLINE-1). App-enforced (1.ª rede) mantém-se.
+        const executor = new Executor({
+          txRunner: (fn) => withHousehold({ userId: run.user_id, householdId: run.household_id }, fn),
+        });
         outcome = await executor.execute({
           plan,
           householdId: run.household_id,

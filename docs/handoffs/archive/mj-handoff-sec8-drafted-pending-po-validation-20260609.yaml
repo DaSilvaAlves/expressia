@@ -1,0 +1,91 @@
+id: mj-handoff-sec8-drafted-pending-po-validation-20260609
+from_agent: sm
+to_agent: po
+created: "2026-06-09T22:40:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-09T23:30:00Z"
+consumed_by: po
+consumed_verdict: "GO 10/10 — Draft→Ready. Nenhum PO-FIX. Os 4 pontos de precisão confirmados byte-a-byte contra código real."
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: story-validation
+
+summary: >
+  Story SEC-8 (Fatia D — Cérebro AI, ADR-003 §12) DRAFTADA por @sm (River) a partir
+  da Adenda §12, após o GO GLOBAL da Fase 0 §12.7 do @data-engineer. Última fatia que
+  fecha a Fase 4 do ADR-003. Mudança PACKAGE-LEVEL (≠ SEC-3..7 que eram migrações de
+  route em apps/web): executeAtomic (atomic.ts) passa a abrir a transação via um TxRunner
+  injectado — em produção (fn) => withHousehold({userId,householdId}, fn) montado nos 2
+  instanciadores de Executor (prompt/route.ts:550 + confirm/route.ts:215). Salto aditivo
+  (D-12A default backward-compat). 10 ACs (1:1 com §12.8). Próximo: @po *validate-story-draft.
+
+context: |
+  ESTADO GIT: origin/main = aadbf31. Working tree com alterações locais NÃO commitadas:
+    - docs/stories/active/SEC-8.rls-enforced-runtime-fase4-cerebro-ai-executeatomic.story.md  (NEW — o draft)
+    - docs/db-specialist-review-sec8-fase0-20260609.md  (NEW — nota Fase 0 GO da Dara)
+    - docs/adr/ADR-003-rls-enforced-runtime-hardening.md  (M — Adenda §12, ainda NÃO commitada)
+    - docs/handoffs/archive/mj-handoff-sec8-adenda12-kickoff-20260609.yaml  (handoff Fase 0 consumido)
+    - docs/HANDOFF-INDEX.md  (M)
+
+  O QUE O DRAFT DECIDE (ler a story na íntegra + ADR-003 §12):
+    - Superfície SEC-8 = 4 ficheiros de código + testes:
+      1. packages/tools/src/atomic.ts — novo type TxRunner; executeAtomic abre tx via txRunner
+         (default backward-compat (fn) => ctx.db.transaction(fn)); corpo do loop e ctxWithTx
+         INALTERADOS; corrigir comentário FALSO L19-26 (AC6, DoD).
+      2. packages/planner-executor/src/executor.ts — ExecutorOpts ganha txRunner?; propaga a
+         executeAtomic; dbResolver fallback ou removido (nunca getServiceDb).
+      3. apps/web/.../agent/prompt/route.ts:550 — injectar txRunner withHousehold({user.id, householdId}).
+      4. apps/web/.../agent/prompt/[runId]/confirm/route.ts:215 — txRunner withHousehold({run.user_id, run.household_id}).
+    - Excepções permanentes (diff zero): incrementQuota + undo ficam getServiceDb (D50, D-12C);
+      orquestração (idempotency/rate-limit/quota/audit/accountContext/user_prefs/plan) fica getDb app-enforced.
+    - AC9 é o coração: teste de integração RLS em @meu-jarvis/db-test (Testcontainers) provando
+      escrita cross-household REJEITADA pelo Postgres (harness asUser rls-harness.ts:322).
+
+  CORRECÇÃO DA FASE 0 incorporada nos ACs/testes:
+    - Predicado RLS real de agent_reverse_ops = is_household_member(household_id), NÃO
+      household_id = current_household_id() (pressuposto §12.7-2 estava errado). Mais robusto,
+      passa na mesma. Qualquer AC/teste deve usar is_household_member(household_id).
+
+  PONTOS DE PRECISÃO QUE O @po DEVE VERIFICAR BYTE-A-BYTE (candidatos a PO-FIX):
+    1. confirm/route.ts deriva auth da RUN persistida (run.user_id/run.household_id, L218-219),
+       NÃO do request — o txRunner tem de usar o MESMO par. Confirmar contra o código.
+    2. executor.ts:236 defaultDbResolver LANÇA erro — com txRunner fornecido o Executor não pode
+       invocar this.dbResolver() cegamente (L145). Ponto crítico 2 dos Dev Notes. Confirmar que o
+       desenho cobre o caminho production-only (só txRunner).
+    3. Fronteira de packages: @meu-jarvis/tools NÃO pode importar @meu-jarvis/db — TxRunner é tipo
+       agnóstico, withHousehold injectado por DI do route. Confirmar que o draft não viola isto.
+    4. Grep confirmatório: só 2 instanciadores de Executor (prompt + confirm) — sem 3.º.
+
+next_action: |
+  @po: executar *validate-story-draft SEC-8 (checklist 10 pontos). Verificação byte-a-byte
+  contra o código real dos 4 ficheiros + ADR-003 §12 + nota Fase 0. Foco nos 4 pontos de
+  precisão acima. Veredicto GO (>=7/10) → actualizar Status do draft Draft→Ready + Change Log
+  (regra story-lifecycle) → handoff po→dev. NO-GO → PO-FIX inline list para @sm/@dev.
+
+  Sequência §12.10 restante: @po *validate → @dev *develop (provável QA Loop — package-level) →
+  @qa *qa-gate (foco AC9: prova RLS-enforced cross-household rejeitada pelo Postgres) →
+  @devops *push (INCLUIR a Adenda §12 do ADR-003 + a nota Fase 0 + a story no commit de fecho).
+
+decisions:
+  - 'Story SEC-8 draftada a partir da Adenda §12 (ACs 1:1 com §12.8).'
+  - 'Mudança package-level (atomic.ts + executor.ts) + 2 routes injectores; salto aditivo (D-12A).'
+  - 'AC9 (teste RLS real cross-household rejeitado pelo Postgres) é o AC que prova a 2.ª rede.'
+  - 'Predicado real is_household_member(household_id) incorporado (correcção Fase 0 §12.7-2).'
+  - 'incrementQuota + undo permanecem service_role (diff zero); orquestração fica getDb app-enforced.'
+  - 'Sem migration nova (Fase 0 GO global, 104 policies intactas). Billing CONGELADO.'
+
+blockers:
+  - 'Nenhum blocker técnico. Soft-gate de qualidade: @dev NÃO deve *develop antes do GO do @po.'
+
+files_modified:
+  - docs/stories/active/SEC-8.rls-enforced-runtime-fase4-cerebro-ai-executeatomic.story.md  # NEW — draft
+  - docs/handoffs/mj-handoff-sec8-drafted-pending-po-validation-20260609.yaml  # NEW — este handoff
+  - docs/HANDOFF-INDEX.md  # M — linha pending
+
+related:
+  - docs/adr/ADR-003-rls-enforced-runtime-hardening.md  # §12 (contrato de design — ainda NÃO commitada)
+  - docs/db-specialist-review-sec8-fase0-20260609.md  # Fase 0 GO global (@data-engineer)
+  - docs/handoffs/archive/mj-handoff-sec8-adenda12-kickoff-20260609.yaml  # handoff Fase 0 consumido

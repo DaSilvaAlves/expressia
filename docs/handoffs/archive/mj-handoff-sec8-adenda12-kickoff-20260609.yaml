@@ -1,0 +1,121 @@
+id: mj-handoff-sec8-adenda12-kickoff-20260609
+from_agent: architect
+to_agent: data-engineer
+created: "2026-06-09T21:30:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-09T22:10:00Z"
+consumed_by: data-engineer
+consumed_outcome: >
+  GO GLOBAL. Fase 0 §12.7 executada — nota docs/db-specialist-review-sec8-fase0-20260609.md.
+  6 tabelas de escrita do executeAtomic (tasks, transactions, recurrences, cards, installments,
+  agent_reverse_ops) com cobertura write completa ancorada em is_household_member(household_id),
+  que activa sob os claims de withHousehold. INSERT de agent_reverse_ops não é rejeitado.
+  Nenhum trigger de imutabilidade nem SECURITY DEFINER mascara a RLS no caminho atómico.
+  CORRECÇÃO ao pressuposto §12.7-2: predicado real é is_household_member(household_id),
+  NÃO household_id = current_household_id(). Sem migration nova. @sm *draft SEC-8 libertado.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: kickoff
+
+summary: >
+  KICKOFF SEC-8 (Fatia D — Cérebro AI, ADR-003). @architect produziu a Adenda §12
+  do ADR-003 (pré-requisito de HOLD de §11.5) — o contrato de design completo para
+  envolver a transação de escrita de domínio do cérebro em RLS-enforced (withHousehold)
+  via injecção de um txRunner a partir do route, deixando idempotency/quota/audit em
+  getDb() app-enforced e undo/incrementQuota em getServiceDb() (excepções permanentes).
+  GO para @sm *draft CONDICIONADO a uma Fase 0 leve do @data-engineer (§12.7) — confirmar
+  cobertura de policies write nas tabelas-alvo que activam sob os claims de withHousehold.
+  Sem isto, a RLS pode ficar inerte nalgumas tabelas sem ninguém reparar.
+
+context: |
+  ESTADO GIT: origin/main = aadbf31, working tree limpo (a Adenda §12 está escrita em
+  docs/adr/ADR-003-rls-enforced-runtime-hardening.md — doc-only, ainda não commitada).
+
+  O QUE A ADENDA §12 DECIDE (ler ADR-003 §12 na íntegra — é o contrato):
+    - §12.2 CONTRATO: substituir "executeAtomic abre tx no db que lhe deram" por
+      "executeAtomic recebe um txRunner injectado". Novo tipo TxRunner em @meu-jarvis/tools.
+      atomic.ts:124 muda de `ctx.db.transaction(...)` para `txRunner(...)`; o corpo do loop
+      (validar→execute→reverse→INSERT agent_reverse_ops) NÃO muda. ctxWithTx mantém db: tx.
+    - 3 saltos de DI (todos já existentes): route monta
+      `new Executor({ txRunner: (fn) => withHousehold({userId, householdId}, fn) })`
+      → Executor propaga a executeAtomic → executeAtomic abre a tx via txRunner.
+      withHousehold já está ao alcance de apps/web via db-shim.ts:79-88 (require lazy).
+      Package @meu-jarvis/tools continua a NÃO importar @meu-jarvis/db (fronteira intacta).
+    - D-12A: txRunner opcional, default backward-compat `(fn) => ctx.db.transaction(fn)`
+      → todos os testes que injectam DrizzleDbClient mockado passam sem reescrita; salto
+      é puramente aditivo.
+    - D-12B: auth vive no closure do txRunner, NÃO no ToolExecutionContext (evita duplicar
+      fonte-de-verdade; householdId/userId já lá estão para colunas dos inserts).
+    - §12.3 MAPA DE FRONTEIRAS (decisivo): withHousehold entra SÓ à volta do loop de
+      executeAtomic. idempotency/rate-limit/quota/insertAgentRun/updateAfter*/buildAccountContext/
+      user_prefs/households.plan FICAM getDb() app-enforced (intocados). incrementQuota FICA
+      getServiceDb() (D50). cost-router executeDirectQuery read-only FICA getDb() (fora de âmbito).
+    - §12.4: confirm/route.ts está EM âmbito (re-corre Planner+Executor = escrita de domínio)
+      → mesma injecção de txRunner. SEC-8 cobre prompt + confirm (os 2 instanciadores de Executor).
+    - §12.5/D-12C: undo/route.ts FICA service_role (trigger de imutabilidade bloqueia
+      success→reverted a authenticated). Excepção permanente documentada. NÃO reescrever a
+      atomicidade do undo nesta story.
+    - §12.6: corrigir o comentário FALSO em atomic.ts:19-26 ("RLS continua activa") — faz
+      parte do DoD (comentário enganador num path de segurança = dívida activa).
+
+  FICHEIROS-CHAVE LIDOS (âncoras do contrato):
+    - packages/tools/src/atomic.ts:118-326 (executeAtomic; tx em :124; comentário falso :19-26)
+    - packages/tools/src/contracts.ts:115-126 (ToolExecutionContext), :248-276 (ToolDefinition)
+    - packages/planner-executor/src/executor.ts:63-89 (dbResolver DI), :142-151 (constrói ctx)
+    - packages/db/src/client.ts:119-153 (withHousehold)
+    - apps/web/src/lib/agent/db-shim.ts:43-88 (getDb/getServiceDb/withHousehold lazy require)
+    - apps/web/src/app/api/agent/prompt/route.ts:232,550 (getDb + new Executor)
+    - apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts:182-200 (service_role deliberado)
+    - confirm/route.ts (a verificar pelo @dev — 2.º instanciador de Executor)
+
+next_action: |
+  @data-engineer: executar a FASE 0 §12.7 (gate DURO antes do @sm *draft). Contra
+  packages/db/migrations/0001_rls_policies.sql, confirmar e produzir nota curta
+  `db-specialist-review` (GO/NO-GO por tabela):
+
+  1. Cobertura de policies write (INSERT/UPDATE/DELETE ou ALL) ancoradas em
+     auth.uid()/is_household_member/current_household_id() — que ACTIVAM sob os claims
+     de withHousehold — para TODAS as tabelas que as tools escrevem dentro de executeAtomic:
+     no mínimo tasks, transactions, recurrences, cards, installments e agent_reverse_ops.
+     (Cruzar com ALLOWED_REVERSE_TABLES em undo/route.ts:279-285.)
+  2. agent_reverse_ops aceita INSERT a authenticated sob WITH CHECK
+     (household_id = current_household_id()) — confirmar que o INSERT de atomic.ts:244-250
+     NÃO passa a ser rejeitado quando a RLS deixar de estar inerte (risco real: hoje passa
+     só porque a RLS está morta).
+  3. Nenhum trigger de imutabilidade no caminho de escrita do executeAtomic bloqueia
+     authenticated (o trigger conhecido é só na transição terminal de agent_runs, no undo).
+  4. Nenhuma SECURITY DEFINER function chamada pelas tools de escrita mascararia a RLS.
+
+  Veredicto esperado: GO global → @sm *draft SEC-8 a partir da Adenda §12 (ACs em §12.8).
+  NO-GO numa tabela → essa tool sai do âmbito OU ganha migration de policy como pré-req separado.
+
+  DEPOIS (sequência §12.10): @sm *draft → @po *validate → @dev *develop (provável QA Loop
+  próprio, mudança package-level) → @qa *qa-gate (foco AC9: prova RLS-enforced cross-household
+  rejeitada pelo Postgres, não só pelo filtro app) → @devops *push.
+
+  NOTA: a Adenda §12 está escrita mas NÃO commitada. Quem fizer o próximo commit (ou o
+  @devops no fecho de SEC-8) deve incluí-la. Doc-only, L4-safe.
+
+decisions:
+  - 'Adenda §12 do ADR-003 produzida — contrato de design de SEC-8 (Fatia D Cérebro AI).'
+  - 'D-12A: txRunner injectado com default backward-compat (ctx.db.transaction) — salto aditivo, testes intactos.'
+  - 'D-12B: auth no closure do txRunner, não no ToolExecutionContext.'
+  - 'D-12C: undo + incrementQuota permanecem service_role (excepções permanentes documentadas).'
+  - 'prompt + confirm em âmbito (2 instanciadores de Executor); undo fora de âmbito de RLS-enforce.'
+  - 'GO para @sm *draft CONDICIONADO a Fase 0 @data-engineer §12.7 (gate duro de cobertura de policies).'
+  - 'Billing CONGELADO; sem migration nova salvo lacuna detectada na Fase 0.'
+
+blockers:
+  - 'SOFT-GATE: @sm NÃO deve draftar SEC-8 antes do GO da Fase 0 do @data-engineer (§12.7). Não é blocker técnico — é sequência de qualidade que evita RLS inerte silenciosa.'
+
+files_modified:
+  - docs/adr/ADR-003-rls-enforced-runtime-hardening.md  # M — Adenda §12 adicionada (não commitada)
+  - docs/handoffs/mj-handoff-sec8-adenda12-kickoff-20260609.yaml  # NEW — este handoff
+  - docs/HANDOFF-INDEX.md  # M — linha pending
+
+related:
+  - docs/adr/ADR-003-rls-enforced-runtime-hardening.md  # §11.4/§11.5 (scoping HOLD) + §12 (design)
+  - docs/handoffs/mj-handoff-session-keys-rotated-next-roadmap-20260609.yaml  # roadmap que ofereceu a escolha

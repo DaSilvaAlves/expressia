@@ -20,6 +20,7 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
   DrizzleDbClient,
+  TxRunner,
 } from '@/contracts';
 import { executeAtomic } from '@/atomic';
 import {
@@ -419,5 +420,98 @@ describe('executeAtomic — AtomicResult shape', () => {
       expect(outcome.results[0]).toHaveProperty('output');
       expect(outcome.results[0]).toHaveProperty('reverseOpId');
     }
+  });
+});
+
+describe('executeAtomic — txRunner injectado (SEC-8 / ADR-003 Fase 4 Fatia D)', () => {
+  /**
+   * Constrói um `tx` mínimo com `execute` funcional (devolve a row do
+   * agent_reverse_ops insert) para o callback do `txRunner`.
+   */
+  function makeTxClient(): DrizzleDbClient {
+    return {
+      transaction: vi.fn() as unknown as DrizzleDbClient['transaction'],
+      insert: vi.fn() as unknown as DrizzleDbClient['insert'],
+      execute: vi.fn(async () => [
+        { id: '00000000-0000-4000-8000-00000000abcd' },
+      ]) as unknown as DrizzleDbClient['execute'],
+    };
+  }
+
+  it('usa o txRunner injectado para abrir a tx (NÃO ctx.db.transaction)', async () => {
+    const state: MockDbState = { transactionCalls: 0, insertedReverseOps: [] };
+    const { db } = makeMockDb(state);
+    const ctx = makeCtx(db);
+
+    let txRunnerCalls = 0;
+    let txSeenByLoop: DrizzleDbClient | undefined;
+    const txClient = makeTxClient();
+    const txRunner: TxRunner = async (fn) => {
+      txRunnerCalls += 1;
+      return fn(txClient);
+    };
+
+    const outcome = await executeAtomic(
+      [{ definition: echoTool, input: { text: 'rls' } }],
+      ctx,
+      txRunner,
+    );
+
+    expect(outcome.success).toBe(true);
+    // O runner injectado foi usado exactamente uma vez...
+    expect(txRunnerCalls).toBe(1);
+    // ...e o default `ctx.db.transaction` NÃO disparou.
+    expect(state.transactionCalls).toBe(0);
+    // E o agent_reverse_ops insert correu no tx que o runner forneceu.
+    expect(txClient.execute).toHaveBeenCalledTimes(1);
+    txSeenByLoop = txClient;
+    expect(txSeenByLoop).toBe(txClient);
+  });
+
+  it('o loop recebe o tx do runner em ctxWithTx.db (não o ctx.db raiz)', async () => {
+    const state: MockDbState = { transactionCalls: 0, insertedReverseOps: [] };
+    const { db } = makeMockDb(state);
+    const ctx = makeCtx(db);
+
+    const txClient = makeTxClient();
+    const txRunner: TxRunner = async (fn) => fn(txClient);
+
+    let ctxSeenByTool: ToolExecutionContext | undefined;
+    const inspectorTool: ToolDefinition<{ y: number }, { z: number }> = {
+      name: 'inspector_txrunner',
+      domain: 'system',
+      description: 'mock',
+      inputSchema: z.object({ y: z.number() }),
+      outputSchema: z.object({ z: z.number() }),
+      preview: () => 'p',
+      execute: async (input, innerCtx) => {
+        ctxSeenByTool = innerCtx;
+        return { z: input.y };
+      },
+      reverse: async () =>
+        ({ kind: 'delete_row', table: 'mock', id: '11111111-1111-4111-8111-111111111111' }) as ReverseOpPayload,
+    };
+
+    await executeAtomic([{ definition: inspectorTool, input: { y: 7 } }], ctx, txRunner);
+
+    expect(ctxSeenByTool).toBeDefined();
+    // O db visto pela tool é o tx do runner, NUNCA o ctx.db raiz (placeholder em prod).
+    expect(ctxSeenByTool?.db).toBe(txClient);
+    expect(ctxSeenByTool?.db).not.toBe(ctx.db);
+    // Demais campos preservados.
+    expect(ctxSeenByTool?.householdId).toBe(ctx.householdId);
+    expect(ctxSeenByTool?.userId).toBe(ctx.userId);
+  });
+
+  it('sem txRunner: default backward-compat abre via ctx.db.transaction', async () => {
+    const state: MockDbState = { transactionCalls: 0, insertedReverseOps: [] };
+    const { db } = makeMockDb(state);
+    const ctx = makeCtx(db);
+
+    const outcome = await executeAtomic([{ definition: echoTool, input: { text: 'legacy' } }], ctx);
+
+    expect(outcome.success).toBe(true);
+    // Default path: a transacção raiz foi aberta exactamente uma vez.
+    expect(state.transactionCalls).toBe(1);
   });
 });

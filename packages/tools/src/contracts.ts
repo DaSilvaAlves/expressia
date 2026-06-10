@@ -101,6 +101,30 @@ export interface DrizzleDbClient {
   execute(query: unknown): Promise<unknown>;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TxRunner — abre a transacção que envolve o loop de `executeAtomic` (SEC-8)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * `TxRunner` — função que abre a transacção em torno do loop de `executeAtomic`
+ * e devolve o resultado do callback.
+ *
+ * Contrato deliberadamente AGNÓSTICO: `@meu-jarvis/tools` nunca importa
+ * `@meu-jarvis/db`. O `withHousehold` concreto só é conhecido no route
+ * (`apps/web`) e é injectado por dependency injection.
+ *
+ * Em PRODUÇÃO (SEC-8 / ADR-003 Fase 4 Fatia D) é montado nos instanciadores de
+ * `Executor` como `(fn) => withHousehold({ userId, householdId }, fn)` — abre a
+ * transacção como role `authenticated` + claims JWT, activando a RLS viva em
+ * runtime (2.ª rede) exactamente no ponto de escrita do cérebro AI. Quando
+ * ausente, `executeAtomic` usa o default backward-compat
+ * `(fn) => ctx.db.transaction(fn)` (preserva o comportamento histórico — testes
+ * que injectam um `DrizzleDbClient` mockado passam sem reescrita).
+ *
+ * NUNCA deve resolver para `getServiceDb()` (role service_role ignora RLS — NFR5).
+ */
+export type TxRunner = <T>(fn: (tx: DrizzleDbClient) => Promise<T>) => Promise<T>;
+
 /**
  * Contexto passado a cada chamada de `tool.preview`, `tool.execute` e
  * `tool.reverse`.

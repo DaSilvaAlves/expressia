@@ -1,0 +1,111 @@
+id: mj-handoff-session-sec8-impl-pause-20260610
+from_agent: dev
+to_agent: any
+created: "2026-06-10T01:40:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-10T00:00:00Z"
+consumed_by: devops
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: session-pause
+
+summary: >
+  SESSION PAUSE — Story SEC-8 (Fatia D — Cérebro AI, ADR-003 §12) percorreu @sm draft →
+  @po GO 10/10 → @dev IMPLEMENTADA nesta sessão. Estado: Ready for Review v1.0-DEV, 10/10
+  ACs MET, 6 gates verdes, AC9 (RLS cross-household rejeitada pelo Postgres) 4/4. NADA
+  commitado, NADA pushed. Falta o gate adversarial @architect e depois o push @devops. Esta
+  é a ÚLTIMA fatia que fecha a Fase 4 do ADR-003. Ponto de entrada mestre para retomar sem
+  contexto — abrir o handoff de acção dedicado abaixo.
+
+context: |
+  ════════ ONDE ESTAMOS NA CADEIA §12.10 ════════
+    @sm draft ✓ → @po *validate (GO 10/10) ✓ → @dev *develop (Ready for Review v1.0-DEV) ✓
+    → [PRÓXIMO] @architect *qa-gate → @devops *push
+
+  ════════ O QUE FOI FEITO (SEC-8 implementada) ════════
+  executeAtomic (packages/tools/src/atomic.ts) passou a abrir a transação de escrita do
+  cérebro AI via um TxRunner injectado. Em produção os 2 instanciadores de Executor
+  (prompt/route.ts + confirm/route.ts) montam `(fn) => withHousehold({userId,householdId}, fn)`
+  → role authenticated + claims JWT → as 104 policies RLS activam GENUINAMENTE dentro da
+  transação (2.ª rede), no ponto de escrita mais sensível do sistema. Salto aditivo (D-12A
+  default backward-compat) — todos os testes existentes verdes sem reescrita.
+
+  6 ficheiros de produção + 4 testes + 1 novo (AC9). Detalhe técnico completo, focos do gate
+  e mapa de ficheiros: ver o handoff de acção dedicado
+  `docs/handoffs/mj-handoff-sec8-dev-to-architect-20260610.yaml` (to_agent: architect) e a
+  secção Dev Agent Record da story.
+
+  ════════ ESTADO GIT (CRÍTICO — nada commitado/pushed) ════════
+  origin/main = aadbf31. Working tree com alterações locais NÃO commitadas:
+    Modificados (produção):
+      - packages/tools/src/contracts.ts          (novo type TxRunner)
+      - packages/tools/src/index.ts              (re-export TxRunner)
+      - packages/tools/src/atomic.ts             (executeAtomic txRunner? + comentário AC6)
+      - packages/planner-executor/src/executor.ts (ExecutorOpts.txRunner + placeholder ponto crítico 2)
+      - apps/web/src/app/api/agent/prompt/route.ts            (txRunner withHousehold)
+      - apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts (txRunner withHousehold run persistida)
+    Modificados (testes):
+      - packages/tools/src/__tests__/atomic.test.ts
+      - packages/planner-executor/src/__tests__/executor.test.ts
+      - apps/web/src/app/api/agent/prompt/__tests__/route.test.ts
+      - apps/web/src/app/api/agent/prompt/__tests__/confirm.test.ts
+    Novos (untracked):
+      - packages/db-test/src/tests/executeAtomic.rls.test.ts   (AC9 — 4 testes Testcontainers)
+      - docs/stories/active/SEC-8.…story.md                    (story Ready for Review)
+      - docs/db-specialist-review-sec8-fase0-20260609.md        (nota Fase 0 GO)
+      - docs/handoffs/* + archive/*                             (handoffs SEC-8)
+    Modificados (docs — NÃO-COMMITADOS, do kickoff):
+      - docs/adr/ADR-003-rls-enforced-runtime-hardening.md      (Adenda §12 — contrato de design)
+      - docs/HANDOFF-INDEX.md
+
+  ════════ GATES (todos exit 0, re-corríveis) ════════
+    lint ✓ · typecheck ✓ · build ✓ (10/10) · check:rls ✓ (15 tabelas)
+    test: tools 354 ✓ · planner-executor 72 ✓ · db-test 206 ✓ (incl. AC9 4/4) ·
+          web 1079/1080 (1 flaky calendário PRÉ-EXISTENTE — isolado 5/5 ✓, não tocado por SEC-8)
+    SEM db:migrate (104 policies intactas — Fase 0 GO global sem lacuna).
+
+next_action: |
+  RETOMAR ASSIM (terminal novo, sem contexto):
+
+  1. Ler `docs/HANDOFF-INDEX.md` (já faz parte da activação) → este handoff + o dev→architect.
+  2. PRÓXIMO PASSO da cadeia: `@architect *qa-gate SEC-8`.
+     Abrir `docs/handoffs/mj-handoff-sec8-dev-to-architect-20260610.yaml` — tem os 7 focos do
+     gate adversarial (AC9 não-tautológico, ponto crítico 2 production-only, salto aditivo
+     byte-idêntico, fronteira de packages, 1.ª rede intacta, diff zero undo/quota/orquestração,
+     comentário atomic.ts:19-26). Story em `docs/stories/active/SEC-8.…story.md`.
+  3. PASS → Done vX-ARCH-APPROVED → handoff architect→devops → `@devops *push SEC-8`.
+
+  ⚠️ NO COMMIT DE FECHO (@devops) INCLUIR OBRIGATORIAMENTE, além do código + story:
+     - docs/adr/ADR-003-rls-enforced-runtime-hardening.md  (Adenda §12 — ainda NÃO commitada)
+     - docs/db-specialist-review-sec8-fase0-20260609.md     (nota Fase 0 GO)
+     - docs/HANDOFF-INDEX.md + housekeeping dos handoffs SEC-8
+     Padrão SEC-3→7: tudo num único commit de fecho, fast-forward, sem --force/--no-verify.
+     Re-correr gates rápidos (lint·typecheck·check:rls); pesados confiáveis via cache se working
+     tree byte-idêntico ao do gate. CodeRabbit SKIP (sem coderabbit_integration — padrão SEC-1→7).
+     SEM db:migrate.
+
+  Com o push de SEC-8, a Fase 4 do ADR-003 fica COMPLETA em TODOS os domínios
+  (Finanças SEC-3/4, Tarefas SEC-5, Visão/SSR SEC-6, Household SEC-7, Cérebro AI SEC-8).
+
+decisions:
+  - 'SEC-8 implementada: TxRunner injectado abre a tx de executeAtomic; produção = withHousehold (D-12A aditivo).'
+  - 'Ponto crítico 2 resolvido: TX_RUNNER_DB_PLACEHOLDER → defaultDbResolver não dispara em produção.'
+  - 'AC9 prova RLS cross-household rejeitada pelo Postgres (tasks + agent_reverse_ops), não-tautológico.'
+  - 'Nada commitado/pushed. Próximo: @architect *qa-gate → @devops *push (incluir ADR §12 + Fase 0).'
+  - 'Sem migration. Billing CONGELADO. Fronteira de packages intacta (tools não importa db).'
+
+blockers:
+  - 'Nenhum blocker técnico. Soft-gate: @devops NÃO deve *push antes do PASS do @architect.'
+
+files_modified:
+  - docs/stories/active/SEC-8.rls-enforced-runtime-fase4-cerebro-ai-executeatomic.story.md
+  - docs/handoffs/mj-handoff-session-sec8-impl-pause-20260610.yaml  # este handoff
+  - docs/HANDOFF-INDEX.md
+
+related:
+  - docs/handoffs/mj-handoff-sec8-dev-to-architect-20260610.yaml  # acção concreta (próximo passo)
+  - docs/adr/ADR-003-rls-enforced-runtime-hardening.md  # §12 contrato (NÃO commitada)
+  - docs/db-specialist-review-sec8-fase0-20260609.md  # Fase 0 GO global

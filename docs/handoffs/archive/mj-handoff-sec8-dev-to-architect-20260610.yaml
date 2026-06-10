@@ -1,0 +1,113 @@
+id: mj-handoff-sec8-dev-to-architect-20260610
+from_agent: dev
+to_agent: architect
+created: "2026-06-10T01:25:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-10T10:30:00Z"
+consumed_by: architect
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: qa-gate
+
+summary: >
+  Story SEC-8 (Fatia D — Cérebro AI, ADR-003 §12) IMPLEMENTADA por @dev (Dex) —
+  Ready for Review v1.0-DEV, 10/10 ACs MET. Última fatia que fecha a Fase 4 do
+  ADR-003. executeAtomic (atomic.ts) passa a abrir a transação via TxRunner
+  injectado; produção monta withHousehold nos 2 instanciadores de Executor.
+  Salto aditivo (D-12A) — testes existentes verdes sem reescrita. AC9 (db-test
+  Testcontainers) prova escrita cross-household REJEITADA pelo Postgres (4/4).
+  Próximo: @architect *qa-gate SEC-8 (gate adversarial, foco AC9 + ponto crítico 2).
+
+context: |
+  IMPLEMENTAÇÃO (6 ficheiros de produção + 4 de teste + 1 novo):
+
+  Produção:
+    1. packages/tools/src/contracts.ts — novo `export type TxRunner = <T>(fn: (tx: DrizzleDbClient) => Promise<T>) => Promise<T>` (agnóstico; tools NÃO importa db).
+    2. packages/tools/src/index.ts — re-export de TxRunner.
+    3. packages/tools/src/atomic.ts — `executeAtomic(tools, ctx, txRunner?)`; abre tx via
+       `runTransaction = txRunner ?? ((fn) => ctx.db.transaction(fn))` (D-12A default backward-compat).
+       ctxWithTx + corpo do loop BYTE-IDÊNTICOS. Comentário falso L19-26 + bullet "Atomicidade" corrigidos (AC6/DoD).
+    4. packages/planner-executor/src/executor.ts — ExecutorOpts.txRunner?; campo + propagação a
+       executeAtomic(atomicInputs, ctx, this.txRunner). PONTO CRÍTICO 2 resolvido:
+       `db: this.txRunner ? TX_RUNNER_DB_PLACEHOLDER : this.dbResolver()` — com txRunner, NÃO
+       pré-resolve dbResolver → defaultDbResolver (que lança) não dispara no caminho production-only.
+       Placeholder lança ruidosamente se tocado (defense-in-depth).
+    5. apps/web/.../agent/prompt/route.ts — import withHousehold de db-shim; new Executor({ txRunner:
+       (fn) => withHousehold({ userId: user.id, householdId }, fn) }).
+    6. apps/web/.../agent/prompt/[runId]/confirm/route.ts — idem com par da RUN PERSISTIDA
+       ({ userId: run.user_id, householdId: run.household_id }) — idêntico ao já passado a executor.execute.
+
+  Excepções permanentes (diff zero confirmado): incrementQuota (audit-log.ts, D50) + undo/route.ts
+  (D-12C, getServiceDb — cabeçalho já documenta NFR9/trigger imutabilidade) NÃO tocados.
+  Orquestração (idempotency/rate-limit/quota/audit/accountContext/user_prefs/plan) continua getDb().
+
+  AC9 (packages/db-test/src/tests/executeAtomic.rls.test.ts — NOVO, 4 testes):
+    - POSITIVO: claims A + ctx.householdId A → tool insere tasks(A) → success; admin confirma
+      1 task + 1 agent_reverse_ops (commit genuíno).
+    - NEGATIVO tasks: claims A, tool tenta tasks(B) → REJEITADO pelo Postgres (PostgresError no log)
+      → AtomicFailure + rollback (admin vê 0/0).
+    - NEGATIVO agent_reverse_ops: claims A, ctx.householdId B → reverse_op insert household B
+      rejeitado por WITH CHECK is_household_member(B) → rollback total (0/0).
+    - CONTRA-PROVA: admin (bypass RLS) insere tasks(B) com sucesso → prova não-tautologia
+      (rejeição é RLS, não constraint/FK).
+    txRunner do teste replica withHousehold: drizzle(adminSql) + db.transaction() + SET LOCAL ROLE
+    authenticated + set_config(request.jwt.claims) dentro da tx. Predicado real is_household_member.
+
+  FOCOS PARA O GATE ADVERSARIAL @architect (padrão SEC-1→7, byte-a-byte independente):
+    1. AC9 não-tautológico: confirmar que a rejeição é genuinamente RLS (PostgresError) e que o
+       teste falharia se a RLS estivesse inerte (a contra-prova admin sucede). Verificar harness.
+    2. PONTO CRÍTICO 2: com txRunner-only (produção), ctx.db é placeholder e defaultDbResolver
+       NUNCA dispara — confirmar por leitura do executor.ts + os 3 testes novos.
+    3. Salto aditivo: confirmar que ctxWithTx + corpo do loop de atomic.ts são byte-idênticos
+       (git diff) — só mudou quem abre a tx.
+    4. Fronteira de packages: grep que tools/planner-executor NÃO importam @meu-jarvis/db.
+    5. 1.ª rede (app-enforced household_id) intacta nas queries das tools/orquestração (git diff).
+    6. Diff zero em incrementQuota + undo + orquestração (AC4/AC5).
+    7. Comentário atomic.ts:19-26 corrigido (AC6 = DoD).
+
+  GATES (todos exit 0, re-corríveis):
+    - lint ✓ (zero warnings) · typecheck ✓ (tools/planner-executor/web/db-test)
+    - test: tools 354 ✓ · planner-executor 72 ✓ · web 1079/1080 (1 flaky calendário PRÉ-EXISTENTE,
+      isolado 5/5 ✓ — não tocado por SEC-8) · db-test 206 ✓ (incl. AC9 4/4)
+    - build ✓ (10/10) · check:rls ✓ (15 tabelas)
+    - SEM db:migrate (104 policies intactas — Fase 0 GO sem lacuna)
+
+next_action: |
+  @architect: executar *qa-gate SEC-8 (gate adversarial independente, padrão SEC-1→7). Verificação
+  byte-a-byte dos 7 focos acima. Veredicto PASS (≥ limiar) → Done vX-ARCH-APPROVED + handoff
+  architect→devops. CONCERNS/FAIL → devolver a @dev com feedback específico.
+
+  Sequência §12.10 restante: @architect *qa-gate → @devops *push (INCLUIR no commit de fecho:
+  Adenda §12 do ADR-003 + nota Fase 0 + story + housekeeping de handoffs — ainda NÃO commitados).
+
+decisions:
+  - 'TxRunner em contracts.ts (agnóstico); executeAtomic 3.º param txRunner? com default backward-compat (D-12A).'
+  - 'Ponto crítico 2 resolvido via TX_RUNNER_DB_PLACEHOLDER (não pré-resolve dbResolver com txRunner).'
+  - 'AC9 txRunner replica withHousehold via drizzle(adminSql)+db.transaction()+SET LOCAL (1ª tentativa drizzle(pgTx) falhou — TransactionSql sem .options).'
+  - 'undo/route.ts e incrementQuota diff zero (cabeçalho D-12C já existente).'
+  - 'Sem migration. Billing CONGELADO. Fronteira de packages intacta.'
+
+blockers:
+  - 'Nenhum blocker técnico. Soft-gate: @devops NÃO deve *push antes do PASS do @architect.'
+
+files_modified:
+  - packages/tools/src/contracts.ts
+  - packages/tools/src/index.ts
+  - packages/tools/src/atomic.ts
+  - packages/planner-executor/src/executor.ts
+  - apps/web/src/app/api/agent/prompt/route.ts
+  - apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts
+  - packages/tools/src/__tests__/atomic.test.ts
+  - packages/planner-executor/src/__tests__/executor.test.ts
+  - apps/web/src/app/api/agent/prompt/__tests__/route.test.ts
+  - apps/web/src/app/api/agent/prompt/__tests__/confirm.test.ts
+  - packages/db-test/src/tests/executeAtomic.rls.test.ts  # NEW — AC9
+  - docs/stories/active/SEC-8.rls-enforced-runtime-fase4-cerebro-ai-executeatomic.story.md  # Ready for Review v1.0-DEV
+
+related:
+  - docs/adr/ADR-003-rls-enforced-runtime-hardening.md  # §12 (contrato — ainda NÃO commitada)
+  - docs/db-specialist-review-sec8-fase0-20260609.md  # Fase 0 GO global
+  - docs/handoffs/archive/mj-handoff-sec8-po-to-dev-20260609.yaml  # handoff po→dev consumido

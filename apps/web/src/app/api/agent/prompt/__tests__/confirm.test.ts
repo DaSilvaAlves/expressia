@@ -38,6 +38,11 @@ vi.mock('@meu-jarvis/planner-executor', async () => {
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: () => ({ execute: mocks.dbExecuteMock }),
   getServiceDb: () => ({ execute: mocks.dbExecuteMock }),
+  // SEC-8: confirm/route monta `txRunner: (fn) => withHousehold({ userId: run.user_id,
+  // householdId: run.household_id }, fn)`. Executor é mockado (closure não corre),
+  // mas expomos withHousehold para robustez de contrato.
+  withHousehold: <T,>(_auth: unknown, fn: (tx: { execute: typeof mocks.dbExecuteMock }) => Promise<T>) =>
+    fn({ execute: mocks.dbExecuteMock }),
 }));
 
 import { POST } from '@/app/api/agent/prompt/[runId]/confirm/route';

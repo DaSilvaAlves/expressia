@@ -46,6 +46,7 @@ export type {
   PlanTier,
   ToolExecutionContext,
   DrizzleDbClient,
+  TxRunner,
   ReverseOpPayload,
   ToolDefinition,
   AtomicResult,

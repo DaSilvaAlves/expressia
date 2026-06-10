@@ -1,0 +1,133 @@
+id: mj-handoff-sec8-architect-to-devops-20260610
+from_agent: architect
+to_agent: devops
+created: "2026-06-10T10:30:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-10T00:00:00Z"
+consumed_by: devops
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: push
+
+summary: >
+  Story SEC-8 (Fatia D — Cérebro AI, ADR-003 §12) PASSOU o gate adversarial
+  @architect: PASS 9,6/10 confiança Alta → Done v1.1-ARCH-APPROVED. Os 7 focos
+  MET por verificação byte-a-byte independente; AC9 EMPIRICAMENTE provado
+  (db-test 206/206 contra Postgres real, PostgresError real no log, contra-prova
+  admin não-tautológica). Última fatia que FECHA a Fase 4 do ADR-003 (cérebro AI
+  / executeAtomic — ponto de escrita mais sensível). Próximo: @devops *push —
+  commit ÚNICO de fecho. SEM db:migrate.
+
+context: |
+  GATE @architect (padrão SEC-1→7, adversarial independente) — todos os números
+  re-executados localmente nesta sessão (não confiando no relatório @dev):
+
+  GATES VERDES (re-corridos):
+    - typecheck 10/10 (FULL TURBO) · lint 0 warnings · check:rls 20 tabelas · EXIT 0
+    - tools 354/354 ✓ · planner-executor 72/72 ✓
+    - db-test 206/206 ✓ (38 files) incl. AC9 4/4 — Postgres 16 REAL via Testcontainers
+      (Docker teve de ser arrancado nesta sessão; CI rls-gate corre-o sempre)
+    - web 1079/1080 (1 flaky calendário PRÉ-EXISTENTE — isolado passa 5/5 ~1,4s;
+      zero ficheiros calendário no diff SEC-8 → NÃO é regressão)
+    - build 10/10 ✓
+    - SEM db:migrate (zero migration — 104 policies intactas; Fase 0 GO sem lacuna)
+
+  7 FOCOS — TODOS MET:
+    1. AC9 não-tautológico: log mostra `PostgresError` real (traceId ac9-neg-tasks);
+       contra-prova admin insere a MESMA row tasks(B) com sucesso → rejeição é RLS,
+       não constraint. Seed discriminante (userA membro de A apenas). Cobre tasks +
+       agent_reverse_ops (predicado real is_household_member). Asserções 0-rows
+       falhariam se a RLS estivesse inerte.
+    2. Ponto crítico 2: `db: this.txRunner ? TX_RUNNER_DB_PLACEHOLDER : this.dbResolver()`
+       — com txRunner (produção), dbResolver NUNCA é invocado → defaultDbResolver
+       (throw) nunca dispara. Placeholder lança ruidosamente. 3 testes provam.
+    3. Salto aditivo: git diff de atomic.ts mostra loop + ctxWithTx byte-idênticos;
+       só muda quem abre a tx (`runTransaction = txRunner ?? ctx.db.transaction`).
+    4. Fronteira de packages: zero `import @meu-jarvis/db` em tools/planner-executor
+       (todos os matches são comentários). TxRunner agnóstico.
+    5. 1.ª rede (app-enforced household_id) intacta por git diff.
+    6. Diff-zero: undo/route.ts + audit-log.ts AUSENTES do changed-set; orquestração
+       getDb() intocada; só os 2 `new Executor` mudaram nos routes.
+    7. Comentário atomic.ts:19-26 corrigido (AC6=DoD) — falsa afirmação "RLS continua
+       activa" substituída pela verdade pós-SEC-8.
+
+  ADVERSARIAL ALÉM DO CATÁLOGO:
+    - Apenas 2 `new Executor(` em produção (prompt:557, confirm:222); zero 3.º.
+    - Par de auth IDÊNTICO nos 2 routes (sessão RLS scopa o household dos inserts);
+      confirm deriva da run persistida, nunca do request.
+    - REQ-INLINE-1: withHousehold de @/lib/agent/db-shim nos 2 routes.
+
+  OBS NÃO-BLOQUEANTES (housekeeping, NÃO corrigir antes do push):
+    - executor.ts:62 docstring DbResolver "em produção é getDb()" ligeiramente stale
+      pós-SEC-8 (cosmético, não path de segurança). Afinar num housekeeping futuro.
+    - ADR-003 agora existe como FICHEIRO FÍSICO (+131 linhas Adenda §12) — resolve a
+      observação do SEC-7 gate.
+
+next_action: |
+  @devops: executar *push SEC-8 — commit ÚNICO de fecho (fast-forward, sem
+  --force/--no-verify, CodeRabbit SKIP — sem coderabbit_integration, padrão SEC-1→7).
+  **SEM db:migrate** (zero migration — 104 policies intactas).
+
+  O COMMIT DE FECHO INCLUI OBRIGATORIAMENTE (além do código + story):
+    CÓDIGO DE PRODUÇÃO (6):
+      - packages/tools/src/contracts.ts (TxRunner)
+      - packages/tools/src/index.ts (re-export)
+      - packages/tools/src/atomic.ts (txRunner? + AC6 comentário)
+      - packages/planner-executor/src/executor.ts (txRunner + TX_RUNNER_DB_PLACEHOLDER)
+      - apps/web/src/app/api/agent/prompt/route.ts (txRunner withHousehold)
+      - apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts (txRunner par da run)
+    TESTES (5):
+      - packages/tools/src/__tests__/atomic.test.ts
+      - packages/planner-executor/src/__tests__/executor.test.ts
+      - apps/web/src/app/api/agent/prompt/__tests__/route.test.ts
+      - apps/web/src/app/api/agent/prompt/__tests__/confirm.test.ts
+      - packages/db-test/src/tests/executeAtomic.rls.test.ts (NOVO — AC9)
+    DOCS / HOUSEKEEPING (ainda NÃO commitados — CRÍTICO não esquecer):
+      - docs/adr/ADR-003-rls-enforced-runtime-hardening.md (Adenda §12, +131 linhas)
+      - docs/db-specialist-review-sec8-fase0-20260609.md (nota Fase 0 GO)
+      - docs/stories/active/SEC-8.…story.md → mover para docs/stories/completed/
+      - docs/qa/gates/SEC-8-architect-gate.md (gate file NOVO)
+      - docs/HANDOFF-INDEX.md (actualizado)
+      - housekeeping dos handoffs SEC-8: arquivar
+        mj-handoff-sec8-adenda12-kickoff/drafted-pending/po-to-dev/dev-to-architect
+        + este architect-to-devops (consumir) + mj-handoff-session-sec8-impl-pause
+        (consumir — a pausa terminou).
+
+  Com SEC-8 em prod, a Fase 4 do ADR-003 está COMPLETA E PROVADA em TODOS os
+  domínios + no cérebro AI (defense-in-depth 2 redes em toda a superfície de escrita).
+
+decisions:
+  - 'PASS 9,6/10 Alta → Done v1.1-ARCH-APPROVED. 7/7 focos MET; AC9 empiricamente provado (db-test 206/206 Postgres real).'
+  - 'D-12A/D-12B/D-12C RATIFICADAS (default backward-compat aditivo; auth no closure; undo/incrementQuota service_role diff-zero).'
+  - 'Flaky calendário web = pré-existente, não-regressão (isolado 5/5; zero ficheiros calendário no diff SEC-8).'
+  - 'Sem migration — NÃO correr db:migrate. CodeRabbit SKIP. Billing CONGELADO.'
+
+blockers:
+  - 'Nenhum. Soft-gate fechado (PASS). @devops livre para *push.'
+
+files_to_commit:
+  - packages/tools/src/contracts.ts
+  - packages/tools/src/index.ts
+  - packages/tools/src/atomic.ts
+  - packages/planner-executor/src/executor.ts
+  - apps/web/src/app/api/agent/prompt/route.ts
+  - apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts
+  - packages/tools/src/__tests__/atomic.test.ts
+  - packages/planner-executor/src/__tests__/executor.test.ts
+  - apps/web/src/app/api/agent/prompt/__tests__/route.test.ts
+  - apps/web/src/app/api/agent/prompt/__tests__/confirm.test.ts
+  - packages/db-test/src/tests/executeAtomic.rls.test.ts
+  - docs/adr/ADR-003-rls-enforced-runtime-hardening.md
+  - docs/db-specialist-review-sec8-fase0-20260609.md
+  - docs/qa/gates/SEC-8-architect-gate.md
+  - docs/stories/completed/SEC-8.rls-enforced-runtime-fase4-cerebro-ai-executeatomic.story.md  # mover de active/
+  - docs/HANDOFF-INDEX.md
+
+related:
+  - docs/qa/gates/SEC-8-architect-gate.md  # gate file (PASS 9,6/10)
+  - docs/handoffs/archive/mj-handoff-sec8-dev-to-architect-20260610.yaml  # consumido por este gate
+  - docs/adr/ADR-003-rls-enforced-runtime-hardening.md  # §12 Adenda
+  - docs/db-specialist-review-sec8-fase0-20260609.md  # Fase 0 GO

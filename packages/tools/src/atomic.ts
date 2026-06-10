@@ -8,21 +8,28 @@
  *        PRD FR2 (multi-intent atómico) + FR6 (undo 30s) + NFR5 (RLS).
  *
  * Atomicidade:
- *   - Abre transacção via `ctx.db.transaction(async (tx) => ...)`.
- *   - Cada tool corre sequencialmente (não paralelo — evita race conditions
+ *   - Abre a transacção via um `txRunner` injectado (parâmetro opcional).
+ *     Cada tool corre sequencialmente (não paralelo — evita race conditions
  *     em estado partilhado Postgres dentro da mesma transacção).
  *   - `ctxWithTx` substitui apenas `db` pelo cliente da transacção; resto
  *     (householdId, userId, traceId, runId) é preservado.
- *   - Falha de qualquer tool → throw → Drizzle rollback automático →
+ *   - Falha de qualquer tool → throw → rollback automático →
  *     nenhum side-effect persiste (entidades + reverse_ops desfazem juntos).
  *
- * RLS (NFR5):
- *   - `ctx.db` é SEMPRE `getDb()` (authenticated, RLS via JWT). Nunca
- *     `getServiceDb()`.
- *   - O `tx` herda o role do cliente raiz — RLS continua activa dentro
- *     da transacção.
- *   - Insert em `agent_reverse_ops` carrega `householdId` obrigatório;
- *     Postgres rejeita NULL ou cross-household por policy `WITH CHECK`.
+ * RLS (NFR5 — SEC-8 / ADR-003 Fase 4 Fatia D):
+ *   - A transacção é aberta por um `txRunner` injectado. Em PRODUÇÃO o route
+ *     monta `(fn) => withHousehold({ userId, householdId }, fn)`, que faz
+ *     `SET LOCAL ROLE authenticated` + `set_config('request.jwt.claims', …)` →
+ *     as 104 policies activam GENUINAMENTE dentro da transacção (2.ª rede),
+ *     exactamente no ponto de escrita mais sensível do cérebro AI.
+ *   - O filtro `household_id` app-enforced (1.ª rede, SEC-1) mantém-se em
+ *     todas as queries das tools — `withHousehold` é ADITIVO, nunca o substitui.
+ *   - Default backward-compat (sem `txRunner`): `(fn) => ctx.db.transaction(fn)`
+ *     — comportamento histórico, usado pelos testes que injectam um cliente
+ *     mockado. `ctx.db`/`tx` NUNCA é `getServiceDb()` (NFR5).
+ *   - Insert em `agent_reverse_ops` carrega `householdId` obrigatório; sob os
+ *     claims do `withHousehold`, a policy `WITH CHECK is_household_member(household_id)`
+ *     rejeita NULL ou cross-household.
  *
  * PII (NFR12):
  *   - Tool inputs nunca são logados em claro — só `redactToolInputForLog`.
@@ -47,6 +54,7 @@ import type {
   ReverseOpPayload,
   ToolDefinition,
   ToolExecutionContext,
+  TxRunner,
 } from './contracts';
 import { serializeReverseOp } from './contracts';
 import {
@@ -118,10 +126,18 @@ interface ReverseOpInsertResult {
 export async function executeAtomic(
   tools: ReadonlyArray<AtomicToolInput>,
   ctx: ToolExecutionContext,
+  txRunner?: TxRunner,
 ): Promise<AtomicOutcome> {
   return withAtomicSpan(ctx.runId, tools.length, async (atomicSpan) => {
     try {
-      const outcome = await ctx.db.transaction(async (tx: DrizzleDbClient) => {
+      // SEC-8 (ADR-003 Fase 4 Fatia D): a transacção é aberta por um `txRunner`
+      // injectado. Em produção é `(fn) => withHousehold({ userId, householdId }, fn)`
+      // (role authenticated + claims → RLS viva, 2.ª rede). Sem `txRunner`, o
+      // default preserva o comportamento histórico: `ctx.db.transaction(fn)`.
+      // SÓ muda quem ABRE a transacção — o corpo do loop e o `ctxWithTx` (que usa
+      // o `tx` do runner) ficam inalterados.
+      const runTransaction: TxRunner = txRunner ?? ((fn) => ctx.db.transaction(fn));
+      const outcome = await runTransaction(async (tx: DrizzleDbClient) => {
         // O contexto que passa a cada tool tem `db` substituído pelo cliente
         // da transacção — assim os inserts heredam rollback automático.
         const ctxWithTx: ToolExecutionContext = {

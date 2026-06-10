@@ -1,0 +1,102 @@
+id: mj-handoff-sec8-po-to-dev-20260609
+from_agent: po
+to_agent: dev
+created: "2026-06-09T23:30:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-10T01:25:00Z"
+consumed_by: dev
+consumed_verdict: "Implementado — Ready for Review v1.0-DEV. 10/10 ACs MET. AC9 4/4 (RLS cross-household rejeitada pelo Postgres). 6 gates verdes. Sem migration. Ponto crítico 2 resolvido via placeholder."
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: story-implementation
+
+summary: >
+  Story SEC-8 (Fatia D — Cérebro AI, ADR-003 §12) VALIDADA por @po (Pax) — GO 10/10,
+  Draft→Ready, nenhum PO-FIX. Última fatia que fecha a Fase 4 do ADR-003. Mudança
+  PACKAGE-LEVEL: executeAtomic (atomic.ts) passa a abrir a transação via um TxRunner
+  injectado — em produção (fn) => withHousehold({userId,householdId}, fn) montado nos 2
+  instanciadores de Executor (prompt/route.ts:550 + confirm/route.ts:215). Salto aditivo
+  (D-12A default backward-compat). 10 ACs (1:1 com §12.8). Próximo: @dev *develop SEC-8
+  (provável QA Loop próprio — package-level + segurança).
+
+context: |
+  VALIDAÇÃO @po — verificação byte-a-byte contra código real (NÃO assumida). Os 4 pontos
+  de precisão do handoff @sm CONFIRMADOS:
+    1. confirm/route.ts:218-219 = { householdId: run.household_id, userId: run.user_id } —
+       o txRunner DEVE usar exactamente este par (auth da RUN persistida, NÃO do request).
+       AC3/T4.1 estão correctos.
+    2. executor.ts:145 resolve `db: this.dbResolver()` EAGERLY (antes de executeAtomic);
+       defaultDbResolver (L234-240) LANÇA erro. => Com txRunner-only (sem dbResolver, como
+       em produção pós-fix), o Executor NÃO pode invocar this.dbResolver() cegamente, senão
+       o throw dispara em produção. Ponto crítico 2 / AC2 / T2.2 cobrem isto — é O ponto de
+       desenho a resolver. typecheck + teste TÊM de cobrir o caminho production-only (só txRunner).
+    3. WithHouseholdAuth = { userId: string; householdId: string } (db-shim.ts:62-65) —
+       confirma a assinatura. Fronteira de packages intacta: tools/planner-executor NÃO
+       importam @meu-jarvis/db; withHousehold injectado por DI via @/lib/agent/db-shim
+       (REQ-INLINE-1). TxRunner é tipo agnóstico (fn) => Promise<T>.
+    4. Só 2 instanciadores de Executor — prompt/route.ts:550 + confirm/route.ts:215, ambos
+       hoje `new Executor({ dbResolver: () => db })`. @dev re-confirma por grep que não há 3.º.
+
+  EXTRA confirmado:
+    - Comentário FALSO atomic.ts:19-26 existe tal como descrito ("ctx.db é SEMPRE getDb()",
+      "RLS continua activa dentro da transacção") — AC6 corrige-o e é DoD (a story falha o DoD
+      se não for corrigido).
+    - Fase 0 = GO GLOBAL (docs/db-specialist-review-sec8-fase0-20260609.md). Predicado RLS real
+      de agent_reverse_ops = is_household_member(household_id), NÃO current_household_id()
+      (correcção §12.7-2). Qualquer AC/teste/comentário deve usar o predicado real (AC9,
+      ponto crítico 5). SEM migration nova (104 policies intactas — NÃO correr db:migrate).
+
+  SUPERFÍCIE (4 ficheiros de código + testes):
+    1. packages/tools/src/atomic.ts — novo type TxRunner; executeAtomic abre tx via txRunner
+       (default backward-compat (fn) => ctx.db.transaction(fn)); ctxWithTx + corpo do loop
+       INALTERADOS; corrigir comentário L19-26 (AC6).
+    2. packages/planner-executor/src/executor.ts — ExecutorOpts ganha txRunner?; propaga a
+       executeAtomic; resolver o ponto crítico 2 (não pré-resolver db quando txRunner presente).
+    3. apps/web/.../agent/prompt/route.ts:550 — txRunner withHousehold({user.id, householdId}).
+    4. apps/web/.../agent/prompt/[runId]/confirm/route.ts:215 — txRunner withHousehold({run.user_id, run.household_id}).
+    Excepções permanentes (diff zero): incrementQuota (D50) + undo/route.ts (D-12C) ficam
+    getServiceDb; orquestração (idempotency/rate-limit/quota/audit/accountContext/user_prefs/plan)
+    fica getDb app-enforced.
+    AC9 é o coração: teste de integração RLS em @meu-jarvis/db-test (Testcontainers, harness
+    asUser rls-harness.ts:322) provando escrita cross-household REJEITADA pelo Postgres.
+
+next_action: |
+  @dev: executar *develop SEC-8. Seguir as Tasks T1→T8 da story. Pontos de atenção:
+    - T2.2 / ponto crítico 2: estruturar o Executor para o caminho production-only (só txRunner)
+      sem disparar defaultDbResolver. typecheck + teste a cobrir.
+    - T1: só muda QUEM abre a tx; ctxWithTx e corpo do loop não mudam uma linha (resistir a refactor).
+    - T6 (AC9): teste RLS real não-tautológico (dados de B via admin; rejeição sob authenticated;
+      predicado is_household_member(household_id)).
+    - T8: todos os gates exit 0 SEM db:migrate.
+  Ao terminar: handoff @dev → @architect (*qa-gate, foco AC9 + ponto crítico 2).
+
+  Sequência §12.10 restante: @dev *develop → @qa/@architect *qa-gate (foco AC9 prova RLS
+  cross-household rejeitada pelo Postgres) → @devops *push.
+
+  IMPORTANTE PARA @devops NO FECHO: o commit de push DEVE incluir, além da story e do código:
+    - docs/adr/ADR-003-rls-enforced-runtime-hardening.md (Adenda §12 — ainda NÃO commitada)
+    - docs/db-specialist-review-sec8-fase0-20260609.md (nota Fase 0 GO global)
+    - docs/HANDOFF-INDEX.md + housekeeping de handoffs
+
+decisions:
+  - 'Story SEC-8 validada @po — GO 10/10, Draft→Ready, nenhum PO-FIX (4 pontos de precisão confirmados byte-a-byte).'
+  - 'Ponto crítico 2 (defaultDbResolver eager throw) é o desenho central a resolver no caminho production-only.'
+  - 'AC3 confirmado: confirm usa { run.user_id, run.household_id } (auth da run persistida).'
+  - 'Predicado real is_household_member(household_id) (Fase 0). Sem migration. Billing CONGELADO.'
+
+blockers:
+  - 'Nenhum blocker técnico. @dev pode iniciar *develop imediatamente (GO do @po dado).'
+
+files_modified:
+  - docs/stories/active/SEC-8.rls-enforced-runtime-fase4-cerebro-ai-executeatomic.story.md  # M — Status Draft→Ready + Change Log (validação @po)
+  - docs/handoffs/mj-handoff-sec8-po-to-dev-20260609.yaml  # NEW — este handoff
+  - docs/handoffs/archive/mj-handoff-sec8-drafted-pending-po-validation-20260609.yaml  # consumed (movido)
+  - docs/HANDOFF-INDEX.md  # M
+
+related:
+  - docs/adr/ADR-003-rls-enforced-runtime-hardening.md  # §12 (contrato de design — ainda NÃO commitada)
+  - docs/db-specialist-review-sec8-fase0-20260609.md  # Fase 0 GO global (@data-engineer)
+  - docs/handoffs/archive/mj-handoff-sec8-drafted-pending-po-validation-20260609.yaml  # handoff sm→po consumido

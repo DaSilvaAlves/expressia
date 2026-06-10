@@ -74,6 +74,11 @@ vi.mock('@meu-jarvis/planner-executor', async () => {
 vi.mock('@/lib/agent/db-shim', () => ({
   getDb: () => ({ execute: mocks.dbExecuteMock }),
   getServiceDb: () => ({ execute: mocks.dbExecuteMock }),
+  // SEC-8: o route monta `txRunner: (fn) => withHousehold({...}, fn)`. O Executor
+  // é mockado (a closure não corre), mas expomos withHousehold para robustez de
+  // contrato — corre `fn` com um db fake compatível.
+  withHousehold: <T,>(_auth: unknown, fn: (tx: { execute: typeof mocks.dbExecuteMock }) => Promise<T>) =>
+    fn({ execute: mocks.dbExecuteMock }),
 }));
 
 // Mock `openai` SDK para createClassifier não falhar

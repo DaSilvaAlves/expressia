@@ -290,3 +290,75 @@ describe('Executor.execute() — preserve AtomicResult shape', () => {
     expect(result).toMatchObject({ success: true });
   });
 });
+
+describe('Executor.execute() — txRunner (SEC-8 / ADR-003 Fase 4 Fatia D)', () => {
+  it('com txRunner e SEM dbResolver (produção): abre a tx via runner e NÃO dispara defaultDbResolver', async () => {
+    // Replica o caminho production-only: só txRunner, sem dbResolver. Se o
+    // Executor invocasse this.dbResolver() (defaultDbResolver), lançaria o erro
+    // construtivo — o sucesso prova que NÃO o faz (ponto crítico 2 SEC-8).
+    const txClient = createMockDbClient();
+    let txRunnerCalls = 0;
+    const executor = new Executor({
+      registry: createMockRegistry(),
+      txRunner: (fn) => {
+        txRunnerCalls += 1;
+        return fn(txClient);
+      },
+    });
+
+    const result = await executor.execute(
+      buildExecutorInput([buildToolCall('create_task', { title: 'RLS' })]),
+    );
+
+    expect(result.success).toBe(true);
+    // O runner injectado abriu a transacção exactamente uma vez...
+    expect(txRunnerCalls).toBe(1);
+    // ...e o default `ctx.db.transaction` NÃO foi usado (o tx veio do runner).
+    expect(txClient.transaction).not.toHaveBeenCalled();
+    if (result.success) {
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0]?.reverseOpId).toBeTruthy();
+    }
+  });
+
+  it('o tool recebe o tx do runner em ctx.db (placeholder do Executor nunca é tocado)', async () => {
+    const txClient = createMockDbClient();
+    const executor = new Executor({
+      registry: createMockRegistry(),
+      txRunner: (fn) => fn(txClient),
+    });
+
+    // Sucesso (sem throw do placeholder) prova que o loop usou o tx do runner.
+    const result = await executor.execute(
+      buildExecutorInput([buildToolCall('create_task', { title: 'placeholder-safe' })]),
+    );
+    expect(result.success).toBe(true);
+    // O agent_reverse_ops insert correu via tx.execute do runner.
+    expect(txClient.execute).toHaveBeenCalled();
+  });
+
+  it('txRunner tem precedência: dbResolver presente não é usado para abrir a tx', async () => {
+    const txClient = createMockDbClient();
+    const unusedResolverClient = createMockDbClient();
+    const resolver = vi.fn(() => unusedResolverClient);
+    let txRunnerCalls = 0;
+    const executor = new Executor({
+      registry: createMockRegistry(),
+      dbResolver: resolver,
+      txRunner: (fn) => {
+        txRunnerCalls += 1;
+        return fn(txClient);
+      },
+    });
+
+    const result = await executor.execute(
+      buildExecutorInput([buildToolCall('create_task', { title: 'precedence' })]),
+    );
+
+    expect(result.success).toBe(true);
+    expect(txRunnerCalls).toBe(1);
+    // Com txRunner presente, ctx.db é o placeholder — dbResolver NÃO é chamado.
+    expect(resolver).not.toHaveBeenCalled();
+    expect(unusedResolverClient.transaction).not.toHaveBeenCalled();
+  });
+});

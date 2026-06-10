@@ -378,6 +378,137 @@ Mas é uma mudança **package-level** (`@meu-jarvis/tools` + `@meu-jarvis/planne
 
 ---
 
+## 12. Adenda — design da Fatia D (Cérebro AI / SEC-8), soft-gate 09/06/2026
+
+> Adenda produzida por @architect a pedido do Eurico para desbloquear o draft de SEC-8.
+> Pré-requisito explícito de §11.5 ("**HOLD** até Adenda §12"). É o **contrato de design**
+> que @sm consome para draftar e @dev para implementar — não é implementação.
+> **Veredicto: GO para draft, condicionado a uma Fase 0 leve do @data-engineer (§12.7) ANTES do `@sm *draft`.**
+
+### 12.1 — Problema, reafirmado com precisão de código
+
+A superfície de escrita de domínio do cérebro é **única e canalizada**: todas as mutações passam por `executeAtomic` (`packages/tools/src/atomic.ts:118-326`), que hoje abre a transação via `ctx.db.transaction(...)` (`atomic.ts:124`) onde `ctx.db` é o `getDb()` resolvido no route (`prompt/route.ts:232,550`). Como `getDb()` liga com role `rolbypassrls`, **as 104 policies estão inertes exactamente no ponto de escrita mais sensível do sistema** — e o cabeçalho `atomic.ts:19-26` afirma o contrário ("RLS continua activa dentro da transacção"): **comentário factualmente falso em runtime**, a corrigir como parte de SEC-8.
+
+Três factos que moldam o desenho (lidos no código, não assumidos):
+
+1. **Transação-sobre-LLM é proibida.** O `POST /api/agent/prompt` encadeia idempotency → rate-limit → quota → `insertAgentRun` → Classifier (OpenAI) → Planner (Anthropic) → Executor → audit no mesmo `db` (`prompt/route.ts:232-560`). Envolver o route inteiro em `withHousehold` seguraria **uma transação Postgres aberta durante segundos de round-trips LLM**, esgotando a pool pgbouncer transaction-mode. **A transação tem de nascer e morrer dentro do `executeAtomic`, depois das chamadas LLM.**
+2. **A injecção de DB já existe — e é o ponto de entrada do fix.** O `Executor` recebe um `dbResolver: () => DrizzleDbClient` no constructor (`executor.ts:63-89`) e o route passa `() => db` (`prompt/route.ts:550`). É exactamente aqui que se troca um *resolver de cliente* por um *runner de transação RLS-enforced*, sem violar a fronteira de packages.
+3. **`apps/web` já tem `withHousehold` ao alcance.** O `db-shim.ts:79-88` já exporta `withHousehold` (via require lazy) precisamente para SEC-2+. O package `@meu-jarvis/tools`/`@meu-jarvis/planner-executor` **continua a NÃO importar `@meu-jarvis/db`** (limitação de paths aliases documentada em `contracts.ts`) — a ligação faz-se por **injecção de dependência** a partir do route.
+
+### 12.2 — Contrato: injectar um `txRunner`, não um `db`
+
+A mudança é **package-level mas cirúrgica**. Substituir a semântica "executeAtomic abre a sua própria transação no cliente que lhe deram" por "executeAtomic recebe *como* abrir a transação".
+
+**Novo tipo (em `@meu-jarvis/tools`):**
+
+```typescript
+/**
+ * Abre uma transação já scoped ao household (RLS-enforced) e corre `fn` com
+ * o cliente da transacção. Em produção é `(fn) => withHousehold(auth, fn)`,
+ * com `auth` capturado no closure pelo route. Em testes é um mock que abre
+ * uma tx normal. NUNCA resolve para getServiceDb() (NFR5).
+ */
+export type TxRunner = <T>(fn: (tx: DrizzleDbClient) => Promise<T>) => Promise<T>;
+```
+
+**`executeAtomic` deixa de chamar `ctx.db.transaction(...)`** e passa a chamar o `txRunner` injectado:
+
+```typescript
+// ANTES (atomic.ts:124) — RLS inerte
+const outcome = await ctx.db.transaction(async (tx) => { /* loop tools */ });
+
+// DEPOIS — RLS-enforced; tx nasce dentro do executeAtomic, sem LLM lá dentro
+const outcome = await txRunner(async (tx) => { /* loop tools idêntico */ });
+```
+
+O `ctxWithTx` (`atomic.ts:127-133`) mantém-se **exactamente igual** — `db: tx` continua a ser o cliente da transação que cada tool recebe. O corpo do loop (validar input → execute → validar output → reverse → INSERT `agent_reverse_ops` via SQL puro) **não muda uma linha**. Muda **só quem abre a transação**.
+
+**Propagação da injecção (3 saltos, todos por DI já existente):**
+
+| Camada | Hoje | SEC-8 |
+|--------|------|-------|
+| Route (`prompt/route.ts`) | `new Executor({ dbResolver: () => db })` | `new Executor({ txRunner: (fn) => withHousehold({ userId, householdId }, fn) })` |
+| `Executor` (`executor.ts`) | guarda `dbResolver`, constrói `ctx.db = this.dbResolver()` | guarda `txRunner`, passa-o a `executeAtomic` (não pré-resolve `db`) |
+| `executeAtomic` (`atomic.ts`) | `ctx.db.transaction(...)` | `txRunner(...)` |
+
+> **Decisão D-12A (default backward-compat):** o `txRunner` é opcional na assinatura; o default preserva o comportamento actual — `(fn) => ctx.db.transaction(fn)`. Isto mantém todos os testes de `executeAtomic`/`Executor` que injectam um `DrizzleDbClient` mockado a passar sem reescrita, e torna o salto RLS-enforced **puramente aditivo** (mesmo princípio de reversibilidade do resto do ADR). O `dbResolver` pode coexistir como fallback do default durante a transição, ou ser removido se `db` deixar de ser necessário no ctx — decisão de implementação do @dev, não bloqueante.
+
+> **Decisão D-12B (`auth` vive no closure, não no `ToolExecutionContext`):** o `householdId`/`userId` já estão no `ToolExecutionContext` (`contracts.ts:115-126`) para as colunas `created_by`/`household_id` dos inserts. O `auth` que o `withHousehold` precisa é **o mesmo par**, capturado no closure do `txRunner` montado no route. **Não** se adiciona `auth` ao contexto — evita duplicação de fonte-de-verdade e mantém o package agnóstico de `withHousehold`.
+
+### 12.3 — Mapa de fronteiras transaccionais (o coração do desenho)
+
+| Bloco | Ficheiro | Cliente SEC-8 | Justificação |
+|-------|----------|---------------|--------------|
+| **Escrita de domínio (tools) + `agent_reverse_ops`** | `atomic.ts` loop | **`withHousehold` (RLS-enforced)** via `txRunner` | É a única escrita de domínio do cérebro. Fecha a RLS onde importa. **A vitória de SEC-8.** |
+| idempotency lookup, rate-limit, quota check | `prompt/route.ts:239-296` | `getDb()` app-enforced (intocado) | Leituras curtas de orquestração, fora da tx longa, já com filtro `household_id`. Gémeas das excepções `insertAuditLog`. |
+| `insertAgentRun` / `updateAfter*` (audit) | `audit-log.ts` | `getDb()` app-enforced (intocado) | Audit log; INSERT permitido a authenticated mesmo sob RLS (policy `audit_log_insert_member`). Não é escrita de domínio. |
+| `buildAccountContext`, `user_prefs`, `households.plan` | `prompt/route.ts:129-164,316-341` | `getDb()` app-enforced (intocado) | Leituras de metadados com `where household_id`/`user_id` explícito. Não-fatais por design. |
+| `incrementQuota` | `audit-log.ts` (`getServiceDb()`) | **`getServiceDb()` (intocado)** | Excepção permanente D50 — RLS bloqueia `agent_quotas` a authenticated. |
+| `executeDirectQuery` (cost-router, read-only) | `cost-router.ts` | `getDb()` app-enforced (intocado) | Read-only `consultar_dados`; sem escrita, sem reverse_op. Fora de âmbito. |
+
+**Regra de ouro de SEC-8:** o `withHousehold` entra **só** à volta do loop de `executeAtomic`. Tudo o resto mantém o cliente que tem hoje. App-enforced (filtro `household_id`, SEC-1) **permanece em todo o lado** — `withHousehold` é a 2.ª rede, nunca substitui a 1.ª.
+
+### 12.4 — `confirm` está EM âmbito (mesma injecção)
+
+`POST /api/agent/prompt/[runId]/confirm` re-corre Planner+Executor para um preview confirmado — **é caminho de escrita de domínio idêntico ao `prompt`**. Logo, o `confirm/route.ts` instancia o `Executor` da mesma forma e **tem de receber o mesmo `txRunner`** `(fn) => withHousehold({ userId, householdId }, fn)`. SEC-8 cobre os **dois** routes que instanciam `Executor` (`prompt` + `confirm`). @dev confirma por grep que não há um 3.º instanciador.
+
+### 12.5 — `undo` FICA em `getServiceDb()` — excepção permanente documentada
+
+`POST /api/agent/prompt/[runId]/undo` (`undo/route.ts:182-200`) aplica os reverse_ops e marca `agent_runs.status='reverted'` via `getServiceDb()` **por necessidade dura**: o trigger de imutabilidade bloqueia a mutação de estado terminal (`success`→`reverted`) ao role `authenticated`. Forçar `withHousehold` aqui seria **errado e inútil** — gémeo exacto do `aceitar-convite`/`accept_invite` SECURITY DEFINER de §11.3.
+
+> **Decisão D-12C:** o undo **mantém-se service_role**, documentado como 3.ª excepção permanente do cérebro (a par de `incrementQuota` e `aceitar-convite`). A pertença ao household já é garantida **app-enforced** no lookup (`undo/route.ts:112-118,146-153` — filtro `household_id` duplo em `agent_runs` e `agent_reverse_ops`), e os IDs alvo dos reverse_ops foram capturados *dentro* da transação RLS-enforced original (pós-SEC-8). **Não** se reescreve a atomicidade do undo nesta story — é concern separado, candidato a follow-up se algum dia se quiser RLS-enforced também no undo.
+
+### 12.6 — Correcção do comentário falso (parte do DoD)
+
+`atomic.ts:19-26` passa a descrever a realidade pós-SEC-8: a transação é aberta por `txRunner` (default `withHousehold` em produção) que faz `SET LOCAL ROLE authenticated` + claims, **logo as policies activam genuinamente dentro da transação**; o filtro `household_id` app-enforced mantém-se como 1.ª rede. **A story falha o DoD se este comentário não for corrigido** — comentário enganador num path de segurança é dívida activa, não cosmética.
+
+### 12.7 — Fase 0 @data-engineer (gate DURO antes do `@sm *draft`)
+
+Sem isto, a RLS pode ficar inerte nalgumas tabelas-alvo sem ninguém reparar (mesma armadilha de §11.3). @data-engineer confirma, contra `0001_rls_policies.sql`:
+
+1. **Cobertura de policies write** para **todas** as tabelas que as tools escrevem dentro de `executeAtomic** — no mínimo `tasks`, `transactions`, `recurrences`, `cards`, `installments`, **`agent_reverse_ops`** — com INSERT/UPDATE/DELETE (ou ALL) ancoradas em `auth.uid()`/`is_household_member`/`current_household_id()`, que **activam** sob os claims que `withHousehold` injecta. (Cruzar com a whitelist `ALLOWED_REVERSE_TABLES` de `undo/route.ts:279-285`.)
+2. **`agent_reverse_ops` aceita INSERT a authenticated** sob a policy `WITH CHECK (household_id = current_household_id())` — confirmar que o INSERT de `atomic.ts:244-250` **não** é bloqueado quando a RLS deixar de estar inerte. (Risco real: hoje passa porque a RLS está morta; amanhã pode rejeitar se a policy não existir/estiver mal-ancorada.)
+3. **Nenhum trigger de imutabilidade** no caminho de escrita do `executeAtomic` bloqueia `authenticated` (o trigger conhecido é só na transição terminal de `agent_runs`, que vive no undo, não no executeAtomic).
+4. **Nenhuma SECURITY DEFINER** function é chamada pelas tools de escrita que mascararia a RLS (varrer as `execute()` das tools de domínio).
+
+Output: nota curta `db-specialist-review` (GO/NO-GO por tabela). **NO-GO numa tabela = essa tool sai do âmbito de SEC-8 ou ganha migration de policy primeiro.**
+
+### 12.8 — Sementes de Acceptance Criteria para SEC-8 (para @sm)
+
+- **AC1** `executeAtomic` abre a transação via `txRunner` injectado; default backward-compat `(fn) => ctx.db.transaction(fn)` preservado (D-12A).
+- **AC2** `Executor` aceita `txRunner` no `ExecutorOpts` e propaga-o a `executeAtomic`; `dbResolver` mantido como fallback ou removido (decisão @dev), sem nunca resolver `getServiceDb()`.
+- **AC3** `prompt/route.ts` **e** `confirm/route.ts` instanciam `Executor` com `txRunner: (fn) => withHousehold({ userId, householdId }, fn)` via `db-shim` (§12.4).
+- **AC4** Orquestração (idempotency/rate-limit/quota/audit/accountContext/user_prefs/plan) **permanece** `getDb()` app-enforced — diff zero nesses blocos (§12.3).
+- **AC5** `incrementQuota` e `undo` **permanecem** `getServiceDb()` (D50, D-12C) — diff zero.
+- **AC6** Comentário `atomic.ts:19-26` corrigido para a realidade pós-SEC-8 (§12.6).
+- **AC7** App-enforced (`household_id` explícito) **mantido** em todas as queries — `withHousehold` é aditivo (2.ª rede).
+- **AC8** Atomicidade (FR2), reverse_op + janela undo 30s (FR6) e rollback automático **inalterados** — provados por teste de integração.
+- **AC9** **Teste de integração RLS** (em `@meu-jarvis/db-test`, Testcontainers): prova que, sob `txRunner = withHousehold`, uma tool a tentar escrever cross-household é **rejeitada pelo Postgres** (não só pelo filtro app) — o teste-gémeo do `atomic-rls.test.ts` mas agora com a RLS *realmente* activa. Este é o AC que demonstra que a 2.ª rede fecha.
+- **AC10** `pnpm check:rls` continua verde; **sem migration nova** (104 policies intactas) — salvo se a Fase 0 §12.7 exigir uma policy em falta, caso em que essa migration é pré-requisito separado.
+
+### 12.9 — Fronteiras: o que SEC-8 NÃO faz
+
+- Não reescreve a atomicidade do `undo` (D-12C).
+- Não mexe em `getServiceDb()`/Inngest/cost-router read-only.
+- Não toca em billing (CONGELADO).
+- Não centraliza orquestração em transação longa (anti-padrão §12.1.1).
+- Não altera contratos de tools (`ToolDefinition.execute/reverse` inalterados — recebem o mesmo `ctx.db = tx`).
+
+### 12.10 — Sequenciamento e veredicto
+
+| Passo | Agente | Output |
+|-------|--------|--------|
+| 0 (gate duro) | @data-engineer | `db-specialist-review` Fase 0 (§12.7) — GO/NO-GO por tabela |
+| 1 | @sm | `*draft` SEC-8 a partir desta Adenda (AC §12.8) |
+| 2 | @po | `*validate-story-draft` SEC-8 |
+| 3 | @dev | `*develop` (provável QA Loop próprio — mudança package-level) |
+| 4 | @qa | `*qa-gate` com foco em AC9 (prova RLS-enforced) |
+| 5 | @devops | `*push` |
+
+> **Veredicto:** Fatia D é **NÃO mecânica mas bem-delimitada**. O caminho de §11.4 confirma-se: `withHousehold` à volta do loop de `executeAtomic`, injectado por `txRunner` a partir do route, com `prompt`+`confirm` em âmbito e `undo`/`incrementQuota` como excepções service_role permanentes. **GO para `@sm *draft` assim que a Fase 0 do @data-engineer (§12.7) der GO.** App-enforced intacto, sem migration nova (salvo lacuna detectada na Fase 0), billing CONGELADO.
+
+---
+
 ## 9. Referências
 
 - Código: `packages/db/src/client.ts` (37-101), `packages/db/migrations/0000_initial_schema.sql` (34-87), `packages/db/migrations/0001_rls_policies.sql` (537-552, 98 ocorrências), `apps/web/src/lib/api-helpers/auth.ts` (24-93)

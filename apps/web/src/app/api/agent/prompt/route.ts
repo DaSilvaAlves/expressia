@@ -30,7 +30,7 @@ import { z } from 'zod';
 
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import { Classifier, ClassifierError, type ClassificationResult } from '@meu-jarvis/classifier';
-import { getDb } from '@/lib/agent/db-shim';
+import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { buildCacheKey, getCacheClient, CACHE_TTL_SECONDS } from '@/lib/agent/cache';
 import { isSingleConsultarDados, executeDirectQuery } from '@/lib/agent/cost-router';
 import {
@@ -547,7 +547,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           db,
         );
 
-        const executor = new Executor({ dbResolver: () => db });
+        // SEC-8 (ADR-003 Fase 4 Fatia D): a transacção de escrita do cérebro AI
+        // é aberta via `withHousehold` (role authenticated + claims JWT → RLS
+        // viva, 2.ª rede) exactamente no loop de `executeAtomic`. O par
+        // { userId, householdId } é IDÊNTICO ao passado a `executor.execute`
+        // abaixo — a sessão RLS scopa o mesmo household dos inserts. App-enforced
+        // (1.ª rede, SEC-1) mantém-se em todas as queries. `withHousehold` vem do
+        // db-shim (REQ-INLINE-1), nunca directo de @meu-jarvis/db.
+        const executor = new Executor({
+          txRunner: (fn) => withHousehold({ userId: user.id, householdId }, fn),
+        });
         outcome = await executor.execute({
           plan,
           householdId,

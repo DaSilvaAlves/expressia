@@ -17,8 +17,11 @@
  *      se algum falha, retornar `AtomicFailure{rolledBack: false}` SEM
  *      abrir transacção (poupa Postgres round-trip).
  *   4. Construir array `tools` no formato `executeAtomic` espera.
- *   5. Construir `ToolExecutionContext` com `db: getDb()` (NUNCA `getServiceDb()`).
- *   6. Invocar `executeAtomic(tools, ctx)` — toda a lógica transaccional da 2.3.
+ *   5. Construir `ToolExecutionContext`. SEC-8 (ADR-003 Fase 4 Fatia D): em
+ *      produção injecta-se um `txRunner` (`(fn) => withHousehold({…}, fn)`) e
+ *      `ctx.db` é um placeholder (a tx é aberta pelo runner como role
+ *      `authenticated` + claims — RLS viva, 2.ª rede). NUNCA `getServiceDb()`.
+ *   6. Invocar `executeAtomic(tools, ctx, txRunner)` — lógica transaccional da 2.3.
  *   7. Retornar resultado directamente — preserva `reverseOpId` para Story 2.8 undo.
  *
  * `D13`: Executor delega `ToolError` da 2.3. Única excepção criada aqui é
@@ -37,6 +40,7 @@ import {
   type ToolDefinition,
   type ToolExecutionContext,
   type ToolRegistry,
+  type TxRunner,
 } from '@meu-jarvis/tools';
 
 import { ExecutorValidationError } from './errors';
@@ -66,13 +70,27 @@ export interface ExecutorOpts {
   /** Override do registry para testes — em produção usa singleton `toolRegistry`. */
   readonly registry?: ToolRegistry;
   /**
-   * Resolver do cliente DB. Em produção: `() => getDb()` da 2.x. Em testes:
-   * mock que retorna `DrizzleDbClient` mockado.
+   * Resolver do cliente DB. Em testes: mock que retorna `DrizzleDbClient`
+   * mockado, consumido pelo default backward-compat de `executeAtomic`
+   * (`(fn) => ctx.db.transaction(fn)`).
    *
    * Default: lança erro construtivo se invocado sem mock — força o caller a
    * fornecer explicitamente em testes (sem fallback silencioso para serviço).
+   *
+   * **SEC-8:** em PRODUÇÃO já NÃO se passa `dbResolver` — passa-se `txRunner`.
+   * Quando `txRunner` está presente, o `dbResolver` NUNCA é invocado (ver
+   * abaixo), pelo que o `defaultDbResolver` (que lança) não dispara.
    */
   readonly dbResolver?: DbResolver;
+  /**
+   * Runner da transacção RLS-enforced (SEC-8 / ADR-003 Fase 4 Fatia D). Em
+   * PRODUÇÃO o route monta `(fn) => withHousehold({ userId, householdId }, fn)`
+   * e injecta-o aqui — `executeAtomic` abre a transacção como role
+   * `authenticated` + claims (2.ª rede). Quando presente, o Executor NÃO
+   * pré-resolve `ctx.db` via `dbResolver` (evita o throw do `defaultDbResolver`
+   * no caminho production-only). NUNCA deve resolver `getServiceDb()` (NFR5).
+   */
+  readonly txRunner?: TxRunner;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -82,9 +100,11 @@ export interface ExecutorOpts {
 export class Executor {
   private readonly registry: ToolRegistry;
   private readonly dbResolver: DbResolver;
+  private readonly txRunner: TxRunner | undefined;
 
   constructor(opts: ExecutorOpts = {}) {
     this.registry = opts.registry ?? toolRegistry;
+    this.txRunner = opts.txRunner;
     this.dbResolver = opts.dbResolver ?? defaultDbResolver;
   }
 
@@ -139,16 +159,23 @@ export class Executor {
         input: call.input,
       }));
 
+      // SEC-8: em modo `txRunner` (produção), `ctx.db` não é usado para abrir a
+      // transacção — o `executeAtomic` abre-a via o runner injectado e o loop
+      // usa o `tx` do runner. Por isso NÃO pré-resolvemos `dbResolver()` (que em
+      // produção é o `defaultDbResolver` que lança): usamos um placeholder que
+      // satisfaz o tipo e falha ruidosamente se for tocado. Sem `txRunner`
+      // (testes legacy), mantém-se o caminho histórico `dbResolver()` →
+      // `ctx.db.transaction(fn)` (default backward-compat de `executeAtomic`).
       const ctx: ToolExecutionContext = {
         householdId: validated.householdId,
         userId: validated.userId,
-        db: this.dbResolver(),
+        db: this.txRunner ? TX_RUNNER_DB_PLACEHOLDER : this.dbResolver(),
         traceId: validated.traceId,
         runId: validated.runId,
       };
 
-      // Step 6: Delegar a executeAtomic da 2.3
-      const outcome = await executeAtomic(atomicInputs, ctx);
+      // Step 6: Delegar a executeAtomic da 2.3 (SEC-8: propaga o txRunner)
+      const outcome = await executeAtomic(atomicInputs, ctx, this.txRunner);
 
       // Step 7: Anotar span e retornar
       annotateExecutorMetrics(span, {
@@ -218,23 +245,52 @@ export class Executor {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Default dbResolver — em produção retorna `getDb()` de `@meu-jarvis/db`.
+ * Default dbResolver — fallback histórico (pré-SEC-8) que, sem override, lança
+ * erro construtivo.
  *
- * Para evitar coupling cross-package em testes (paths aliases não resolvíveis),
- * o caller em produção deve fornecer explicitamente:
+ * **SEC-8 (ADR-003 Fase 4 Fatia D):** em PRODUÇÃO já não se passa `dbResolver` —
+ * passa-se um `txRunner` que abre a tx RLS-enforced:
  *
  * ```ts
- * import { getDb } from '@meu-jarvis/db';
- * const executor = new Executor({ dbResolver: () => getDb() });
+ * import { withHousehold } from '@/lib/agent/db-shim';
+ * const executor = new Executor({
+ *   txRunner: (fn) => withHousehold({ userId, householdId }, fn),
+ * });
  * ```
  *
- * Se invocado sem override, lança erro construtivo (NUNCA retorna service_role
- * silenciosamente — viola NFR5).
+ * Em testes legacy ainda se pode injectar um `DrizzleDbClient` mockado via
+ * `dbResolver` (consumido pelo default backward-compat de `executeAtomic`).
+ * Se nem `txRunner` nem `dbResolver` forem fornecidos e o caminho for atingido,
+ * lança (NUNCA retorna service_role silenciosamente — viola NFR5).
  */
 function defaultDbResolver(): DrizzleDbClient {
   throw new Error(
     'Executor: dbResolver não foi fornecido no constructor. ' +
-      'Em produção: new Executor({ dbResolver: () => getDb() }). ' +
-      'Em testes: forneça mock DrizzleDbClient. NUNCA usar getServiceDb() (NFR5 RLS).',
+      'Em produção (SEC-8): new Executor({ txRunner: (fn) => withHousehold({ userId, householdId }, fn) }). ' +
+      'Em testes: forneça mock DrizzleDbClient via dbResolver OU um txRunner. ' +
+      'NUNCA usar getServiceDb() (NFR5 RLS).',
   );
 }
+
+/**
+ * Placeholder usado como `ctx.db` quando o Executor corre em modo `txRunner`
+ * (produção SEC-8). Nesse modo, `executeAtomic` abre a transacção via o
+ * `txRunner` injectado e NUNCA toca em `ctx.db` para abrir a tx — o loop usa o
+ * `tx` que o runner fornece. Este placeholder satisfaz o contrato de tipo
+ * `ToolExecutionContext.db` (não-opcional) e falha RUIDOSAMENTE se algum
+ * caminho inesperado o tentar usar (defense-in-depth). NUNCA é `getServiceDb()`.
+ */
+const TX_RUNNER_DB_PLACEHOLDER: DrizzleDbClient = {
+  transaction() {
+    throw new Error(
+      'Executor(txRunner): ctx.db não deve abrir transacção — a tx é aberta pelo txRunner injectado (SEC-8). ' +
+        'Este acesso indica um caminho inesperado.',
+    );
+  },
+  insert() {
+    throw new Error('Executor(txRunner): ctx.db.insert indisponível em modo txRunner (SEC-8) — usar o tx do runner.');
+  },
+  execute() {
+    throw new Error('Executor(txRunner): ctx.db.execute indisponível em modo txRunner (SEC-8) — usar o tx do runner.');
+  },
+};
