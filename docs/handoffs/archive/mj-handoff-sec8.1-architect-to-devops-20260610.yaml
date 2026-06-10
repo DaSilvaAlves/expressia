@@ -1,0 +1,123 @@
+id: mj-handoff-sec8.1-architect-to-devops-20260610
+from_agent: architect
+to_agent: devops
+created: "2026-06-10T19:15:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-10T19:45:00Z"
+consumed_by: devops
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: push
+
+summary: >
+  HOTFIX DE PRODUÇÃO. Story SEC-8.1 (fix `withHousehold` regressão
+  `TypeError ...parsers` em runtime) PASSOU o gate adversarial @architect:
+  PASS 9,7/10 → Done v1.0-ARCH-APPROVED. 6/6 focos MET. O bug está EM PRODUÇÃO
+  agora (208a632): `withHousehold` usava `pgSql.begin()`+`drizzle(pgTx)` (cliente
+  Drizzle PARTIDO em runtime) → a 2.ª rede RLS rebentava com 500 em todos os 109
+  call-sites SEC-2→8. 1.ª rede (household_id app-enforced) sempre intacta — sem
+  vazamento. O fix reescreve para `db.transaction()` (Drizzle). Counter-proof
+  INDEPENDENTE da Aria confirmou que o novo gate apanha a regressão (revertendo
+  o fix, 3/3 testes falham com `TypeError ...parsers`; restaurando, 3/3 GREEN).
+  Próximo: @devops *push — commit ÚNICO de fecho. SEM db:migrate.
+
+context: |
+  GATE @architect (padrão SEC-1→8, adversarial independente) — todos os números
+  re-executados localmente nesta sessão (não confiando no relatório @dev).
+
+  GATES VERDES (re-corridos):
+    - lint 10/10 (FULL TURBO) · typecheck 10/10 (Sql import ainda usado, sem
+      unused-import) · check:rls 16 tabelas coverage completa · EXIT 0
+    - @meu-jarvis/db 17/17 ✓ (inclui client-with-household nova mecânica db.transaction)
+    - @meu-jarvis/db-test 209/209 ✓ (39 files, Postgres 16 REAL via Testcontainers,
+      Docker UP) incl. os 3 NOVOS withHousehold.rls
+    - @meu-jarvis/tools 354/354 ✓ · @meu-jarvis/planner-executor 72/72 ✓
+    - @meu-jarvis/web 1080/1080 ✓ (o flaky calendário PASSOU este run — não-regressão)
+    - build: Compiled 13.7s, 48/48 páginas estáticas (isolado, após restaurar o fix)
+    - SEM db:migrate (zero migration — 104 policies intactas)
+
+  NOTA BUILD: a 1.ª execução do build falhou (MODULE_NOT_FOUND em /_error) por
+  correr CONCORRENTE com a suite web (contenção no worker .next) E na janela do
+  counter-proof (código revertido p/ broken). Re-execução ISOLADA com o fix
+  restaurado: GREEN 48/48. Transiente confirmado, não-regressão.
+
+  6 FOCOS — TODOS MET:
+    1. Correcção correcta: db.transaction() + SET LOCAL ROLE authenticated +
+       set_config bound (claims/householdId via template `sql`, anti-injection).
+       RLS activa provada pelo teste (b): auth.uid()=sub, current_household_id()=hh.
+       SET LOCAL reverte no COMMIT — pgbouncer-safe. Semântica ADR-003 §3 preservada.
+    2. Teste reproduz RUNTIME REAL (lição central) — PROVADO PELA MÃO DA ARIA:
+       withHousehold.rls.test.ts importa @meu-jarvis/db/client REAL via
+       DATABASE_URL→Testcontainer. Counter-proof independente: revertendo p/
+       pgSql.begin(), os 3 testes FALHAM com `TypeError ...parsers`; restaurando o
+       fix, 3/3 GREEN. Gate NÃO-tautológico (ao contrário do AC9 réplica da SEC-8).
+    3. 1.ª rede (filtro household_id app-enforced) intacta — git diff só toca
+       client.ts; zero call-sites alterados; defense-in-depth aditivo.
+    4. getServiceDb/service_role intactos; órfãos (getDbSql/createDbSql/_dbSql)
+       removidos sem quebra (grep = zero refs vivas, só docstrings/stories).
+    5. Sem migration; fronteiras de packages intactas.
+    6. Regressão: 109 call-sites + suites existentes GREEN (client-with-household 4/4).
+
+  client.ts RESTAURADO byte-a-byte após o counter-proof (git diff = +40 linhas,
+  idêntico ao diff do @dev; zero resíduo do counter-proof em código vivo — os 3
+  matches de `pgSql.begin`/`pgTx` são docstrings que descrevem a regressão corrigida).
+
+  OBS NÃO-BLOQUEANTES (housekeeping, NÃO corrigir antes do push):
+    - O AC9 (executeAtomic.rls.test.ts, réplica withHouseholdTxRunner) mantém-se
+      como gate COMPLEMENTAR do caminho executeAtomic. O gate de mecânica real é
+      agora withHousehold.rls.test.ts.
+    - Lição transversal: futuros gates SEC devem SEMPRE exercitar o código de
+      produção, nunca uma réplica. withHousehold.rls.test.ts é o template.
+
+next_action: |
+  @devops: executar *push SEC-8.1 — commit ÚNICO de fecho (fast-forward, sem
+  --force/--no-verify, CodeRabbit SKIP — sem coderabbit_integration, padrão SEC-1→8).
+  **SEM db:migrate** (zero migration — 104 policies intactas). HOTFIX URGENTE DE
+  PRODUÇÃO — o bug está em prod (208a632).
+
+  O COMMIT DE FECHO INCLUI OBRIGATORIAMENTE:
+    CÓDIGO DE PRODUÇÃO (1):
+      - packages/db/src/client.ts (withHousehold → db.transaction; órfãos removidos)
+    TESTES (2):
+      - packages/db/src/__tests__/client-with-household.test.ts (nova mecânica)
+      - packages/db-test/src/tests/withHousehold.rls.test.ts (NOVO — gate real produção)
+    DOCS / HOUSEKEEPING:
+      - docs/stories/active/SEC-8.1.…story.md → mover para docs/stories/completed/
+      - docs/qa/gates/SEC-8.1-architect-gate.md (gate file NOVO)
+      - docs/HANDOFF-INDEX.md (actualizado)
+      - housekeeping: consumir este handoff (architect-to-devops) — mover para archive/
+    NOTA: scripts diag-sec8-*.ts já removidos pelo @dev (T4) — confirmar que não
+    reaparecem no diff. Os ficheiros SEC-8 ainda modificados no working tree
+    (contracts.ts/atomic.ts/executor.ts/routes/__tests__ + ADR-003) PERTENCEM ao
+    push SEC-8 já consumido — verificar se já foram commitados (handoff SEC-8 indica
+    que o @dev NÃO tinha commitado); se NÃO, o @devops decide se entram neste commit
+    de fecho ou num separado. SEC-8.1 toca APENAS client.ts + os 2 testes acima.
+
+  Com SEC-8.1 em prod, a 2.ª rede RLS (withHousehold) passa a FUNCIONAR EM RUNTIME
+  REAL em toda a superfície SEC-2→8 (defense-in-depth genuíno, não só no papel).
+
+decisions:
+  - 'PASS 9,7/10 → Done v1.0-ARCH-APPROVED. 6/6 focos MET. Counter-proof independente confirma gate não-tautológico (revertido = 3/3 TypeError parsers; fix = 3/3 GREEN).'
+  - 'D-SEC8.1.1 (db.transaction em vez de getDbSql+begin) RATIFICADA. D-SEC8.1.2 (gate corre withHousehold REAL via DATABASE_URL→Testcontainer) RATIFICADA. D-SEC8.1.3 (extracção params via valueOf no teste unit) RATIFICADA.'
+  - 'Build 1.ª falha = transiente (concorrência .next + janela counter-proof); isolado com fix = GREEN 48/48. Flaky calendário web passou este run.'
+  - 'Sem migration — NÃO correr db:migrate. CodeRabbit SKIP. Billing CONGELADO. Hotfix de produção urgente.'
+
+blockers:
+  - 'Nenhum. Soft-gate fechado (PASS). @devops livre para *push imediato (hotfix prod).'
+
+files_to_commit:
+  - packages/db/src/client.ts
+  - packages/db/src/__tests__/client-with-household.test.ts
+  - packages/db-test/src/tests/withHousehold.rls.test.ts
+  - docs/qa/gates/SEC-8.1-architect-gate.md
+  - docs/stories/completed/SEC-8.1.fix-withhousehold-drizzle-transaction-regression.story.md  # mover de active/
+  - docs/HANDOFF-INDEX.md
+
+related:
+  - docs/qa/gates/SEC-8.1-architect-gate.md  # gate file (PASS 9,7/10)
+  - docs/stories/active/SEC-8.1.fix-withhousehold-drizzle-transaction-regression.story.md
+  - docs/adr/ADR-003-rls-enforced-runtime-hardening.md  # §3 (semântica withHousehold preservada)
+  - packages/db-test/src/tests/executeAtomic.rls.test.ts  # AC9 — gate complementar (réplica)

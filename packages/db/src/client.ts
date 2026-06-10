@@ -14,10 +14,11 @@
  *     ficam INERTES em runtime. O isolamento cross-tenant é hoje garantido pelo filtro
  *     `household_id` explícito ao nível da aplicação (SEC-1 — 1.ª rede).
  *   - `withHousehold(auth, fn)` é o caminho RLS-enforced (SEC-2 / ADR-003 Fase 1): abre
- *     uma transação, faz `SET LOCAL ROLE authenticated` + `SET LOCAL request.jwt.claims`
- *     (com `sub` + `household_id`), o que ACTIVA as 104 policies sem as alterar. O
- *     `SET LOCAL` reverte no COMMIT — seguro em pgbouncer transaction-mode (2.ª rede,
- *     defense-in-depth por baixo do filtro app-enforced, que NÃO é removido).
+ *     uma transação via `db.transaction()` (Drizzle), faz `SET LOCAL ROLE authenticated`
+ *     + `SET LOCAL request.jwt.claims` (com `sub` + `household_id`), o que ACTIVA as 104
+ *     policies sem as alterar. O `SET LOCAL` reverte no COMMIT — seguro em pgbouncer
+ *     transaction-mode (2.ª rede, defense-in-depth por baixo do filtro app-enforced,
+ *     que NÃO é removido).
  *   - `getServiceDb()` usa `service_role` e IGNORA RLS por design — usar APENAS em código
  *     de servidor controlado (jobs Inngest, migrations, scripts).
  *
@@ -35,30 +36,17 @@ import * as schema from './schema';
 export type Database = PostgresJsDatabase<typeof schema>;
 
 let _db: Database | null = null;
-let _dbSql: Sql | null = null;
 let _serviceDb: Database | null = null;
 
 /**
  * Cliente Postgres comum — usa role `authenticated` (RLS aplicada via JWT do Supabase).
  *
  * Singleton lazy: cria uma única `postgres()` connection pool por processo.
+ * O `withHousehold` reutiliza esta mesma pool via `db.transaction()`.
  */
 export function getDb(): Database {
   if (_db) return _db;
 
-  _dbSql = createDbSql();
-  _db = drizzle(_dbSql, { schema, logger: process.env.DB_DEBUG === '1' });
-  return _db;
-}
-
-/**
- * Cria a pool `postgres-js` subjacente ao `getDb()`.
- *
- * Extraído para função privada porque o `withHousehold` precisa da instância
- * `Sql` crua (para `begin()` + `SET LOCAL`), enquanto `getDb()` só expõe o
- * wrapper Drizzle.
- */
-function createDbSql(): Sql {
   const url = process.env.DATABASE_URL;
   if (!url) {
     throw new Error(
@@ -67,26 +55,15 @@ function createDbSql(): Sql {
   }
 
   // pgbouncer transaction-mode: prepared statements desactivadas, max_lifetime baixo
-  return postgres(url, {
+  const pgSql: Sql = postgres(url, {
     prepare: false,
     max: 10,
     idle_timeout: 20,
     max_lifetime: 60 * 10,
   });
-}
 
-/**
- * Devolve a pool `postgres-js` crua subjacente ao `getDb()` (singleton lazy).
- *
- * Privado ao módulo — `withHousehold` usa-a para abrir a transação RLS-enforced.
- * Garante que partilha a MESMA pool que `getDb()` (não cria uma segunda).
- */
-function getDbSql(): Sql {
-  if (_dbSql) return _dbSql;
-  // Inicializa a pool via getDb() para manter o invariante "uma só pool".
-  getDb();
-  // _dbSql é garantidamente não-nulo após getDb() correr com sucesso.
-  return _dbSql as unknown as Sql;
+  _db = drizzle(pgSql, { schema, logger: process.env.DB_DEBUG === '1' });
+  return _db;
 }
 
 /**
@@ -95,18 +72,32 @@ function getDbSql(): Sql {
  *
  * Mecânica (provada na Fase 0 do ADR-003 — `diag-adr003-phase0.ts`, caminho 3b;
  * replica `rls-harness.ts:asUser()`):
- *   1. Abre uma transação na pool de `getDb()` (`begin()`).
+ *   1. Abre uma transação via `db.transaction()` do Drizzle (sobre a pool de `getDb()`).
  *   2. `SET LOCAL ROLE authenticated` — activa as policies (role sem `rolbypassrls`).
  *   3. `set_config('request.jwt.claims', $claims, true)` PARAMETRIZADO — shape
  *      `{"sub": userId, "household_id": householdId, "role": "authenticated"}`.
  *      `is_local = true` limita à transação (anti-injection: o JSON nunca é
- *      concatenado, vai como parâmetro bound).
+ *      concatenado, vai como parâmetro bound via template `sql`).
  *   4. `set_config('app.current_household_id', $householdId, true)` — defense-in-depth
  *      extra: alimenta o COALESCE em `current_household_id()` para policies/funções
  *      que leiam o GUC. Não substitui o `sub` dos claims.
- *   5. Corre `fn(tx)` com um `Database` Drizzle scoped à transação.
+ *   5. Corre `fn(tx)` com o `Database` Drizzle scoped à transação (o transaction
+ *      client que `db.transaction()` injecta — totalmente compatível com
+ *      query-builder e `tx.execute`, e com a interface `DbShim`).
  *   6. COMMIT (ou ROLLBACK em erro) — o `SET LOCAL` reverte automaticamente, zero
  *      fuga de contexto entre requests no mesmo pool pgbouncer transaction-mode.
+ *
+ * REGRESSÃO CORRIGIDA (SEC-8.1, 2026-06-10): a implementação anterior abria a
+ * transação com `pgSql.begin()` (postgres-js cru) e depois fazia
+ * `drizzle(pgTx as unknown as Sql)`. Esse cliente Drizzle estava PARTIDO em
+ * runtime: qualquer query via esse `tx` lançava
+ * `TypeError: Cannot read properties of undefined (reading 'parsers')` — o
+ * `TransactionSql` que `postgres.begin()` passa ao callback NÃO tem a shape
+ * (`.options.parsers`) que `drizzle-orm/postgres-js` espera. Os gates passavam
+ * porque os testes usavam mocks/harness Drizzle (`db.transaction`), nunca o
+ * `pgSql.begin` real de produção. A correcção usa `db.transaction()` do Drizzle
+ * (cliente compatível), provado contra a DB real
+ * (`diag-sec8-granular.ts` T2/T3 falham; `diag-sec8-fix.ts` sucede + RLS activa).
  *
  * IMPORTANTE: usa `SET LOCAL` em toda a parte — nunca `SET` simples (que persistiria
  * na connection e vazaria contexto cross-request). NÃO remove o filtro `household_id`
@@ -114,13 +105,13 @@ function getDbSql(): Sql {
  *
  * @see docs/adr/ADR-003-rls-enforced-runtime-hardening.md §3
  * @see packages/db-test/src/rls-harness.ts (asUser — mecânica de referência)
- * @see packages/db-test/src/scripts/diag-adr003-phase0.ts (Fase 0 — VEREDICTO GO)
+ * @see packages/db-test/src/tests/executeAtomic.rls.test.ts (AC9 / SEC-8.1 — gate real)
  */
 export async function withHousehold<T>(
   auth: { userId: string; householdId: string },
   fn: (tx: Database) => Promise<T>,
 ): Promise<T> {
-  const pgSql = getDbSql();
+  const db = getDb();
 
   // JSON dos claims construído como string parametrizada — nunca concatenado no SQL.
   const claims = JSON.stringify({
@@ -129,27 +120,23 @@ export async function withHousehold<T>(
     role: 'authenticated',
   });
 
-  return pgSql.begin(async (pgTx) => {
+  return db.transaction(async (tx) => {
     // 1. Bater para o role authenticated (SET LOCAL — só esta transação).
-    await pgTx.unsafe('set local role authenticated');
+    await tx.execute(sql`set local role authenticated`);
 
     // 2. JWT claims via set_config (is_local = true). Igual ao Supabase Auth Hook.
-    await pgTx`select set_config('request.jwt.claims', ${claims}, true)`;
+    //    Parametrizado via template `sql` — o JSON vai como parâmetro bound.
+    await tx.execute(sql`select set_config('request.jwt.claims', ${claims}, true)`);
 
     // 3. GUC app.current_household_id (defense-in-depth — COALESCE em current_household_id()).
-    await pgTx`select set_config('app.current_household_id', ${auth.householdId}, true)`;
+    await tx.execute(
+      sql`select set_config('app.current_household_id', ${auth.householdId}, true)`,
+    );
 
-    // 4. Drizzle scoped à transação — as queries do callback usam o ORM normalmente.
-    //    `drizzle()` tipa o cliente como `Sql`; o `pgTx` recebido por `begin()` é
-    //    `TransactionSql` (subconjunto sem `END`/`CLOSE`/etc — irrelevantes para o
-    //    Drizzle, que só usa a superfície de execução de queries, comum a ambos).
-    //    Cast através de `unknown` (nunca `any`) — runtime idêntico, types alinhados.
-    const tx = drizzle(pgTx as unknown as Sql, {
-      schema,
-      logger: process.env.DB_DEBUG === '1',
-    });
+    // 4. O `tx` injectado por `db.transaction()` é o transaction client do Drizzle,
+    //    scoped à transacção — as queries do callback usam o ORM normalmente.
     return fn(tx);
-  }) as Promise<T>;
+  });
 }
 
 /**
