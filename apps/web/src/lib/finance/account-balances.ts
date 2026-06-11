@@ -171,3 +171,67 @@ export async function getAccountBalances({
 
   return { groups, totalCents, accountCount };
 }
+
+/**
+ * Mapa `accountId → saldo computado on-read` para um household, usando a MESMA
+ * fórmula canónica do património (`initial_balance_cents + SUM(income) −
+ * SUM(expense)`, `is_projected = false`, `transfer` excluído via `account_id`).
+ *
+ * Razão de existir (W1): `accounts.balance_cents` é uma coluna morta — nunca é
+ * actualizada por trigger, fica sempre no valor inicial (tipicamente €0). Quem
+ * lê esse campo cru (ex.: `GET /api/financas/contas`) mostra saldos errados.
+ * Este helper é a single source of truth do recompute, reutilizável por
+ * qualquer consumidor que precise do saldo correcto sem reimplementar a fórmula.
+ *
+ * Diferenças face a `getAccountBalances` (que serve a vista Património agrupada):
+ *   - Devolve um `Map` plano `id → cents`, não a árvore banco→conta.
+ *   - `includeArchived` permite cobrir contas arquivadas (a vista Património só
+ *     mostra activas). Quando `false` (default) filtra `archived_at IS NULL`.
+ *
+ * Household scoping idêntico (SEC-4, 2 redes): filtro `household_id` explícito
+ * (1.ª rede app-enforced) + execução dentro de `withHousehold` pelo chamador.
+ *
+ * 2 queries fixas — sem N+1 (mesma estratégia D-4.9.4).
+ */
+export async function getAccountBalanceMap({
+  db,
+  householdId,
+  includeArchived = false,
+}: {
+  db: DbShim;
+  householdId: string;
+  includeArchived?: boolean;
+}): Promise<Map<string, number>> {
+  const [accountRows, sumRows] = await Promise.all([
+    db.execute<{ id: string; initial_balance_cents: number }>(sql`
+      select id, initial_balance_cents::int as initial_balance_cents
+      from public.accounts
+      where household_id = ${householdId}::uuid
+        and ${includeArchived ? sql`true` : sql`archived_at is null`}
+    `),
+    db.execute<SumRow>(sql`
+      select
+        account_id,
+        coalesce(sum(amount_cents) filter (where kind = 'income'), 0)::int as income_cents,
+        coalesce(sum(amount_cents) filter (where kind = 'expense'), 0)::int as expense_cents
+      from public.transactions
+      where account_id is not null
+        and is_projected = false
+        and household_id = ${householdId}::uuid
+      group by account_id
+    `),
+  ]);
+
+  const sumByAccount = new Map(
+    sumRows.map((s) => [s.account_id, { income: s.income_cents, expense: s.expense_cents }]),
+  );
+
+  const balanceById = new Map<string, number>();
+  for (const r of accountRows) {
+    const sums = sumByAccount.get(r.id);
+    const incomeCents = sums?.income ?? 0;
+    const expenseCents = sums?.expense ?? 0;
+    balanceById.set(r.id, r.initial_balance_cents + incomeCents - expenseCents);
+  }
+  return balanceById;
+}

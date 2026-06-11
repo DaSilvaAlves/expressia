@@ -22,6 +22,7 @@
 import { sql } from 'drizzle-orm';
 
 import type { DbShim } from '@/lib/agent/db-shim';
+import { getAccountBalanceMap } from '@/lib/finance/account-balances';
 import type {
   AccountsBalanceResponse,
   BriefingResponse,
@@ -111,11 +112,6 @@ interface RecurrenceRow {
   amount_cents: number;
   frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';
   next_run_on: string;
-}
-
-interface AccountsAggRow {
-  account_count: string | number;
-  total_balance_cents: string | null;
 }
 
 interface CalendarTaskRow {
@@ -292,25 +288,32 @@ export async function getRecurrencesNext(
 
 /**
  * Saldo total das contas activas (`archived_at IS NULL`) do household autenticado.
- * `SUM` Drizzle devolve string para `numeric` — `parseFinanceTotal` defensivo.
+ *
+ * O saldo é computado on-read pela fórmula canónica do património
+ * (`initial_balance_cents + SUM(income) − SUM(expense)`), NÃO pela coluna stored
+ * `accounts.balance_cents` — que é morta (nunca actualizada por trigger; fica no
+ * valor inicial, tipicamente €0). Reutiliza `getAccountBalanceMap` (single source
+ * of truth do recompute, partilhada com a vista Património e `GET /api/financas/contas`),
+ * sem reimplementar a fórmula. `includeArchived` fica no default `false`, pelo que
+ * o Map só contém contas activas — `accountCount = map.size` e `totalBalanceCents`
+ * = soma dos saldos. Contrato da resposta inalterado.
+ *
+ * Household scoping (SEC-4): o filtro `household_id` explícito vive dentro do
+ * helper (1.ª rede app-enforced); a execução corre em `withHousehold` no handler
+ * (2.ª rede RLS viva).
  */
 export async function getAccountsBalance(
   db: DbShim,
   householdId: string,
 ): Promise<AccountsBalanceResponse> {
-  const rows = await db.execute<AccountsAggRow>(sql`
-    select
-      count(*)::int as account_count,
-      sum(balance_cents)::text as total_balance_cents
-    from public.accounts
-    where household_id = ${householdId}::uuid
-      and archived_at is null
-  `);
+  const balanceById = await getAccountBalanceMap({ db, householdId });
 
-  const row = rows[0];
+  let totalBalanceCents = 0;
+  for (const cents of balanceById.values()) totalBalanceCents += cents;
+
   return {
-    totalBalanceCents: parseFinanceTotal(row?.total_balance_cents ?? null),
-    accountCount: parseFinanceTotal(row?.account_count ?? 0),
+    totalBalanceCents,
+    accountCount: balanceById.size,
     currency: 'EUR',
   };
 }

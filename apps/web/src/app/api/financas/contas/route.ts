@@ -4,6 +4,11 @@
  * GET:  List per household (RLS filtra). Query param `archived` (boolean, default
  *       `false` = só contas activas, `archived_at IS NULL`; `true` = só arquivadas).
  *       Order: name asc. Hard cap 200 (volume baixo por household — sem paginação).
+ *       `balance_cents` é computado on-read (W1 — a coluna stored é morta, nunca
+ *       actualizada por trigger): `initial_balance_cents + SUM(income) −
+ *       SUM(expense)` via `getAccountBalanceMap` (single source of truth do
+ *       saldo, partilhada com a vista Património). O shape da resposta mantém-se
+ *       (campo `balance_cents`), só com o valor correcto — contrato compatível.
  * POST: Create — Zod `.strict()`. RLS injecta `household_id` via JWT; `currency`
  *       fixo `'EUR'` (default DB). `balance_cents` inicializado = `initial_balance_cents`
  *       (snapshot, DP-4.2.4).
@@ -31,6 +36,7 @@ import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { AccountCreateSchema } from '@/lib/api-schemas/accounts';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
+import { getAccountBalanceMap } from '@/lib/finance/account-balances';
 
 const ROUTE = '/api/financas/contas';
 
@@ -67,20 +73,43 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const archived = req.nextUrl.searchParams.get('archived') === 'true';
 
       try {
-        const rows = await withHousehold(
+        // `balance_cents` em DB é coluna morta (nunca actualizada por trigger —
+        // W1). Calcula-se o saldo on-read com a fórmula canónica do património
+        // (`getAccountBalanceMap`, single source of truth) e sobrepõe-se ao valor
+        // stored, mantendo o shape da resposta intacto (campo `balance_cents`).
+        // Ambas as queries correm dentro do mesmo `withHousehold` (RLS viva).
+        const { rows, balanceById } = await withHousehold(
           { userId: auth.userId, householdId: auth.householdId },
-          (tx) =>
-            tx.execute<AccountRow>(sql`
-              select ${ACCOUNT_COLUMNS}
-              from public.accounts
-              where ${archived ? sql`archived_at is not null` : sql`archived_at is null`}
-                and household_id = ${auth.householdId}::uuid
-              order by name asc
-              limit 200
-            `),
+          async (tx) => {
+            const [accountRows, balances] = await Promise.all([
+              tx.execute<AccountRow>(sql`
+                select ${ACCOUNT_COLUMNS}
+                from public.accounts
+                where ${archived ? sql`archived_at is not null` : sql`archived_at is null`}
+                  and household_id = ${auth.householdId}::uuid
+                order by name asc
+                limit 200
+              `),
+              getAccountBalanceMap({
+                db: tx,
+                householdId: auth.householdId,
+                includeArchived: archived,
+              }),
+            ]);
+            return { rows: accountRows, balanceById: balances };
+          },
         );
+
+        // Sobrepõe `balance_cents` stored pelo saldo computado on-read. Fallback
+        // ao valor stored caso a conta não exista no mapa (defensivo — não deve
+        // ocorrer, ambas as queries são household-scoped sobre o mesmo conjunto).
+        const accounts = rows.map((row) => ({
+          ...row,
+          balance_cents: balanceById.get(row.id) ?? row.balance_cents,
+        }));
+
         annotateSpan(span, { statusCode: 200 });
-        return NextResponse.json({ accounts: rows });
+        return NextResponse.json({ accounts });
       } catch (err) {
         annotateSpan(span, { statusCode: 500 });
         log.error({ err }, 'GET /api/financas/contas falhou');

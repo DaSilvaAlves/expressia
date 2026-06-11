@@ -2,15 +2,12 @@
  * GET /api/visao/saldo-contas — Story 5.5 AC5.
  *
  * Agrega saldo total das contas activas (`archived_at IS NULL`) do household
- * autenticado. Lê `balance_cents` directamente — sincronização desse campo é
- * responsabilidade de triggers ou recompute on read (finance.ts:96), fora de
- * escopo desta story.
+ * autenticado. O saldo é computado on-read (`getAccountBalanceMap`, single source
+ * of truth partilhada com a vista Património e `GET /api/financas/contas`) — a
+ * coluna stored `accounts.balance_cents` é morta (nunca actualizada por trigger).
  *
- * `SUM` Drizzle/Postgres devolve string para `numeric` — usa `parseFinanceTotal`
- * defensivo idêntico ao `/financas-mes` (D-5.5.3 / OBS-4).
- *
- * Story 5.6 DP-5.6.A=B: SQL extraído para `@/lib/visao/queries.ts`
- * (`getAccountsBalance`); handler é wrapper fino (mesmo Zod parse → contrato 1:1).
+ * Story 5.6 DP-5.6.A=B: lógica em `@/lib/visao/queries.ts` (`getAccountsBalance`);
+ * handler é wrapper fino (mesmo Zod parse → contrato 1:1).
  */
 import { NextResponse } from 'next/server';
 

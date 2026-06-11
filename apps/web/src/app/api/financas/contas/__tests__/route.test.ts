@@ -4,6 +4,11 @@
  *
  * Cobre: auth (401), Zod `.strict()` (400 household_id rejeitado), happy path
  * (201 com balance_cents = initial_balance_cents), filtro `archived`.
+ *
+ * W1 — `GET` computa `balance_cents` on-read (a coluna stored é morta). O handler
+ * faz 3 `execute` por GET dentro do `withHousehold`: (1) lista de contas,
+ * (2)+(3) `getAccountBalanceMap` (contas-lite + somas por conta). Os mocks abaixo
+ * fornecem as 3 respostas em ordem.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -119,10 +124,19 @@ describe('GET /api/financas/contas', () => {
 
   it('200 lista contas activas (archived_at IS NULL)', async () => {
     authed();
-    mocks.dbExecuteMock.mockResolvedValue([
-      { id: 'a1', name: 'CGD', balance_cents: 1000 },
-      { id: 'a2', name: 'Revolut', balance_cents: 500 },
-    ]);
+    mocks.dbExecuteMock
+      // (1) lista de contas
+      .mockResolvedValueOnce([
+        { id: 'a1', name: 'CGD', balance_cents: 0 },
+        { id: 'a2', name: 'Revolut', balance_cents: 0 },
+      ])
+      // (2) getAccountBalanceMap — contas-lite
+      .mockResolvedValueOnce([
+        { id: 'a1', initial_balance_cents: 1000 },
+        { id: 'a2', initial_balance_cents: 500 },
+      ])
+      // (3) getAccountBalanceMap — somas por conta
+      .mockResolvedValueOnce([]);
     const res = await GET(getReq());
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -131,9 +145,43 @@ describe('GET /api/financas/contas', () => {
 
   it('200 com archived=true devolve contas arquivadas', async () => {
     authed();
-    mocks.dbExecuteMock.mockResolvedValue([{ id: 'a3', name: 'Conta velha' }]);
+    mocks.dbExecuteMock
+      .mockResolvedValueOnce([{ id: 'a3', name: 'Conta velha', balance_cents: 0 }])
+      .mockResolvedValueOnce([{ id: 'a3', initial_balance_cents: 0 }])
+      .mockResolvedValueOnce([]);
     const res = await GET(getReq('?archived=true'));
     expect(res.status).toBe(200);
+  });
+
+  // W1 — `balance_cents` é computado on-read, NÃO o valor stored (coluna morta).
+  it('W1: balance_cents reflecte initial + income − expense (conta com despesas)', async () => {
+    authed();
+    mocks.dbExecuteMock
+      // (1) lista — balance_cents stored = 0 (coluna morta)
+      .mockResolvedValueOnce([{ id: 'acc-dinheiro', name: 'Dinheiro', balance_cents: 0 }])
+      // (2) contas-lite — initial_balance_cents = 0
+      .mockResolvedValueOnce([{ id: 'acc-dinheiro', initial_balance_cents: 0 }])
+      // (3) somas — €25,00 de despesas, sem receitas
+      .mockResolvedValueOnce([
+        { account_id: 'acc-dinheiro', income_cents: 0, expense_cents: 2500 },
+      ]);
+    const res = await GET(getReq());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // 0 (initial) + 0 (income) − 2500 (expense) = −2500 (saldo descoberto).
+    expect(body.accounts[0].balance_cents).toBe(-2500);
+  });
+
+  it('W1: conta sem transacções → balance_cents = initial_balance_cents', async () => {
+    authed();
+    mocks.dbExecuteMock
+      .mockResolvedValueOnce([{ id: 'acc-cgd', name: 'CGD', balance_cents: 0 }])
+      .mockResolvedValueOnce([{ id: 'acc-cgd', initial_balance_cents: 15000 }])
+      .mockResolvedValueOnce([]); // sem somas
+    const res = await GET(getReq());
+    const body = await res.json();
+    // Sem income/expense → balance = initial puro (15000), nunca o stored (0).
+    expect(body.accounts[0].balance_cents).toBe(15000);
   });
 
   // SEC-1 AC-K2 — isolamento app-enforced ao nível da rota HTTP.
