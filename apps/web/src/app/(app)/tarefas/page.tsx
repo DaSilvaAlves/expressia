@@ -11,6 +11,7 @@ import { decodeCursor } from '@/lib/api-schemas/pagination';
 import { TaskFiltersSchema } from '@/lib/api-schemas/tasks';
 
 import { EmptyState } from '@/app/(app)/tarefas/_components/EmptyState';
+import { NewTaskButton } from '@/app/(app)/tarefas/_components/NewTaskButton';
 import { TagFilterSelect } from '@/app/(app)/tarefas/_components/TagFilterSelect';
 import { TagsManagerButton } from '@/app/(app)/tarefas/_components/TagsManagerButton';
 import { TaskFilters } from '@/app/(app)/tarefas/_components/TaskFilters';
@@ -120,14 +121,7 @@ export default async function TarefasPage({ searchParams }: PageProps): Promise<
         <h1 className="text-2xl font-bold">Tarefas</h1>
         <div className="flex items-center gap-2">
           <TagsManagerButton />
-          <button
-            type="button"
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            disabled
-            title="Disponível na próxima versão — usa o Jarvis para criar tarefas"
-          >
-            + Nova
-          </button>
+          <NewTaskButton />
         </div>
       </header>
 

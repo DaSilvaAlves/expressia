@@ -16,6 +16,9 @@ export const taskPriorityValues = ['low', 'medium', 'high'] as const;
 export const TaskStatusSchema = z.enum(taskStatusValues);
 export const TaskPrioritySchema = z.enum(taskPriorityValues);
 
+export type TaskStatusInput = z.infer<typeof TaskStatusSchema>;
+export type TaskPriorityInput = z.infer<typeof TaskPrioritySchema>;
+
 // Story 3.6 G1.3 (Aria) — re-export TagSchema para uso em TaskListItemSchema.tags.
 // Type-safety end-to-end: clientes recebem garantia de `tags: TaskRowTag[]` sempre array.
 import { TagSchema } from '@/lib/api-schemas/tags';

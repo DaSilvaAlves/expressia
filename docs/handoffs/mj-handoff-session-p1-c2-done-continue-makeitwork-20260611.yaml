@@ -1,0 +1,136 @@
+id: mj-handoff-session-p1-c2-done-continue-makeitwork-20260611
+from_agent: aiox-master
+to_agent: any
+created: "2026-06-11T01:00:00Z"
+status: pending
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: session-migration
+
+summary: >
+  MIGRAÇÃO DE TERMINAL (Eurico vai continuar noutro terminal). Sessão make-it-work
+  autónoma: P1 (criar tarefa decente) e C2 (saudação capitalize) IMPLEMENTADOS, com
+  gates verdes (NewTaskModal 9/9, tarefas+calendario page 11/11, typecheck OK, lint OK).
+  TRABALHO EM WORKING TREE — NADA commitado nem pushed (push é exclusivo @devops, não foi
+  pedido). O backend POST /api/tasks já aceitava todos os campos desde a Story 3.2: o gap
+  P1 era 100% UI. Próximo agente: correr suite completa + build antes de qualquer push,
+  depois continuar make-it-work (OBS-2 / W1 / W2 / smoke /financas+/conta/household).
+
+context: |
+  ════════ ESTADO EM PRODUÇÃO (origin/main = d49f4db, INALTERADO) ════════
+  Nenhum commit/push nesta sessão. Todo o trabalho está em working tree (uncommitted).
+
+  ════════ O QUE FOI IMPLEMENTADO (P1 + C2) ════════
+  P1 — CRIAR TAREFA DECENTE (resolve o achado principal do smoke anterior):
+    • NOVO `apps/web/src/app/(app)/tarefas/_components/NewTaskModal.tsx`
+        Formulário completo: título(obrigatório) + descrição + prazo(date) + HORA(time) +
+        prioridade(select, default medium) + projecto. Pattern hand-rolled (zero deps),
+        clonado de EditTaskModal.tsx (dialog overlay + Escape + alerta inline PT-PT).
+        Regra de domínio: `due_time` só é enviado quando há `due_date` (campo Hora fica
+        disabled enquanto não houver prazo). Submit → POST /api/tasks → router.refresh().
+        Aceita prop opcional `initialDueDate` (para futuro: abrir já com data do Calendário).
+    • NOVO `apps/web/src/app/(app)/tarefas/_components/NewTaskButton.tsx`
+        Client wrapper ('use client') do botão "+ Nova" (a página /tarefas é RSC; isola o
+        useState do open do modal). Substitui o botão `disabled` hardcoded.
+    • EDITADO `apps/web/src/app/(app)/tarefas/page.tsx`
+        Removido o `<button disabled title="Disponível na próxima versão...">`; agora
+        importa e renderiza `<NewTaskButton />`. (era linhas 123-130 no original)
+    • EDITADO `apps/web/src/lib/api-schemas/tasks.ts`
+        Adicionados exports `TaskStatusInput` e `TaskPriorityInput` (z.infer dos enums) —
+        usados pelo tipo de estado `priority` no NewTaskModal. Mudança puramente aditiva.
+    • NOVO TESTE `apps/web/src/app/(app)/tarefas/_components/__tests__/NewTaskModal.test.tsx`
+        9 casos: render condicional por `open`, validação título obrigatório (sem POST),
+        POST com todos os campos (due_time+priority+project), hora-sem-data → due_time null,
+        erro servidor mostra alerta e não fecha, Cancelar/Escape fecham, initialDueDate.
+    • EDITADO `apps/web/src/app/(app)/tarefas/__tests__/page.test.tsx`
+        Adicionado vi.mock de NewTaskButton (tal como TagsManagerButton já era mockado).
+        SEM este mock o teste RSC (ambiente node) invoca o useState do NewTaskButton fora
+        de um render React e rebenta. NÃO remover este mock.
+
+  C2 — SAUDAÇÃO (fix trivial, de borla):
+    • EDITADO `apps/web/src/app/(app)/visao/page.tsx` (linha ~227)
+        Removida a class Tailwind `capitalize` do <p> "Hoje é {formatGreetingDate(now)}.".
+        formatGreetingDate já devolve "quinta-feira, ..." minúsculas (PT-PT correcto); o
+        capitalize transformava em "Hoje É Quinta-Feira". Agora correcto.
+
+  ════════ DESCOBERTA-CHAVE (poupa tempo ao próximo) ════════
+  O backend `POST /api/tasks` (apps/web/src/app/api/tasks/route.ts) JÁ aceitava e persistia
+  title, description, due_date, due_time, priority, status, kanban_column_id, kanban_position,
+  project, assigned_to_user_id (via TaskCreateSchema em api-schemas/tasks.ts). Corre dentro de
+  withHousehold (RLS 2.ª rede). O gap P1 era SÓ a ausência de UI que recolhesse esses campos —
+  zero alteração de DB/migration/schema necessária. O mesmo endpoint já foi PROVADO E2E na
+  sessão anterior (tarefa via Calendário gravou na DB).
+
+  ════════ GATES CORRIDOS NESTA SESSÃO (parciais, áreas tocadas) ════════
+    • pnpm --filter @meu-jarvis/web test -- NewTaskModal.test.tsx → 9/9 PASS
+    • pnpm --filter @meu-jarvis/web test -- tarefas/__tests__/page.test.tsx + calendario → 11/11 PASS
+      (calendário teve 1 timeout flaky pré-existente na 1.ª corrida; passou ao re-correr — não é regressão)
+    • pnpm --filter @meu-jarvis/web typecheck → OK (tsc --noEmit limpo)
+    • pnpm --filter @meu-jarvis/web lint → OK (No ESLint warnings or errors, --max-warnings=0)
+  NÃO corridos (responsabilidade do fecho/@devops antes de push): suite WEB completa,
+  db/db-test, pnpm build, pnpm check:rls. (check:rls é no-op aqui — zero alteração de schema.)
+
+  ════════ AMBIENTE ════════
+    • Dev server estava a correr em background na porta 3000 (código d49f4db). Após estas
+      mudanças em apps/web, o Next dev recompila on-demand. Se servir código velho: matar
+      porta 3000 + `rm -rf apps/web/.next` + `pnpm --filter @meu-jarvis/web dev` (gotcha provado).
+    • User de teste: user_id df5b403f-dedd-47a5-a960-b66c6dc7faab,
+      household 2dedb1ec-dc6f-4445-a5b4-b5f942755655.
+    • Ground-truth da DB: `pnpm --filter @meu-jarvis/db exec tsx src/scripts/smoke-baseline.ts
+      --household=2dedb1ec-dc6f-4445-a5b4-b5f942755655` (script read-only, untracked).
+
+  ════════ NOTA DE PROCESSO (manter) ════════
+  Directiva do Eurico: o agente TRABALHA AUTÓNOMO (implementa + valida via DB/scripts/gates),
+  NÃO põe o Eurico a fazer de QA manual clicando passo-a-passo. Esta sessão seguiu isso.
+
+next_action: |
+  1. (OPCIONAL, recomendado) Validação E2E manual rápida da criação: arrancar dev server,
+     /tarefas → "+ Nova" → preencher título+prazo+hora+prioridade+projecto → Criar → confirmar
+     na DB via smoke-baseline.ts que due_time/priority/project gravaram. (Só se quiseres prova
+     visual; os testes já cobrem o payload e o endpoint já foi provado E2E antes.)
+
+  2. CONTINUAR make-it-work (autónomo), por valor:
+     - OBS-2 — adicionar `due_time` à tool `criar_tarefa` do chat (packages/tools + planner)
+       para o chat respeitar a hora, fechando o tema "criar tarefa" por completo (complementa P1).
+     - W1 — validar saldo: conta "Dinheiro" balance_cents=0 apesar de ~€122 em despesas.
+       Verificar PRIMEIRO o design (há trigger de saldo? despesas em dinheiro devem decrementar?)
+       antes de assumir bug. /financas não foi exercitada.
+     - W2 — acções em /tarefas não refrescam widgets /visao (só o chat dispara router.refresh);
+       avaliar revalidatePath server-side.
+     - Continuar smoke nas áreas não exercitadas: /financas, /conta/household, Kanban.
+
+  3. PARA PUSH (só @devops): correr suite COMPLETA + build + check:rls; conventional commit
+     referenciando o trabalho P1/C2; fast-forward sem --force/--no-verify.
+
+  Billing CONGELADO (directiva 29/05).
+
+decisions:
+  - 'P1 era 100% UI — backend POST /api/tasks já aceitava due_time/priority/project desde Story 3.2. Zero migration.'
+  - 'Hora (due_time) só enviada quando há prazo (due_date); campo Hora disabled sem data.'
+  - 'NewTaskButton DEVE ser mockado no page.test.tsx (ambiente node) senão o useState rebenta.'
+  - 'Removido `required` do input título: bloqueava o submit em jsdom antes da validação JS PT-PT correr.'
+  - 'Nada commitado/pushed — push é exclusivo @devops e não foi pedido.'
+
+blockers:
+  - 'Nenhum bloqueador técnico. Antes de push: correr suite completa + build (não corridos nesta sessão).'
+
+files_modified:
+  - apps/web/src/app/(app)/tarefas/_components/NewTaskModal.tsx          # NOVO
+  - apps/web/src/app/(app)/tarefas/_components/NewTaskButton.tsx         # NOVO
+  - apps/web/src/app/(app)/tarefas/_components/__tests__/NewTaskModal.test.tsx  # NOVO
+  - apps/web/src/app/(app)/tarefas/page.tsx                              # EDITADO (import + <NewTaskButton/>)
+  - apps/web/src/app/(app)/tarefas/__tests__/page.test.tsx              # EDITADO (vi.mock NewTaskButton)
+  - apps/web/src/lib/api-schemas/tasks.ts                                # EDITADO (export TaskStatusInput/TaskPriorityInput)
+  - apps/web/src/app/(app)/visao/page.tsx                                # EDITADO (C2 — removido capitalize, ~linha 227)
+  - docs/HANDOFF-INDEX.md                                                # EDITADO (handoff anterior pending→archived + este)
+  - docs/handoffs/mj-handoff-session-p1-c2-done-continue-makeitwork-20260611.yaml  # este handoff
+
+related:
+  - docs/handoffs/archive/mj-handoff-session-smoke-paused-product-gaps-20260611.yaml  # predecessor (definiu P1/C2/W1/W2/OBS-2)
+  - apps/web/src/app/api/tasks/route.ts                  # endpoint POST que o modal usa (já completo)
+  - apps/web/src/app/(app)/tarefas/_components/EditTaskModal.tsx  # base/pattern do NewTaskModal
+  - apps/web/src/lib/api-schemas/tasks.ts                # TaskCreateSchema (campos aceites)
+  - packages/db/src/scripts/smoke-baseline.ts            # dump read-only da DB (untracked)
+  - docs/handoffs/mj-handoff-refocus-core-freeze-billing-20260529.yaml  # directiva-mãe (billing congelado, make-it-work)

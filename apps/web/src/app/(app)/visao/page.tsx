@@ -224,7 +224,7 @@ export default async function VisaoPage({
         <h1 className="font-serif text-2xl font-semibold tracking-tight md:text-3xl">
           {greeting}, {displayName}.
         </h1>
-        <p className="mt-1 text-sm capitalize text-neutral-500">
+        <p className="mt-1 text-sm text-neutral-500">
           Hoje é {formatGreetingDate(now)}.
         </p>
       </header>

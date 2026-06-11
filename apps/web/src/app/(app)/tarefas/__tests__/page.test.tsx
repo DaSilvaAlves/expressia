@@ -66,6 +66,9 @@ vi.mock('@/app/(app)/tarefas/_components/TagFilterSelect', () => ({
 vi.mock('@/app/(app)/tarefas/_components/TagsManagerButton', () => ({
   TagsManagerButton: () => '<TagsManagerButton>',
 }));
+vi.mock('@/app/(app)/tarefas/_components/NewTaskButton', () => ({
+  NewTaskButton: () => '<NewTaskButton>',
+}));
 
 function householdChain(householdId: string | null) {
   return {

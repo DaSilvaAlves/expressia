@@ -1,0 +1,133 @@
+id: mj-handoff-session-smoke-paused-product-gaps-20260611
+from_agent: aiox-master
+to_agent: any
+created: "2026-06-11T00:30:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-11T00:00:00Z"
+consumed_by: aiox-master
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: session-pause
+
+summary: >
+  SESSION PAUSE (Eurico parou) — Smoke E2E parcial pela UI directa (continuação make-it-work pós
+  SEC-8.1). PROVADO em runtime real: o write-path do withHousehold CORRIGIDO funciona (tarefa
+  criada via Calendário gravou na DB; widget Gastos do mês bate com a DB) → SEC-8.1 vivo E2E na
+  UI, não só nos gates. CAUSA do "Internal Server Error" inicial diagnosticada: o dev server da
+  porta 3000 corria código PRÉ-SEC-8.1 (withHousehold partido) — restart + .next limpa resolveu.
+  Smoke cobriu só /visao e /tarefas. ACHADO PRINCIPAL é de PRODUTO, não segurança: criar tarefa
+  está partido/fragmentado (botão "+ Nova" disabled; Calendário cria sem hora/prioridade; chat
+  ignora hora). Eurico decidiu PARAR e pondera o futuro do projecto (questiona ter competência de
+  desenvolvimento para o levar adiante). NADA a meio em código; nenhum trabalho deixado incompleto.
+
+context: |
+  ════════ ESTADO EM PRODUÇÃO (origin/main = d49f4db, inalterado) ════════
+  Nenhum commit nesta sessão. Working tree: docs/handoffs (este + INDEX) + 1 ficheiro novo
+  untracked (smoke-baseline.ts, ver Artefactos). NÃO houve push (não havia código a entregar).
+
+  ════════ O QUE ESTA SESSÃO PROVOU (evidência real, não especulação) ════════
+  1. WRITE-PATH withHousehold FUNCIONA EM RUNTIME. Tarefa "Smoke teste 11jun" criada pelo Eurico
+     via Calendário → gravou na DB (due_date 2026-06-11, created_at 00:16:52). Confirmado por query
+     directa ao Postgres (DIRECT_URL). É a contraprova viva de que o fix SEC-8.1 (db.transaction())
+     opera o caminho de produção, não só os testes.
+  2. READ-PATH correcto. Widget "Gastos do mês" (/visao) mostrou −€25,00 / Saiu €25,00 / 2 transacções
+     == exactamente o ground-truth da DB (Café €12 + Almoço €13, Junho). OBS-1 (widget stale) era
+     timing + dev server stale, NÃO bug de dados.
+  3. CAUSA do 500 inicial: o dev server (PID antigo na porta 3000) corria código transpilado
+     PRÉ-SEC-8.1 → withHousehold partido (TypeError ...parsers) → 500 em TODA a app (/, /visao, /entrar).
+     RESOLVIDO: matar porta 3000 + remover apps/web/.next + rearrancar `pnpm --filter @meu-jarvis/web dev`.
+     Depois: GET / 200, /visao 307→/entrar, /entrar 200. LIÇÃO (já avisada no handoff anterior, agora
+     PROVADA): após mexer em packages/db o dev server TEM de ser reiniciado; senão serve código velho.
+
+  ════════ ACHADOS REAIS (smoke parcial: só /visao + /tarefas) ════════
+  - P1 (ALTA — produto) CRIAR TAREFA FRAGMENTADO/PARTIDO:
+      • Botão "+ Nova" da Lista está `disabled` HARDCODED (apps/web/src/app/(app)/tarefas/page.tsx:123-130,
+        title "Disponível na próxima versão — usa o Jarvis para criar tarefas"). Parece activo (azul) mas
+        não faz nada — o Eurico bateu nisto em segundos.
+      • Calendário cria tarefa MAS sem campo de hora nem prioridade (grava due_time NULL, priority default).
+      • Kanban add inline = só título.
+      • Chat (Jarvis) cria mas ignora a hora (ver OBS-2).
+      • NÃO existe em lado nenhum um formulário de criação completo (título+data+hora+prioridade+projecto/tag).
+      • FIX PROPOSTO (NÃO implementado — Eurico vetou avançar): reactivar "+ Nova" com modal de criação
+        real ligado ao endpoint POST que o Calendário já usa. Existe EditTaskModal.tsx como base adaptável.
+  - C2 (BAIXA — cosmético) Saudação /visao "Hoje É Quinta-Feira, 11/06/2026": a class Tailwind `capitalize`
+      em visao/page.tsx:227 capitaliza CADA palavra; formatGreetingDate (visao/_lib/greeting.ts:88) já
+      devolve "quinta-feira, ..." minúsculas (PT-PT correcto). FIX: remover a class `capitalize` da linha 227.
+  - W2 (MÉDIA — limitação) Acções dentro de /tarefas (arquivar/concluir) NÃO refrescam os widgets da /visao.
+      Só o chat dispara router.refresh() (fix 9efec65, cobre handleSubmit/handleConfirmResult/undo). Quem edita
+      tarefas e volta à Visão vê contagens stale até refresh manual. Foi a origem da falsa discrepância
+      "Atrasadas 3 (lista) vs 4 (widget)" — snapshot temporal, contagem real = 3, lista CORRECTA.
+  - W1 (POR VALIDAR) Conta "Dinheiro" balance_cents = 0 apesar de €122,40 em despesas registadas. Pode ser
+      intencional (saldo manual, não derivado de transacções) OU não-decremento. NÃO validado — /financas não
+      foi exercitada. Verificar primeiro o design (há trigger de saldo? as despesas em dinheiro devem decrementar?).
+  - OBS-2 (MÉDIA — scope) Tool `criar_tarefa` do chat ignora a hora → due_time NULL. Provas na DB: "Estar no
+      notário em Tavira" (pedido "09h") e "Reunião às 16h" ambos due_time NULL. Limitação de SCOPE (Story 3.8
+      criar_tarefa minimal = título+data+prioridade). Decisão pendente: adicionar dueTime à tool ou adiar.
+
+  ════════ FALSO-POSITIVOS DESCARTADOS (NÃO são bugs) ════════
+  - OBS-1 widget Gastos stale → timing + dev server stale (DB correcta €25/2tx).
+  - "Tarefas Hoje" vazio → a tarefa de hoje estava status='done', correctamente excluída pela query getTasksToday.
+  - "Atrasadas 3 vs 4" → snapshot temporal (tarefa "Anota uma tarefa para hoje" passou a 'archived' entre cargas);
+    contagem real 3, lista /tarefas correcta. Queries getTasksToday/getTasksOverdue (lib/visao/queries.ts) correctas.
+
+  ════════ NÃO EXERCITADO (por fazer se retomar) ════════
+  /financas (Património/Este mês/Cartões/Recorrentes/Variáveis — criar/editar via formulários, validar W1),
+  /conta/household (membros/convites/preferências), Kanban (criar/mover). Smoke parou em /tarefas.
+
+  ════════ AMBIENTE PARA RETOMAR ════════
+  - Dev server REINICIADO nesta sessão, a correr em background na porta 3000 com código d49f4db (com o fix).
+    Se for fechado/morto, rearrancar: `pnpm --filter @meu-jarvis/web dev`. Após mexer em packages/db: matar
+    porta 3000 + `rm -rf apps/web/.next` + rearrancar (gotcha provado).
+  - User de teste (logado): user_id df5b403f-dedd-47a5-a960-b66c6dc7faab, household 2dedb1ec-dc6f-4445-a5b4-b5f942755655.
+  - Ground-truth da DB a qualquer momento: `pnpm --filter @meu-jarvis/db exec tsx src/scripts/smoke-baseline.ts
+    --household=2dedb1ec-dc6f-4445-a5b4-b5f942755655` (script novo, read-only — ver Artefactos).
+
+  ════════ NOTA DE PROCESSO (importante para quem retomar) ════════
+  O smoke foi conduzido em modo "guiado" (Eurico a clicar e reportar, agente a diagnosticar). Revelou-se
+  CANSATIVO e ineficiente para o Eurico — ele explicitou frustração ("só fazer por fazer sem saber o que
+  estás a fazer, isso atrofia-me"). Se retomar: o agente deve TRABALHAR autonomamente (implementar fixes +
+  validar via DB/scripts) e NÃO pôr o Eurico a fazer de QA manual. Os achados acima são baseados em evidência
+  (queries Postgres reais + leitura de código), mas a CONDUÇÃO passo-a-passo foi o problema, não os factos.
+
+next_action: |
+  DECISÃO DO EURICO PENDENTE — ponderar o futuro do projecto (considera arquivá-lo: "talvez vá para o
+  lixo porque não temos competência+ para desenvolver"). NÃO há trabalho técnico a meio.
+
+  SE RETOMAR (e só então), por ordem de valor para o "make-it-work":
+  1. P1 — implementar criação de tarefa decente: reactivar "+ Nova" (Lista) com formulário completo
+     (título+data+hora+prioridade+projecto), ligado ao endpoint do Calendário. Autónomo (@dev), validar na DB.
+  2. C2 — fix trivial: remover class `capitalize` em visao/page.tsx:227.
+  3. Continuar smoke nas áreas não exercitadas: /financas (validar W1 saldo) + /conta/household.
+  4. OBS-2 — decidir dueTime na tool criar_tarefa do chat.
+  5. W2 — avaliar refresh dos widgets /visao após acções noutras rotas (revalidatePath server-side?).
+
+  Billing CONGELADO (directiva 29/05). Push/PR só @devops.
+
+decisions:
+  - 'SEC-8.1 confirmado VIVO E2E na UI: write-path withHousehold corrigido grava em runtime real (tarefa via Calendário).'
+  - 'Causa do 500 inicial = dev server com código pré-SEC-8.1; restart+.next limpa resolve. Reiniciar SEMPRE após mexer em packages/db.'
+  - 'Achado principal é de PRODUTO (criar tarefa fragmentado/partido), não de segurança.'
+  - 'Eurico PAROU a sessão e pondera arquivar o projecto (questão de recursos/competência de dev, não bug técnico).'
+  - 'Se retomar: agente trabalha autónomo (implementa+valida via DB), não põe Eurico a fazer de QA manual.'
+
+blockers:
+  - 'Nenhum bloqueador TÉCNICO. Bloqueador é de DECISÃO/recursos: Eurico avalia se há competência de desenvolvimento para levar o produto adiante.'
+
+files_modified:
+  - docs/handoffs/mj-handoff-session-smoke-paused-product-gaps-20260611.yaml  # este handoff
+  - docs/HANDOFF-INDEX.md
+  - packages/db/src/scripts/smoke-baseline.ts  # NOVO — script read-only de baseline (untracked, não commitado)
+
+artefactos:
+  - 'packages/db/src/scripts/smoke-baseline.ts — dump read-only do estado real de um household (membros, contas, cartões, transacções, totais do mês, recorrências, tarefas). Uso: pnpm --filter @meu-jarvis/db exec tsx src/scripts/smoke-baseline.ts --household=<uuid>. Untracked; manter ou apagar no próximo housekeeping.'
+
+related:
+  - docs/handoffs/archive/mj-handoff-session-sec8.1-shipped-continue-make-it-work-20260610.yaml  # predecessor (next_action era este smoke)
+  - apps/web/src/app/(app)/tarefas/page.tsx  # P1 — botão "+ Nova" disabled (linhas 123-130)
+  - apps/web/src/app/(app)/visao/page.tsx  # C2 — class capitalize (linha 227)
+  - apps/web/src/components/chat/ChatPanel.tsx  # W2 — router.refresh() só no chat
+  - apps/web/src/lib/visao/queries.ts  # queries dos widgets (validadas correctas)
+  - docs/handoffs/mj-handoff-refocus-core-freeze-billing-20260529.yaml  # directiva-mãe (billing congelado, make-it-work)

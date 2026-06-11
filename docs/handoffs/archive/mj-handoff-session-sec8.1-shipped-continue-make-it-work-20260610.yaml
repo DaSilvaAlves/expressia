@@ -1,0 +1,129 @@
+id: mj-handoff-session-sec8.1-shipped-continue-make-it-work-20260610
+from_agent: aiox-master
+to_agent: any
+created: "2026-06-10T19:20:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-11T00:30:00Z"
+consumed_by: aiox-master
+consumed_note: >
+  next_action (smoke E2E make-it-work pela UI directa) EXECUTADO parcialmente nesta sessão
+  (cobriu /visao + /tarefas). Write-path withHousehold provado vivo em runtime; achados de
+  produto registados. Eurico parou a sessão. Sucessor pending:
+  mj-handoff-session-smoke-paused-product-gaps-20260611.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: session-pause
+
+summary: >
+  SESSION PAUSE — SEC-8 (Cérebro AI) e SEC-8.1 (hotfix crítico) EM PRODUÇÃO. O smoke E2E
+  manual desta sessão (1.º exercício runtime real do withHousehold) revelou que a 2.ª rede
+  RLS estava PARTIDA em runtime desde SEC-2 (02/06) — drizzle(pgTx) via pgSql.begin lançava
+  TypeError, fazendo TODA a cadeia SEC-2→8 (109 call-sites) falhar com 500. Causa raiz
+  diagnosticada + corrigida (withHousehold → db.transaction()), validada E2E no browser, gate
+  @architect PASS 9,7/10 com counter-proof, pushed (prod d49f4db). A 2.ª rede RLS está agora
+  GENUINAMENTE viva. NADA a meio, NADA bloqueado. PRÓXIMO: continuar core/make-it-work —
+  exercitar E2E as outras áreas pela UI directa (os 109 call-sites nunca testados em runtime).
+
+context: |
+  ════════ ESTADO EM PRODUÇÃO (origin/main = d49f4db) ════════
+  Esta sessão (aiox-master + Eurico) shipou DUAS coisas:
+    1. SEC-8 (208a632) — Cérebro AI / executeAtomic via TxRunner→withHousehold (fecha Fase 4 ADR-003).
+    2. SEC-8.1 (d49f4db) — HOTFIX crítico do withHousehold (ver abaixo). Working tree LIMPO.
+
+  ════════ O BUG CRÍTICO QUE ENCONTRÁMOS (e corrigimos) ════════
+  O smoke E2E do cérebro AI no browser (localhost:3000) deu erro 500 no confirm. Diagnóstico
+  provado EMPIRICAMENTE contra a DB real (não especulação):
+    - `withHousehold` (packages/db/src/client.ts) abria a tx com `pgSql.begin()` (postgres-js
+      cru) + `drizzle(pgTx as unknown as Sql)`. Esse cliente Drizzle está PARTIDO: qualquer
+      query lança `TypeError: Cannot read properties of undefined (reading 'parsers')` (o
+      TransactionSql não tem `.options.parsers`).
+    - Impacto: withHousehold é usado por 109 ficheiros (TODA a superfície SEC-2→8: Finanças,
+      Tarefas, Visão, Household, Cérebro AI). TODOS rebentavam em runtime real desde SEC-2.
+      A "2.ª rede RLS" que os gates afirmavam viva NUNCA funcionou em runtime — fazia a
+      operação FALHAR com 500, não ficava "inerte".
+    - Porque é que os gates não apanharam: os testes (incl. o AC9 da SEC-8) exercitavam uma
+      RÉPLICA Drizzle (`db.transaction()`), nunca o `pgSql.begin` REAL de produção. Os gates
+      @architect validaram o CÓDIGO byte-a-byte mas não o runtime real.
+    - Segurança: a 1.ª rede (filtro household_id app-enforced) SEMPRE intacta → SEM vazamento
+      cross-tenant em momento algum; o sintoma era só operações a falhar.
+
+  ════════ A CORRECÇÃO (SEC-8.1, validada) ════════
+  withHousehold reescrito para `db.transaction()` (Drizzle) + SET LOCAL ROLE authenticated +
+  set_config(claims/householdId BOUND). 1 ficheiro de produção (client.ts), corrige SEC-2→8 de
+  uma vez. Validado E2E no browser: prompt "gastei 13 euros no almoço e segunda-feira dia 15 às
+  09h estar no notário em Tavira" → run fd0f96ee status=success, confirm 200 (era 500), despesa
+  €13 (amount_cents 1300) + tarefa (due 15/06) gravadas correctamente, RLS activa (auth.uid()
+  ≠ NULL). Gate @architect PASS 9,7/10 com COUNTER-PROOF independente (reverteu o fix → 3 testes
+  falham com TypeError; restaurou → 3/3 GREEN). Novo teste `packages/db-test/src/tests/
+  withHousehold.rls.test.ts` exercita o withHousehold REAL via DATABASE_URL→Testcontainer.
+
+  ════════ LIÇÃO (registada em memória) ════════
+  Gates que validam código byte-a-byte + testes com RÉPLICAS podem passar enquanto o caminho de
+  produção real está partido. Só o smoke E2E em runtime real apanhou. Gates RLS DEVEM exercitar
+  o código de produção (withHousehold real via Testcontainer), nunca uma réplica. O novo
+  withHousehold.rls.test.ts é o template de referência. DIRECTIVE no commit: withHousehold DEVE
+  usar db.transaction(), NUNCA pgSql.begin()+drizzle(pgTx).
+
+  ════════ AMBIENTE PARA RETOMAR O SMOKE E2E ════════
+  - Dev server: `pnpm --filter @meu-jarvis/web dev` (localhost:3000). Pode já estar a correr no
+    terminal antigo — se sim, mexer em packages/db precisa de RESTART (matar porta 3000 e
+    rearrancar) para carregar código transpilado.
+  - User de teste do Eurico (já confirmado, logado): user_id df5b403f-dedd-47a5-a960-b66c6dc7faab,
+    household_id 2dedb1ec-dc6f-4445-a5b4-b5f942755655. Email euricojsalves@gmail.com.
+  - "Confirm email" está ON no Supabase (religado 31/05) — registar novo user exige confirmar;
+    para teste sem inbox usar `packages/db/src/scripts/dev-confirm-user.ts`.
+  - Smoke do cérebro AI: chat → prompt multi-intent → preview "Vais fazer" → Confirmar → deve dar
+    "Feito ✓" + undo 30s; verificar /visao. Logs do dev server mostram POST .../confirm 200|500.
+  - Ler error real de uma run: SELECT error_code, error_message FROM agent_runs WHERE id=...
+    (o confirm grava lá a causa quando falha).
+
+next_action: |
+  CONTINUAR core/make-it-work (directiva refocus 29/05 MANTÉM-SE; billing CONGELADO). Agora que o
+  withHousehold funciona, o trabalho de maior valor é VALIDAR E2E EM RUNTIME REAL as áreas que
+  nunca foram exercitadas (os 109 call-sites SEC-2→8 só passaram gates, nunca runtime):
+
+  1. (RECOMENDADO) Smoke E2E pela UI DIRECTA (não só via chat) com o Eurico no browser:
+     - /tarefas (lista, criar, editar, mover kanban, calendário)
+     - /financas (Património, Este mês, Cartões, Recorrentes, Variáveis — criar/editar via formulários)
+     - /conta/household (membros, convites, preferências)
+     Objectivo: confirmar que cada área funciona em runtime (withHousehold corrigido) e apanhar
+     bugs latentes data-driven. Documentar cada bug com evidência (run id / error_message / screenshot).
+
+  2. Observações menores PENDENTES desta sessão (não-bloqueantes):
+     - OBS-1: widget "Gastos do mês" (/visao) NÃO refrescou após o cérebro criar despesa (mostrou
+       €12/1tx quando havia €25/2tx). Possível regressão do BUG-VISAO-LIVE-REFRESH (commit 9efec65)
+       OU timing do screenshot. VERIFICAR primeiro se é real.
+     - OBS-2: `criar_tarefa` ignora a hora ("09h"/"14h" → due_time NULL). É limitação de SCOPE
+       (Story 3.8 criar_tarefa minimal = só título+data+prioridade, sem dueTime). Decidir com o
+       Eurico se vale adicionar dueTime à tool (melhora muito a UX do chat) ou adiar.
+
+  3. Outros GAPs de config externa (owner Eurico/máquina, não-bloqueantes): GAP-2 (RESEND + SMTP
+     custom no Supabase p/ email branded), GAP-4 (INNGEST prod — recorrências; provado local 31/05),
+     GAP-5 (Docker up para suite RLS local).
+
+  NÃO escrever código de billing/Stripe/faturas (CONGELADO). Push/PR só @devops.
+
+decisions:
+  - 'SEC-8 + SEC-8.1 em produção (d49f4db). 2.ª rede RLS withHousehold genuinamente viva em runtime em SEC-2→8.'
+  - 'withHousehold DEVE usar db.transaction() do Drizzle, NUNCA pgSql.begin()+drizzle(pgTx) (TypeError parsers).'
+  - 'Gates RLS DEVEM exercitar o código de produção real via Testcontainer, nunca uma réplica (lição SEC-8.1).'
+  - 'Billing CONGELADO (directiva Eurico 29/05). Prioridade: core a funcionar E2E em runtime real.'
+  - '1.ª rede app-enforced household_id sempre protegeu — sem vazamento cross-tenant em momento algum.'
+
+blockers:
+  - 'NENHUM técnico. NENHUM bloqueador. Produção corrigida e validada E2E.'
+
+files_modified:
+  - docs/handoffs/mj-handoff-session-sec8.1-shipped-continue-make-it-work-20260610.yaml  # este handoff
+  - docs/HANDOFF-INDEX.md
+
+related:
+  - docs/stories/completed/SEC-8.1.fix-withhousehold-drizzle-transaction-regression.story.md
+  - docs/qa/gates/SEC-8.1-architect-gate.md
+  - packages/db/src/client.ts  # withHousehold corrigido (db.transaction)
+  - packages/db-test/src/tests/withHousehold.rls.test.ts  # novo gate de mecânica real
+  - docs/adr/ADR-003-rls-enforced-runtime-hardening.md  # Fase 4 completa (§12 Cérebro AI)
+  - docs/handoffs/mj-handoff-refocus-core-freeze-billing-20260529.yaml  # directiva-mãe (billing congelado)
