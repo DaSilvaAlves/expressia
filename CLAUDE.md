@@ -175,7 +175,7 @@ Estado actual (ver `docs/HANDOFF-INDEX.md` + `docs/handoffs/*.yaml` para handoff
 - **Ready:** Story 1.4 (Suite Testcontainers RLS — sem bloqueador externo).
 - **Blocked:** 1.5 (Auth — B2: hook Supabase no Dashboard), 1.7 (Observability — B3 Sentry EU + B4 Grafana EU).
 
-Fluxo: `@sm *draft` → `@po *validate-story-draft` → `@dev *develop` → `@qa *qa-gate` → `@devops *push`. **Apenas `@devops` faz `git push` / `gh pr create`** (rules em `.claude/rules/agent-authority.md`).
+Fluxo: `@sm *draft` → `@po *validate-story-draft` → `@dev *develop` → `@qa *qa-gate` → `@devops *push`. **Apenas `@devops` faz `git push` / `gh pr create`** (rules em `~/.claude/rules/agent-authority.md`).
 
 ### Handoffs cross-terminal
 
