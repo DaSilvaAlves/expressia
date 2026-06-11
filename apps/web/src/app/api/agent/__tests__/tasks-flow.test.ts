@@ -212,6 +212,7 @@ describe('Story 3.8 — criar_tarefa via executeAtomic (mockable E2E)', () => {
             id: TASK_ID,
             title: 'comprar leite',
             due_date: '2026-06-15',
+            due_time: null,
             priority: 'medium',
           },
         ],
@@ -422,7 +423,7 @@ describe('Story 3.8 — cross-household isolation (R3 v1.1 mock JWT)', () => {
     const stateA: MockState = {
       executes: [],
       insertReturns: [
-        [{ id: TASK_ID, title: 'X', due_date: null, priority: 'medium' }],
+        [{ id: TASK_ID, title: 'X', due_date: null, due_time: null, priority: 'medium' }],
         [{ id: REVERSE_OP_ID }],
       ],
     };
@@ -445,6 +446,7 @@ describe('Story 3.8 — cross-household isolation (R3 v1.1 mock JWT)', () => {
             id: '99999999-9999-4999-8999-999999999999',
             title: 'Y',
             due_date: null,
+            due_time: null,
             priority: 'low',
           },
         ],

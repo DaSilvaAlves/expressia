@@ -19,14 +19,21 @@ import {
 } from '@/prompts/planner-system';
 
 describe('PLANNER_SYSTEM_PROMPT', () => {
-  it('versão é v4 (bug-fix "amanhã" — âncora temporal [Data de hoje])', () => {
-    expect(PLANNER_SYSTEM_PROMPT_VERSION).toBe('v4');
+  it('versão é v5 (OBS-2 — hora da tarefa dueTime)', () => {
+    expect(PLANNER_SYSTEM_PROMPT_VERSION).toBe('v5');
   });
 
   it('v4: instrui o cálculo de datas relativas a partir do bloco [Data de hoje]', () => {
     expect(PLANNER_SYSTEM_PROMPT).toMatch(/\[Data de hoje\]/);
     expect(PLANNER_SYSTEM_PROMPT).toMatch(/amanhã/);
     expect(PLANNER_SYSTEM_PROMPT).toMatch(/ILUSTRATIVAS|ilustrativas/);
+  });
+
+  it('v5: instrui a extracção de hora para dueTime HH:MM (OBS-2)', () => {
+    expect(PLANNER_SYSTEM_PROMPT).toMatch(/dueTime/);
+    expect(PLANNER_SYSTEM_PROMPT).toMatch(/HORA DA TAREFA/);
+    // Exemplo 1 deve agora capturar a hora "às 15h" como dueTime '15:00'.
+    expect(PLANNER_SYSTEM_PROMPT).toMatch(/dueTime: '15:00'/);
   });
 
   it('inclui as 11 intents canónicas (Story 4.10: 8 originais + 3 da Story 3.8)', () => {

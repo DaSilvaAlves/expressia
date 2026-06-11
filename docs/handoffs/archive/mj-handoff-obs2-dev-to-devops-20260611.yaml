@@ -1,0 +1,145 @@
+id: mj-handoff-obs2-dev-to-devops-20260611
+from_agent: dev
+to_agent: devops
+created: "2026-06-11T14:00:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-11T14:05:00Z"
+consumed_by: devops
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: dev-to-devops-push
+
+summary: >
+  MIGRAÇÃO DE TERMINAL (Eurico continua o push noutro terminal). OBS-2
+  IMPLEMENTADO autónomo por @dev: a tool `criar_tarefa` do chat (Cérebro AI)
+  passou a aceitar `dueTime` (HH:MM 24h), fechando o tema "criar tarefa" também
+  pela via do chat (complementa o P1 que já entrou em prod no commit 798aeb9). 4
+  ficheiros alterados (+179/-26), TODOS em working tree — NADA commitado/pushed.
+  Gates focados verdes (tools 362/362, planner-executor 73/73, typecheck ambos
+  limpos). @devops: correr a suite COMPLETA + build + check:rls, fazer
+  conventional commit e push fast-forward. Billing CONGELADO (directiva 29/05).
+
+context: |
+  ════════ ESTADO EM PRODUÇÃO (origin/main = 798aeb9) ════════
+  798aeb9 = feat(tarefas) P1+C2 (UI criar tarefa + fix saudação capitalize),
+  pushado nesta cadeia make-it-work. OBS-2 está POR CIMA, em working tree, ainda
+  não commitado.
+
+  ════════ O QUE FOI IMPLEMENTADO (OBS-2 — dueTime na tool do chat) ════════
+  O GAP: a tool `criar_tarefa` persistia `due_date` e `priority` mas não tinha
+  campo de hora. Pior: o Exemplo 1 do planner-system (`raw_span: 'amanhã reunião
+  às 15h'`) descartava EXPLICITAMENTE a hora no plan esperado — sinal negativo
+  que treinava o LLM a ignorá-la. Por isso o chat nunca respeitava horas.
+
+  4 ficheiros alterados:
+    • `packages/tools/src/tasks/criar-tarefa.ts`
+        - Input schema: novo campo `dueTime` (regex `^[0-2][0-9]:[0-5][0-9]$`,
+          HH:MM 24h, opcional) + `.refine()` com regra de domínio: `dueTime` SÓ
+          permitido quando há `dueDate` (uma hora exige um dia — mesma regra do
+          P1, onde o campo Hora fica disabled sem prazo).
+        - Output schema: + `dueTime: z.string().nullable()`.
+        - `TasksInsertReturn`: + `due_time: string | null`.
+        - `execute()`: INSERT inclui `due_time` (`${input.dueTime ?? null}::text`)
+          + RETURNING due_time; output devolve `dueTime: row.due_time`.
+        - `preview()`: inclui a hora ("... para DD/MM/YYYY às HH:MM").
+        - `description`: menciona a hora opcional + a regra hora-exige-dia.
+    • `packages/tools/src/tasks/__tests__/criar-tarefa.test.ts`
+        +11 testes (formato HH:MM, limite 23:59, rejeição de formato errado e de
+        minutos >59, REJEIÇÃO de dueTime sem dueDate, output com hora, preview com
+        hora) + mocks existentes alinhados (todas as rows ganham `due_time`, todos
+        os literais de output de reverse() ganham `dueTime`).
+    • `packages/planner-executor/src/prompts/planner-system.ts`
+        Bump versão v4→v5. Exemplos 1 e 2 corrigidos para incluir
+        `dueTime: '15:00'`. Nova secção "HORA DA TAREFA" instrui: extrair a hora
+        quando mencionada ("às 15h"→"15:00", "ao meio-dia"→"12:00", "9 da
+        manhã"→"09:00"), normalizar para HH:MM, e — regra crítica — `dueTime` só
+        com `dueDate`; se houver hora SEM dia explícito, assumir o dia de HOJE
+        (evita hard-fail do refine e dá ao utilizador a hora que pediu).
+    • `packages/planner-executor/src/__tests__/prompts.test.ts`
+        Versão esperada v4→v5 + asserção de que o prompt contém "HORA DA TAREFA"
+        e `dueTime: '15:00'`.
+
+  ════════ DECISÕES DE DESIGN ════════
+    • Exposição ao LLM é automática: o registry usa `zodToJsonSchema` sobre o
+      `inputSchema`, logo `dueTime` aparece no payload Anthropic sem código extra.
+      O `.refine()` NÃO é exprimível em JSON Schema → a regra é reforçada na
+      `description` (LLM) e validada em runtime no parse do `executeAtomic`.
+    • `.refine()` em vez de `.default()`: mantém input/output simétricos,
+      preserva `ZodType<I>` em `ToolDefinition` (o `.default()` partiria — já
+      documentado no ficheiro).
+    • `reverse_op` INALTERADO: continua `delete_row` por `taskId` (apagar a row
+      remove a hora junto). Zero alteração de DB/migration/schema — a coluna
+      `tasks.due_time text` + check `tasks_due_time_format` já existem.
+
+  ════════ GATES CORRIDOS NESTA SESSÃO (focados, áreas tocadas) ════════
+    • pnpm --filter @meu-jarvis/tools test → 362/362 (20 files) PASS
+    • pnpm --filter @meu-jarvis/planner-executor test → 73/73 (7 files) PASS
+    • typecheck de ambos os packages → limpo
+    (lint nestes packages é herdado do typecheck — ver scripts `lint` dos packages.)
+  NÃO corridos (responsabilidade do @devops antes de push): suite WEB completa,
+  db/db-test, pnpm build, pnpm check:rls (check:rls é no-op aqui — zero alteração
+  de schema). CodeRabbit não corrido (mudança focada e coberta por testes).
+
+  ════════ AMBIENTE / GOTCHAS ════════
+    • Flaky pré-existente conhecido: `tarefas/calendario/__tests__/page.test.tsx`
+      pode dar "Test timed out in 5000ms" quando a máquina está saturada (vários
+      gates em paralelo). Isolado passa 5/5 em ~1,3s — NÃO é regressão. Se
+      acontecer, re-correr o ficheiro isolado para confirmar.
+    • 2 untracked NÃO pertencem ao commit (decisão do Eurico na sessão P1):
+      `docs/CORE-STATE-AUDIT-20260611.md` e
+      `packages/db/src/scripts/smoke-baseline.ts` — deixar de fora (ficam `??`).
+
+next_action: |
+  @devops (noutro terminal):
+  1. Validar working tree: `git status` deve mostrar 4 ficheiros M (os 2 de
+     `packages/tools/...criar-tarefa*` + os 2 de `packages/planner-executor/...`)
+     + os 2 untracked a ignorar.
+  2. Correr a suite COMPLETA + build antes de push:
+       pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:rls
+     (se o calendário web der timeout flaky sob carga, re-correr isolado — ver
+     gotcha; não é regressão.)
+  3. Ao consumir este handoff (faz parte do MESMO commit): marcar
+     `consumed: true` + `consumed_at`/`consumed_by` no YAML, mover
+     `docs/handoffs/mj-handoff-obs2-dev-to-devops-20260611.yaml` →
+     `docs/handoffs/archive/`, e actualizar `docs/HANDOFF-INDEX.md` (remover do
+     bloco Pending, adicionar ao Archived).
+  4. Conventional commit referenciando OBS-2, ex:
+       feat(tools): criar_tarefa do chat aceita dueTime (hora) [OBS-2]
+     Stage = os 4 ficheiros de código + o handoff YAML (já em archive/) + o INDEX
+     (tal como o P1 incluiu os seus handoffs). EXCLUIR APENAS os 2 untracked
+     (`docs/CORE-STATE-AUDIT-20260611.md`, `packages/db/src/scripts/smoke-baseline.ts`).
+     Push fast-forward sem --force/--no-verify. CodeRabbit opcional (SKIP segue o
+     padrão recente).
+
+  Depois do push, continua a cadeia make-it-work (handoff-mãe ainda pending):
+  W1 (saldo conta Dinheiro €0 c/ ~€122 despesas — validar design /financas ANTES
+  de assumir bug) · W2 (acções em /tarefas não refrescam widgets /visao —
+  avaliar revalidatePath) · smoke /financas + /conta/household + Kanban.
+  Billing CONGELADO.
+
+decisions:
+  - 'OBS-2 = zero migration — coluna tasks.due_time + check tasks_due_time_format já existem; gap era só a tool não recolher/passar a hora.'
+  - 'Regra de domínio dueTime-exige-dueDate reforçada em 3 camadas: refine (runtime), description (LLM), instrução do planner (hora-sem-dia → assume hoje).'
+  - '.refine() em vez de .default() para preservar ZodType<I> em ToolDefinition.'
+  - 'Prompt do Planner bumpado v4→v5 (Exemplos 1/2 deixavam cair a hora — sinal negativo corrigido).'
+  - 'reverse_op inalterado (delete_row por taskId).'
+  - 'Nada commitado/pushed — push é exclusivo @devops e o Eurico migrou de terminal para o fazer.'
+
+blockers:
+  - 'Nenhum bloqueador técnico. Antes de push: correr suite completa + build (não corridos nesta sessão).'
+
+files_modified:
+  - packages/tools/src/tasks/criar-tarefa.ts                              # dueTime input+refine+output+INSERT+preview+description
+  - packages/tools/src/tasks/__tests__/criar-tarefa.test.ts              # +11 testes dueTime + mocks alinhados
+  - packages/planner-executor/src/prompts/planner-system.ts             # bump v4→v5, Exemplos 1/2, secção HORA DA TAREFA
+  - packages/planner-executor/src/__tests__/prompts.test.ts             # versão v5 + asserções dueTime
+
+related:
+  - docs/handoffs/mj-handoff-session-p1-c2-done-continue-makeitwork-20260611.yaml  # handoff-mãe make-it-work (P1/C2/W1/W2/OBS-2); OBS-2 era o next_action #2
+  - packages/db/src/schema/tasks.ts                       # coluna due_time text + check tasks_due_time_format (já existente)
+  - packages/tools/src/registry.ts                        # getAnthropicToolDefinitions → zodToJsonSchema (expõe dueTime ao LLM)
+  - apps/web/src/lib/api-schemas/tasks.ts                 # DueTimeSchema do P1 (mesma regex HH:MM — fonte da convenção)
+  - docs/handoffs/mj-handoff-refocus-core-freeze-billing-20260529.yaml   # directiva-mãe (billing congelado, make-it-work)

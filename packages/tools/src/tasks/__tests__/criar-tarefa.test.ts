@@ -233,6 +233,64 @@ describe('criar_tarefa — input validation', () => {
     const result = criarTarefa.inputSchema.safeParse({ title: 'X' });
     expect(result.success).toBe(true);
   });
+
+  // ── dueTime (OBS-2) ──────────────────────────────────────────────────────
+
+  it('aceita dueTime HH:MM 24h quando há dueDate', () => {
+    const result = criarTarefa.inputSchema.safeParse({
+      title: 'reunião',
+      dueDate: '2026-06-15',
+      dueTime: '09:30',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('aceita dueTime no limite 23:59', () => {
+    const result = criarTarefa.inputSchema.safeParse({
+      title: 'X',
+      dueDate: '2026-06-15',
+      dueTime: '23:59',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejeita dueTime em formato errado (sem zero à esquerda)', () => {
+    const result = criarTarefa.inputSchema.safeParse({
+      title: 'X',
+      dueDate: '2026-06-15',
+      dueTime: '9:30',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejeita dueTime com minutos inválidos (>59)', () => {
+    const result = criarTarefa.inputSchema.safeParse({
+      title: 'X',
+      dueDate: '2026-06-15',
+      dueTime: '10:75',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejeita dueTime SEM dueDate (regra de domínio: hora exige dia)', () => {
+    const result = criarTarefa.inputSchema.safeParse({
+      title: 'reunião',
+      dueTime: '15:00',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      // O erro do refine aponta para o campo dueTime.
+      expect(result.error.issues[0]?.path).toContain('dueTime');
+    }
+  });
+
+  it('permite dueDate sem dueTime (hora opcional)', () => {
+    const result = criarTarefa.inputSchema.safeParse({
+      title: 'X',
+      dueDate: '2026-06-15',
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -255,6 +313,16 @@ describe('criar_tarefa — preview PT-PT', () => {
     );
     expect(out).toContain('pagar renda');
     expect(out).toContain('01/06/2026');
+  });
+
+  it('preview com dueDate + dueTime inclui a hora (OBS-2)', () => {
+    const out = criarTarefa.preview(
+      { title: 'reunião', dueDate: '2026-06-01', dueTime: '15:00' },
+      ctx,
+    );
+    expect(out).toContain('reunião');
+    expect(out).toContain('01/06/2026');
+    expect(out).toContain('às 15:00');
   });
 
   it('preview começa com PT-PT "Criar tarefa"', () => {
@@ -280,6 +348,7 @@ describe('criar_tarefa — execute', () => {
             id: TASK_ID,
             title: 'comprar leite',
             due_date: '2026-06-01',
+            due_time: null,
             priority: 'medium',
           },
         ],
@@ -296,15 +365,16 @@ describe('criar_tarefa — execute', () => {
     expect(state.executes[0]?.sqlText).toMatch(/insert into tasks/i);
   });
 
-  it('INSERT inclui created_by_user_id, title, due_date, priority, status', async () => {
+  it('INSERT inclui created_by_user_id, title, due_date, due_time, priority, status', async () => {
     await criarTarefa.execute(
-      { title: 'X', dueDate: '2026-06-15', priority: 'high' },
+      { title: 'X', dueDate: '2026-06-15', dueTime: '15:00', priority: 'high' },
       ctx,
     );
     const sql = state.executes[0]?.sqlText ?? '';
     expect(sql).toMatch(/created_by_user_id/i);
     expect(sql).toMatch(/title/i);
     expect(sql).toMatch(/due_date/i);
+    expect(sql).toMatch(/due_time/i);
     expect(sql).toMatch(/priority/i);
     expect(sql).toMatch(/status/i);
     expect(sql).toMatch(/'todo'::task_status/);
@@ -315,6 +385,7 @@ describe('criar_tarefa — execute', () => {
     expect(out.taskId).toBe(TASK_ID);
     expect(out.title).toBe('comprar leite');
     expect(out.dueDate).toBe('2026-06-01');
+    expect(out.dueTime).toBeNull();
     expect(out.priority).toBe('medium');
 
     // Output schema deve validar o resultado.
@@ -329,12 +400,40 @@ describe('criar_tarefa — execute', () => {
           id: TASK_ID,
           title: 'X',
           due_date: null,
+          due_time: null,
           priority: 'medium',
         },
       ],
     ];
     const out = await criarTarefa.execute({ title: 'X' }, ctx);
     expect(out.dueDate).toBeNull();
+    expect(out.dueTime).toBeNull();
+  });
+
+  it('dueTime preenchido com dueDate retorna a hora no output (OBS-2)', async () => {
+    state.insertReturns = [
+      [
+        {
+          id: TASK_ID,
+          title: 'reunião',
+          due_date: '2026-06-15',
+          due_time: '15:00',
+          priority: 'medium',
+        },
+      ],
+    ];
+    const out = await criarTarefa.execute(
+      { title: 'reunião', dueDate: '2026-06-15', dueTime: '15:00' },
+      ctx,
+    );
+    expect(out.dueDate).toBe('2026-06-15');
+    expect(out.dueTime).toBe('15:00');
+
+    // O SQL parametriza o valor da hora como bind param do due_time::text.
+    expect(state.executes[0]?.sqlText).toMatch(/due_time/i);
+
+    const parsed = criarTarefa.outputSchema.safeParse(out);
+    expect(parsed.success).toBe(true);
   });
 
   it('priority default "medium" aplicado quando omitido', async () => {
@@ -344,6 +443,7 @@ describe('criar_tarefa — execute', () => {
           id: TASK_ID,
           title: 'X',
           due_date: null,
+          due_time: null,
           priority: 'medium',
         },
       ],
@@ -375,6 +475,7 @@ describe('criar_tarefa — reverse()', () => {
         taskId: TASK_ID,
         title: 'X',
         dueDate: null,
+        dueTime: null,
         priority: 'medium',
       },
       ctx,
@@ -392,6 +493,7 @@ describe('criar_tarefa — reverse()', () => {
         taskId: TASK_ID,
         title: 'X',
         dueDate: null,
+        dueTime: null,
         priority: 'low',
       },
       ctx,
@@ -405,6 +507,7 @@ describe('criar_tarefa — reverse()', () => {
         taskId: TASK_ID,
         title: 'X',
         dueDate: null,
+        dueTime: null,
         priority: 'high',
       },
       ctx,
@@ -420,6 +523,7 @@ describe('criar_tarefa — reverse()', () => {
         taskId: TASK_ID,
         title: 'X',
         dueDate: null,
+        dueTime: null,
         priority: 'medium',
       },
       ctx,
@@ -445,6 +549,7 @@ describe('criar_tarefa — executeAtomic integration', () => {
             id: TASK_ID,
             title: 'comprar leite',
             due_date: null,
+            due_time: null,
             priority: 'medium',
           },
         ],
@@ -522,7 +627,7 @@ describe('criar_tarefa — segurança RLS', () => {
     const state: MockState = {
       executes: [],
       insertReturns: [
-        [{ id: TASK_ID, title: 'X', due_date: null, priority: 'medium' }],
+        [{ id: TASK_ID, title: 'X', due_date: null, due_time: null, priority: 'medium' }],
       ],
     };
     const ctx = makeCtx(makeMockDb(state));

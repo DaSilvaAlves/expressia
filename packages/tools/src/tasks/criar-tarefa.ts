@@ -38,31 +38,53 @@ import type {
  * - `title`: 1..200 caracteres (corresponde a `tasks.title text not null` —
  *   200 é limite conservador para chat rápido; tarefas longas via UI).
  * - `dueDate`: ISO 8601 date (YYYY-MM-DD). Opcional.
+ * - `dueTime`: hora prevista HH:MM 24h (OBS-2). Só permitida quando há
+ *   `dueDate` — uma hora sem dia é ambígua (mesma regra de domínio do P1, onde
+ *   o campo Hora fica desactivado sem prazo). Formato espelha o check constraint
+ *   `tasks_due_time_format` (`^[0-2][0-9]:[0-5][0-9]$`). Opcional.
  * - `priority`: enum alinhado com `task_priority` Postgres. Default `medium`.
  */
-const CriarTarefaInputSchema = z.object({
-  title: z.string().min(1).max(200),
-  dueDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'dueDate deve estar no formato YYYY-MM-DD')
-    .optional(),
-  // Sem `.default()` aqui — asymmetric input/output do Zod quebra
-  // `ZodType<I>` em `ToolDefinition`. O default `'medium'` é aplicado
-  // dentro de `execute()` via nullish coalescing.
-  priority: z.enum(['low', 'medium', 'high']).optional(),
-});
+const CriarTarefaInputSchema = z
+  .object({
+    title: z.string().min(1).max(200),
+    dueDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'dueDate deve estar no formato YYYY-MM-DD')
+      .optional(),
+    dueTime: z
+      .string()
+      .regex(
+        /^[0-2][0-9]:[0-5][0-9]$/,
+        'dueTime deve estar no formato HH:MM (24h)',
+      )
+      .optional(),
+    // Sem `.default()` aqui — asymmetric input/output do Zod quebra
+    // `ZodType<I>` em `ToolDefinition`. O default `'medium'` é aplicado
+    // dentro de `execute()` via nullish coalescing.
+    priority: z.enum(['low', 'medium', 'high']).optional(),
+  })
+  // Regra de domínio (OBS-2): `dueTime` só faz sentido com `dueDate`. `.refine()`
+  // mantém input/output simétricos (ao contrário de `.default()`), logo preserva
+  // `ZodType<I>` em `ToolDefinition`. zodToJsonSchema ignora o refine (não é
+  // exprimível em JSON Schema), por isso a regra é reforçada também na
+  // `description` para o LLM e validada em runtime no parse de `executeAtomic`.
+  .refine((value) => value.dueTime === undefined || value.dueDate !== undefined, {
+    message: 'dueTime só é permitido quando dueDate está definido',
+    path: ['dueTime'],
+  });
 
 export type CriarTarefaInput = z.infer<typeof CriarTarefaInputSchema>;
 
 /**
  * Output do `criar_tarefa`.
  *
- * `dueDate` pode ser `null` quando o utilizador não forneceu data.
+ * `dueDate`/`dueTime` podem ser `null` quando o utilizador não os forneceu.
  */
 const CriarTarefaOutputSchema = z.object({
   taskId: z.string().uuid(),
   title: z.string(),
   dueDate: z.string().nullable(),
+  dueTime: z.string().nullable(),
   priority: z.enum(['low', 'medium', 'high']),
 });
 
@@ -82,6 +104,7 @@ interface TasksInsertReturn {
   readonly id: string;
   readonly title: string;
   readonly due_date: string | null;
+  readonly due_time: string | null;
   readonly priority: 'low' | 'medium' | 'high';
 }
 
@@ -112,7 +135,7 @@ export const criarTarefa: ToolDefinition<CriarTarefaInput, CriarTarefaOutput> = 
   name: 'criar_tarefa',
   domain: 'tasks',
   description:
-    'Usa esta tool quando o utilizador quer criar uma nova tarefa ou to-do no agregado familiar. Aceita título obrigatório, data prevista opcional (formato YYYY-MM-DD) e prioridade opcional (low/medium/high, default medium).',
+    'Usa esta tool quando o utilizador quer criar uma nova tarefa ou to-do no agregado familiar. Aceita título obrigatório, data prevista opcional (formato YYYY-MM-DD), hora prevista opcional (formato HH:MM 24h — só permitida quando há data prevista) e prioridade opcional (low/medium/high, default medium).',
   inputSchema: CriarTarefaInputSchema,
   outputSchema: CriarTarefaOutputSchema,
   estimatedTokens: 50,
@@ -120,7 +143,11 @@ export const criarTarefa: ToolDefinition<CriarTarefaInput, CriarTarefaOutput> = 
   preview(input) {
     const base = `Criar tarefa '${input.title}'`;
     if (input.dueDate) {
-      return `${base} para ${formatDateForPreview(input.dueDate)}`;
+      const dateLabel = formatDateForPreview(input.dueDate);
+      // `dueTime` só existe com `dueDate` (garantido pelo refine do schema).
+      return input.dueTime
+        ? `${base} para ${dateLabel} às ${input.dueTime}`
+        : `${base} para ${dateLabel}`;
     }
     return base;
   },
@@ -136,17 +163,18 @@ export const criarTarefa: ToolDefinition<CriarTarefaInput, CriarTarefaOutput> = 
     const priorityValue = input.priority ?? 'medium';
     const result = (await ctx.db.execute(sql`
       insert into tasks
-        (household_id, created_by_user_id, title, due_date, priority, status)
+        (household_id, created_by_user_id, title, due_date, due_time, priority, status)
       values
         (
           ${ctx.householdId},
           ${ctx.userId},
           ${input.title},
           ${input.dueDate ?? null}::date,
+          ${input.dueTime ?? null}::text,
           ${priorityValue}::task_priority,
           'todo'::task_status
         )
-      returning id, title, due_date, priority
+      returning id, title, due_date, due_time, priority
     `)) as ReadonlyArray<TasksInsertReturn>;
 
     const row = result[0];
@@ -159,6 +187,7 @@ export const criarTarefa: ToolDefinition<CriarTarefaInput, CriarTarefaOutput> = 
       taskId: row.id,
       title: row.title,
       dueDate: row.due_date,
+      dueTime: row.due_time,
       priority: row.priority,
     };
   },

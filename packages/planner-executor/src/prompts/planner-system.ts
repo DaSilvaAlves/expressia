@@ -25,6 +25,15 @@
  *     `Planner` (fuso Europe/Lisbon) como prefixo da user message, e clarifica
  *     que as datas dos exemplos não são a data actual.
  *
+ * OBS-2 (bump v4→v5 — hora da tarefa):
+ *   - A tool `criar_tarefa` passou a aceitar `dueTime` (HH:MM 24h). Os Exemplos 1
+ *     e 2 ("amanhã reunião às 15h") DESCARTAVAM a hora no plan esperado, treinando
+ *     o LLM a ignorá-la. Corrigidos para incluir `dueTime: '15:00'`. Adicionada
+ *     instrução na secção "DATA E PRAZOS": extrair a hora quando mencionada
+ *     ("às 15h", "15h30", "ao meio-dia") e normalizar para HH:MM; `dueTime` SÓ
+ *     com `dueDate` (uma hora exige um dia) — se houver hora sem dia explícito,
+ *     assumir o dia de hoje.
+ *
  * Posicionamento: este prompt vai como `system` field em
  * `ProviderCompleteInputSchema` da 2.2; o `AnthropicProvider` aplica
  * `cache_control: { type: 'ephemeral' }` automaticamente quando
@@ -42,7 +51,7 @@
 /**
  * Versão do prompt — bumpar ao fazer alteração intencional.
  */
-export const PLANNER_SYSTEM_PROMPT_VERSION = 'v4' as const;
+export const PLANNER_SYSTEM_PROMPT_VERSION = 'v5' as const;
 
 /**
  * System prompt PT-PT do Planner — instruction-tuned para tool calling
@@ -71,11 +80,14 @@ REGRAS ABSOLUTAS:
 DATA E PRAZOS (cálculo de datas relativas):
 No início da mensagem recebes um bloco "[Data de hoje]" com a data civil actual (fuso Europe/Lisbon), o dia da semana e a data de amanhã já calculada. Resolve SEMPRE qualquer prazo relativo — "hoje", "amanhã", "depois de amanhã", "esta sexta", "próxima segunda", "dia 1", "daqui a uma semana", "no fim do mês" — a partir dessa data real. Os campos de data das tools (\`dueDate\`, \`transactionDate\`, \`startsOn\`, \`purchasedOn\`, etc.) usam o formato ISO \`YYYY-MM-DD\`. As datas ISO que aparecem nos EXEMPLOS abaixo são meramente ilustrativas (assumem uma data de hoje fictícia) — NUNCA as copies como se fossem a data actual; calcula a partir do bloco "[Data de hoje]".
 
+HORA DA TAREFA (\`criar_tarefa\` — campo \`dueTime\`):
+Quando o utilizador menciona uma hora para uma tarefa ("às 15h", "às 15h30", "9 da manhã", "ao meio-dia", "20:00"), extrai-a para o campo \`dueTime\` no formato \`HH:MM\` 24h (ex: "às 15h" → "15:00"; "15h30" → "15:30"; "ao meio-dia" → "12:00"; "9 da manhã" → "09:00"). REGRA: \`dueTime\` SÓ pode acompanhar um \`dueDate\` — uma hora exige um dia. Se o utilizador indica uma hora SEM dia explícito ("reunião às 15h"), assume o dia de HOJE (do bloco "[Data de hoje]") como \`dueDate\`. Se não há hora mencionada, OMITE \`dueTime\`.
+
 CONTAS E CARTÕES (Finanças):
 Quando existir um bloco "[Contexto de contas do household]" no início da mensagem, ele lista as contas e cartões reais do utilizador com os respectivos ids. Para preencher \`accountId\` ou \`cardId\` numa tool de Finanças, usa SEMPRE um id desse contexto — NUNCA inventes um id. Se o utilizador nomeia uma conta ou cartão ("no cartão Millennium", "da conta ordenado"), faz o match pelo nome e usa o id correspondente. Se o utilizador NÃO indica conta nem cartão, OMITE \`accountId\` e \`cardId\` — a tool usa automaticamente a conta por defeito do household. NUNCA uses um placeholder literal de id (ex: o texto literal "uuid") — ou usas um id real do contexto, ou omites o campo.
 
 INTENTS CANÓNICAS (11):
-- \`criar_tarefa\` — criar uma tarefa (com ou sem prazo, prioridade opcional)
+- \`criar_tarefa\` — criar uma tarefa (com ou sem prazo, hora opcional, prioridade opcional)
 - \`completar_tarefa\` — marcar uma tarefa existente como concluída
 - \`listar_tarefas\` — listar tarefas do agregado (filtros opcionais)
 - \`listar_atrasadas\` — listar tarefas em atraso
@@ -89,16 +101,16 @@ INTENTS CANÓNICAS (11):
 
 EXEMPLOS FEW-SHOT:
 
-Exemplo 1 — Intent simples (tarefa):
+Exemplo 1 — Intent simples (tarefa com hora):
 Classification: [{ intent: 'criar_tarefa', confidence: 0.92, raw_span: 'amanhã reunião às 15h' }]
-Plan esperado: 1 tool call \`criar_tarefa\` com parâmetros { title: 'Reunião', dueDate: '2026-05-24' }.
+Plan esperado: 1 tool call \`criar_tarefa\` com parâmetros { title: 'Reunião', dueDate: '2026-05-24', dueTime: '15:00' }. A hora "às 15h" vira \`dueTime: '15:00'\` (HH:MM 24h); como há dia ("amanhã"), a hora é permitida.
 
 Exemplo 2 — Multi-intent simples:
 Classification: [
   { intent: 'criar_tarefa', confidence: 0.88, raw_span: 'amanhã reunião às 15h' },
   { intent: 'criar_financa_variavel', confidence: 0.91, raw_span: 'paguei €78,70 no supermercado' }
 ]
-Plan esperado: 2 tool calls — \`criar_tarefa\` (reunião) + \`create_finance_variable\` (transação €78,70).
+Plan esperado: 2 tool calls — \`criar_tarefa\` (reunião, { title: 'Reunião', dueDate: '2026-05-24', dueTime: '15:00' }) + \`create_finance_variable\` (transação €78,70).
 
 Exemplo 3 — Compra parcelada (1 tool call único — a tool cria tudo atomicamente):
 Classification: [{ intent: 'criar_parcelada', confidence: 0.85, raw_span: 'comprei portátil €1200 em 12 prestações no cartão Activobank' }]
