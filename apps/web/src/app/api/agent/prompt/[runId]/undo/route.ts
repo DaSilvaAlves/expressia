@@ -42,6 +42,7 @@ import {
 } from '@meu-jarvis/observability';
 
 import { apiError } from '@/lib/errors';
+import { revalidateTaskViews } from '@/lib/api-helpers/revalidate';
 import { sentrySafeContext } from '@/lib/agent/redaction';
 import {
   withAgentPromptSpan,
@@ -246,6 +247,10 @@ export async function POST(
           { ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }) },
         );
       }
+
+      // W2: o undo reverte mutações (tarefas/finanças) — invalida as vistas
+      // dependentes para a Visão reflectir o estado revertido.
+      revalidateTaskViews();
 
       annotateAgentPromptSpan(span, { status_code: 200 });
       log.info({ run_id: runId, ops_reverted: opRows.length }, 'Run revertido com sucesso');

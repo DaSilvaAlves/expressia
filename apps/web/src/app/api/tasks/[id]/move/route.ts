@@ -39,6 +39,7 @@ import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { TaskMoveSchema } from '@/lib/api-schemas/tasks';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
+import { revalidateTaskViews } from '@/lib/api-helpers/revalidate';
 
 const ROUTE = '/api/tasks/[id]/move';
 const UuidParam = z.string().uuid();
@@ -194,6 +195,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
         } catch (auditErr) {
           log.warn({ err: auditErr }, 'audit_log INSERT falhou (best-effort)');
         }
+
+        // W2: invalida as vistas que dependem das tarefas (Visão + /tarefas).
+        revalidateTaskViews();
 
         annotateSpan(span, {
           statusCode: 200,

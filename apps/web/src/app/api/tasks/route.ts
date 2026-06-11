@@ -42,6 +42,7 @@ import { TaskCreateSchema, TaskFiltersSchema } from '@/lib/api-schemas/tasks';
 import { decodeCursor } from '@/lib/api-schemas/pagination';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
+import { revalidateTaskViews } from '@/lib/api-helpers/revalidate';
 
 const ROUTE = '/api/tasks';
 
@@ -197,6 +198,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         } catch (auditErr) {
           log.warn({ err: auditErr, task_id_hash: hashForCorrelation(task.id) }, 'audit_log INSERT falhou (best-effort)');
         }
+
+        // W2: invalida as vistas que dependem das tarefas (Visão + /tarefas).
+        revalidateTaskViews();
 
         annotateSpan(span, {
           statusCode: 201,

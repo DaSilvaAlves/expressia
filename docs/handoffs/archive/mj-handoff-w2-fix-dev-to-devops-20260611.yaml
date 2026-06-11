@@ -1,0 +1,83 @@
+id: mj-handoff-w2-fix-dev-to-devops-20260611
+from_agent: dev (Dex) / aiox-master (Orion)
+to_agent: devops (Gage)
+created: "2026-06-11T15:30:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-11T16:13:00Z"
+consumed_by: devops (Gage)
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: ready-for-push
+
+summary: >-
+  W2 RESOLVIDO em working tree — pronto para *push. Bug de produto make-it-work:
+  acções em /tarefas (criar/editar/concluir/mover/eliminar — Lista/Kanban/Calendário)
+  e mutações de tarefa pelo Cérebro AI NÃO refrescavam os widgets de /visao (dados
+  stale até refresh manual). Causa (Next 15.5): mutações via Route Handlers
+  /api/tasks/** chamados por fetch + router.refresh() (que só revalida o segmento
+  actual /tarefas); handlers sem revalidatePath; /visao sem export dynamic. Fix
+  mínimo idiomático aplicado. ZERO migration. Falta só o push. Billing CONGELADO.
+
+context:
+  story_id: "W2 (make-it-work — sem story formal; bug de produto)"
+  branch: main
+  baseline: "origin/main = f27bbb5 (W1 + sibling saldo on-read já em prod)"
+  diagnosis: >-
+    Next 15.5.15 / React 19, sem staleTimes custom. router.refresh() só re-busca o
+    RSC do segmento da rota actual — nunca invalida /visao no client Router Cache.
+    revalidatePath num Route Handler invalida o cache do servidor mas não propaga ao
+    client Router Cache do browser actual (só Server Actions propagam). Combinação do
+    fix: revalidatePath (servidor) + force-dynamic em /visao (re-executa RSC fresco a
+    cada navegação, já que /visao é dinâmica por cookies()) → elimina stale em TODOS
+    os caminhos (Lista/Kanban/Calendário/chat).
+  fix_decision: >-
+    ESCOLHIDO: force-dynamic em /visao + helper revalidateTaskViews() nos handlers.
+    REJEITADO: converter mutações para Server Actions (resolveria propagação ao client
+    cache nativamente, mas refactor de 9+ componentes cliente — superfície/risco
+    desproporcional para o mesmo resultado).
+
+  files_to_commit:
+    modified:
+      - "apps/web/src/app/(app)/visao/page.tsx (export const dynamic = 'force-dynamic')"
+      - "apps/web/src/app/api/tasks/route.ts (revalidateTaskViews no POST)"
+      - "apps/web/src/app/api/tasks/[id]/route.ts (revalidateTaskViews no PATCH/DELETE)"
+      - "apps/web/src/app/api/tasks/[id]/move/route.ts (revalidateTaskViews no move)"
+      - "apps/web/src/app/api/agent/prompt/route.ts (revalidateTaskViews no execute)"
+      - "apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts (revalidateTaskViews)"
+      - "apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts (revalidateTaskViews)"
+    untracked:
+      - "apps/web/src/lib/api-helpers/revalidate.ts (NOVO — helper centralizado)"
+      - "apps/web/src/lib/api-helpers/__tests__/revalidate.test.ts (NOVO)"
+      - "apps/web/src/app/api/tasks/__tests__/revalidate-views.test.ts (NOVO)"
+  files_NOT_part_of_fix:
+    - "docs/CORE-STATE-AUDIT-20260611.md (untracked — contexto, decisão de deixar de fora)"
+    - "packages/db/src/scripts/smoke-baseline.ts (untracked — deixado de fora)"
+    - "docs/HANDOFF-INDEX.md + docs/handoffs/* (bookkeeping deste handoff)"
+
+  gates_run_by_dev:
+    - "pnpm --filter @meu-jarvis/web typecheck → EXIT 0"
+    - "pnpm --filter @meu-jarvis/web lint → No ESLint warnings or errors"
+    - "testes tarefas tocados: 34/34 GREEN (inc. 7 novos)"
+    - "handlers do agente tocados (prompt/confirm/undo + tasks-flow + finance-flow): 76/76 GREEN"
+    - "flaky conhecido tarefas/calendario/__tests__/page.test.tsx NÃO corrido (fora do scope tocado)"
+
+migration: "ZERO — nenhuma migration. NÃO correr db:migrate."
+
+next_action: >-
+  @devops *push W2-fix: re-correr gates rápidos (lint·typecheck·check:rls EXIT 0) e
+  confiar pesados via cache se working tree byte-idêntico; commit conventional
+  fast-forward SEM --force/--no-verify; CodeRabbit SKIP aceitável (mudança focada,
+  coberta por testes — padrão recente). Commitar APENAS os 10 ficheiros do fix (7 mod
+  + 3 untracked) + bookkeeping de handoffs/INDEX; deixar os 2 untracked não-relacionados
+  (CORE-STATE-AUDIT, smoke-baseline) de fora. Depois do push, o roadmap make-it-work
+  restante é só o SMOKE /financas + /conta/household (passo posterior, não bloqueante).
+
+notes: |
+  - Itens FEITOS na cadeia make-it-work (não repetir): P1 criar-tarefa UI + C2 saudação
+    (798aeb9), OBS-2 dueTime tool chat (2ad4a09), W1 saldo on-read + sibling /visao
+    (f27bbb5), W2 refresh widgets /visao (ESTE — pronto p/ push).
+  - Memórias relevantes: [[w1-finance-balance-fix]], [[cross-tenant-legacy-transactions]].
+  - REGRAS: push só @devops. Imports absolutos @/. PT-PT em código/erros. Billing CONGELADO.

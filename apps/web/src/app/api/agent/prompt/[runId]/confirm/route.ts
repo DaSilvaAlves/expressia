@@ -50,6 +50,7 @@ import {
 } from '@meu-jarvis/planner-executor';
 
 import { apiError } from '@/lib/errors';
+import { revalidateTaskViews } from '@/lib/api-helpers/revalidate';
 import {
   updateAfterPlanner,
   updateAfterExecutor,
@@ -318,6 +319,10 @@ export async function POST(
         tool_count: plan.toolCalls.length,
         status_code: 200,
       });
+
+      // W2: confirmação executa tools (tarefas/finanças) — invalida as vistas
+      // dependentes para a Visão não ficar stale após confirmar via chat.
+      revalidateTaskViews();
 
       const undoExpiresAt = new Date(Date.now() + 30 * 1000);
       const responseBody = {

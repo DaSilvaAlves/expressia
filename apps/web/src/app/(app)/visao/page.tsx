@@ -30,6 +30,19 @@ export const metadata: Metadata = {
   title: 'Visão — Expressia',
 };
 
+/**
+ * W2 (make-it-work): força a Visão a re-executar o RSC em cada navegação.
+ *
+ * A página já é dinâmica de facto (lê `cookies()` via Supabase Auth), mas marcar
+ * `force-dynamic` explicitamente desliga o prefetch de dados desta rota no
+ * Router Cache do cliente. Sem isto, depois de mutar uma tarefa em /tarefas
+ * (Lista/Kanban/Calendário) ou via chat, ao navegar para /visao o cliente
+ * servia um payload RSC stale (router.refresh() só revalida o segmento actual).
+ * Combinado com `revalidateTaskViews()` nos route handlers de mutação, garante
+ * widgets sempre frescos em todos os caminhos. Ver `@/lib/api-helpers/revalidate`.
+ */
+export const dynamic = 'force-dynamic';
+
 interface PrefsRow {
   widgets_enabled: unknown;
 }

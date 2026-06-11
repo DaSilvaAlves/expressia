@@ -27,6 +27,7 @@ import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { TaskUpdateSchema } from '@/lib/api-schemas/tasks';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
+import { revalidateTaskViews } from '@/lib/api-helpers/revalidate';
 
 const ROUTE = '/api/tasks/[id]';
 
@@ -181,6 +182,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
           log.warn({ err: auditErr }, 'audit_log INSERT falhou (best-effort)');
         }
 
+        // W2: invalida as vistas que dependem das tarefas (Visão + /tarefas).
+        revalidateTaskViews();
+
         annotateSpan(span, { statusCode: 200 });
         return NextResponse.json({ task });
       } catch (err) {
@@ -244,6 +248,9 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
         } catch (auditErr) {
           log.warn({ err: auditErr }, 'audit_log INSERT falhou (best-effort)');
         }
+
+        // W2: invalida as vistas que dependem das tarefas (Visão + /tarefas).
+        revalidateTaskViews();
 
         annotateSpan(span, { statusCode: 200 });
         return NextResponse.json({ archived: true, id });

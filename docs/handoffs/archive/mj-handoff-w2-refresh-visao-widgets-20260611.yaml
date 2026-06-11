@@ -1,0 +1,66 @@
+from_agent: "devops (Gage) / aiox-master (sessão make-it-work)"
+to_agent: "any"
+created: "2026-06-11T13:49:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-11T15:30:00Z"
+consumed_by: "aiox-master (Orion) — delegou a @dev (Dex); fix W2 implementado em working tree"
+consumed_note: >-
+  W2 RESOLVIDO. Diagnóstico confirmado (Next 15.5: router.refresh() só revalida
+  segmento actual; route handlers de tasks sem revalidatePath; /visao sem dynamic).
+  Fix: novo helper revalidateTaskViews() (revalidatePath /visao + 3 vistas /tarefas)
+  invocado nos 4 handlers de tasks (POST/PATCH/DELETE/move) + 3 caminhos do Cérebro
+  AI (prompt/confirm/undo); + export const dynamic='force-dynamic' em /visao. 10
+  ficheiros (7 mod + 3 untracked, inc. 2 testes). Gates focados: typecheck/lint EXIT 0,
+  34/34 testes tarefas + 76/76 handlers agente GREEN. ZERO migration. Falta só o push
+  (@devops) + o smoke /financas+/conta/household (passo posterior). Sucessor:
+  mj-handoff-w2-fix-dev-to-devops-20260611.
+
+project: "Expressia (meu-jarvis)"
+summary: >-
+  MIGRAÇÃO DE TERMINAL — continuar make-it-work no item W2. origin/main = f27bbb5
+  (W1 + sibling do saldo on-read JÁ em prod; working tree limpo exceto 2 untracked
+  deixados de fora por decisão). Resta W2: acções em /tarefas (criar/editar/concluir/
+  eliminar) NÃO refrescam os widgets de /visao — o utilizador muda tarefas mas a Visão
+  mostra dados stale até refresh manual. Provável causa: falta de revalidação/
+  invalidação de cache (revalidatePath / revalidateTag ou router.refresh) após a mutação.
+  Agente trabalha AUTÓNOMO (não QA manual). Billing CONGELADO.
+
+context:
+  story_id: "W2 (make-it-work — sem story formal; bug de produto)"
+  story_path: "docs/CORE-STATE-AUDIT-20260611.md (untracked — contexto de gaps)"
+  branch: "main"
+  current_task: >-
+    Investigar e corrigir a não-revalidação dos widgets de /visao após mutações em
+    /tarefas. Diagnosticar primeiro (é cache RSC? client-side stale? falta de
+    revalidatePath no Server Action / route handler de tarefas?), depois fix mínimo.
+  decisions_made:
+    - "W1 fechado: saldo de conta computa-se on-read via getAccountBalanceMap; balance_cents é DEAD COLUMN (nunca ler stored). Prod f27bbb5."
+    - "Sibling /api/visao/saldo-contas corrigido no mesmo push (getAccountsBalance reutiliza getAccountBalanceMap)."
+    - "Dado cross-tenant legado (2 despesas com account_id de outro household) — Eurico decidiu SÓ REGISTAR, não limpar/investigar agora."
+    - "2 untracked mantidos FORA dos commits: docs/CORE-STATE-AUDIT-20260611.md + packages/db/src/scripts/smoke-baseline.ts."
+  files_modified:
+    - "(W1 já pushed em f27bbb5 — nada em working tree para W2 ainda)"
+  blockers:
+    - "Nenhum bloqueador externo. db-test exige Docker daemon up (ENV-BLOCKER aceite se off)."
+  hypotheses_tested:
+    - "W1: €0 era confusão de vista (Património já computava certo -€25); bug real era a dead column exposta crua pelas APIs — CONFIRMADO e corrigido."
+
+next_action: >-
+  Diagnosticar W2 (porque os widgets /visao não refrescam após mutação em /tarefas)
+  e aplicar fix mínimo (provável revalidatePath/revalidateTag das rotas de tarefas e
+  visão, ou router.refresh client-side); correr gates focados; deixar em working tree
+  para @devops fazer push. Depois: smoke /financas + /conta/household.
+
+notes: |
+  PARA O PRÓXIMO TERMINAL:
+  - Ordem de leitura: CLAUDE.md → docs/HANDOFF-INDEX.md → este YAML → memory MEMORY.md.
+  - Roadmap make-it-work restante: W2 (este) + smoke /financas+/conta/household.
+  - Itens FEITOS nesta cadeia (não repetir): P1 criar-tarefa UI (798aeb9), C2 saudação
+    capitalize (798aeb9), OBS-2 dueTime na tool chat criar_tarefa (2ad4a09), W1 saldo
+    on-read + sibling /visao saldo-contas (f27bbb5).
+  - Memórias relevantes: [[w1-finance-balance-fix]], [[cross-tenant-legacy-transactions]].
+  - REGRAS: push só @devops (fast-forward, sem --force/--no-verify). Imports absolutos @/.
+    PT-PT em código/erros. *_cents para dinheiro. Billing CONGELADO (directiva 29/05).
+  - GOTCHA conhecido: flaky tarefas/calendario/__tests__/page.test.tsx (timeout 5000ms
+    sob carga) — re-correr isolado, não é regressão.

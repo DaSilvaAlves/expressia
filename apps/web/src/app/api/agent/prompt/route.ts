@@ -53,6 +53,7 @@ import {
 import { CLAUDE_HAIKU_MODEL_ENUM, type OpenAIClientLike } from '@meu-jarvis/agent';
 
 import { apiError } from '@/lib/errors';
+import { revalidateTaskViews } from '@/lib/api-helpers/revalidate';
 import {
   insertAgentRun,
   updateAfterClassifier,
@@ -630,6 +631,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         // por coerência com o enum.
         executor_model: CLAUDE_HAIKU_MODEL_ENUM,
       });
+
+      // W2: o Cérebro AI pode mutar tarefas (e finanças) — invalida as vistas
+      // dependentes para a Visão não ficar stale quando o chat é usado fora de
+      // /tarefas. router.refresh() no ChatPanel só revalida o segmento actual.
+      revalidateTaskViews();
 
       const undoExpiresAt = new Date(Date.now() + 30 * 1000); // 30s FR6
       const responseBody = {

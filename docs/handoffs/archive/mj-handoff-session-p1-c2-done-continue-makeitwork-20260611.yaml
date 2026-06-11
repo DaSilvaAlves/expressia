@@ -2,7 +2,10 @@ id: mj-handoff-session-p1-c2-done-continue-makeitwork-20260611
 from_agent: aiox-master
 to_agent: any
 created: "2026-06-11T01:00:00Z"
-status: pending
+status: superseded
+superseded_at: "2026-06-11T13:49:00Z"
+superseded_by: "mj-handoff-w2-refresh-visao-widgets-20260611"
+superseded_note: "next_action cumprido — P1+C2 (798aeb9), OBS-2 (2ad4a09), W1+sibling (f27bbb5). Só resta W2 + smoke, coberto pelo sucessor."
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
