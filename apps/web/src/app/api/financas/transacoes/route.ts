@@ -40,6 +40,7 @@ import {
 } from '@/lib/api-schemas/transactions';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
+import { revalidateFinanceViews } from '@/lib/api-helpers/revalidate';
 
 const ROUTE = '/api/financas/transacoes';
 const DEFAULT_LIMIT = 50;
@@ -333,6 +334,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         } catch (auditErr) {
           log.warn({ err: auditErr }, 'audit_log INSERT falhou (best-effort)');
         }
+
+        // W2: invalida as vistas que dependem do estado financeiro (Visão + /financas).
+        revalidateFinanceViews();
 
         annotateSpan(span, { statusCode: 201 });
         return NextResponse.json({ transaction }, { status: 201 });

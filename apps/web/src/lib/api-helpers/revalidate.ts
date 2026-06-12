@@ -50,3 +50,35 @@ export function revalidateTaskViews(): void {
     }
   }
 }
+
+/**
+ * Vistas que dependem do estado financeiro (transacções/contas) e têm de ser
+ * revalidadas após mutações de finanças. A Visão (widgets `financas-mes` e
+ * `saldo-contas`) e o Património (saldo on-read — W1) são as principais; as
+ * restantes vistas de `/financas` mantêm-se por completude (uma transacção de
+ * cartão reflecte-se no extracto, etc.).
+ */
+const FINANCE_DEPENDENT_PATHS = [
+  '/visao',
+  '/financas/este-mes',
+  '/financas/variaveis',
+  '/financas/patrimonio',
+  '/financas/cartoes',
+  '/financas/recorrentes',
+] as const;
+
+/**
+ * Revalida (server-side) todas as vistas que derivam do estado financeiro.
+ *
+ * Mesmo contrato de `revalidateTaskViews`: best-effort, nunca faz falhar a
+ * mutação principal.
+ */
+export function revalidateFinanceViews(): void {
+  for (const path of FINANCE_DEPENDENT_PATHS) {
+    try {
+      revalidatePath(path);
+    } catch {
+      // Best-effort — a mutação principal já foi persistida.
+    }
+  }
+}

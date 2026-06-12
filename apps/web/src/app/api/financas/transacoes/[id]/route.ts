@@ -32,6 +32,7 @@ import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { TransactionUpdateSchema } from '@/lib/api-schemas/transactions';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
+import { revalidateFinanceViews } from '@/lib/api-helpers/revalidate';
 
 const ROUTE = '/api/financas/transacoes/[id]';
 const UuidParam = z.string().uuid();
@@ -286,6 +287,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
           log.warn({ err: auditErr }, 'audit_log INSERT falhou (best-effort)');
         }
 
+        // W2: invalida as vistas que dependem do estado financeiro (Visão + /financas).
+        revalidateFinanceViews();
+
         annotateSpan(span, { statusCode: 200 });
         return NextResponse.json({ transaction });
       } catch (err) {
@@ -381,6 +385,9 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext): Promise<Next
         } catch (auditErr) {
           log.warn({ err: auditErr }, 'audit_log INSERT falhou (best-effort)');
         }
+
+        // W2: invalida as vistas que dependem do estado financeiro (Visão + /financas).
+        revalidateFinanceViews();
 
         annotateSpan(span, { statusCode: 200 });
         return NextResponse.json({ deleted: true, id });

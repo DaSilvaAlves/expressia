@@ -40,6 +40,10 @@ vi.mock('@/app/(app)/financas/_components/FinanceEmptyState', () => ({
 vi.mock('@/app/(app)/financas/_components/VariableTxFilters', () => ({
   VariableTxFilters: () => '<VariableTxFilters>',
 }));
+// Client component (useState) — não executável no walker RSC deste teste.
+vi.mock('@/app/(app)/financas/_components/NewTransactionButton', () => ({
+  NewTransactionButton: () => '<NewTransactionButton>',
+}));
 vi.mock('@/app/(app)/financas/_components/VariableTxList', () => ({
   VariableTxList: ({ rows }: { rows: { id: string }[] }) =>
     `<VariableTxList:${rows.map((r) => r.id).join(',')}>`,

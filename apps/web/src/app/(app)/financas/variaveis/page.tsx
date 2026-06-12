@@ -17,6 +17,7 @@ import type { FinanceKind } from '@/lib/finance/month-summary';
 
 import { FinanceEmptyState } from '@/app/(app)/financas/_components/FinanceEmptyState';
 import { FinanceViewTabs } from '@/app/(app)/financas/_components/FinanceViewTabs';
+import { NewTransactionButton } from '@/app/(app)/financas/_components/NewTransactionButton';
 import { VariableTxFilters as VariableTxFiltersBar } from '@/app/(app)/financas/_components/VariableTxFilters';
 import { VariableTxList } from '@/app/(app)/financas/_components/VariableTxList';
 
@@ -38,7 +39,7 @@ interface PageProps {
  * SEC-4) com filtro `household_id` app-enforced nos helpers (1.ª rede). Lista
  * as transacções manuais (`origin=manual` — D-4.7.2) com filtros e paginação
  * keyset. Ambos os fetches correm no MESMO callback withHousehold (AC3).
- * Create/Update via Jarvis (D-4.7.1).
+ * Create via botão "+ Nova" (`<NewTransactionButton>` — A1) ou via Jarvis.
  *
  * Trace: Story 4.7 AC1, AC3, AC5, AC7.
  */
@@ -122,14 +123,7 @@ export default async function FinancasVariaveisPage({
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Finanças</h1>
-        <button
-          type="button"
-          disabled
-          title="Disponível na próxima versão — usa o Jarvis para registar transacções"
-          className="cursor-not-allowed rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white opacity-60"
-        >
-          + Nova
-        </button>
+        <NewTransactionButton options={options} />
       </header>
 
       <FinanceViewTabs current="variaveis" />
@@ -142,7 +136,7 @@ export default async function FinancasVariaveisPage({
           message={
             hasActiveFilters
               ? 'Sem transacções para os filtros seleccionados.'
-              : 'Ainda não há transacções variáveis. Regista uma com o Jarvis.'
+              : 'Ainda não há transacções variáveis. Regista a primeira com o botão "+ Nova" ou pelo Jarvis.'
           }
         />
       ) : (

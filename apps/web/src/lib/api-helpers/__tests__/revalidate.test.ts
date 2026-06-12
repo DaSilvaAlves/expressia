@@ -16,7 +16,9 @@ vi.mock('next/cache', () => ({
   revalidatePath: mocks.revalidatePathMock,
 }));
 
-const { revalidateTaskViews } = await import('@/lib/api-helpers/revalidate');
+const { revalidateTaskViews, revalidateFinanceViews } = await import(
+  '@/lib/api-helpers/revalidate'
+);
 
 describe('revalidateTaskViews', () => {
   beforeEach(() => {
@@ -43,5 +45,34 @@ describe('revalidateTaskViews', () => {
     expect(() => revalidateTaskViews()).not.toThrow();
     // Tenta todos os paths mesmo quando um falha.
     expect(mocks.revalidatePathMock).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe('revalidateFinanceViews', () => {
+  beforeEach(() => {
+    mocks.revalidatePathMock.mockReset();
+  });
+
+  it('revalida /visao e as vistas de /financas que derivam das transacções', () => {
+    revalidateFinanceViews();
+    const paths = mocks.revalidatePathMock.mock.calls.map((c) => c[0]);
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        '/visao',
+        '/financas/este-mes',
+        '/financas/variaveis',
+        '/financas/patrimonio',
+        '/financas/cartoes',
+        '/financas/recorrentes',
+      ]),
+    );
+  });
+
+  it('é best-effort — não lança se revalidatePath falhar', () => {
+    mocks.revalidatePathMock.mockImplementation(() => {
+      throw new Error('revalidatePath fora de request context');
+    });
+    expect(() => revalidateFinanceViews()).not.toThrow();
+    expect(mocks.revalidatePathMock).toHaveBeenCalledTimes(6);
   });
 });
