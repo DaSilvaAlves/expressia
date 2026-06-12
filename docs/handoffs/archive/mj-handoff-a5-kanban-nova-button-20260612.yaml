@@ -2,8 +2,10 @@ id: mj-handoff-a5-kanban-nova-button-20260612
 from_agent: dev (Claude — sessão finish-line 12/06)
 to_agent: any
 created: "2026-06-12T01:55:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-12T13:57:00Z"
+consumed_by: "devops (Gage — sessão 12/06; implementação A5 directa a pedido do Eurico)"
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
