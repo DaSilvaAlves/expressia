@@ -38,6 +38,10 @@ vi.mock('@/app/(app)/financas/_components/FinanceEmptyState', () => ({
 vi.mock('@/app/(app)/financas/_components/CardStatementCard', () => ({
   CardStatementCard: ({ card }: { card: { id: string } }) => `<CardStatementCard:${card.id}>`,
 }));
+// Client component (useState) — não executável no walker RSC deste teste (A3).
+vi.mock('@/app/(app)/financas/_components/NewCardButton', () => ({
+  NewCardButton: () => '<NewCardButton>',
+}));
 
 const { default: CartoesPage } = await import('@/app/(app)/financas/cartoes/page');
 
@@ -81,6 +85,8 @@ describe('/financas/cartoes RSC page', () => {
     const tree = stringifyTree(await CartoesPage());
     expect(tree).toContain('<CardStatementCard:c1>');
     expect(tree).toContain('<CardStatementCard:c2>');
+    // A3 — o botão "+ Novo" (client) é renderizado no header.
+    expect(tree).toContain('<NewCardButton>');
     // SEC-4 AC8 — helper chamado com o householdId resolvido (1.ª rede).
     expect(mocks.getCardStatementsMock).toHaveBeenCalledWith(
       expect.objectContaining({ householdId: 'h1' }),

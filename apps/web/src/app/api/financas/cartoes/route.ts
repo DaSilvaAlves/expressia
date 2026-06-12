@@ -29,6 +29,7 @@ import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { CARD_TYPES, CardCreateSchema } from '@/lib/api-schemas/cards';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
+import { revalidateFinanceViews } from '@/lib/api-helpers/revalidate';
 
 const ROUTE = '/api/financas/cartoes';
 
@@ -216,6 +217,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         } catch (auditErr) {
           log.warn({ err: auditErr }, 'audit_log INSERT falhou (best-effort)');
         }
+
+        // W2 (A3): sem isto o cartão novo não aparece em /financas/cartoes nem
+        // nas restantes vistas financeiras sem hard refresh — o
+        // `router.refresh()` do modal só revalida o segmento actual.
+        revalidateFinanceViews();
 
         annotateSpan(span, { statusCode: 201 });
         return NextResponse.json({ card }, { status: 201 });

@@ -12,6 +12,7 @@ import { getCardStatements, type CardStatementData } from '@/lib/finance/list-ca
 import { CardStatementCard } from '@/app/(app)/financas/_components/CardStatementCard';
 import { FinanceEmptyState } from '@/app/(app)/financas/_components/FinanceEmptyState';
 import { FinanceViewTabs } from '@/app/(app)/financas/_components/FinanceViewTabs';
+import { NewCardButton } from '@/app/(app)/financas/_components/NewCardButton';
 
 export const metadata: Metadata = {
   title: 'Finanças — Cartões — Expressia',
@@ -24,7 +25,8 @@ export const metadata: Metadata = {
  * SEC-4) com filtro `household_id` app-enforced no helper (1.ª rede). Por
  * cartão, mostra a fatura corrente e a próxima calculadas
  * on-the-fly do ciclo `closing_day`/`due_day` (DP7=A) e as prestações
- * associadas. Vista read-only — create/edit via Jarvis (D-4.8.7).
+ * associadas. Criação via `<NewCardButton>` (A3 make-it-work — supersede a
+ * vista read-only D-4.8.7); edição continua via Jarvis.
  *
  * Trace: Story 4.8 AC1, AC4, AC5, AC6.
  */
@@ -82,14 +84,7 @@ export default async function FinancasCartoesPage(): Promise<React.ReactElement>
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Finanças</h1>
-        <button
-          type="button"
-          disabled
-          title="Disponível na próxima versão — usa o Jarvis para criar cartões"
-          className="cursor-not-allowed rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white opacity-60"
-        >
-          + Novo
-        </button>
+        <NewCardButton />
       </header>
 
       <FinanceViewTabs current="cartoes" />
