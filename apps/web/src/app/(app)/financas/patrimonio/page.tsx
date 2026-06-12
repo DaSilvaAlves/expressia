@@ -12,6 +12,7 @@ import { BankGroup } from '@/app/(app)/financas/_components/BankGroup';
 import { FinanceEmptyState } from '@/app/(app)/financas/_components/FinanceEmptyState';
 import { FinanceViewTabs } from '@/app/(app)/financas/_components/FinanceViewTabs';
 import { NetWorthSummary } from '@/app/(app)/financas/_components/NetWorthSummary';
+import { NewAccountButton } from '@/app/(app)/financas/_components/NewAccountButton';
 
 export const metadata: Metadata = {
   title: 'Finanças — Património — Expressia',
@@ -25,8 +26,8 @@ export const metadata: Metadata = {
  * Por conta não-arquivada, computa o saldo on-read
  * (DP1=A) — `initial + income − expense` — agregado por banco (D-4.9.6), com
  * património total destacado e drilldown banco→conta→movimentos (D-4.9.5).
- * Vista read-only — criação de contas via API `/api/financas/contas` (Story
- * 4.2) — D-4.9.7 (lacuna registada como FUP-4.9.A para Fase 2).
+ * Criação de contas via botão "+ Nova conta" (`<NewAccountButton>` — A2,
+ * fecha a lacuna FUP-4.9.A) ligado ao `POST /api/financas/contas` (Story 4.2).
  *
  * Trace: Story 4.9 AC1, AC3, AC8; FR17; DP1=A.
  */
@@ -80,14 +81,7 @@ export default async function FinancasPatrimonioPage(): Promise<React.ReactEleme
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Finanças</h1>
-        <button
-          type="button"
-          disabled
-          title="Disponível na próxima versão — a gestão de contas será adicionada numa story dedicada"
-          className="cursor-not-allowed rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white opacity-60"
-        >
-          + Nova conta
-        </button>
+        <NewAccountButton />
       </header>
 
       <FinanceViewTabs current="patrimonio" />

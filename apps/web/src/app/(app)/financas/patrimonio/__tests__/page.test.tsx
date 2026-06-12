@@ -43,6 +43,10 @@ vi.mock('@/app/(app)/financas/_components/BankGroup', () => ({
   BankGroup: ({ group }: { group: { bankName: string | null } }) =>
     `<BankGroup:${group.bankName ?? 'null'}>`,
 }));
+// Client component (useState) — não executável no walker RSC deste teste (A2).
+vi.mock('@/app/(app)/financas/_components/NewAccountButton', () => ({
+  NewAccountButton: () => '<NewAccountButton>',
+}));
 
 const { default: PatrimonioPage } = await import('@/app/(app)/financas/patrimonio/page');
 
@@ -105,6 +109,8 @@ describe('/financas/patrimonio RSC page', () => {
     expect(tree).toContain('<NetWorthSummary:1500:2>');
     expect(tree).toContain('<BankGroup:BPI>');
     expect(tree).toContain('<BankGroup:null>');
+    // A2 — o botão "+ Nova conta" (client) é renderizado no header.
+    expect(tree).toContain('<NewAccountButton>');
     // SEC-4 AC8 — o helper é chamado com o householdId resolvido (1.ª rede).
     expect(mocks.getAccountBalancesMock).toHaveBeenCalledWith(
       expect.objectContaining({ householdId: 'h1' }),

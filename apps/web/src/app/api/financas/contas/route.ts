@@ -36,6 +36,7 @@ import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { AccountCreateSchema } from '@/lib/api-schemas/accounts';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
+import { revalidateFinanceViews } from '@/lib/api-helpers/revalidate';
 import { getAccountBalanceMap } from '@/lib/finance/account-balances';
 
 const ROUTE = '/api/financas/contas';
@@ -189,6 +190,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         } catch (auditErr) {
           log.warn({ err: auditErr }, 'audit_log INSERT falhou (best-effort)');
         }
+
+        // W2 (A2): sem isto a conta nova não aparece em /financas/patrimonio
+        // nem no widget saldo-contas de /visao sem hard refresh — o
+        // `router.refresh()` do modal só revalida o segmento actual.
+        revalidateFinanceViews();
 
         annotateSpan(span, { statusCode: 201 });
         return NextResponse.json({ account }, { status: 201 });
