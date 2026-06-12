@@ -36,6 +36,7 @@ import {
 } from '@/lib/api-schemas/finance-recurrences';
 import { requireAuth } from '@/lib/api-helpers/auth';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
+import { revalidateFinanceViews } from '@/lib/api-helpers/revalidate';
 
 const ROUTE = '/api/financas/recorrencias';
 const HARD_CAP = 200;
@@ -277,6 +278,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         } catch (auditErr) {
           log.warn({ err: auditErr }, 'audit_log INSERT falhou (best-effort)');
         }
+
+        // W2 (A4): sem isto a recorrência nova não aparece em /financas/recorrentes
+        // nem nas restantes vistas financeiras sem hard refresh — o
+        // `router.refresh()` do modal só revalida o segmento actual.
+        revalidateFinanceViews();
 
         annotateSpan(span, { statusCode: 201 });
         return NextResponse.json({ recurrence }, { status: 201 });

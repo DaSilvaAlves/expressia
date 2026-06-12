@@ -16,6 +16,7 @@ import type { FinanceKind } from '@/lib/finance/month-summary';
 
 import { FinanceEmptyState } from '@/app/(app)/financas/_components/FinanceEmptyState';
 import { FinanceViewTabs } from '@/app/(app)/financas/_components/FinanceViewTabs';
+import { NewRecurrenceButton } from '@/app/(app)/financas/_components/NewRecurrenceButton';
 import { RecurrenceFilters as RecurrenceFiltersBar } from '@/app/(app)/financas/_components/RecurrenceFilters';
 import { RecurrenceList } from '@/app/(app)/financas/_components/RecurrenceList';
 
@@ -115,14 +116,7 @@ export default async function FinancasRecorrentesPage({
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Finanças</h1>
-        <button
-          type="button"
-          disabled
-          title="Disponível na próxima versão — usa o Jarvis para criar recorrências"
-          className="cursor-not-allowed rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white opacity-60"
-        >
-          + Nova
-        </button>
+        <NewRecurrenceButton />
       </header>
 
       <FinanceViewTabs current="recorrentes" />

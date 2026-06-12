@@ -36,6 +36,10 @@ vi.mock('@/app/(app)/financas/_components/FinanceEmptyState', () => ({
 vi.mock('@/app/(app)/financas/_components/RecurrenceFilters', () => ({
   RecurrenceFilters: () => '<RecurrenceFilters>',
 }));
+// Client component (useState) — não executável no walker RSC deste teste (A4).
+vi.mock('@/app/(app)/financas/_components/NewRecurrenceButton', () => ({
+  NewRecurrenceButton: () => '<NewRecurrenceButton>',
+}));
 vi.mock('@/app/(app)/financas/_components/RecurrenceList', () => ({
   RecurrenceList: ({ rows }: { rows: { id: string }[] }) =>
     `<RecurrenceList:${rows.map((r) => r.id).join(',')}>`,
@@ -77,7 +81,10 @@ describe('/financas/recorrentes RSC page', () => {
     mocks.resolveHouseholdIdMock.mockResolvedValue('h1');
     mocks.listRecurrencesMock.mockResolvedValue({ rows: [{ id: 'r1' }, { id: 'r2' }] });
     const result = await RecorrentesPage({ searchParams: Promise.resolve({}) });
-    expect(stringifyTree(result)).toContain('<RecurrenceList:r1,r2>');
+    const tree = stringifyTree(result);
+    expect(tree).toContain('<RecurrenceList:r1,r2>');
+    // A4 — o botão "+ Nova" (client) é renderizado no header.
+    expect(tree).toContain('<NewRecurrenceButton>');
     // SEC-4 AC8 — helper chamado com o householdId resolvido (1.ª rede).
     expect(mocks.listRecurrencesMock).toHaveBeenCalledWith(
       expect.objectContaining({ householdId: 'h1' }),
