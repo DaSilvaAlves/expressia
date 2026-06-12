@@ -1,0 +1,89 @@
+id: mj-handoff-a5-kanban-nova-button-20260612
+from_agent: dev (Claude — sessão finish-line 12/06)
+to_agent: any
+created: "2026-06-12T01:55:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: task-in-progress
+
+summary: >
+  Sequência finish-line em curso (docs/AUDIT-FINISH-LINE-20260612.md). A1 CONCLUÍDO
+  e commitado: registar transacção via UI em /financas/variaveis (8e3f43c) + doc da
+  auditoria (96736cc) — AMBOS LOCAIS, AINDA NÃO PUSHED (decisão Eurico pendente).
+  Próximo passo é o A5: ligar o botão "+ Nova" do Kanban reutilizando o
+  <NewTaskModal> que já existe (P1). É o item mais rápido da sequência — o modal,
+  o endpoint e a revalidação já existem; falta só substituir o botão disabled.
+
+context:
+  story_id: null
+  story_path: null
+  branch: main
+  current_task: >
+    Sequência A da auditoria finish-line: A1 (transacção UI) DONE → A5 (Kanban
+    "+ Nova") É O PRÓXIMO → depois A2 (criar conta), A3 (cartões), A4
+    (recorrências), A6 (atribuir tarefa). Ver tabela completa em
+    docs/AUDIT-FINISH-LINE-20260612.md §2.A.
+
+  a5_implementacao: |
+    Alvo: apps/web/src/app/(app)/tarefas/kanban/page.tsx:156-160 — botão
+    `disabled` hardcoded ("Disponível na próxima versão — usa o Jarvis...").
+
+    Receita (replica o P1/A1):
+    1. Substituir o botão disabled por `<NewTaskButton />` — o wrapper client
+       JÁ EXISTE em apps/web/src/app/(app)/tarefas/_components/NewTaskButton.tsx
+       e não precisa de props (abre o <NewTaskModal> completo). Provavelmente
+       basta importar e usar — verificar se o header do Kanban é RSC (é).
+    2. ARMADILHA CONHECIDA (custou 1 ciclo no A1): se o page.test.tsx do Kanban
+       usa o walker RSC (stringifyTree que executa componentes como funções),
+       componentes client com useState REBENTAM. Mockar o NewTaskButton no teste
+       como os outros componentes client — ver o fix em
+       apps/web/src/app/(app)/financas/variaveis/__tests__/page.test.tsx (commit 8e3f43c).
+    3. Revalidação JÁ COBERTA: POST /api/tasks chama revalidateTaskViews() que
+       inclui /tarefas/kanban (W2) — zero trabalho de cache.
+    4. Gates: pnpm lint + typecheck + pnpm --filter @meu-jarvis/web test + build.
+       O teste do calendário é flaky conhecido (falha ~1 em 2 runs) — re-correr
+       se falhar, não é regressão.
+
+  decisions_made:
+    - "A1: select 'Pagar com' codifica conta/cartão no value (account:<id> / card:<id>) — schema .strict() exige XOR."
+    - "A1: parseEuroInputToCents valida grupos de milhares (12.34.56 rejeitado, nunca adivinhado)."
+    - "revalidateFinanceViews (padrão W2) adicionado aos 3 handlers de mutação de transacções."
+    - "Commits A1 ficam locais até ordem de push do Eurico (fluxo: só @devops/decisão humana faz push)."
+
+  files_modified:
+    - "COMMITADOS em 8e3f43c (11 ficheiros): NewTransactionModal/Button + money.ts + revalidate.ts + rotas transacoes + page variaveis (+testes)."
+    - "COMMITADO em 96736cc: docs/AUDIT-FINISH-LINE-20260612.md."
+    - "INTACTOS (não meus, não tocar sem razão): docs/HANDOFF-INDEX.md modificado + handoff QA smoke untracked — pertencem à sessão @qa de 12/06."
+
+  blockers:
+    - "Nenhum técnico para o A5. Push dos commits locais (8e3f43c, 96736cc) aguarda decisão do Eurico."
+
+  hypotheses_tested:
+    - "Walker RSC dos page.test executa componentes client → useState rebenta (confirmado no A1; fix = mock no teste)."
+
+next_action: >
+  Implementar A5: em tarefas/kanban/page.tsx substituir o botão "+ Nova" disabled
+  por <NewTaskButton /> (reutilizar, não duplicar), mockar o botão no page.test do
+  Kanban se usar o walker RSC, correr os 5 gates e committar localmente
+  (feat(tarefas): ... [A5]). Push só com ordem do Eurico.
+
+notes: |
+  - Estado dos gates no fim da sessão A1: lint 0 · typecheck 0 · web 141/141
+    ficheiros (1119 testes) · build OK · check:rls 28 tabelas/120 policies.
+  - Billing CONTINUA CONGELADO (directiva 29/05). SEC-8 continua HOLD (Adenda §12
+    @architect antes de draft).
+  - Smoke A1–E3 em prod continua pendente do Eurico (handoff
+    mj-handoff-qa-smoke-financas-household-ready-20260612) — o A1 desta sessão
+    ACRESCENTA UI nova a /financas/variaveis; se o smoke correr depois do deploy
+    do A1, o botão "+ Nova" passa a estar activo (não é regressão).
+  - Sequência completa e prioridades: docs/AUDIT-FINISH-LINE-20260612.md.
+
+related:
+  - docs/AUDIT-FINISH-LINE-20260612.md
+  - apps/web/src/app/(app)/tarefas/kanban/page.tsx
+  - apps/web/src/app/(app)/tarefas/_components/NewTaskButton.tsx
+  - docs/handoffs/mj-handoff-qa-smoke-financas-household-ready-20260612.yaml

@@ -1,0 +1,99 @@
+id: mj-handoff-qa-smoke-financas-household-ready-20260612
+from_agent: qa
+to_agent: any
+created: "2026-06-12T00:45:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: task-in-progress
+
+summary: >
+  SMOKE E2E /financas + /conta/household PREPARADO pelo @qa (Quinn) — falta só a
+  EXECUÇÃO VISUAL do Eurico em prod. Ground-truth da DB extraído via
+  smoke-baseline.ts (read-only) para o household real do Eurico; checklist A1–E3
+  com valores esperados exactos pronto (ver context). Pós-W1/W2 (prod 84fdcbe,
+  main = origin/main). Nada partido, nada bloqueado — o passo seguinte é humano.
+
+context:
+  story_id: null
+  story_path: null
+  branch: main
+  current_task: >
+    Smoke make-it-work das áreas /financas e /conta/household (último item
+    não-bloqueante da cadeia W1/W2). Checklist preparado; aguardava execução
+    visual do Eurico em prod quando a sessão terminou.
+
+  ground_truth: |
+    Extraído 2026-06-11/12 via:
+      pnpm --filter @meu-jarvis/db exec tsx src/scripts/smoke-baseline.ts --household=2dedb1ec-dc6f-4445-a5b4-b5f942755655
+
+    Household: "Casa de euricojsalves" (2dedb1ec-dc6f-4445-a5b4-b5f942755655)
+    Membro: 1 — Eurico (owner), display_name preenchido.
+    Conta única: "Dinheiro" (ee6e6803-…) — stored balance_cents=0 (dead column),
+      saldo computado on-read = −€25,00 (0 inicial + 0 income − 2500 expense).
+    Cartões: 0. Recorrências: 0.
+    Transacções Junho/2026: Almoço €13,00 + Café €12,00 (ambas 10/06, cat. "Outros gastos").
+    Transacções Maio/2026: Supermercado €78,70 + Pingo Doce €18,70 (23/05) — AMBAS
+      apontam para account_id e04be86f-… que pertence a OUTRO household (2e2b4798-…).
+      É o dado sujo cross-tenant conhecido (memória cross_tenant_legacy_transactions,
+      decisão Eurico 11/06: só registar). RLS esconde essa conta da sessão do Eurico.
+    Tarefas relevantes: "Smoke teste 11jun" (due 11/06, todo), "Estar no notário em
+      Tavira" (15/06, todo).
+
+  checklist: |
+    A. /financas → redirect /financas/este-mes (Junho 2026)
+      A1 redirect sem erro
+      A2 totais: Despesas €25,00 · Receitas €0,00
+      A3 categoria única "Outros gastos" €25,00
+      A4 dia 10/06: Almoço €13,00 + Café €12,00
+      A5 painel projecção 30 dias vazio/zero (0 recorrências), sem crash
+    B. ?mes=2026-05
+      B1 Despesas Maio €97,40 (Supermercado €78,70 + Pingo Doce €18,70, 23/05)
+      B2 PONTO CRÍTICO: as 2 tx referenciam conta de OUTRO household — UI deve
+         degradar graceful (conta omissa/"—"), nunca crashar nem mostrar dados alheios
+    C. /financas/patrimonio (validação W1)
+      C1 conta "Dinheiro" mostra −€25,00 (se €0,00 → regressão W1)
+    D. /visao (W1 sibling + W2)
+      D1 widget saldo de contas: Dinheiro −€25,00
+      D2 widget tarefas mostra "Smoke teste 11jun"
+      D3 completar tarefa em /tarefas → navegar /visao → actualiza SEM hard refresh
+    E. /conta/household
+      E1 nome família "Casa de euricojsalves"
+      E2 1 membro: Eurico (owner), display_name preenchido
+      E3 renomear família → guardar → reverter (persiste em ambos os sentidos)
+
+  decisions_made:
+    - "Smoke conduzido contra PROD (expressia.pt) com a sessão real do Eurico — agente não autentica; execução visual é humana."
+    - "Ground-truth via smoke-baseline.ts (read-only) — script untracked, manter fora de commits até decisão."
+    - "B2 marcado como ponto de maior risco de surpresa: UI a resolver nome de conta que a RLS esconde (dado sujo cross-tenant de 23/05)."
+
+  files_modified:
+    - "NENHUM ficheiro de código alterado nesta sessão de QA (smoke read-only)."
+    - "Untracked pré-existentes intactos: docs/CORE-STATE-AUDIT-20260611.md + packages/db/src/scripts/smoke-baseline.ts."
+
+  blockers:
+    - "Nenhum técnico. O passo seguinte exige o Eurico no browser (auth de prod)."
+
+  hypotheses_tested:
+    - "Conta fantasma e04be86f-… confirmada como pertencente ao household 2e2b4798-… (lookup read-only) — coerente com o registo cross-tenant de 11/06."
+
+next_action: >
+  Eurico executa o checklist A1–E3 em prod (expressia.pt) e reporta ✓/✗ por ponto;
+  depois @qa (Quinn) cruza com o ground-truth deste handoff e emite o veredicto do
+  smoke (PASS/CONCERNS/FAIL). Se B2 ou C1 falharem, abrir fix make-it-work antes
+  de mais nada.
+
+notes: |
+  - Billing CONTINUA CONGELADO (directiva 29/05 — handoff refocus ainda pending).
+  - SEC-8 (Cérebro AI) continua HOLD — exige Adenda §12 do @architect antes de @sm *draft.
+  - Os valores esperados ficam DESACTUALIZADOS se o Eurico criar transacções/tarefas
+    antes do smoke — nesse caso, re-correr o smoke-baseline.ts e ajustar o checklist.
+  - Handoff-mãe de roadmap: mj-handoff-session-keys-rotated-next-roadmap-20260609 (pending).
+
+related:
+  - packages/db/src/scripts/smoke-baseline.ts
+  - docs/CORE-STATE-AUDIT-20260611.md
+  - docs/handoffs/mj-handoff-session-keys-rotated-next-roadmap-20260609.yaml
