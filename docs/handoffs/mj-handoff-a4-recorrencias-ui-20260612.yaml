@@ -1,0 +1,137 @@
+id: mj-handoff-a4-recorrencias-ui-20260612
+from_agent: aiox-master (Orion — sessão 12/06 tarde, A3 implementado)
+to_agent: any
+created: "2026-06-12T16:40:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: task-in-progress
+
+summary: >
+  Migração de terminal (decisão Eurico). A3 IMPLEMENTADO nesta sessão com
+  gates verdes, mas há agora 5 COMMITS LOCAIS POR PUSHAR (9834e6e feat A2 +
+  eb61f8a + ed9050d housekeeping + 93f36bb feat A3 + 8ec1d00 housekeeping) —
+  origin/main continua em c58703a; push só com ordem do Eurico (RECOMENDADO
+  dar ordem ao @devops ANTES do A4 — a pilha local está a crescer).
+  Próximo da sequência A: A4 — ligar o "+ Nova" de /financas/recorrentes.
+  PRÉ-INVESTIGADO com 2 ARMADILHAS DE NOMES: a API é
+  POST /api/financas/recorrencias (route.ts:155, Story 4.4 — "recorrencias",
+  NÃO "recorrentes" como a vista) e o schema certo é
+  api-schemas/finance-recurrences.ts (FinanceRecurrenceCreateSchema) —
+  api-schemas/recurrences.ts é de RECORRÊNCIAS DE TAREFAS, não usar.
+  O POST também NÃO revalida (grep: 0 ocorrências de revalidateFinanceViews)
+  — adicionar como no A2/A3.
+
+context:
+  story_id: null
+  story_path: null
+  branch: main
+  current_task: >
+    Sequência A da auditoria finish-line (docs/AUDIT-FINISH-LINE-20260612.md
+    §2.A): A1 (transacção, 8e3f43c) DONE → A5 (Kanban, 42f3e42) DONE →
+    A2 (criar conta, 9834e6e LOCAL) DONE → A3 (cartões, 93f36bb LOCAL) DONE →
+    A4 (recorrentes) É O PRÓXIMO → depois A6 (atribuir tarefa a membro).
+
+  a4_implementacao: |
+    Receita (padrão A2/A3 — handoffs archived
+    mj-handoff-a2-criar-conta-ui-20260612.yaml e
+    mj-handoff-a3-cartoes-ui-20260612.yaml têm o detalhe):
+    1. Backend JÁ EXISTE: POST /api/financas/recorrencias
+       (apps/web/src/app/api/financas/recorrencias/route.ts:155, Story 4.4).
+       ARMADILHA: o nome da API difere da vista (/financas/recorrentes).
+    2. Schema: ler FinanceRecurrenceCreateSchema em
+       apps/web/src/lib/api-schemas/finance-recurrences.ts ANTES de desenhar
+       o formulário — NÃO confundir com api-schemas/recurrences.ts (esse é
+       o de recorrências de TAREFAS, com template_task_id/title).
+       Campos da row (route.ts:43-64): description, kind, amount_cents,
+       account_id/card_id (validação composta: pelo menos um), category_id,
+       payment_method, frequency, interval, custom_rrule (obrigatório se
+       frequency='custom'), starts_on, ends_on. next_run_on é inicializado
+       pelo handler (= starts_on) — NÃO enviar.
+    3. A4 é MAIS RICO que A2/A3: o modal precisa de contas
+       (GET /api/financas/contas — padrão A3 já resolve: fetch on-open,
+       primeira pré-seleccionada) e possivelmente categorias
+       (GET /api/financas/categorias existe). Sugestão de simplificação
+       make-it-work: começar por kind/description/amount/conta/frequency/
+       starts_on; frequency='custom' pode ficar FORA do formulário MVP
+       (refinamento exige custom_rrule — esconder a opção evita o campo).
+       Decisão de escopo é do agente — registar no commit.
+    4. Criar NewRecurrenceModal + NewRecurrenceButton em
+       financas/_components/ seguindo NewCardModal/NewCardButton (A3 — o
+       exemplo mais próximo, já tem fetch de contas + campo € PT-PT via
+       parseEuroInputToCents + selects com labels PT-PT).
+    5. Substituir o botão disabled em
+       apps/web/src/app/(app)/financas/recorrentes/page.tsx:118-125
+       ("+ Nova").
+    6. ARMADILHA walker RSC: mockar o NewRecurrenceButton no page.test de
+       recorrentes + assert de render (ver cartoes/__tests__/page.test.tsx
+       pós-A3 como exemplo acabado).
+    7. CONFIRMADO por grep: o POST de recorrencias NÃO chama
+       revalidateFinanceViews() — adicionar após o insert com sucesso
+       (import de @/lib/api-helpers/revalidate), antes do NextResponse 201,
+       padrão exacto do A3 em cartoes/route.ts. /financas/recorrentes JÁ
+       está em FINANCE_DEPENDENT_PATHS (revalidate.ts) — só falta o call.
+       Os route tests existentes NÃO precisam de mock do revalidate
+       (helper best-effort — provado no A2 e reconfirmado no A3: 9/9
+       intactos).
+    8. Gates: pnpm lint + typecheck + testes focados + check:rls.
+       NÃO correr `pnpm build` com dev server ligado (parte o CSS do dev —
+       gotcha 31/05, mordeu 2× a 12/06; CI cobre o build).
+    9. Commits padrão A2/A3: feat(financas): ... [A4] (código + git mv do
+       handoff p/ archive) + chore(housekeeping) (INDEX + flags consumed).
+       Push só com ordem do Eurico.
+
+  decisions_made:
+    - "A3 (93f36bb): NewCardModal carrega contas via GET /api/financas/contas on-open (account_id obrigatório; primeira pré-seleccionada; sem contas → aviso + Criar disabled); refinamento credit⇒credit_limit_cents espelhado no cliente (campo € só visível p/ crédito); dias fecho/pagamento validados 1-28; opcionais omitidos do body (.strict())."
+    - "revalidateFinanceViews() no POST cartoes — mesma lacuna W2 do A2, confirmada e corrigida."
+    - "Housekeeping padrão: rename do handoff consumido vai no commit feat (git mv staged cedo); flags consumed + INDEX no commit housekeeping seguinte."
+
+  files_modified:
+    - "LOCAL 93f36bb (feat A3): NewCardModal.tsx + NewCardButton.tsx + NewCardModal.test.tsx (novos) · cartoes/page.tsx + page.test.tsx · api/financas/cartoes/route.ts · handoff A3 → archive/."
+    - "LOCAL 8ec1d00 (housekeeping): HANDOFF-INDEX.md + flags consumed do YAML A3."
+    - "Working tree limpo; NADA unstaged."
+
+  blockers:
+    - "Nenhum técnico para o A4. PUSH dos 5 commits locais aguarda ordem do Eurico (regra: só @devops pusha) — RECOMENDADO resolver antes do A4."
+    - "Smoke E2E prod A1–E3 continua pendente do Eurico (mj-handoff-qa-smoke-financas-household-ready-20260612, Pending)."
+
+  hypotheses_tested:
+    - "POST cartoes não revalidava (suspeita handoff A3) → CONFIRMADO e corrigido; POST recorrencias idem → CONFIRMADO por grep (corrigir no A4)."
+    - "Rota de recorrências de finanças existe? → SIM, mas como /api/financas/recorrencias (≠ nome da vista) e com schema próprio finance-recurrences.ts (recurrences.ts é de tarefas — quase mordeu nesta investigação)."
+    - "Import de revalidateFinanceViews na rota NÃO parte route tests existentes → CONFIRMADO no A2 e reconfirmado no A3 (rota cartoes 9/9 sem mock)."
+    - "Walker RSC executa client components → mock no page.test (confirmado A1/A5/A2/A3)."
+
+next_action: >
+  Implementar A4: criar NewRecurrenceModal/NewRecurrenceButton (padrão A3 —
+  o mais próximo) e ligar o "+ Nova" em financas/recorrentes/page.tsx:118-125
+  ao POST /api/financas/recorrencias existente (schema
+  finance-recurrences.ts — NÃO recurrences.ts); adicionar
+  revalidateFinanceViews() ao POST; mockar o botão no page.test; gates sem
+  build local; commits padrão feat+housekeeping. ANTES: considerar pedir ao
+  Eurico ordem de push dos 5 commits locais via @devops.
+
+notes: |
+  - origin/main = c58703a; HEAD local = 8ec1d00 (5 commits à frente:
+    9834e6e A2 · eb61f8a hk · ed9050d hk · 93f36bb A3 · 8ec1d00 hk).
+    Ao pushar vai tudo junto — pedir ordem ao Eurico primeiro.
+  - Dev server local NÃO está a correr neste terminal — arrancar com:
+    pnpm --filter @meu-jarvis/web dev.
+  - Billing CONTINUA CONGELADO (directiva 29/05). SEC-8 continua HOLD
+    (Adenda §12 @architect antes de draft).
+  - Depois do A4 segue A6 (atribuir tarefa a membro) — último da sequência A.
+  - Handoff stale flaggado ao Eurico nesta sessão (decisão dele pendente):
+    mj-handoff-1.7-post-deploy-ui-tasks-20260508 (>7 dias, low, non-blocking,
+    4 acções UI manuais do próprio Eurico).
+
+related:
+  - docs/AUDIT-FINISH-LINE-20260612.md
+  - docs/handoffs/archive/mj-handoff-a3-cartoes-ui-20260612.yaml
+  - docs/handoffs/archive/mj-handoff-a2-criar-conta-ui-20260612.yaml
+  - apps/web/src/app/(app)/financas/recorrentes/page.tsx
+  - apps/web/src/app/api/financas/recorrencias/route.ts
+  - apps/web/src/lib/api-schemas/finance-recurrences.ts
+  - apps/web/src/app/(app)/financas/_components/NewCardModal.tsx
+  - docs/handoffs/mj-handoff-qa-smoke-financas-household-ready-20260612.yaml
