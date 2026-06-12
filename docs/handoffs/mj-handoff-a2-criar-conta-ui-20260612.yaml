@@ -1,0 +1,101 @@
+id: mj-handoff-a2-criar-conta-ui-20260612
+from_agent: devops (Gage — sessão 12/06 push+A5)
+to_agent: any
+created: "2026-06-12T14:05:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: task-in-progress
+
+summary: >
+  Migração de terminal (decisão Eurico). Sequência finish-line em curso
+  (docs/AUDIT-FINISH-LINE-20260612.md §2.A): A1 e A5 DONE, PUSHED e com CI
+  verde — origin/main = c58703a, working tree limpo, NADA pendente de push.
+  Próximo é o A2: ligar o "+ Nova conta" de /financas/patrimonio. É o gap
+  mais importante da sequência A — é o ÚNICO fluxo sem workaround completo
+  (nem o chat cria contas, FUP-4.9.A). O POST /api/financas/contas JÁ EXISTE;
+  falta só a UI, replicando o padrão A1 (modal + button client + mock no teste).
+
+context:
+  story_id: null
+  story_path: null
+  branch: main
+  current_task: >
+    Sequência A da auditoria finish-line: A1 (transacção UI, 8e3f43c) DONE →
+    A5 (Kanban "+ Nova", 42f3e42) DONE → A2 (criar conta) É O PRÓXIMO →
+    depois A3 (cartões) → A4 (recorrentes) → A6 (atribuir tarefa).
+    Ver tabela em docs/AUDIT-FINISH-LINE-20260612.md §2.A.
+
+  a2_implementacao: |
+    Alvo: apps/web/src/app/(app)/financas/patrimonio/page.tsx:83-90 — botão
+    "+ Nova conta" `disabled` hardcoded.
+
+    Receita (replica A1/A5):
+    1. Backend JÁ EXISTE: POST /api/financas/contas
+       (apps/web/src/app/api/financas/contas/route.ts:126). Ler o Zod schema
+       do body ANTES de desenhar o formulário — não inventar campos.
+    2. Criar NewAccountModal + NewAccountButton client em
+       financas/_components/ seguindo byte-a-byte o padrão de
+       NewTransactionModal/NewTransactionButton (commit 8e3f43c) e
+       NewTaskModal/NewTaskButton.
+    3. ARMADILHA walker RSC (custou 1 ciclo no A1): o page.test de patrimonio
+       executa client components como funções — useState rebenta. Mockar o
+       NewAccountButton no teste (ver mock análogo em
+       financas/variaveis/__tests__/page.test.tsx e kanban/__tests__/page.test.tsx).
+    4. VERIFICAR revalidação: o A1 adicionou revalidateFinanceViews() aos
+       handlers de TRANSACÇÕES; confirmar se o POST de contas revalida
+       /financas/patrimonio + widget saldo-contas de /visao (padrão W2).
+       Se não revalida, adicionar — senão a conta nova não aparece sem F5.
+    5. Lembrete W1: balance_cents é dead column (€0 sempre); saldo é
+       computado on-read via getAccountBalanceMap — o modal NÃO deve
+       prometer "saldo inicial" se o backend não o suportar (verificar schema).
+    6. Gates: pnpm lint + typecheck + testes focados. NÃO correr `pnpm build`
+       com o dev server ligado — escreve por cima de apps/web/.next e parte
+       o CSS do dev (gotcha 31/05, mordeu DUAS vezes a 12/06; CI cobre o build).
+    7. Commit local feat(financas): ... [A2]; push só com ordem do Eurico.
+
+  decisions_made:
+    - "A5 (42f3e42): reutilizado <NewTaskButton /> existente no Kanban — zero duplicação; mock no page.test (walker RSC)."
+    - "Push autorizado pelo Eurico 2×: 6 commits (run CI 27388177902 verde) + A5 (run 27420778436 verde)."
+    - "Build local saltado de propósito no A5 (gotcha .next/dev server); gate de build delegado ao CI."
+    - "Teste flaky conhecido: tarefas/calendario page.test (timeout 5s em suite completa sob carga; passa isolado) — re-correr, não é regressão."
+
+  files_modified:
+    - "PUSHED c58703a: tudo limpo — apps/web kanban page+test (42f3e42), handoff A5 archived + INDEX (c58703a)."
+    - "Nenhum ficheiro por committar; working tree limpo."
+
+  blockers:
+    - "Nenhum técnico para o A2. Smoke E2E prod A1–E3 continua pendente do Eurico (handoff mj-handoff-qa-smoke-financas-household-ready-20260612, ainda Pending)."
+
+  hypotheses_tested:
+    - "Walker RSC executa client components → useState rebenta (confirmado A1 e A5; fix = mock no page.test)."
+    - "pnpm build local com dev server ligado parte o CSS (confirmado 12/06: layout.css 404; fix = matar processo, limpar .next, relançar pnpm dev)."
+
+next_action: >
+  Implementar A2: criar NewAccountModal/NewAccountButton (padrão A1) e ligar
+  o "+ Nova conta" em financas/patrimonio/page.tsx:83-90 ao POST
+  /api/financas/contas existente; mockar o botão no page.test; verificar
+  revalidação W2 do POST de contas; gates sem build local; commit local
+  feat(financas): ... [A2]. Push só com ordem do Eurico.
+
+notes: |
+  - origin/main = c58703a; CI verde (27420778436). Dev server local foi
+    relançado pela sessão 12/06 e morre quando essa sessão fechar — no novo
+    terminal arrancar com: pnpm --filter @meu-jarvis/web dev.
+  - Billing CONTINUA CONGELADO (directiva 29/05). SEC-8 continua HOLD
+    (Adenda §12 @architect antes de draft).
+  - Depois do A2 seguem A3 (cartões) e A4 (recorrentes) — mesma receita
+    (POST existentes? verificar rotas análogas antes de assumir).
+  - Falta também editar/eliminar transacção via UI (read-only hoje) —
+    âmbito a confirmar com o Eurico (nota §2.A do audit).
+
+related:
+  - docs/AUDIT-FINISH-LINE-20260612.md
+  - apps/web/src/app/(app)/financas/patrimonio/page.tsx
+  - apps/web/src/app/api/financas/contas/route.ts
+  - apps/web/src/app/(app)/financas/_components/NewTransactionModal.tsx
+  - docs/handoffs/archive/mj-handoff-a5-kanban-nova-button-20260612.yaml
+  - docs/handoffs/mj-handoff-qa-smoke-financas-household-ready-20260612.yaml
