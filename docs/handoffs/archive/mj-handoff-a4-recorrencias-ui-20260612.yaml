@@ -2,8 +2,10 @@ id: mj-handoff-a4-recorrencias-ui-20260612
 from_agent: aiox-master (Orion — sessão 12/06 tarde, A3 implementado)
 to_agent: any
 created: "2026-06-12T16:40:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-12T18:55:00Z"
+consumed_by: aiox-dev (Claude — sessão 12/06 noite, A4 implementado)
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
