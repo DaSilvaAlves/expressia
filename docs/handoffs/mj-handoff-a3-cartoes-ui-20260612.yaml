@@ -1,0 +1,110 @@
+id: mj-handoff-a3-cartoes-ui-20260612
+from_agent: aiox-master (Orion — sessão 12/06 tarde, A2 implementado)
+to_agent: any
+created: "2026-06-12T16:15:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: task-in-progress
+
+summary: >
+  Migração de terminal (decisão Eurico). A2 IMPLEMENTADO nesta sessão com
+  gates verdes, mas há 2 COMMITS LOCAIS POR PUSHAR (9834e6e feat A2 +
+  eb61f8a housekeeping) — origin/main continua em c58703a; push só com
+  ordem do Eurico (idealmente @devops antes de empilhar mais commits).
+  Próximo da sequência A: A3 — ligar o "+ Novo" (cartões) de
+  /financas/cartoes. Já está PRÉ-INVESTIGADO: é espelho exacto do A2 —
+  POST /api/financas/cartoes JÁ EXISTE (route.ts:130), schema Zod em
+  api-schemas/cards.ts, botão disabled em cartoes/page.tsx:84-91, e o
+  POST de cartões TAMBÉM NÃO REVALIDA (confirmado por grep — adicionar
+  revalidateFinanceViews() como no A2).
+
+context:
+  story_id: null
+  story_path: null
+  branch: main
+  current_task: >
+    Sequência A da auditoria finish-line (docs/AUDIT-FINISH-LINE-20260612.md
+    §2.A): A1 (transacção, 8e3f43c) DONE → A5 (Kanban, 42f3e42) DONE →
+    A2 (criar conta, 9834e6e LOCAL) DONE → A3 (cartões) É O PRÓXIMO →
+    depois A4 (recorrentes) → A6 (atribuir tarefa).
+
+  a3_implementacao: |
+    Receita (espelho do A2 — handoff archived
+    mj-handoff-a2-criar-conta-ui-20260612.yaml tem o detalhe):
+    1. Backend JÁ EXISTE: POST /api/financas/cartoes
+       (apps/web/src/app/api/financas/cartoes/route.ts:130). Ler o Zod
+       schema em apps/web/src/lib/api-schemas/cards.ts ANTES de desenhar
+       o formulário — não inventar campos.
+    2. Criar NewCardModal + NewCardButton em financas/_components/
+       seguindo byte-a-byte o NewAccountModal/NewAccountButton (A2) —
+       que por sua vez seguem NewTransactionModal (A1).
+    3. Substituir o botão disabled em
+       apps/web/src/app/(app)/financas/cartoes/page.tsx:84-91 ("+ Novo").
+    4. ARMADILHA walker RSC: mockar o NewCardButton no page.test de
+       cartoes + assert de render (ver patrimonio/__tests__/page.test.tsx
+       pós-A2 como exemplo acabado).
+    5. CONFIRMADO por grep: o POST de cartões NÃO chama
+       revalidateFinanceViews() — adicionar após o insert com sucesso
+       (import de @/lib/api-helpers/revalidate), padrão exacto do A2 em
+       contas/route.ts. Sem isto o cartão novo não aparece sem F5.
+       Os route tests existentes NÃO precisam de mock do revalidate
+       (helper é best-effort, engole erros — provado no A2: 11+8 testes
+       da rota contas passaram intactos).
+    6. Gates: pnpm lint + typecheck + testes focados + check:rls.
+       NÃO correr `pnpm build` com dev server ligado (parte o CSS do dev
+       — mordeu 2× a 12/06; CI cobre o build).
+    7. Commit local feat(financas): ... [A3]; push só com ordem do Eurico.
+
+  decisions_made:
+    - "A2 (9834e6e): NewAccountModal com saldo inicial (€ PT-PT, sem negativos — parser não aceita); opcionais omitidos do body (schema .strict()); revalidateFinanceViews() adicionado ao POST contas (não revalidava — suspeita do handoff A2 confirmada)."
+    - "Labels PT-PT do enum: espelhar mapa existente (AccountBalanceCard fez de fonte no A2; para cartões procurar mapa análogo nos componentes de cartões antes de inventar)."
+    - "Housekeeping do handoff consumido: rename foi no commit feat (git mv staged cedo) — aceite; flags consumed no commit housekeeping (amend local antes de existir push)."
+
+  files_modified:
+    - "LOCAL 9834e6e (feat A2): NewAccountModal.tsx + NewAccountButton.tsx + NewAccountModal.test.tsx (novos) · patrimonio/page.tsx + page.test.tsx · api/financas/contas/route.ts · handoff A2 → archive/."
+    - "LOCAL eb61f8a (housekeeping): HANDOFF-INDEX.md + flags consumed do YAML A2."
+    - "Working tree limpo; NADA unstaged."
+
+  blockers:
+    - "Nenhum técnico para o A3. PUSH dos 2 commits locais aguarda ordem do Eurico (regra: só @devops pusha)."
+    - "Smoke E2E prod A1–E3 continua pendente do Eurico (mj-handoff-qa-smoke-financas-household-ready-20260612, Pending)."
+
+  hypotheses_tested:
+    - "POST contas não revalidava vistas (suspeita handoff A2) → CONFIRMADO e corrigido; POST cartoes idem → CONFIRMADO por grep (corrigir no A3)."
+    - "Import de revalidateFinanceViews na rota NÃO parte route tests existentes (helper best-effort) → CONFIRMADO no A2."
+    - "Walker RSC executa client components → mock no page.test (confirmado A1/A5/A2)."
+
+next_action: >
+  Implementar A3: criar NewCardModal/NewCardButton (padrão A2) e ligar o
+  "+ Novo" em financas/cartoes/page.tsx:84-91 ao POST /api/financas/cartoes
+  existente (schema em api-schemas/cards.ts); adicionar
+  revalidateFinanceViews() ao POST de cartões; mockar o botão no page.test;
+  gates sem build local; commit local feat(financas): ... [A3].
+  Push (incl. os 2 commits A2 já locais) só com ordem do Eurico.
+
+notes: |
+  - origin/main = c58703a; HEAD local = eb61f8a (2 commits à frente).
+    Ao pushar, vai tudo junto (A2 + A3 se entretanto committado) —
+    pedir ordem ao Eurico primeiro.
+  - Dev server local NÃO está a correr neste terminal — arrancar com:
+    pnpm --filter @meu-jarvis/web dev.
+  - Billing CONTINUA CONGELADO (directiva 29/05). SEC-8 continua HOLD
+    (Adenda §12 @architect antes de draft).
+  - Depois do A3 segue A4 (recorrentes) — verificar se POST
+    /api/financas/recorrentes existe antes de assumir (padrão da receita) —
+    e A6 (atribuir tarefa a membro).
+  - Handoff stale a flaggar ao Eurico quando conveniente:
+    mj-handoff-1.7-post-deploy-ui-tasks-20260508 (>7 dias, low, non-blocking).
+
+related:
+  - docs/AUDIT-FINISH-LINE-20260612.md
+  - docs/handoffs/archive/mj-handoff-a2-criar-conta-ui-20260612.yaml
+  - apps/web/src/app/(app)/financas/cartoes/page.tsx
+  - apps/web/src/app/api/financas/cartoes/route.ts
+  - apps/web/src/lib/api-schemas/cards.ts
+  - apps/web/src/app/(app)/financas/_components/NewAccountModal.tsx
+  - docs/handoffs/mj-handoff-qa-smoke-financas-household-ready-20260612.yaml
