@@ -11,6 +11,7 @@ import { listTasksHelper } from '@/lib/api-helpers/list-tasks';
 import { TaskFiltersSchema } from '@/lib/api-schemas/tasks';
 
 import { EmptyState } from '@/app/(app)/tarefas/_components/EmptyState';
+import { NewTaskButton } from '@/app/(app)/tarefas/_components/NewTaskButton';
 import { TagFilterSelect } from '@/app/(app)/tarefas/_components/TagFilterSelect';
 import { ViewTabs } from '@/app/(app)/tarefas/_components/ViewTabs';
 import { KanbanBoardClient } from '@/app/(app)/tarefas/kanban/_components/KanbanBoardClient';
@@ -150,14 +151,7 @@ export default async function TarefasKanbanPage({
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Tarefas</h1>
-        <button
-          type="button"
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          disabled
-          title="Disponível na próxima versão — usa o Jarvis para criar tarefas"
-        >
-          + Nova
-        </button>
+        <NewTaskButton />
       </header>
 
       <ViewTabs current="kanban" />

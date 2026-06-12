@@ -50,6 +50,11 @@ vi.mock('@/app/(app)/tarefas/_components/EmptyState', () => ({
 vi.mock('@/app/(app)/tarefas/_components/ViewTabs', () => ({
   ViewTabs: () => '<ViewTabs>',
 }));
+// Componente client com useState — o walker RSC executa componentes como funções,
+// pelo que tem de ser mockado (mesmo fix do A1 em financas/variaveis).
+vi.mock('@/app/(app)/tarefas/_components/NewTaskButton', () => ({
+  NewTaskButton: () => '<NewTaskButton>',
+}));
 vi.mock('@/app/(app)/tarefas/kanban/_components/KanbanBoardClient', () => ({
   KanbanBoardClient: ({ initialColumns }: { initialColumns: { id: string }[] }) =>
     `<KanbanBoardClient:${initialColumns.map((c) => c.id).join(',')}>`,
@@ -129,7 +134,10 @@ describe('TarefasKanbanPage RSC', () => {
     const result = await TarefasKanbanPage({
       searchParams: Promise.resolve({}),
     });
-    expect(stringifyTree(result)).toContain('KanbanBoardClient');
+    const tree = stringifyTree(result);
+    expect(tree).toContain('KanbanBoardClient');
+    // A5 — o botão "+ Nova" deixou de ser disabled hardcoded e abre o NewTaskModal.
+    expect(tree).toContain('<NewTaskButton>');
   });
 
   it('mostra "Configura pelo menos uma coluna" quando 0 colunas', async () => {
