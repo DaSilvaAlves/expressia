@@ -1,0 +1,155 @@
+id: mj-handoff-a6-atribuir-tarefa-membro-20260612
+from_agent: aiox-dev (Claude — sessão 12/06 noite, A4 implementado)
+to_agent: any
+created: "2026-06-12T19:05:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: task-in-progress
+
+summary: >
+  Migração de terminal (decisão Eurico). A4 IMPLEMENTADO nesta sessão com gates
+  verdes (38/38 testes focados, lint/typecheck/check:rls EXIT 0) — há agora
+  2 COMMITS LOCAIS POR PUSHAR (48338c9 feat A4 + 44ddde7 housekeeping);
+  origin/main = 460974c. Push só com ordem do Eurico (RECOMENDADO dar ordem ao
+  @devops ANTES do A6 se a pilha incomodar; 2 commits é pouco). Próximo e ÚLTIMO
+  da sequência A: A6 — ligar o "Atribuir a" do EditTaskModal a um membro do
+  household. PRÉ-INVESTIGADO E SEM INCÓGNITAS: o backend já aceita tudo
+  (PATCH /api/tasks/[id] campo assigned_to_user_id) e já existe endpoint
+  client-fetchable de membros (GET /api/conta/household devolve members[]). Ao
+  contrário do A2/A3/A4, A6 NÃO precisa de fix de revalidate — o PATCH de tasks
+  já chama revalidateTaskViews() (route.ts:186,253).
+
+context:
+  story_id: null
+  story_path: null
+  branch: main
+  current_task: >
+    Sequência A da auditoria finish-line (docs/AUDIT-FINISH-LINE-20260612.md
+    §2.A, tabela linha A6 + critério "terminado" linha 83): A1 (transacção) →
+    A5 (Kanban) → A2 (criar conta) → A3 (cartões) → A4 (recorrências, 48338c9
+    LOCAL) DONE → A6 (atribuir tarefa a membro) É O ÚLTIMO. Depois de A6, o eixo
+    A ("toda a criação/edição básica por botão, não só por chat") está fechado;
+    resta B1 smoke (humano), C1 Inngest prod (Eurico), B2/D1/D2 limpeza.
+
+  a6_implementacao: |
+    Receita (padrão A2/A3/A4 — mas MAIS SIMPLES: é editar um modal que já existe,
+    não criar um novo; e SEM fix de revalidate). Exemplo mais próximo de "fetch
+    on-open + select": NewCardModal/NewRecurrenceModal (carregam contas ao abrir).
+
+    1. Backend JÁ ACEITA: PATCH /api/tasks/[id] tem assigned_to_user_id
+       (route.ts:142 — `if (body.assigned_to_user_id !== undefined) ...`; schema
+       TaskUpdateSchema em api-schemas/tasks.ts:103 = UuidNullable.optional() —
+       aceita UUID ou null, logo permite atribuir E desatribuir). NÃO mexer no
+       backend de tasks.
+    2. Membros do household (client-fetchable): GET /api/conta/household devolve
+       `{ household, members: HouseholdMemberDTO[], myRole }` (route.ts:95-216).
+       Cada member tem { id (= user_id), fullName (= display_name), role, ... }.
+       Fetch on-open exactamente como NewCardModal faz com /api/financas/contas.
+       display_name já está preenchido (migração 0019; memória
+       auth_users_not_joinable / feature_familia_live).
+    3. Estado actual do EditTaskModal
+       (apps/web/src/app/(app)/tarefas/_components/EditTaskModal.tsx):
+       - Campos editáveis hoje: description + due_date + priority + tags.
+       - Placeholder a substituir: o <p> em EditTaskModal.tsx:96-98
+         ("Atribuir a — disponível na próxima versão.").
+       - O body do PATCH é montado em handleSave (linhas 57-61): description/
+         due_date/priority. ADICIONAR assigned_to_user_id ao body.
+       - TaskRow já expõe `assigned_to_user_id: string | null` (list-tasks.ts:49)
+         → pré-seleccionar o assignee actual ao abrir (como os outros campos no
+         useEffect linhas 33-41).
+    4. Implementação sugerida (make-it-work):
+       a. Novo estado `assignedTo` inicializado de `task.assigned_to_user_id ?? ''`
+          (reset no useEffect do open, junto aos restantes).
+       b. Novo estado `members` + fetch on-open de GET /api/conta/household
+          (mesmo pattern try/catch/cancelled do NewCardModal useEffect). Em caso
+          de falha, degradar graceful (esconder o select ou aviso — NÃO bloquear
+          o resto da edição, que não depende de membros).
+       c. Substituir o placeholder <p> por um <label>+<select> "Atribuir a" com:
+          opção "Sem responsável" (value="" → envia null) + uma opção por membro
+          (value=member.id, label=member.fullName ?? fallback). aria-label
+          "Atribuir a" para testabilidade.
+       d. No body do PATCH: `assigned_to_user_id: assignedTo || null`.
+    5. Escopo: 1 household = poucos membros (hoje só o Eurico owner — ver
+       feature_familia_live). Com 1 membro o select é trivial mas correcto;
+       prova-se o caminho para quando houver convidados. Decisão de escopo do
+       agente — registar no commit.
+    6. TESTES: NÃO existe EditTaskModal.test.tsx ainda (só InlineEditTitle.test).
+       Criar __tests__/EditTaskModal.test.tsx (jsdom + Testing Library, padrão
+       NewCardModal.test.tsx / NewRecurrenceModal.test.tsx): render, fetch de
+       membros on-open, pré-selecção do assignee actual, PATCH com
+       assigned_to_user_id (atribuir E limpar→null), erro do servidor, fecho.
+       ARMADILHA walker RSC: se alguma page test (lista/Kanban/calendário) já
+       renderiza o EditTaskModal e mockava o placeholder, confirmar que o mock
+       continua válido (procurar mocks de EditTaskModal nos page tests de tarefas).
+    7. SEM fix de revalidate (DIFERENÇA vs A2/A3/A4): PATCH /api/tasks/[id] já
+       chama revalidateTaskViews() (route.ts:186 e 253). Confirmado por grep.
+    8. Gates: pnpm lint + typecheck + testes focados + check:rls (este último é
+       no-op para A6 — não toca em tabelas/policies, mas correr por hábito é barato).
+       NÃO correr `pnpm build` com dev server ligado (parte o CSS do dev —
+       gotcha 31/05, mordeu 2× a 12/06; CI cobre o build).
+    9. Commits padrão: feat(tarefas): ... [A6] (código + git mv deste handoff p/
+       archive) + chore(housekeeping) (INDEX + flags consumed). Push só com ordem
+       do Eurico. CUIDADO: o Bash tool deste ambiente é POSIX sh — NÃO usar a
+       sintaxe de heredoc PowerShell `@'...'@` no git commit -m (injecta um `@`
+       literal no subject; mordeu nesta sessão). Usar `git commit -F ficheiro` com
+       heredoc real `<<'EOF'` ou -m simples.
+
+  decisions_made:
+    - "A4 (48338c9): NewRecurrenceModal carrega contas via GET /api/financas/contas on-open (account_id pré-seleccionado satisfaz o refinamento Zod account_or_card); escopo MVP tipo/descrição/valor(€ PT-PT)/conta/frequência/início; frequency='custom' deixado FORA do formulário (evita custom_rrule); interval(=1)/payment_method(='transfer') usam defaults do schema; card_id/category_id/ends_on via Jarvis."
+    - "revalidateFinanceViews() adicionado ao POST recorrencias — mesma lacuna W2 do A2/A3, confirmada por grep e corrigida."
+    - "Schema certo confirmado: finance-recurrences.ts (não recurrences.ts, que é de tarefas) — armadilha de nomes do handoff A4 evitada."
+    - "Housekeeping padrão: rename do handoff consumido vai no commit feat (git mv staged cedo); flags consumed + INDEX no commit housekeeping seguinte."
+
+  files_modified:
+    - "LOCAL 48338c9 (feat A4): NewRecurrenceModal.tsx + NewRecurrenceButton.tsx + NewRecurrenceModal.test.tsx (novos) · recorrentes/page.tsx + __tests__/page.test.tsx · api/financas/recorrencias/route.ts · handoff A4 → archive/."
+    - "LOCAL 44ddde7 (housekeeping): HANDOFF-INDEX.md + flags consumed do YAML A4."
+    - "Working tree limpo; NADA unstaged."
+
+  blockers:
+    - "Nenhum técnico para o A6 (totalmente pré-investigado, zero incógnitas; backend pronto)."
+    - "PUSH dos 2 commits locais (A4) aguarda ordem do Eurico (regra: só @devops pusha)."
+    - "Smoke E2E prod A1–E3 continua pendente do Eurico (mj-handoff-qa-smoke-financas-household-ready-20260612, Pending)."
+
+  hypotheses_tested:
+    - "Backend de tasks aceita assigned_to_user_id? → SIM: PATCH /api/tasks/[id]:142 + TaskUpdateSchema:103 (UuidNullable.optional, permite UUID ou null)."
+    - "Há endpoint client-fetchable de membros? → SIM: GET /api/conta/household:95 devolve members[] com { id, fullName, role }."
+    - "PATCH de tasks já revalida (ao contrário do POST de finanças)? → SIM: revalidateTaskViews() em route.ts:186 e 253 — A6 NÃO precisa de fix de revalidate."
+    - "EditTaskModal já tem teste? → NÃO (só InlineEditTitle.test.tsx) — criar EditTaskModal.test.tsx."
+    - "Bash tool é POSIX? → SIM: a sintaxe de heredoc PowerShell @'...'@ injectou um `@` no subject do feat A4 (corrigido com --amend -F)."
+
+next_action: >
+  Implementar A6: no EditTaskModal substituir o placeholder "Atribuir a"
+  (EditTaskModal.tsx:96-98) por um <select> de membros carregados on-open de
+  GET /api/conta/household; inicializar com task.assigned_to_user_id; enviar
+  assigned_to_user_id (UUID ou null) no body do PATCH /api/tasks/[id] (handleSave,
+  linhas 57-61). Criar EditTaskModal.test.tsx (padrão NewCardModal.test). SEM fix
+  de revalidate (já existe). Gates sem build local. Commits feat(tarefas)+housekeeping
+  (CUIDADO com heredoc: Bash é POSIX, usar -F ou -m simples). Com A6 fecha-se a
+  sequência A. ANTES: considerar pedir ao Eurico ordem de push dos 2 commits A4
+  via @devops.
+
+notes: |
+  - origin/main = 460974c; HEAD local = 44ddde7 (2 commits à frente:
+    48338c9 feat A4 · 44ddde7 housekeeping). Ao pushar vão os dois juntos.
+  - Dev server local NÃO está a correr neste terminal — arrancar com:
+    pnpm --filter @meu-jarvis/web dev.
+  - Billing CONTINUA CONGELADO (directiva 29/05). SEC-8 continua HOLD
+    (Adenda §12 @architect antes de draft).
+  - Depois do A6 a sequência A está completa. Critério "MVP terminado"
+    (AUDIT §4): A1–A6 ligados + B1 smoke PASS + C1 Inngest prod + B2/D1/D2 limpos.
+  - Handoff stale por triar (decisão Eurico pendente):
+    mj-handoff-1.7-post-deploy-ui-tasks-20260508 (>7 dias, low, non-blocking).
+
+related:
+  - docs/AUDIT-FINISH-LINE-20260612.md
+  - docs/handoffs/archive/mj-handoff-a4-recorrencias-ui-20260612.yaml
+  - apps/web/src/app/(app)/tarefas/_components/EditTaskModal.tsx
+  - apps/web/src/app/api/tasks/[id]/route.ts
+  - apps/web/src/app/api/conta/household/route.ts
+  - apps/web/src/lib/api-schemas/tasks.ts
+  - apps/web/src/lib/api-helpers/list-tasks.ts
+  - docs/handoffs/mj-handoff-qa-smoke-financas-household-ready-20260612.yaml
