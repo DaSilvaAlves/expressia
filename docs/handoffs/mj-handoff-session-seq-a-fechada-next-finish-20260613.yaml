@@ -5,6 +5,16 @@ created: "2026-06-13T01:30:00Z"
 status: pending
 consumed: false
 
+# NOTA DE PROGRESSO (não consome o handoff — D1/D2 são 2 das 5 tarefas;
+# C1/B1/B2 continuam pending e dependem do Eurico/decisão).
+progress_update:
+  updated: "2026-06-13T01:42:00Z"
+  by: devops (Gage)
+  D1_status: DONE — cron fantasma removido de apps/web/vercel.json (commit d6aca35, em origin/main).
+  D2_status: DONE — flaky do calendário quarentenado com testTimeout 15000ms (commit 5f3b5d9, em origin/main).
+  gates: "lint OK (0 warnings) · typecheck exit 0 · teste calendário 5/5 verde isolado."
+  remaining: "C1 (env Inngest — Eurico), B1 (smoke E2E — Eurico), B2 (dado cross-tenant — decisão Eurico). Handoff permanece PENDING."
+
 project: meu-jarvis (Expressia)
 project_prefix: mj
 priority: medium
