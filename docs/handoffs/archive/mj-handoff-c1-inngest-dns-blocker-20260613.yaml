@@ -2,12 +2,28 @@
 from_agent: aiox-master (sessão diagnóstico C1)
 to_agent: any
 created: "2026-06-13T18:29:12Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-13T19:47:00Z"
+consumed_by: aiox-master (Orion) — guiou Eurico no resync do Inngest; C1 DONE
 project: meu-jarvis (Expressia)
 project_prefix: mj
 priority: high
 type: investigation-result-next-steps
+
+resolution: >
+  C1 RESOLVIDO 13/06 ~20:46 local. O Resync do app `expressia-web` no Inngest
+  (Production, URL https://expressia-black.vercel.app/api/inngest — JÁ era o URL
+  correcto) registou as 3 funções (antes só 2: o sync de 20/05 foi antes de
+  `generate-finance-recurrences` existir no código). CORRECÇÃO AO DIAGNÓSTICO: o
+  DNS de expressia.pt NUNCA bloqueou as recorrências — o app sempre apontou para
+  vercel.app, não para expressia.pt. PROVA: a lista de Runs mostrava 2 runs por
+  CRON automático (0 3 * * *) às ~04:00 de 13/06 (generate-recurring-tasks +
+  cleanup-expired-reverse-ops, ambas Completed) — o cron já disparava sozinho
+  para as 2 funções registadas. Smoke pós-resync: 3 Invokes manuais de
+  cleanup-expired-reverse-ops todos Completed, Failure rate 0,00%. Estado final:
+  3 funções vivas, cron a disparar, em produção. DNS-001 mantém-se como tarefa
+  SEPARADA (apenas domínio público expressia.pt, NÃO bloqueia recorrências).
 
 summary: >
   Investigação do C1 (GAP-4 Inngest em prod) virou o problema do avesso. As 2 env
