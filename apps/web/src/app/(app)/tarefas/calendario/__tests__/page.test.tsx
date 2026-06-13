@@ -79,11 +79,7 @@ function authedAsOwner() {
  * Match query SQL fragments → return canned rows.
  * Robustez: Promise.all ordem-de-resolução pode variar; matching por SQL é deterministic.
  */
-function setupDbExecute(
-  scheduled: unknown[],
-  unscheduled: unknown[],
-  countTotal: number,
-): void {
+function setupDbExecute(scheduled: unknown[], unscheduled: unknown[], countTotal: number): void {
   mocks.dbExecuteMock.mockImplementation((query: unknown) => {
     const queryStr = JSON.stringify(query);
     if (queryStr.includes('count(*)')) {
@@ -123,7 +119,12 @@ function stringifyTree(el: unknown): string {
 }
 
 describe('TarefasCalendarioPage RSC', () => {
-  it('renderiza WeekViewClient quando há scheduled + unscheduled', async () => {
+  // QUARENTENA TEMPORÁRIA (handoff D2, 13/06): este teste é flaky só na suite
+  // completa sob carga (collect 300s+) — o timeout default de 5000ms estoura por
+  // contenção de recursos, não por regressão (isolado passa em ~1,7s). Subimos o
+  // testTimeout para 15000ms para o estabilizar enquanto o collect lento não for
+  // investigado. NÃO desactivar — é só folga de tempo.
+  it('renderiza WeekViewClient quando há scheduled + unscheduled', { timeout: 15000 }, async () => {
     authedAsOwner();
     setupDbExecute(
       [
@@ -152,9 +153,7 @@ describe('TarefasCalendarioPage RSC', () => {
       0,
     );
 
-    const { default: TarefasCalendarioPage } = await import(
-      '@/app/(app)/tarefas/calendario/page'
-    );
+    const { default: TarefasCalendarioPage } = await import('@/app/(app)/tarefas/calendario/page');
     const result = await TarefasCalendarioPage({
       searchParams: Promise.resolve({ week: '2026-W21' }),
     });
@@ -168,9 +167,7 @@ describe('TarefasCalendarioPage RSC', () => {
     authedAsOwner();
     setupDbExecute([], [], 0);
 
-    const { default: TarefasCalendarioPage } = await import(
-      '@/app/(app)/tarefas/calendario/page'
-    );
+    const { default: TarefasCalendarioPage } = await import('@/app/(app)/tarefas/calendario/page');
     const result = await TarefasCalendarioPage({
       searchParams: Promise.resolve({}),
     });
@@ -181,9 +178,7 @@ describe('TarefasCalendarioPage RSC', () => {
     authedAsOwner();
     mocks.dbExecuteMock.mockRejectedValue(new Error('db down'));
 
-    const { default: TarefasCalendarioPage } = await import(
-      '@/app/(app)/tarefas/calendario/page'
-    );
+    const { default: TarefasCalendarioPage } = await import('@/app/(app)/tarefas/calendario/page');
     const result = await TarefasCalendarioPage({
       searchParams: Promise.resolve({}),
     });
@@ -199,9 +194,7 @@ describe('TarefasCalendarioPage RSC', () => {
     authedAsOwner();
     setupDbExecute([], [], 0);
 
-    const { default: TarefasCalendarioPage } = await import(
-      '@/app/(app)/tarefas/calendario/page'
-    );
+    const { default: TarefasCalendarioPage } = await import('@/app/(app)/tarefas/calendario/page');
     await TarefasCalendarioPage({ searchParams: Promise.resolve({}) });
 
     // 3 chamadas (scheduled + unscheduled + count); cada uma tem de filtrar household_id.
@@ -216,9 +209,7 @@ describe('TarefasCalendarioPage RSC', () => {
     setupDbExecute([], [], 0);
     const TAG_UUID = '00000000-0000-0000-0000-0000000000ff';
 
-    const { default: TarefasCalendarioPage } = await import(
-      '@/app/(app)/tarefas/calendario/page'
-    );
+    const { default: TarefasCalendarioPage } = await import('@/app/(app)/tarefas/calendario/page');
     await TarefasCalendarioPage({ searchParams: Promise.resolve({ tag_id: TAG_UUID }) });
 
     expect(mocks.dbExecuteMock).toHaveBeenCalledTimes(3);
