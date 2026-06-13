@@ -1,0 +1,119 @@
+id: mj-handoff-session-seq-a-fechada-next-finish-20260613
+from_agent: devops (Gage) — sessão 13/06, sequência A fechada e em prod
+to_agent: any
+created: "2026-06-13T01:30:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: session-end-next-steps
+
+summary: >
+  SEQUÊNCIA A DA AUDITORIA FINISH-LINE FECHADA E EM PRODUÇÃO. A6 (atribuir tarefa
+  a membro no EditTaskModal) implementado pelo @dev e pushado pelo @devops nesta
+  sessão (origin/main = 5a2274f; 5 commits desta cadeia já em prod: 3 do A4 +
+  2 do A6). Com A1–A6 ligados, toda a criação/edição básica funciona por botão,
+  não só por chat. NADA de código a meio, working tree limpo. O que falta para
+  o MVP "terminado" (AUDIT §3) está repartido entre Eurico (humano/provisionamento)
+  e agente (2 limpezas técnicas rápidas). Este handoff é o ponto de arranque do
+  próximo terminal. Billing CONGELADO; SEC-8 em HOLD.
+
+context:
+  story_id: null
+  story_path: null
+  branch: main
+  origin_main: 5a2274f
+  current_task: >
+    Fecho da sequência A (docs/AUDIT-FINISH-LINE-20260612.md §2.A) confirmado.
+    Próxima fase = §2.B/C/D (validação, provisionamento, limpeza). Definição de
+    "terminado" (AUDIT §3): A1–A6 ligados [FEITO] + B1 smoke PASS + C1 Inngest
+    em prod + B2/D1/D2 limpos. Tudo o resto é polish (§E) ou congelado (§F).
+
+  estado_verificado:
+    - "A1–A6 todos em prod (origin/main = 5a2274f). Sequência A COMPLETA."
+    - "Working tree limpo; zero commits locais por pushar."
+    - "CI do último push (run 27450802429) disparado; o anterior (A4, 27450205442) fechou success em 5m23s — mesmo pipeline (quality + rls-gate + build)."
+    - "Suite: 1163 web verde + 1 flaky calendário pré-existente (timeout 5s sob carga; verde isolado em ~1,7s) — ver D2."
+
+  proximos_passos:
+    # Owner: agente (autónomo, fixes rápidos de código) — BOM ARRANQUE para o próximo terminal
+    D1: |
+      REMOVER cron fantasma. apps/web/vercel.json declara um cron
+      `/api/cron/daily` que NÃO existe → 404 diário na Vercel. Os 3 jobs reais
+      usam cron nativo do Inngest (decisão D38 KISS). Acção: remover a entrada
+      `crons` de apps/web/vercel.json (confirmar primeiro que não há
+      apps/web/src/app/api/cron/daily/route.ts). Fix de código pequeno →
+      @dev implementa, gates (lint/typecheck/test focado), @devops pusha.
+    D2: |
+      FLAKY do calendário (único vermelho intermitente da suite):
+      apps/web/src/app/(app)/tarefas/calendario/__tests__/page.test.tsx >
+      "renderiza WeekViewClient quando há scheduled + unscheduled" — timeout
+      5000ms só na suite completa sob carga (collect 300s+); isolado passa em
+      ~1,7s. Acção sugerida: subir o testTimeout deste teste/ficheiro (ex.
+      it(..., { timeout: 15000 }) ou vitest config por-ficheiro), OU investigar
+      o porquê do collect lento. NÃO é regressão. @dev implementa.
+    # Owner: Eurico (humano / provisionamento) — podem correr em paralelo com D1/D2
+    B1: |
+      SMOKE E2E em prod (expressia.pt). Checklist A1–E3 + ground-truth já
+      preparados pelo @qa — ver handoff PENDING
+      mj-handoff-qa-smoke-financas-household-ready-20260612.yaml. Eurico executa
+      visualmente e reporta ✓/✗; @qa cruza e emite veredicto (PASS/CONCERNS/FAIL).
+      Pontos críticos: B2 (degradação graceful do dado cross-tenant) + C1
+      (regressão W1 saldo on-read).
+    C1: |
+      GAP-4 INNGEST em prod. Definir INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY na
+      Vercel (env de produção, scope fra1). Sem isto, recorrências (tarefas E
+      finanças) e cleanup de reverse-ops NUNCA correm em prod — 3 jobs prontos e
+      provados localmente (ver memória/handoff datefix-inngest-local 31/05).
+      Owner Eurico (minutos). Runbook: docs/runbooks (Inngest steps 1-4).
+    # Owner: decisão Eurico + execução via service_role (ignora RLS)
+    B2: |
+      LIMPAR dado sujo cross-tenant: 2 transacções de Maio com account_id de
+      OUTRO household (seed legado; decisão 11/06 foi "registar, limpar depois").
+      Ver memória cross_tenant_legacy_transactions + smoke-baseline.ts. RLS já
+      protege (não há leak); é higiene de dados. Execução via getServiceDb()
+      (ignora RLS) num script admin pontual, OU correcção do account_id para uma
+      conta do household correcto. PRECISA de decisão do Eurico (apagar vs
+      reassociar) antes de executar.
+
+  decisions_made:
+    - "Gate de push do A6 correu a SUITE COMPLETA (não só o teste focado do @dev): lint·typecheck·check:rls EXIT 0 + pnpm test (1163 verde). O único vermelho foi o flaky do calendário, reconfirmado verde isolado — push autorizado."
+    - "build local saltado de propósito (gotcha .next/dev server, mordeu 2× a 12/06); CI cobre o build job."
+    - "A6 NÃO precisou de fix de revalidate (PATCH de tasks já chama revalidateTaskViews) — diferença vs A2/A3/A4."
+
+  files_modified:
+    - "PROD 14d16c9 (feat A6): EditTaskModal.tsx + EditTaskModal.test.tsx (novo) + rename do handoff A6 p/ archive."
+    - "PROD 5a2274f (housekeeping A6): HANDOFF-INDEX.md + flags consumed do YAML A6."
+    - "Working tree limpo; nada por pushar."
+
+  blockers:
+    - "Nenhum técnico. D1/D2 são fixes de código autónomos; B1/C1 dependem do Eurico; B2 precisa de decisão do Eurico (apagar vs reassociar)."
+
+next_action: >
+  No novo terminal: ler este handoff + HANDOFF-INDEX + AUDIT-FINISH-LINE-20260612.
+  Arranque recomendado pelo AGENTE (autónomo, sem esperar pelo Eurico): D1
+  (remover cron fantasma /api/cron/daily de apps/web/vercel.json) e D2
+  (quarentenar o flaky do calendário com testTimeout maior) — dois fixes
+  pequenos via @dev → gates → @devops push. EM PARALELO, pedir ao Eurico: C1
+  (2 env vars Inngest na Vercel) e B1 (executar o smoke A1–E3 em prod, handoff
+  qa-smoke já pronto). B2 fica para quando o Eurico decidir apagar vs reassociar
+  as 2 tx cross-tenant. Quando B1 PASS + C1 live + B2/D1/D2 limpos → MVP terminado.
+
+notes: |
+  - origin/main = 5a2274f; working tree limpo.
+  - Billing CONGELADO (directiva 29/05). SEC-8 em HOLD (exige Adenda §12 do
+    @architect antes de @sm *draft).
+  - Pendente humano por triar: mj-handoff-1.7-post-deploy-ui-tasks-20260508
+    (STALE >7 dias, low, non-blocking) — revisão humana obrigatória (regra
+    handoff-central: stale só humano ou @aiox-master arquiva).
+  - Só @devops pusha; só @dev/@architect escrevem código.
+
+related:
+  - docs/AUDIT-FINISH-LINE-20260612.md
+  - docs/handoffs/mj-handoff-qa-smoke-financas-household-ready-20260612.yaml
+  - docs/handoffs/archive/mj-handoff-a6-atribuir-tarefa-membro-20260612.yaml
+  - apps/web/vercel.json
+  - apps/web/src/app/(app)/tarefas/calendario/__tests__/page.test.tsx
+  - packages/db/src/scripts/smoke-baseline.ts
