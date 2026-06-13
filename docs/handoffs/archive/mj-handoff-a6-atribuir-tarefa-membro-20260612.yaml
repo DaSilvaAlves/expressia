@@ -2,8 +2,10 @@ id: mj-handoff-a6-atribuir-tarefa-membro-20260612
 from_agent: aiox-dev (Claude — sessão 12/06 noite, A4 implementado)
 to_agent: any
 created: "2026-06-12T19:05:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-13T01:15:00Z"
+consumed_by: aiox-dev (Claude — sessão 13/06, A6 implementado + gates verdes)
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
