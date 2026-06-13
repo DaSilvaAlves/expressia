@@ -2,8 +2,18 @@ id: mj-handoff-qa-smoke-financas-household-ready-20260612
 from_agent: qa
 to_agent: any
 created: "2026-06-12T00:45:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-13T20:15:00Z"
+consumed_by: aiox-master (Orion) — smoke A+B executados (PASS); ground-truth superseded pelo B2
+superseded_by: mj-handoff-smoke-resume-c-e-20260613
+resolution: >
+  Smoke iniciado nesta sessão. Secção A (/financas/este-mes) PASS e secção B (Maio)
+  PASS. O ground-truth deste handoff ficou DESACTUALIZADO porque o B2 desta sessão
+  apagou as 3 tx cross-tenant (incl. os €97,40 de Maio) — por isso a secção B agora
+  é "Maio vazio" e o ponto crítico B2 (conta alheia) já não se aplica. Continuação
+  (secções C/D/E) com ground-truth recalculado no sucessor
+  mj-handoff-smoke-resume-c-e-20260613.
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

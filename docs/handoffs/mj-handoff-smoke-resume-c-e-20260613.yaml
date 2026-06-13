@@ -1,0 +1,92 @@
+id: mj-handoff-smoke-resume-c-e-20260613
+from_agent: aiox-master (Orion)
+to_agent: any
+created: "2026-06-13T20:15:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: task-in-progress
+
+summary: >
+  SMOKE E2E /financas + /conta/household EM CURSO — secções A e B já PASS nesta
+  sessão; falta executar C, D, E (validação visual humana do Eurico em prod). Esta
+  sessão fechou C1 (Inngest, recorrências vivas) e B2 (apagou as 3 tx cross-tenant),
+  por isso o ground-truth do smoke FOI RECALCULADO e está actualizado abaixo. O
+  terminal anterior ficou com contexto muito baixo — migração limpa, nada a meio
+  no working tree (C1+B2 já commitados e pushados: origin/main = 107665f).
+
+context:
+  estado_verificado:
+    - "origin/main = 107665f. Working tree limpo. C1 DONE + B2 DONE commitados e pushados nesta sessão."
+    - "C1 (Inngest prod) RESOLVIDO: resync registou as 3 funções (faltava generate-finance-recurrences); cron 0 3 * * * a disparar; smoke 0% falha. App em expressia-prod, URL https://expressia-black.vercel.app/api/inngest."
+    - "B2 RESOLVIDO: 3 tx cross-tenant APAGADAS (Pingo Doce €18,70 + Supermercado €78,70 do household real + Almoço €15,00 da Casa de teste). 0 cross-tenant em toda a DB. Scripts: packages/db/src/scripts/{diag,fix}-cross-tenant.ts."
+
+  url_critico: >
+    O smoke corre em https://expressia-black.vercel.app (NÃO expressia.pt — DNS-001
+    ainda não resolve; ver handoff DNS separado). Login com a conta real do Eurico.
+
+  ground_truth_actualizado: |
+    Recalculado 13/06 pós-B2 via:
+      pnpm --filter @meu-jarvis/db exec tsx src/scripts/smoke-baseline.ts --household=2dedb1ec-dc6f-4445-a5b4-b5f942755655
+
+    Household: "Casa de euricojsalves" (2dedb1ec-dc6f-4445-a5b4-b5f942755655)
+    Membro: 1 — Eurico (owner), display_name preenchido.
+    Conta única: "Dinheiro" (ee6e6803-…) — stored balance_cents=0 (dead column),
+      saldo computado on-read = −€25,00 (0 inicial + 0 income − 2500 expense).
+    Cartões: 0. Recorrências: 0.
+    Junho/2026: Almoço €13,00 + Café €12,00 (ambas 10/06, cat. "Outros gastos") = €25,00.
+    Maio/2026: VAZIO (as 2 tx cross-tenant de €97,40 foram apagadas no B2).
+    Tarefas relevantes: "Smoke teste 11jun" (todo, 11/06), "Estar no notário em
+      Tavira" (todo, 15/06). Há tarefas antigas de teste (Reunião, Comprar pão, etc.).
+
+  smoke_progresso:
+    A_financas_este_mes: "PASS ✓ — A1 redirect ok · A2 SAIU −€25,00/ENTROU +€0,00 · A3 'Outros gastos (2)' −€25,00 · A4 '10 De Junho' −€25,00 · A5 'Sem recorrentes nem prestações' (vazio, sem crash)."
+    B_maio: "PASS ✓ — Maio vazio €0,00, sem crash (confirma limpeza B2; o antigo ponto crítico da conta cross-tenant já não se aplica)."
+    C_patrimonio: "POR FAZER"
+    D_visao: "POR FAZER"
+    E_household: "POR FAZER"
+
+  checklist_restante: |
+    C. /financas/patrimonio (valida W1)
+      C1 conta "Dinheiro" mostra −€25,00 (se €0,00 → regressão W1)
+    D. /visao (W1 sibling + W2)
+      D1 widget saldo de contas: Dinheiro −€25,00
+      D2 widget tarefas mostra "Smoke teste 11jun"
+      D3 completar tarefa em /tarefas → navegar /visao → actualiza SEM hard refresh (valida W2)
+    E. /conta/household (menu "Família")
+      E1 nome família "Casa de euricojsalves"
+      E2 1 membro: Eurico (owner), display_name preenchido
+      E3 renomear família → guardar → reverter (persiste em ambos os sentidos)
+
+  files_modified:
+    - "Nenhum ficheiro de código alterado para o smoke (validação read-only/visual)."
+    - "Esta sessão commitou: C1 housekeeping (d159bc4) + B2 scripts (107665f). Tudo pushado."
+
+blockers:
+  - "Nenhum técnico. Próximo passo é o Eurico no browser (auth de prod) a executar C/D/E e reportar ✓/✗."
+
+next_action: >
+  No novo terminal: ler este handoff + HANDOFF-INDEX. Guiar o Eurico a continuar o
+  smoke a partir da secção C (já fez A+B = PASS) em https://expressia-black.vercel.app,
+  cruzar cada ponto com o ground_truth_actualizado acima, e emitir o veredicto final
+  do smoke (PASS/CONCERNS/FAIL). Se algum ponto falhar (esp. C1/D1 saldo −€25,00 ou
+  D3 refresh sem hard reload), abrir fix make-it-work antes de mais nada.
+
+notes: |
+  - Billing CONGELADO (directiva 29/05). SEC-8 (Cérebro AI) em HOLD.
+  - Restantes finish-line após o smoke: DNS-001 (registo A apex expressia.pt — só
+    domínio público, NÃO bloqueia core; NUNCA mexer nos nameservers Cloudflare; runbook
+    docs/runbooks/dns-expressia-setup.md) + follow-up de código (validar como insert
+    antigo associou account_id de outro household — tool criar-despesa + CHECK
+    transactions_account_or_card).
+  - Supersedes mj-handoff-qa-smoke-financas-household-ready-20260612 (ground-truth
+    desse ficou desactualizado pelo B2; A+B já executados aqui).
+  - Handoff-mãe de roadmap: mj-handoff-session-seq-a-fechada-next-finish-20260613 (pending).
+
+related:
+  - packages/db/src/scripts/smoke-baseline.ts
+  - packages/db/src/scripts/diag-cross-tenant.ts
+  - docs/handoffs/archive/mj-handoff-c1-inngest-dns-blocker-20260613.yaml
