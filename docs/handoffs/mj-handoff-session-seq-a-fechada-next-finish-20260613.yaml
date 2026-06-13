@@ -14,6 +14,13 @@ progress_update:
   D2_status: DONE — flaky do calendário quarentenado com testTimeout 15000ms (commit 5f3b5d9, em origin/main).
   gates: "lint OK (0 warnings) · typecheck exit 0 · teste calendário 5/5 verde isolado."
   remaining: "C1 (env Inngest — Eurico), B1 (smoke E2E — Eurico), B2 (dado cross-tenant — decisão Eurico). Handoff permanece PENDING."
+  C1_update: >
+    [2026-06-13 19:29] C1 DIAGNOSTICADO — não eram as env vars. As 2 vars
+    INNGEST_* JÁ estão na Vercel (Production, 20/05; screenshot Eurico) e o
+    endpoint valida assinatura (GET→401). O bloqueio real é DNS-001: expressia.pt
+    não resolve (sem registo A no Cloudflare). Caminho fácil escolhido pelo Eurico
+    = re-sync do Inngest no domínio vercel.app que já resolve. Detalhe + passos no
+    handoff dedicado mj-handoff-c1-inngest-dns-blocker-20260613 (pending).
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

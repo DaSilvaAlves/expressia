@@ -1,0 +1,110 @@
+# Handoff — C1 (Inngest prod) DIAGNOSTICADO: env vars já feitas, bloqueio real é DNS de expressia.pt
+from_agent: aiox-master (sessão diagnóstico C1)
+to_agent: any
+created: "2026-06-13T18:29:12Z"
+status: pending
+consumed: false
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: investigation-result-next-steps
+
+summary: >
+  Investigação do C1 (GAP-4 Inngest em prod) virou o problema do avesso. As 2 env
+  vars (INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY) JÁ ESTÃO na Vercel, scope
+  Production, desde 20/05 (confirmado por screenshot do Eurico). O endpoint
+  /api/inngest está montado e a validar assinatura (GET → 401 = signing key
+  activa). O VERDADEIRO bloqueio das recorrências em prod NÃO são as keys — é o
+  DNS: o domínio expressia.pt NÃO resolve (sem registo A no Cloudflare desde
+  20/05, carry-over DNS-001). O Inngest Cloud regista as funções em
+  https://expressia.pt/api/inngest, que não resolve, por isso o cron nunca
+  dispara. O site público inteiro só está acessível em expressia-black.vercel.app.
+  Eurico escolheu o CAMINHO MAIS FÁCIL / MENOS COMPLICAÇÕES agora e migrar para
+  terminal novo. Caminho fácil = re-sync do Inngest no domínio que JÁ resolve
+  (vercel.app), sem tocar no Cloudflare. DNS-001 (registo A para o domínio
+  público) fica como tarefa separada, necessária antes de lançamento público mas
+  NÃO necessária para desbloquear as recorrências.
+
+context:
+  estado_verificado:
+    - "origin/main = 1cb3aa9 (D1+D2 em prod nesta cadeia: d6aca35 fix vercel cron, 5f3b5d9 test calendario, 1cb3aa9 housekeeping). Working tree limpo."
+    - "VERCEL env vars: INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY presentes, scope Production, Added May 20 (screenshot do Eurico). NÃO refazer — Step 4 do runbook inngest-setup.md JÁ está feito."
+    - "Endpoint vivo: GET https://expressia-black.vercel.app/api/inngest → HTTP 401 {\"message\":\"Unauthorized\"} = serve() montado + INNGEST_SIGNING_KEY a validar assinatura (comportamento CORRECTO; só o Inngest Cloud com assinatura passa)."
+    - "Site vivo em https://expressia-black.vercel.app → HTTP 200 (ip 216.198.79.67)."
+    - "DNS QUEBRADO: nslookup -type=A expressia.pt (via 8.8.8.8) → SEM registo A. NS = howard/vera.ns.cloudflare.com. www.expressia.pt também sem A. curl a expressia.pt → 'Could not resolve host'."
+  descoberta_raiz: |
+    DNS-001 (runbook docs/runbooks/dns-expressia-setup.md, criado 20/05 por Gage):
+    expressia.pt foi atribuído ao projecto Vercel `expressia` em 20/05 via
+    `vercel domains add`, MAS nunca recebeu o registo A no Cloudflare. O domínio é
+    um GUARDA-CHUVA partilhado com 6+ subdomínios de outros projectos do Eurico —
+    REGRA CRÍTICA: NUNCA mudar os nameservers para vercel-dns.com (destruiria os
+    outros subdomínios). A Vercel sugere isso num aviso "not configured properly"
+    → IGNORAR. Activação correcta = registo A apex + CNAME www no Cloudflare,
+    Proxy DNS only (nuvem cinzenta), mantendo Cloudflare como dono do DNS.
+    Consequência para o C1: como expressia.pt não resolve, o app Inngest Cloud
+    (registado nesse URL) nunca consegue ser chamado → 3 funções (generate-
+    recurring-tasks, generate-finance-recurrences, cleanup-expired-reverse-ops)
+    nunca correm em prod, apesar das keys estarem na Vercel.
+  caminho_escolhido_pelo_eurico: >
+    MAIS FÁCIL / MENOS COMPLICAÇÕES AGORA. Ou seja: desbloquear o Inngest pelo
+    domínio que já resolve (expressia-black.vercel.app), SEM mexer no Cloudflare
+    nesta migração. O DNS (DNS-001) é tarefa separada subsequente.
+
+  proximos_passos:
+    C1_caminho_facil: |
+      RECOMENDADO para o próximo terminal (guiar o Eurico, login humano no Inngest):
+      1. Eurico abre https://app.inngest.com → workspace `expressia-prod`.
+         - Se o workspace já não existir → criar (região EU Frankfurt ideal; US
+           aceite por ADR-010 se EU indisponível) e gerar Event Key + Signing Key.
+           ATENÇÃO: se gerar keys NOVAS, tem de as repor na Vercel (Production) e
+           redeploy. Se o workspace de Maio ainda existir, as keys da Vercel ainda
+           servem → não mexer nas keys.
+      2. Inngest → Apps. Se houver app a apontar para expressia.pt em erro →
+         abrir e Resync; senão Add app → Sync com URL:
+            https://expressia-black.vercel.app/api/inngest
+      3. Verificação: dashboard mostra as 3 funções activas (cron 0 3 * * * em
+         cleanup-expired-reverse-ops).
+      4. Smoke: Functions → cleanup-expired-reverse-ops → Invoke → run Completed
+         com output { rows_deleted: 0 }. PASS = C1 DONE (recorrências vivas).
+      NOTA: usar o URL vercel.app é 100% válido para o Inngest (endpoint HTTPS
+      público em fra1). O domínio bonito expressia.pt é separado (UX público) e
+      pode ser religado ao Inngest mais tarde, depois do DNS.
+    DNS_001_tarefa_separada: |
+      NECESSÁRIA antes de lançamento público (utilizadores acedem a expressia.pt,
+      não a expressia-black.vercel.app), mas NÃO bloqueia as recorrências.
+      Runbook completo: docs/runbooks/dns-expressia-setup.md (Cenário A = apex+www).
+      Passos no Cloudflare (zona expressia.pt → DNS → Records), Proxy DNS only:
+        - A   @    76.76.21.21
+        - CNAME www cname.vercel-dns.com
+      Aguardar propagação (min a ~1h); Vercel verifica e manda email. Depois,
+      opcionalmente, re-sync do app Inngest para https://expressia.pt/api/inngest.
+      DECISÃO PENDENTE (Eurico): apex+www (Cenário A, recomendado — a marca é
+      expressia.pt) vs subdomínio app.expressia.pt (Cenário B).
+    restantes_finish_line:
+      - "B1 — smoke E2E prod A1–E3 (Eurico humano; handoff qa-smoke-financas-household-ready pronto). Pode correr em expressia-black.vercel.app enquanto o DNS não está feito."
+      - "B2 — limpar 2 tx de Maio cross-tenant (decisão Eurico: apagar vs reassociar; RLS já protege; execução via getServiceDb())."
+      - "D1+D2 — JÁ FEITOS e em prod (origin/main = 1cb3aa9)."
+
+blockers:
+  - "C1 caminho fácil: NENHUM técnico do lado do agente — depende do Eurico (login no Inngest dashboard, ~5 min, guiado pelo agente do próximo terminal)."
+  - "DNS-001: depende do Eurico no painel Cloudflare + DECISÃO apex vs subdomínio. Risco de erro destrutivo se mexer nos nameservers (ver REGRA CRÍTICA)."
+
+next_action: >
+  No novo terminal: ler este handoff + HANDOFF-INDEX + runbooks inngest-setup.md
+  e dns-expressia-setup.md. Guiar o Eurico no C1 pelo CAMINHO FÁCIL (re-sync do
+  app Inngest no URL https://expressia-black.vercel.app/api/inngest — domínio que
+  já resolve — seguido de Invoke do cleanup para smoke). NÃO refazer as env vars
+  (já estão na Vercel desde 20/05). NÃO mexer nos nameservers do Cloudflare. Após
+  C1 PASS (recorrências vivas), tratar DNS-001 (Cenário A do runbook) como passo
+  separado para o domínio público, confirmando antes a decisão apex vs subdomínio
+  com o Eurico. B1/B2 continuam do lado do Eurico.
+
+notes: |
+  - origin/main = 1cb3aa9; working tree limpo.
+  - Billing CONGELADO (directiva 29/05). SEC-8 em HOLD.
+  - Evidências de rede recolhidas nesta sessão (read-only): nslookup expressia.pt
+    sem A; curl expressia-black.vercel.app 200; curl .../api/inngest 401.
+  - Memória de projecto actualizada: ver C1 blocker = DNS (não env vars).
+  - Handoff-mãe do finish-line: mj-handoff-session-seq-a-fechada-next-finish-20260613
+    (continua pending; este handoff DETALHA e ACTUALIZA o item C1 desse).
+  - Stale por triar (humano): mj-handoff-1.7-post-deploy-ui-tasks-20260508.
