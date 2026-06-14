@@ -1,0 +1,88 @@
+id: mj-handoff-smoke-pass-next-account-id-validation-20260614
+from_agent: aiox-master (Orion)
+to_agent: any
+created: "2026-06-14T00:10:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: code-followup
+
+summary: >
+  SMOKE E2E COMPLETO PASS (A→E) fechado nesta sessão — core conecta E2E em prod,
+  W1/W2 provados vivos, zero regressão. O próximo passo de AGENTE no finish-line do
+  MVP é o follow-up de código que fecha a causa-raiz das transacções cross-tenant
+  que o B2 limpou: as tools de finanças NÃO validam que um `accountId`/`cardId`
+  FORNECIDO EXPLICITAMENTE pertence ao household corrente antes do INSERT. Diagnóstico
+  já feito abaixo (ficheiros + linhas). DNS-001 fica em paralelo como tarefa do Eurico.
+
+context:
+  estado_verificado:
+    - "origin/main = 107665f. Smoke A→E PASS (veredicto no handoff arquivado mj-handoff-smoke-resume-c-e-20260613). C1 Inngest + B2 cross-tenant já em prod desta cadeia."
+    - "Working tree: housekeeping deste smoke (arquivamento + INDEX) commitado localmente nesta sessão pelo Orion — confirmar `git log -1` no arranque."
+
+  causa_raiz_diagnosticada: |
+    PORQUÊ existiram tx cross-tenant (as 3 que o B2 apagou): a RLS de `transactions`
+    valida o `household_id` DA PRÓPRIA ROW (WITH CHECK = ctx.householdId), mas NÃO
+    valida que o `account_id`/`card_id` referenciado pertence ao MESMO household. O FK
+    `transactions.account_id → accounts.id` aceita qualquer conta existente, mesmo de
+    outro agregado.
+
+    - Caminho SEGURO (default): quando o input NÃO traz conta nem cartão,
+      `resolveDefaultAccount` (packages/tools/src/finance/_helpers/resolve-default-account.ts)
+      faz SELECT RLS-scoped → a conta é garantidamente do household. Sem risco.
+    - Caminho VULNERÁVEL: quando o input TRAZ `accountId` (ou `cardId`) explícito, o
+      valor entra direto no INSERT sem qualquer verificação de pertença.
+      Ver `create-finance-variable.ts:142-188` (accountId = input.accountId; insere
+      `${accountId}::uuid` sem validar household). O CHECK `transactions_account_or_card`
+      só garante "conta OU cartão preenchido", NÃO o household.
+
+  ficheiros_afetados:
+    - "packages/tools/src/finance/create-finance-variable.ts (linhas 142-188 — INSERT do accountId/cardId explícito sem validação de household)"
+    - "packages/tools/src/finance/create-finance-recurrence.ts (mesmo padrão — aceita account_id/card_id explícitos)"
+    - "packages/tools/src/finance/create-installment.ts (idem)"
+    - "packages/tools/src/finance/create-card.ts (aceita account_id explícito — cartão↔conta)"
+    - "Schema/CHECK: packages/db/src/schema/finance.ts + packages/db/migrations/0000_initial_schema.sql (constraint transactions_account_or_card — só valida presença, não household)"
+
+  decisao_de_abordagem_pendente: |
+    DUAS opções (o próximo agente deve decidir, idealmente via @data-engineer Fase 0):
+      A) APP-LEVEL (mais rápido): nos callers, quando accountId/cardId é explícito,
+         fazer um SELECT RLS-scoped (ctx.db) que confirma a conta/cartão existe no
+         household ANTES do INSERT; senão ToolExecutionError PT-PT accionável.
+         Defesa em profundidade alinhada com SEC-1 (1.ª rede app-enforced).
+      B) DB-LEVEL (mais robusto, recomendado): trigger/constraint que garante
+         `account.household_id = transaction.household_id` (e o mesmo p/ card). Fecha
+         o buraco para SEMPRE, independente do caller. ATENÇÃO: pode exigir migration
+         nova → respeitar NFR5 RLS Coverage Gate + correr db-test (Testcontainers,
+         ver memória ci_rls_gate_uses_db_test) antes de push.
+    Recomendação Orion: B com fallback A se a migration se revelar arriscada. Provar
+    com teste db-test que um INSERT com account_id de outro household é REJEITADO.
+
+  blockers:
+    - "Nenhum técnico. Core funciona; isto é hardening da causa-raiz, não bug bloqueante (B2 já limpou os dados; RLS protege LEITURA cross-tenant)."
+
+next_action: >
+  No novo terminal: ler este handoff + HANDOFF-INDEX + memória do projecto
+  (cross_tenant_legacy_transactions, ci_rls_gate_uses_db_test, smoke_e2e_pass_complete).
+  Decidir abordagem A vs B (preferir @data-engineer Fase 0 se B/migration). Implementar
+  a validação de pertença household do account_id/cardId explícito nas tools de finanças,
+  com teste db-test que PROVA rejeição cross-household. Ciclo SDC normal
+  (@sm→@po→@dev→@architect→@devops) OU fix direto @dev se app-level simples. NÃO fazer
+  push fora do @devops.
+
+notes: |
+  - Billing CONGELADO (directiva 29/05). SEC-8 (Cérebro AI) em HOLD.
+  - DNS-001 fica em PARALELO como tarefa do Eurico (registo A apex expressia.pt — só
+    domínio público, NÃO bloqueia core; NUNCA mexer nos nameservers Cloudflare; runbook
+    docs/runbooks/dns-expressia-setup.md).
+  - Supersedes (parcialmente) o roadmap mj-handoff-session-seq-a-fechada-next-finish-20260613:
+    B1 smoke = DONE (este PASS), C1 Inngest = DONE, B2 = DONE, D1/D2 = DONE.
+    Restam só: este follow-up de código + DNS-001.
+
+related:
+  - packages/tools/src/finance/create-finance-variable.ts
+  - packages/tools/src/finance/_helpers/resolve-default-account.ts
+  - packages/db/src/scripts/diag-cross-tenant.ts
+  - docs/handoffs/archive/mj-handoff-smoke-resume-c-e-20260613.yaml

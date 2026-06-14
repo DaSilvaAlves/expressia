@@ -2,8 +2,11 @@ id: mj-handoff-smoke-resume-c-e-20260613
 from_agent: aiox-master (Orion)
 to_agent: any
 created: "2026-06-13T20:15:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-13T21:37:00Z"
+consumed_by: aiox-master (Orion)
+verdict: "SMOKE E2E PASS — A,B,C,D1,D2,D3,E1,E2,E3 todos verde. W1 (saldo on-read), W1-sibling (/visao) e W2 (revalidação cross-route) provados vivos em prod. Nenhuma regressão. Core conecta E2E."
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
@@ -45,9 +48,9 @@ context:
   smoke_progresso:
     A_financas_este_mes: "PASS ✓ — A1 redirect ok · A2 SAIU −€25,00/ENTROU +€0,00 · A3 'Outros gastos (2)' −€25,00 · A4 '10 De Junho' −€25,00 · A5 'Sem recorrentes nem prestações' (vazio, sem crash)."
     B_maio: "PASS ✓ — Maio vazio €0,00, sem crash (confirma limpeza B2; o antigo ponto crítico da conta cross-tenant já não se aplica)."
-    C_patrimonio: "POR FAZER"
-    D_visao: "POR FAZER"
-    E_household: "POR FAZER"
+    C_patrimonio: "PASS ✓ — C1 conta 'Dinheiro' −€25,00 (Património total −€25,00, ENTRADAS +€0,00, SAÍDAS −€25,00). W1 on-read vivo, sem regressão."
+    D_visao: "PASS ✓ — D1 Gastos do mês −€25,00 (W1 sibling vivo); D2 'Smoke teste 11jun' em Tarefas Atrasadas; D3 completar tarefa → /visao 4→3 atrasadas SEM F5 (W2 vivo)."
+    E_household: "PASS ✓ — E1 'Casa de euricojsalves'; E2 1 membro Eurico (Dono) display_name preenchido, Plano Família; E3 renomear→guardar→reverter persistiu nos dois sentidos ('Nome actualizado.')."
 
   checklist_restante: |
     C. /financas/patrimonio (valida W1)
