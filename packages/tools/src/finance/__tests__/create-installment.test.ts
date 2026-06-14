@@ -23,18 +23,16 @@ import { executeAtomic } from '@/atomic';
 import { createInstallment } from '../create-installment';
 
 vi.mock('@meu-jarvis/observability', () => ({
-  withSpan: vi.fn(
-    async (_n: string, _a: unknown, fn: (s: unknown) => unknown) => {
-      const s = {
-        setAttribute: vi.fn(),
-        setAttributes: vi.fn(),
-        end: vi.fn(),
-        recordException: vi.fn(),
-        setStatus: vi.fn(),
-      };
-      return fn(s);
-    },
-  ),
+  withSpan: vi.fn(async (_n: string, _a: unknown, fn: (s: unknown) => unknown) => {
+    const s = {
+      setAttribute: vi.fn(),
+      setAttributes: vi.fn(),
+      end: vi.fn(),
+      recordException: vi.fn(),
+      setStatus: vi.fn(),
+    };
+    return fn(s);
+  }),
   hashForCorrelation: vi.fn((s: string) => `hash_${s.slice(0, 8)}`),
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
@@ -59,8 +57,10 @@ function captureSqlText(query: unknown): string {
       return;
     }
     const v = o.value;
-    if (Array.isArray(v)) for (const x of v) if (typeof x === 'string') s += x;
-    else if (typeof v === 'string') s += v;
+    if (Array.isArray(v))
+      for (const x of v)
+        if (typeof x === 'string') s += x;
+        else if (typeof v === 'string') s += v;
   };
   walk(query);
   return s;
@@ -78,7 +78,7 @@ function makeMockDb(state: MockState): DrizzleDbClient {
     return state.insertReturns[idx] ?? [];
   });
   const dbClient: DrizzleDbClient = {
-    transaction: vi.fn(async <T,>(fn: (tx: DrizzleDbClient) => Promise<T>) =>
+    transaction: vi.fn(async <T>(fn: (tx: DrizzleDbClient) => Promise<T>) =>
       fn(dbClient),
     ) as unknown as DrizzleDbClient['transaction'],
     insert: vi.fn(),
@@ -113,6 +113,7 @@ function makeCtx(db: DrizzleDbClient): ToolExecutionContext {
 /**
  * Constroi insertReturns para um execute() com N parcelas:
  *   - 1 SELECT default category (só se categoryId omitido)
+ *   - 1 SELECT pré-check cardId cross-tenant (FASE A — sempre, cardId obrigatório)
  *   - 1 INSERT installment
  *   - N INSERTs transactions
  */
@@ -124,6 +125,7 @@ function mockReturnsForN(
   if (opts.withDefaultCategoryLookup) {
     result.push([{ id: DEFAULT_CATEGORY_ID }]);
   }
+  result.push([{ id: CARD_ID }]); // pré-check cardId (1 row = pertence)
   result.push([{ id: INSTALLMENT_ID }]);
   for (let i = 1; i <= N; i += 1) {
     result.push([{ id: txId(i) }]);
@@ -156,24 +158,24 @@ describe('create_installment — input validation', () => {
     expect(createInstallment.inputSchema.safeParse(valid).success).toBe(true);
   });
   it('rejeita numInstallments = 0', () => {
-    expect(
-      createInstallment.inputSchema.safeParse({ ...valid, numInstallments: 0 }).success,
-    ).toBe(false);
+    expect(createInstallment.inputSchema.safeParse({ ...valid, numInstallments: 0 }).success).toBe(
+      false,
+    );
   });
   it('rejeita numInstallments = 61 (limite schema = 60)', () => {
-    expect(
-      createInstallment.inputSchema.safeParse({ ...valid, numInstallments: 61 }).success,
-    ).toBe(false);
+    expect(createInstallment.inputSchema.safeParse({ ...valid, numInstallments: 61 }).success).toBe(
+      false,
+    );
   });
   it('aceita N=60 (limite máximo)', () => {
-    expect(
-      createInstallment.inputSchema.safeParse({ ...valid, numInstallments: 60 }).success,
-    ).toBe(true);
+    expect(createInstallment.inputSchema.safeParse({ ...valid, numInstallments: 60 }).success).toBe(
+      true,
+    );
   });
   it('rejeita totalAmountCents <= 0', () => {
-    expect(
-      createInstallment.inputSchema.safeParse({ ...valid, totalAmountCents: 0 }).success,
-    ).toBe(false);
+    expect(createInstallment.inputSchema.safeParse({ ...valid, totalAmountCents: 0 }).success).toBe(
+      false,
+    );
   });
   it('rejeita firstInstallmentOn formato errado (F4 NOT NULL + regex)', () => {
     expect(
@@ -184,9 +186,9 @@ describe('create_installment — input validation', () => {
     ).toBe(false);
   });
   it('rejeita description vazia', () => {
-    expect(
-      createInstallment.inputSchema.safeParse({ ...valid, description: '' }).success,
-    ).toBe(false);
+    expect(createInstallment.inputSchema.safeParse({ ...valid, description: '' }).success).toBe(
+      false,
+    );
   });
 });
 
@@ -215,10 +217,11 @@ describe('create_installment — execute (N=12, sem resto)', () => {
     expect(out.lastInstallmentCents).toBe(10000); // sem resto
     expect(out.totalAmountCents).toBe(120000);
 
-    // 1 SELECT default + 1 INSERT installments + 12 INSERTs transactions = 14 executes
-    expect(state.executes.length).toBe(14);
-    expect(state.executes[1]?.sqlText.toLowerCase()).toContain('insert into installments');
-    for (let i = 2; i < 14; i += 1) {
+    // 1 SELECT default + 1 pré-check cardId + 1 INSERT installments + 12 INSERTs transactions = 15
+    expect(state.executes.length).toBe(15);
+    expect(state.executes[1]?.sqlText.toLowerCase()).toContain('from cards');
+    expect(state.executes[2]?.sqlText.toLowerCase()).toContain('insert into installments');
+    for (let i = 3; i < 15; i += 1) {
       expect(state.executes[i]?.sqlText.toLowerCase()).toContain('insert into transactions');
     }
   });
@@ -241,9 +244,9 @@ describe('create_installment — execute (N=12, sem resto)', () => {
       },
       ctx,
     );
-    // 1 INSERT installment + 3 INSERTs transactions
-    expect(state.executes.length).toBe(4);
-    for (let i = 1; i <= 3; i += 1) {
+    // 1 pré-check cardId + 1 INSERT installment + 3 INSERTs transactions
+    expect(state.executes.length).toBe(5);
+    for (let i = 2; i <= 4; i += 1) {
       const sqlText = state.executes[i]?.sqlText ?? '';
       expect(sqlText).toMatch(/installment_index/i);
       // is_projected literal `true`
@@ -396,11 +399,19 @@ describe('create_installment — reverse() composite aninhado (D-4.10.4)', () =>
     };
     const op: ReverseOpPayload = {
       kind: 'composite',
-      ops: [sub1, sub1, sub1, sub1, sub1, sub1, {
-        kind: 'delete_row',
-        table: 'installments',
-        id: INSTALLMENT_ID,
-      }],
+      ops: [
+        sub1,
+        sub1,
+        sub1,
+        sub1,
+        sub1,
+        sub1,
+        {
+          kind: 'delete_row',
+          table: 'installments',
+          id: INSTALLMENT_ID,
+        },
+      ],
     };
     const parsed = ReverseOpPayloadSchema.safeParse(op);
     expect(parsed.success).toBe(true);
@@ -429,11 +440,86 @@ describe('create_installment — reverse() composite aninhado (D-4.10.4)', () =>
   });
 });
 
-describe('create_installment — executeAtomic integration', () => {
-  it('N=3 via executeAtomic — todas as 5 chamadas (insert installment + 3 insert tx + insert reverse_op)', async () => {
+describe('create_installment — cross-tenant (cardId explícito)', () => {
+  it('cardId de OUTRO household → ToolExecutionError no pré-check (NÃO chega ao INSERT)', async () => {
     const state: MockState = {
       executes: [],
       insertReturns: [
+        [], // pré-check cardId → 0 rows (cartão de outro household / RLS)
+      ],
+    };
+    const ctx = makeCtx(makeMockDb(state));
+    await expect(
+      createInstallment.execute(
+        {
+          description: 'X',
+          cardId: CARD_ID,
+          totalAmountCents: 90000,
+          numInstallments: 3,
+          purchasedOn: '2026-05-23',
+          firstInstallmentOn: '2026-06-01',
+          categoryId: CATEGORY_ID,
+        },
+        ctx,
+      ),
+    ).rejects.toMatchObject({ name: 'ToolExecutionError' });
+    // Só 1 chamada (pré-check), NUNCA INSERT installments nem transactions.
+    expect(state.executes.length).toBe(1);
+    expect(state.executes.some((e) => e.sqlText.toLowerCase().includes('insert into'))).toBe(false);
+  });
+
+  it('trigger DB 23P51 no INSERT (race) → mapeado para ToolExecutionError PT-PT', async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        [{ id: CARD_ID }], // pré-check passa (race)
+      ],
+    };
+    // INSERT installments (2ª chamada) rebenta com SQLSTATE 23P51 real.
+    const base = makeMockDb(state);
+    let calls = 0;
+    const orig = base.execute;
+    base.execute = (async (q: unknown) => {
+      calls += 1;
+      if (calls === 2) {
+        throw Object.assign(
+          new Error(
+            'O cartão da compra parcelada não pertence ao agregado familiar (card_id=...).',
+          ),
+          { code: '23P51' },
+        );
+      }
+      return orig(q);
+    }) as unknown as DrizzleDbClient['execute'];
+    const ctx = makeCtx(base);
+    try {
+      await createInstallment.execute(
+        {
+          description: 'X',
+          cardId: CARD_ID,
+          totalAmountCents: 90000,
+          numInstallments: 3,
+          purchasedOn: '2026-05-23',
+          firstInstallmentOn: '2026-06-01',
+          categoryId: CATEGORY_ID,
+        },
+        ctx,
+      );
+      expect.fail('devia ter lançado ToolExecutionError');
+    } catch (err) {
+      expect((err as Error).name).toBe('ToolExecutionError');
+      const cause = (err as { cause?: unknown }).cause;
+      expect((cause as Error).message).toMatch(/cartão indicado não pertence ao teu agregado/i);
+    }
+  });
+});
+
+describe('create_installment — executeAtomic integration', () => {
+  it('N=3 via executeAtomic — todas as 6 chamadas (pré-check cardId + insert installment + 3 insert tx + insert reverse_op)', async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        [{ id: CARD_ID }], // pré-check cardId
         [{ id: INSTALLMENT_ID }],
         [{ id: txId(1) }],
         [{ id: txId(2) }],
@@ -460,6 +546,7 @@ describe('create_installment — executeAtomic integration', () => {
       ctx,
     );
     expect(outcome.success).toBe(true);
-    expect(state.executes.length).toBe(5);
+    // pré-check cardId + INSERT installment + 3 INSERT tx + INSERT reverse_op.
+    expect(state.executes.length).toBe(6);
   });
 });

@@ -60,8 +60,8 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   console.log('[db-test/setup] A aplicar bootstrap (role authenticated + auth.* helpers)…');
   await applyBootstrap(url);
 
-  // 2. Migrations de produção: 0000_initial_schema.sql + 0001_rls_policies.sql.
-  console.log('[db-test/setup] A aplicar migrations de produção (0000 + 0001)…');
+  // 2. Migrations de produção: todas as 0000..NNNN da pasta migrations, aplicadas por glob.
+  console.log('[db-test/setup] A aplicar todas as migrations de produção (0000..NNNN, dir glob)…');
   await applyMigrations(url);
 
   console.log(`[db-test/setup] Schema pronto em ${Date.now() - start}ms total.`);

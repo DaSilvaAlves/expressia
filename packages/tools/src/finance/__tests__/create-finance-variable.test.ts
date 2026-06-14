@@ -18,18 +18,16 @@ import { createFinanceVariable } from '../create-finance-variable';
 // ─────────────────────────────────────────────────────────────────────────────
 
 vi.mock('@meu-jarvis/observability', () => ({
-  withSpan: vi.fn(
-    async (_name: string, _attrs: unknown, fn: (span: unknown) => unknown) => {
-      const mockSpan = {
-        setAttribute: vi.fn(),
-        setAttributes: vi.fn(),
-        end: vi.fn(),
-        recordException: vi.fn(),
-        setStatus: vi.fn(),
-      };
-      return fn(mockSpan);
-    },
-  ),
+  withSpan: vi.fn(async (_name: string, _attrs: unknown, fn: (span: unknown) => unknown) => {
+    const mockSpan = {
+      setAttribute: vi.fn(),
+      setAttributes: vi.fn(),
+      end: vi.fn(),
+      recordException: vi.fn(),
+      setStatus: vi.fn(),
+    };
+    return fn(mockSpan);
+  }),
   hashForCorrelation: vi.fn((s: string) => `hash_${s.slice(0, 8)}`),
   logger: {
     info: vi.fn(),
@@ -83,7 +81,7 @@ function makeMockDb(state: MockState): DrizzleDbClient {
   });
 
   const tx: DrizzleDbClient = {
-    transaction: vi.fn(async <T,>(fn: (tx: DrizzleDbClient) => Promise<T>) =>
+    transaction: vi.fn(async <T>(fn: (tx: DrizzleDbClient) => Promise<T>) =>
       fn(tx),
     ) as unknown as DrizzleDbClient['transaction'],
     insert: vi.fn(),
@@ -91,7 +89,7 @@ function makeMockDb(state: MockState): DrizzleDbClient {
   };
 
   const db: DrizzleDbClient = {
-    transaction: vi.fn(async <T,>(fn: (tx: DrizzleDbClient) => Promise<T>) => {
+    transaction: vi.fn(async <T>(fn: (tx: DrizzleDbClient) => Promise<T>) => {
       if (state.shouldThrowInTransaction) {
         throw state.shouldThrowInTransaction;
       }
@@ -307,7 +305,9 @@ describe('create_finance_variable — execute', () => {
       insertReturns: [
         // 1ª chamada: SELECT default category (resolveDefaultCategory) — só se categoryId omitido
         [{ id: DEFAULT_CATEGORY_ID }],
-        // 2ª chamada: INSERT em transactions
+        // 2ª chamada: pré-check cross-tenant do accountId explícito (FASE A) — 1 row = pertence
+        [{ id: ACCOUNT_ID }],
+        // 3ª chamada: INSERT em transactions
         [
           {
             id: TX_ID,
@@ -323,7 +323,7 @@ describe('create_finance_variable — execute', () => {
     };
   });
 
-  it("INSERT em transactions usa ctx.householdId (não do input — R-4.7)", async () => {
+  it('INSERT em transactions usa ctx.householdId (não do input — R-4.7)', async () => {
     const ctx = makeCtx(makeMockDb(state));
     await createFinanceVariable.execute(
       {
@@ -336,9 +336,9 @@ describe('create_finance_variable — execute', () => {
       ctx,
     );
 
-    // 1) lookup default category; 2) insert transaction
-    expect(state.executes.length).toBe(2);
-    const insertSql = state.executes[1]?.sqlText ?? '';
+    // 1) lookup default category; 2) pré-check accountId; 3) insert transaction
+    expect(state.executes.length).toBe(3);
+    const insertSql = state.executes[2]?.sqlText ?? '';
     expect(insertSql).toMatch(/insert into transactions/i);
     expect(insertSql).toMatch(/household_id/i);
     expect(insertSql).toMatch(/created_by_user_id/i);
@@ -347,6 +347,21 @@ describe('create_finance_variable — execute', () => {
   });
 
   it("inclui literal 'false' para is_projected (transactions reais — não projecções)", async () => {
+    // categoryId fornecido → sem SELECT category; accountId explícito → pré-check + INSERT.
+    state.insertReturns = [
+      [{ id: ACCOUNT_ID }], // 1ª: pré-check accountId
+      [
+        {
+          id: TX_ID,
+          amount_cents: 1000,
+          kind: 'income',
+          transaction_date: '2026-05-23',
+          account_id: ACCOUNT_ID,
+          card_id: null,
+          category_id: CATEGORY_ID,
+        },
+      ], // 2ª: INSERT
+    ];
     const ctx = makeCtx(makeMockDb(state));
     await createFinanceVariable.execute(
       {
@@ -359,8 +374,8 @@ describe('create_finance_variable — execute', () => {
       },
       ctx,
     );
-    // is_projected forçado a literal false → SQL incluiu "false" próximo de is_projected
-    const sqlText = state.executes[0]?.sqlText ?? '';
+    // is_projected forçado a literal false → o INSERT (2ª chamada) inclui "false".
+    const sqlText = state.executes[1]?.sqlText ?? '';
     expect(sqlText).toMatch(/false/);
   });
 
@@ -376,7 +391,8 @@ describe('create_finance_variable — execute', () => {
       },
       ctx,
     );
-    expect(state.executes.length).toBe(2);
+    // 1) SELECT category; 2) pré-check accountId; 3) INSERT.
+    expect(state.executes.length).toBe(3);
     const firstSql = state.executes[0]?.sqlText.toLowerCase() ?? '';
     expect(firstSql).toContain('select');
     expect(firstSql).toContain('from categories');
@@ -386,7 +402,9 @@ describe('create_finance_variable — execute', () => {
     state.insertReturns = [
       // 1ª: SELECT default category (income)
       [{ id: DEFAULT_CATEGORY_ID }],
-      // 2ª: INSERT transaction
+      // 2ª: pré-check accountId explícito
+      [{ id: ACCOUNT_ID }],
+      // 3ª: INSERT transaction
       [
         {
           id: TX_ID,
@@ -410,14 +428,15 @@ describe('create_finance_variable — execute', () => {
       },
       ctx,
     );
-    // resolveDefaultCategory faz o SELECT — SQL bound param literal não fica no sqlText;
-    // verificamos que houve 2 chamadas (SELECT + INSERT).
-    expect(state.executes.length).toBe(2);
+    // 3 chamadas: SELECT category + pré-check accountId + INSERT.
+    expect(state.executes.length).toBe(3);
   });
 
-  it('quando categoryId fornecido → NÃO chama resolveDefaultCategory (só 1 execute)', async () => {
+  it('quando categoryId fornecido → NÃO chama resolveDefaultCategory (pré-check + INSERT)', async () => {
     state.insertReturns = [
-      // Só 1ª: INSERT transaction (sem SELECT default category)
+      // 1ª: pré-check accountId explícito (sem SELECT default category)
+      [{ id: ACCOUNT_ID }],
+      // 2ª: INSERT transaction
       [
         {
           id: TX_ID,
@@ -442,8 +461,9 @@ describe('create_finance_variable — execute', () => {
       },
       ctx,
     );
-    expect(state.executes.length).toBe(1);
-    expect(state.executes[0]?.sqlText.toLowerCase()).toContain('insert into transactions');
+    // sem SELECT category; 1) pré-check accountId; 2) INSERT.
+    expect(state.executes.length).toBe(2);
+    expect(state.executes[1]?.sqlText.toLowerCase()).toContain('insert into transactions');
   });
 
   it('output schema válido — transactionId UUID + amountCents inteiro', async () => {
@@ -472,6 +492,7 @@ describe('create_finance_variable — execute', () => {
   it('lança erro quando INSERT não devolve row', async () => {
     state.insertReturns = [
       [{ id: DEFAULT_CATEGORY_ID }], // SELECT default category
+      [{ id: ACCOUNT_ID }], // pré-check accountId OK
       [], // INSERT empty
     ];
     const ctx = makeCtx(makeMockDb(state));
@@ -601,11 +622,12 @@ describe('create_finance_variable — conta default (Story 2.13)', () => {
     expect(insertSql).not.toContain('cash');
   });
 
-  it('com accountId explícito → NÃO chama resolveDefaultAccount (só SELECT category + INSERT)', async () => {
+  it('com accountId explícito → NÃO chama resolveDefaultAccount (mas faz pré-check cross-tenant)', async () => {
     const localState: MockState = {
       executes: [],
       insertReturns: [
-        [{ id: DEFAULT_CATEGORY_ID }],
+        [{ id: DEFAULT_CATEGORY_ID }], // SELECT category
+        [{ id: ACCOUNT_ID }], // pré-check accountId
         [
           {
             id: TX_ID,
@@ -616,7 +638,7 @@ describe('create_finance_variable — conta default (Story 2.13)', () => {
             card_id: null,
             category_id: DEFAULT_CATEGORY_ID,
           },
-        ],
+        ], // INSERT
       ],
     };
     const ctx = makeCtx(makeMockDb(localState));
@@ -630,9 +652,14 @@ describe('create_finance_variable — conta default (Story 2.13)', () => {
       },
       ctx,
     );
-    // 2 chamadas: SELECT category + INSERT (sem SELECT account).
-    expect(localState.executes.length).toBe(2);
-    expect(localState.executes.some((e) => e.sqlText.toLowerCase().includes('from accounts'))).toBe(false);
+    // 3 chamadas: SELECT category + pré-check accountId + INSERT.
+    expect(localState.executes.length).toBe(3);
+    // O pré-check consulta `from accounts ... where id =` MAS NÃO é o
+    // resolveDefaultAccount (que filtra `archived_at is null` + ordena por dinheiro).
+    expect(
+      localState.executes.some((e) => e.sqlText.toLowerCase().includes('archived_at is null')),
+    ).toBe(false);
+    expect(localState.executes.some((e) => /from accounts where id =/i.test(e.sqlText))).toBe(true);
   });
 
   it('household sem nenhuma conta → ToolExecutionError PT-PT accionável', async () => {
@@ -703,7 +730,9 @@ describe('create_finance_variable — executeAtomic integration', () => {
       insertReturns: [
         // 1ª: SELECT default category
         [{ id: DEFAULT_CATEGORY_ID }],
-        // 2ª: INSERT transaction
+        // 2ª: pré-check accountId explícito
+        [{ id: ACCOUNT_ID }],
+        // 3ª: INSERT transaction
         [
           {
             id: TX_ID,
@@ -715,7 +744,7 @@ describe('create_finance_variable — executeAtomic integration', () => {
             category_id: DEFAULT_CATEGORY_ID,
           },
         ],
-        // 3ª: INSERT agent_reverse_ops
+        // 4ª: INSERT agent_reverse_ops
         [{ id: REVERSE_OP_ID }],
       ],
     };
@@ -741,11 +770,10 @@ describe('create_finance_variable — executeAtomic integration', () => {
       expect(outcome.results[0]?.toolName).toBe('create_finance_variable');
       expect(outcome.results[0]?.reverseOpId).toBe(REVERSE_OP_ID);
     }
-    expect(state.executes.length).toBe(3);
-    expect(state.executes[2]?.sqlText).toMatch(/insert into agent_reverse_ops/i);
-    expect(state.executes[2]?.sqlText).toMatch(
-      /now\(\)\s*\+\s*interval\s*'30\s*seconds'/i,
-    );
+    // category + pré-check + INSERT transaction + INSERT agent_reverse_ops.
+    expect(state.executes.length).toBe(4);
+    expect(state.executes[3]?.sqlText).toMatch(/insert into agent_reverse_ops/i);
+    expect(state.executes[3]?.sqlText).toMatch(/now\(\)\s*\+\s*interval\s*'30\s*seconds'/i);
   });
 
   it('TEST-001-NB — transacção rebenta → ToolTransactionError propaga (rollback)', async () => {
@@ -780,6 +808,144 @@ describe('create_finance_variable — executeAtomic integration', () => {
 // Tests — RLS / cross-household defesa em profundidade
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Tests — hardening cross-tenant (FASE A — accountId/cardId explícito)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('create_finance_variable — cross-tenant (accountId/cardId explícito)', () => {
+  it('accountId de OUTRO household → ToolExecutionError no pré-check (NÃO chega ao INSERT)', async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        [{ id: DEFAULT_CATEGORY_ID }], // 1ª: SELECT default category OK
+        [], // 2ª: pré-check account SELECT → 0 rows (conta de outro household / RLS)
+      ],
+    };
+    const ctx = makeCtx(makeMockDb(state));
+    await expect(
+      createFinanceVariable.execute(
+        {
+          amountCents: 1000,
+          kind: 'expense',
+          transactionDate: '2026-05-23',
+          description: 'X',
+          accountId: ACCOUNT_ID,
+        },
+        ctx,
+      ),
+    ).rejects.toMatchObject({ name: 'ToolExecutionError' });
+    // Só 2 chamadas (category + pré-check), NUNCA o INSERT.
+    expect(state.executes.length).toBe(2);
+    expect(
+      state.executes.some((e) => e.sqlText.toLowerCase().includes('insert into transactions')),
+    ).toBe(false);
+  });
+
+  it('cardId de OUTRO household → ToolExecutionError no pré-check (NÃO chega ao INSERT)', async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        [{ id: DEFAULT_CATEGORY_ID }], // SELECT default category OK
+        [], // pré-check card SELECT → 0 rows
+      ],
+    };
+    const ctx = makeCtx(makeMockDb(state));
+    await expect(
+      createFinanceVariable.execute(
+        {
+          amountCents: 1000,
+          kind: 'expense',
+          transactionDate: '2026-05-23',
+          description: 'X',
+          cardId: CARD_ID,
+        },
+        ctx,
+      ),
+    ).rejects.toMatchObject({ name: 'ToolExecutionError' });
+    expect(
+      state.executes.some((e) => e.sqlText.toLowerCase().includes('insert into transactions')),
+    ).toBe(false);
+  });
+
+  it('accountId VÁLIDO → pré-check passa + INSERT prossegue', async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        [{ id: DEFAULT_CATEGORY_ID }], // SELECT default category
+        [{ id: ACCOUNT_ID }], // pré-check account SELECT → 1 row
+        [
+          {
+            id: TX_ID,
+            amount_cents: 1000,
+            kind: 'expense',
+            transaction_date: '2026-05-23',
+            account_id: ACCOUNT_ID,
+            card_id: null,
+            category_id: DEFAULT_CATEGORY_ID,
+          },
+        ],
+      ],
+    };
+    const ctx = makeCtx(makeMockDb(state));
+    const out = await createFinanceVariable.execute(
+      {
+        amountCents: 1000,
+        kind: 'expense',
+        transactionDate: '2026-05-23',
+        description: 'X',
+        accountId: ACCOUNT_ID,
+      },
+      ctx,
+    );
+    expect(out.transactionId).toBe(TX_ID);
+    // 3 chamadas: category + pré-check + INSERT.
+    expect(state.executes.length).toBe(3);
+  });
+
+  it('trigger DB 23P51 no INSERT (race) → mapeado para ToolExecutionError PT-PT', async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        [{ id: DEFAULT_CATEGORY_ID }], // SELECT default category
+        [{ id: ACCOUNT_ID }], // pré-check passa (race: conta movida entre check e insert)
+      ],
+    };
+    // Forçar o INSERT (3ª chamada execute) a rebentar com SQLSTATE 23P51.
+    const db = makeMockDb(state);
+    const originalExecute = db.execute;
+    let calls = 0;
+    db.execute = (async (q: unknown) => {
+      calls += 1;
+      if (calls === 3) {
+        throw Object.assign(
+          new Error('A conta indicada não pertence ao agregado familiar (account_id=...).'),
+          { code: '23P51' },
+        );
+      }
+      return originalExecute(q);
+    }) as unknown as DrizzleDbClient['execute'];
+    const ctx = makeCtx(db);
+
+    try {
+      await createFinanceVariable.execute(
+        {
+          amountCents: 1000,
+          kind: 'expense',
+          transactionDate: '2026-05-23',
+          description: 'X',
+          accountId: ACCOUNT_ID,
+        },
+        ctx,
+      );
+      expect.fail('devia ter lançado ToolExecutionError');
+    } catch (err) {
+      expect((err as Error).name).toBe('ToolExecutionError');
+      const cause = (err as { cause?: unknown }).cause;
+      expect((cause as Error).message).toMatch(/não pertence ao teu agregado/i);
+    }
+  });
+});
+
 describe('create_finance_variable — segurança RLS', () => {
   it('inputSchema descarta household_id se for injectado (Zod strip mode)', () => {
     const r = createFinanceVariable.inputSchema.safeParse({
@@ -803,6 +969,7 @@ describe('create_finance_variable — segurança RLS', () => {
       executes: [],
       insertReturns: [
         [{ id: DEFAULT_CATEGORY_ID }],
+        [{ id: ACCOUNT_ID }], // pré-check accountId
         [
           {
             id: TX_ID,
@@ -820,6 +987,7 @@ describe('create_finance_variable — segurança RLS', () => {
       executes: [],
       insertReturns: [
         [{ id: DEFAULT_CATEGORY_ID }],
+        [{ id: ACCOUNT_ID }], // pré-check accountId
         [
           {
             id: '99999999-aaaa-4bbb-8ccc-dddddddddddd',
@@ -856,7 +1024,8 @@ describe('create_finance_variable — segurança RLS', () => {
       },
       ctxB,
     );
-    expect(stateA.executes.length).toBe(2);
-    expect(stateB.executes.length).toBe(2);
+    // category + pré-check accountId + INSERT por cada ctx.
+    expect(stateA.executes.length).toBe(3);
+    expect(stateB.executes.length).toBe(3);
   });
 });

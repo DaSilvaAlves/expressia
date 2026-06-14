@@ -24,11 +24,11 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import type {
-  ReverseOpPayload,
-  ToolDefinition,
-  ToolExecutionContext,
-} from '../contracts';
+import type { ReverseOpPayload, ToolDefinition, ToolExecutionContext } from '../contracts';
+import {
+  assertAccountBelongsToHousehold,
+  mapFinanceFkGuardError,
+} from './_helpers/assert-ref-belongs-to-household';
 import { formatEuroCents } from './_helpers/format-euro-cents';
 import { resolveDefaultAccount } from './_helpers/resolve-default-account';
 
@@ -50,9 +50,7 @@ const CreateCardInputSchema = z
     (d) => {
       if (d.cardType === 'credit') {
         return (
-          d.closingDay !== undefined &&
-          d.dueDay !== undefined &&
-          d.creditLimitCents !== undefined
+          d.closingDay !== undefined && d.dueDay !== undefined && d.creditLimitCents !== undefined
         );
       }
       return true;
@@ -112,31 +110,50 @@ export const createCard: ToolDefinition<CreateCardInput, CreateCardOutput> = {
   async execute(input, ctx: ToolExecutionContext): Promise<CreateCardOutput> {
     // Story 2.13 AC5: resolver conta default quando accountId ausente. Apenas
     // o accountId é necessário aqui (o accountType não influencia cartões).
-    const accountId =
-      input.accountId ??
-      (
+    //
+    // Hardening cross-tenant (1.ª rede app-enforced, SEC-1): quando accountId
+    // é EXPLÍCITO, PRÉ-CHECK RLS-scoped de pertença ao household ANTES do
+    // INSERT. O caminho default (resolveDefaultAccount) já é RLS-scoped.
+    let accountId: string;
+    if (input.accountId !== undefined) {
+      await assertAccountBelongsToHousehold({
+        db: ctx.db,
+        accountId: input.accountId,
+        toolName: 'create_card',
+      });
+      accountId = input.accountId;
+    } else {
+      accountId = (
         await resolveDefaultAccount({
           db: ctx.db,
           toolName: 'create_card',
         })
       ).accountId;
+    }
 
-    const result = (await ctx.db.execute(sql`
-      insert into cards
-        (household_id, account_id, name, card_type, closing_day, due_day, last4, credit_limit_cents)
-      values
-        (
-          ${ctx.householdId},
-          ${accountId}::uuid,
-          ${input.name},
-          ${input.cardType}::card_type,
-          ${input.closingDay ?? null},
-          ${input.dueDay ?? null},
-          ${input.last4 ?? null},
-          ${input.creditLimitCents ?? null}
-        )
-      returning id, name, account_id, card_type, closing_day, due_day, last4, credit_limit_cents
-    `)) as ReadonlyArray<CardsInsertReturn>;
+    // REDE FINAL (2.ª rede): mapear o trigger DB (SQLSTATE 23P51, migration
+    // 0023) para ToolExecutionError PT-PT em caso de race condition.
+    let result: ReadonlyArray<CardsInsertReturn>;
+    try {
+      result = (await ctx.db.execute(sql`
+        insert into cards
+          (household_id, account_id, name, card_type, closing_day, due_day, last4, credit_limit_cents)
+        values
+          (
+            ${ctx.householdId},
+            ${accountId}::uuid,
+            ${input.name},
+            ${input.cardType}::card_type,
+            ${input.closingDay ?? null},
+            ${input.dueDay ?? null},
+            ${input.last4 ?? null},
+            ${input.creditLimitCents ?? null}
+          )
+        returning id, name, account_id, card_type, closing_day, due_day, last4, credit_limit_cents
+      `)) as ReadonlyArray<CardsInsertReturn>;
+    } catch (err) {
+      throw mapFinanceFkGuardError('create_card', err);
+    }
 
     const row = result[0];
     if (!row) {

@@ -53,6 +53,10 @@ import {
   type ToolExecutionContext,
 } from '../contracts';
 import { addMonthsSafe } from './_helpers/add-months-safe';
+import {
+  assertCardBelongsToHousehold,
+  mapFinanceFkGuardError,
+} from './_helpers/assert-ref-belongs-to-household';
 import { chunkArray } from './_helpers/chunk-array';
 import { computeInstallmentSplit } from './_helpers/installment-split';
 import { formatEuroCents } from './_helpers/format-euro-cents';
@@ -63,7 +67,9 @@ const CreateInstallmentInputSchema = z.object({
   cardId: z.string().uuid(),
   totalAmountCents: z.number().int().positive(),
   numInstallments: z.number().int().min(1).max(60),
-  purchasedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'purchasedOn deve estar no formato YYYY-MM-DD'),
+  purchasedOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'purchasedOn deve estar no formato YYYY-MM-DD'),
   firstInstallmentOn: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'firstInstallmentOn deve estar no formato YYYY-MM-DD'),
@@ -91,10 +97,7 @@ interface TransactionsInsertReturn {
   readonly id: string;
 }
 
-export const createInstallment: ToolDefinition<
-  CreateInstallmentInput,
-  CreateInstallmentOutput
-> = {
+export const createInstallment: ToolDefinition<CreateInstallmentInput, CreateInstallmentOutput> = {
   name: 'create_installment',
   domain: 'finance',
   description:
@@ -119,88 +122,27 @@ export const createInstallment: ToolDefinition<
       }));
 
     // 2) Cálculo determinístico das parcelas (R-4.1 / D-4.10.7).
-    const split = computeInstallmentSplit(
-      input.totalAmountCents,
-      input.numInstallments,
-    );
+    const split = computeInstallmentSplit(input.totalAmountCents, input.numInstallments);
+
+    // 2.5) Hardening cross-tenant (1.ª rede app-enforced, SEC-1): cardId é
+    //      sempre EXPLÍCITO nesta tool (obrigatório no schema). PRÉ-CHECK
+    //      RLS-scoped de pertença ao household ANTES de qualquer INSERT.
+    await assertCardBelongsToHousehold({
+      db: ctx.db,
+      cardId: input.cardId,
+      toolName: 'create_installment',
+    });
 
     // 3) INSERT em installments.
-    const installmentResult = (await ctx.db.execute(sql`
-      insert into installments
-        (household_id, created_by_user_id, card_id, description,
-         total_amount_cents, num_installments, per_installment_cents,
-         category_id, purchased_on, first_installment_on)
-      values
-        (
-          ${ctx.householdId},
-          ${ctx.userId},
-          ${input.cardId}::uuid,
-          ${input.description},
-          ${input.totalAmountCents},
-          ${input.numInstallments},
-          ${split.perInstallmentCents},
-          ${categoryId}::uuid,
-          ${input.purchasedOn}::date,
-          ${input.firstInstallmentOn}::date
-        )
-      returning id
-    `)) as ReadonlyArray<InstallmentsInsertReturn>;
-
-    const installmentRow = installmentResult[0];
-    if (!installmentRow) {
-      throw new Error('INSERT em installments não devolveu row');
+    //    REDE FINAL (2.ª rede): mapear o trigger DB (SQLSTATE 23P51, migration
+    //    0023) para ToolExecutionError PT-PT em caso de race condition. Envolve
+    //    o INSERT installments + os N INSERTs transactions (ambos referenciam
+    //    cardId e têm trigger de pertença).
+    try {
+      return await insertInstallmentAndTransactions(input, ctx, categoryId, split);
+    } catch (err) {
+      throw mapFinanceFkGuardError('create_installment', err);
     }
-    const installmentId = installmentRow.id;
-
-    // 4) Loop N INSERTs em transactions.
-    const transactionIds: string[] = [];
-    for (let i = 1; i <= input.numInstallments; i += 1) {
-      const transactionDate = addMonthsSafe(input.firstInstallmentOn, i - 1);
-      const amountCents = split.transactionAmounts[i - 1] as number;
-      const description = `${input.description} (${String(i)}/${String(input.numInstallments)})`;
-
-      const txResult = (await ctx.db.execute(sql`
-        insert into transactions
-          (household_id, created_by_user_id, account_id, card_id, category_id,
-           amount_cents, kind, description, transaction_date, payment_method,
-           agent_run_id, is_projected, installment_id, installment_index)
-        values
-          (
-            ${ctx.householdId},
-            ${ctx.userId},
-            null::uuid,
-            ${input.cardId}::uuid,
-            ${categoryId}::uuid,
-            ${amountCents},
-            'expense'::transaction_kind,
-            ${description},
-            ${transactionDate}::date,
-            'card'::payment_method_finance,
-            ${ctx.runId}::uuid,
-            true,
-            ${installmentId}::uuid,
-            ${i}
-          )
-        returning id
-      `)) as ReadonlyArray<TransactionsInsertReturn>;
-
-      const txRow = txResult[0];
-      if (!txRow) {
-        throw new Error(
-          `INSERT em transactions (parcela ${String(i)}/${String(input.numInstallments)}) não devolveu row`,
-        );
-      }
-      transactionIds.push(txRow.id);
-    }
-
-    return {
-      installmentId,
-      transactionIds,
-      perInstallmentCents: split.perInstallmentCents,
-      lastInstallmentCents: split.lastInstallmentCents,
-      totalAmountCents: input.totalAmountCents,
-      numInstallments: input.numInstallments,
-    };
   },
 
   /**
@@ -245,3 +187,94 @@ export const createInstallment: ToolDefinition<
     };
   },
 };
+
+/**
+ * Escrita atómica da compra parcelada: 1 INSERT em `installments` + N INSERTs
+ * em `transactions` projectadas. Extraída para fora de `execute()` para que o
+ * try/catch que mapeia o erro do trigger DB (SQLSTATE 23P51) envolva todo o
+ * bloco de escrita sem aninhar o cálculo/pré-check.
+ */
+async function insertInstallmentAndTransactions(
+  input: CreateInstallmentInput,
+  ctx: ToolExecutionContext,
+  categoryId: string,
+  split: ReturnType<typeof computeInstallmentSplit>,
+): Promise<CreateInstallmentOutput> {
+  // 3) INSERT em installments.
+  const installmentResult = (await ctx.db.execute(sql`
+    insert into installments
+      (household_id, created_by_user_id, card_id, description,
+       total_amount_cents, num_installments, per_installment_cents,
+       category_id, purchased_on, first_installment_on)
+    values
+      (
+        ${ctx.householdId},
+        ${ctx.userId},
+        ${input.cardId}::uuid,
+        ${input.description},
+        ${input.totalAmountCents},
+        ${input.numInstallments},
+        ${split.perInstallmentCents},
+        ${categoryId}::uuid,
+        ${input.purchasedOn}::date,
+        ${input.firstInstallmentOn}::date
+      )
+    returning id
+  `)) as ReadonlyArray<InstallmentsInsertReturn>;
+
+  const installmentRow = installmentResult[0];
+  if (!installmentRow) {
+    throw new Error('INSERT em installments não devolveu row');
+  }
+  const installmentId = installmentRow.id;
+
+  // 4) Loop N INSERTs em transactions.
+  const transactionIds: string[] = [];
+  for (let i = 1; i <= input.numInstallments; i += 1) {
+    const transactionDate = addMonthsSafe(input.firstInstallmentOn, i - 1);
+    const amountCents = split.transactionAmounts[i - 1] as number;
+    const description = `${input.description} (${String(i)}/${String(input.numInstallments)})`;
+
+    const txResult = (await ctx.db.execute(sql`
+      insert into transactions
+        (household_id, created_by_user_id, account_id, card_id, category_id,
+         amount_cents, kind, description, transaction_date, payment_method,
+         agent_run_id, is_projected, installment_id, installment_index)
+      values
+        (
+          ${ctx.householdId},
+          ${ctx.userId},
+          null::uuid,
+          ${input.cardId}::uuid,
+          ${categoryId}::uuid,
+          ${amountCents},
+          'expense'::transaction_kind,
+          ${description},
+          ${transactionDate}::date,
+          'card'::payment_method_finance,
+          ${ctx.runId}::uuid,
+          true,
+          ${installmentId}::uuid,
+          ${i}
+        )
+      returning id
+    `)) as ReadonlyArray<TransactionsInsertReturn>;
+
+    const txRow = txResult[0];
+    if (!txRow) {
+      throw new Error(
+        `INSERT em transactions (parcela ${String(i)}/${String(input.numInstallments)}) não devolveu row`,
+      );
+    }
+    transactionIds.push(txRow.id);
+  }
+
+  return {
+    installmentId,
+    transactionIds,
+    perInstallmentCents: split.perInstallmentCents,
+    lastInstallmentCents: split.lastInstallmentCents,
+    totalAmountCents: input.totalAmountCents,
+    numInstallments: input.numInstallments,
+  };
+}

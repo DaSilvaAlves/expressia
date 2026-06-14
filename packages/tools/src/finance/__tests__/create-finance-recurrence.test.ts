@@ -11,18 +11,16 @@ import { executeAtomic } from '@/atomic';
 import { createFinanceRecurrence } from '../create-finance-recurrence';
 
 vi.mock('@meu-jarvis/observability', () => ({
-  withSpan: vi.fn(
-    async (_n: string, _a: unknown, fn: (s: unknown) => unknown) => {
-      const s = {
-        setAttribute: vi.fn(),
-        setAttributes: vi.fn(),
-        end: vi.fn(),
-        recordException: vi.fn(),
-        setStatus: vi.fn(),
-      };
-      return fn(s);
-    },
-  ),
+  withSpan: vi.fn(async (_n: string, _a: unknown, fn: (s: unknown) => unknown) => {
+    const s = {
+      setAttribute: vi.fn(),
+      setAttributes: vi.fn(),
+      end: vi.fn(),
+      recordException: vi.fn(),
+      setStatus: vi.fn(),
+    };
+    return fn(s);
+  }),
   hashForCorrelation: vi.fn((s: string) => `hash_${s.slice(0, 8)}`),
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
@@ -46,8 +44,10 @@ function captureSqlText(query: unknown): string {
       return;
     }
     const v = o.value;
-    if (Array.isArray(v)) for (const x of v) if (typeof x === 'string') s += x;
-    else if (typeof v === 'string') s += v;
+    if (Array.isArray(v))
+      for (const x of v)
+        if (typeof x === 'string') s += x;
+        else if (typeof v === 'string') s += v;
   };
   walk(query);
   return s;
@@ -62,14 +62,14 @@ function makeMockDb(state: MockState): DrizzleDbClient {
     return r;
   });
   const tx: DrizzleDbClient = {
-    transaction: vi.fn(async <T,>(fn: (tx: DrizzleDbClient) => Promise<T>) =>
+    transaction: vi.fn(async <T>(fn: (tx: DrizzleDbClient) => Promise<T>) =>
       fn(tx),
     ) as unknown as DrizzleDbClient['transaction'],
     insert: vi.fn(),
     execute: exec as unknown as DrizzleDbClient['execute'],
   };
   return {
-    transaction: vi.fn(async <T,>(fn: (tx: DrizzleDbClient) => Promise<T>) =>
+    transaction: vi.fn(async <T>(fn: (tx: DrizzleDbClient) => Promise<T>) =>
       fn(tx),
     ) as unknown as DrizzleDbClient['transaction'],
     insert: vi.fn(),
@@ -155,14 +155,12 @@ describe('create_finance_recurrence — input validation', () => {
   });
   it('rejeita startsOn formato errado', () => {
     expect(
-      createFinanceRecurrence.inputSchema.safeParse({ ...base, startsOn: '01/06/2026' })
-        .success,
+      createFinanceRecurrence.inputSchema.safeParse({ ...base, startsOn: '01/06/2026' }).success,
     ).toBe(false);
   });
   it("rejeita kind='transfer' (DP-4.10.C)", () => {
     expect(
-      createFinanceRecurrence.inputSchema.safeParse({ ...base, kind: 'transfer' as never })
-        .success,
+      createFinanceRecurrence.inputSchema.safeParse({ ...base, kind: 'transfer' as never }).success,
     ).toBe(false);
   });
   it('ACEITA sem accountId E sem cardId (Story 2.13 — refine relaxado; conta default em execute)', () => {
@@ -213,6 +211,7 @@ describe('create_finance_recurrence — execute', () => {
       executes: [],
       insertReturns: [
         [{ id: DEFAULT_CATEGORY_ID }],
+        [{ id: ACCOUNT_ID }], // pré-check accountId explícito (FASE A)
         [
           {
             id: REC_ID,
@@ -241,12 +240,14 @@ describe('create_finance_recurrence — execute', () => {
       },
       ctx,
     );
-    expect(state.executes.length).toBe(2); // SELECT default + INSERT
-    expect(state.executes[1]?.sqlText.toLowerCase()).toContain('insert into recurrences');
+    // SELECT category + pré-check accountId + INSERT.
+    expect(state.executes.length).toBe(3);
+    expect(state.executes[2]?.sqlText.toLowerCase()).toContain('insert into recurrences');
   });
 
   it('com categoryId fornecido → NÃO chama resolveDefaultCategory', async () => {
     state.insertReturns = [
+      [{ id: ACCOUNT_ID }], // pré-check accountId (sem SELECT category)
       [
         {
           id: REC_ID,
@@ -272,8 +273,9 @@ describe('create_finance_recurrence — execute', () => {
       },
       ctx,
     );
-    expect(state.executes.length).toBe(1);
-    expect(state.executes[0]?.sqlText.toLowerCase()).toContain('insert into recurrences');
+    // pré-check accountId + INSERT (sem SELECT category).
+    expect(state.executes.length).toBe(2);
+    expect(state.executes[1]?.sqlText.toLowerCase()).toContain('insert into recurrences');
   });
 
   it('output válido', async () => {
@@ -310,7 +312,8 @@ describe('create_finance_recurrence — execute', () => {
       },
       ctx,
     );
-    expect(state.executes[1]?.sqlText).toMatch(/true/);
+    // SELECT category + pré-check accountId + INSERT → o INSERT (índice 2) tem `active=true`.
+    expect(state.executes[2]?.sqlText).toMatch(/true/);
   });
 });
 
@@ -403,12 +406,69 @@ describe('create_finance_recurrence — reverse()', () => {
   });
 });
 
+describe('create_finance_recurrence — cross-tenant (accountId/cardId explícito)', () => {
+  it('accountId de OUTRO household → ToolExecutionError no pré-check (NÃO chega ao INSERT)', async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        [{ id: DEFAULT_CATEGORY_ID }], // SELECT category OK
+        [], // pré-check account SELECT → 0 rows
+      ],
+    };
+    const ctx = makeCtx(makeMockDb(state));
+    await expect(
+      createFinanceRecurrence.execute(
+        {
+          amountCents: 60000,
+          kind: 'expense',
+          description: 'Renda',
+          frequency: 'monthly',
+          startsOn: '2026-06-01',
+          accountId: ACCOUNT_ID,
+        },
+        ctx,
+      ),
+    ).rejects.toMatchObject({ name: 'ToolExecutionError' });
+    expect(
+      state.executes.some((e) => e.sqlText.toLowerCase().includes('insert into recurrences')),
+    ).toBe(false);
+  });
+
+  it('cardId de OUTRO household → ToolExecutionError no pré-check', async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        [{ id: DEFAULT_CATEGORY_ID }], // SELECT category OK
+        [], // pré-check card SELECT → 0 rows
+      ],
+    };
+    const ctx = makeCtx(makeMockDb(state));
+    await expect(
+      createFinanceRecurrence.execute(
+        {
+          amountCents: 60000,
+          kind: 'expense',
+          description: 'Renda',
+          frequency: 'monthly',
+          startsOn: '2026-06-01',
+          cardId: CARD_ID,
+        },
+        ctx,
+      ),
+    ).rejects.toMatchObject({ name: 'ToolExecutionError' });
+    expect(
+      state.executes.some((e) => e.sqlText.toLowerCase().includes('insert into recurrences')),
+    ).toBe(false);
+  });
+});
+
 describe('create_finance_recurrence — executeAtomic integration', () => {
-  it('via executeAtomic → 3 execute calls (SELECT + INSERT + reverse_op)', async () => {
+  it('via executeAtomic → 4 execute calls (SELECT + pré-check + INSERT + reverse_op)', async () => {
     const state: MockState = {
       executes: [],
       insertReturns: [
         [{ id: DEFAULT_CATEGORY_ID }],
+        [{ id: ACCOUNT_ID }], // pré-check accountId
         [
           {
             id: REC_ID,
@@ -444,6 +504,7 @@ describe('create_finance_recurrence — executeAtomic integration', () => {
     if (outcome.success) {
       expect(outcome.results[0]?.reverseOpId).toBe(REVERSE_OP_ID);
     }
-    expect(state.executes.length).toBe(3);
+    // SELECT category + pré-check accountId + INSERT recurrences + INSERT reverse_op.
+    expect(state.executes.length).toBe(4);
   });
 });

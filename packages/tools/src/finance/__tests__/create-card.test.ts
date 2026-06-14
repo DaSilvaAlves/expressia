@@ -11,18 +11,16 @@ import { executeAtomic } from '@/atomic';
 import { createCard } from '../create-card';
 
 vi.mock('@meu-jarvis/observability', () => ({
-  withSpan: vi.fn(
-    async (_n: string, _a: unknown, fn: (s: unknown) => unknown) => {
-      const s = {
-        setAttribute: vi.fn(),
-        setAttributes: vi.fn(),
-        end: vi.fn(),
-        recordException: vi.fn(),
-        setStatus: vi.fn(),
-      };
-      return fn(s);
-    },
-  ),
+  withSpan: vi.fn(async (_n: string, _a: unknown, fn: (s: unknown) => unknown) => {
+    const s = {
+      setAttribute: vi.fn(),
+      setAttributes: vi.fn(),
+      end: vi.fn(),
+      recordException: vi.fn(),
+      setStatus: vi.fn(),
+    };
+    return fn(s);
+  }),
   hashForCorrelation: vi.fn((s: string) => `hash_${s.slice(0, 8)}`),
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
@@ -46,8 +44,10 @@ function captureSqlText(query: unknown): string {
       return;
     }
     const v = o.value;
-    if (Array.isArray(v)) for (const x of v) if (typeof x === 'string') s += x;
-    else if (typeof v === 'string') s += v;
+    if (Array.isArray(v))
+      for (const x of v)
+        if (typeof x === 'string') s += x;
+        else if (typeof v === 'string') s += v;
   };
   walk(query);
   return s;
@@ -62,9 +62,9 @@ function makeMockDb(state: MockState): DrizzleDbClient {
     return r;
   });
   return {
-    transaction: vi.fn(async <T,>(fn: (tx: DrizzleDbClient) => Promise<T>) =>
+    transaction: vi.fn(async <T>(fn: (tx: DrizzleDbClient) => Promise<T>) =>
       fn({
-        transaction: vi.fn(async <U,>(g: (gt: DrizzleDbClient) => Promise<U>) =>
+        transaction: vi.fn(async <U>(g: (gt: DrizzleDbClient) => Promise<U>) =>
           g({
             transaction: vi.fn(),
             insert: vi.fn(),
@@ -152,15 +152,13 @@ describe('create_card — input validation (F3 corrigido)', () => {
   });
 
   it('rejeita closingDay = 0', () => {
-    expect(
-      createCard.inputSchema.safeParse({ ...validCredit, closingDay: 0 }).success,
-    ).toBe(false);
+    expect(createCard.inputSchema.safeParse({ ...validCredit, closingDay: 0 }).success).toBe(false);
   });
 
   it('rejeita closingDay = 29 (CHECK 1..28)', () => {
-    expect(
-      createCard.inputSchema.safeParse({ ...validCredit, closingDay: 29 }).success,
-    ).toBe(false);
+    expect(createCard.inputSchema.safeParse({ ...validCredit, closingDay: 29 }).success).toBe(
+      false,
+    );
   });
 
   it("rejeita cardType 'credito' (PT — F3 corrigiu para EN)", () => {
@@ -179,21 +177,15 @@ describe('create_card — input validation (F3 corrigido)', () => {
   });
 
   it('aceita last4 válido (4 dígitos)', () => {
-    expect(
-      createCard.inputSchema.safeParse({ ...validCredit, last4: '1234' }).success,
-    ).toBe(true);
+    expect(createCard.inputSchema.safeParse({ ...validCredit, last4: '1234' }).success).toBe(true);
   });
 
   it('rejeita last4 com letras', () => {
-    expect(
-      createCard.inputSchema.safeParse({ ...validCredit, last4: '12ab' }).success,
-    ).toBe(false);
+    expect(createCard.inputSchema.safeParse({ ...validCredit, last4: '12ab' }).success).toBe(false);
   });
 
   it('rejeita last4 com 3 dígitos', () => {
-    expect(
-      createCard.inputSchema.safeParse({ ...validCredit, last4: '123' }).success,
-    ).toBe(false);
+    expect(createCard.inputSchema.safeParse({ ...validCredit, last4: '123' }).success).toBe(false);
   });
 });
 
@@ -236,6 +228,7 @@ describe('create_card — execute', () => {
     const state: MockState = {
       executes: [],
       insertReturns: [
+        [{ id: ACCOUNT_ID }], // pré-check accountId explícito (FASE A)
         [
           {
             id: CARD_ID,
@@ -262,7 +255,8 @@ describe('create_card — execute', () => {
       },
       ctx,
     );
-    expect(state.executes[0]?.sqlText.toLowerCase()).toContain('insert into cards');
+    // 1) pré-check accountId; 2) INSERT cards.
+    expect(state.executes[1]?.sqlText.toLowerCase()).toContain('insert into cards');
     expect(out.cardId).toBe(CARD_ID);
     expect(out.creditLimitCents).toBe(500000);
     expect(out.cardType).toBe('credit');
@@ -272,6 +266,7 @@ describe('create_card — execute', () => {
     const state: MockState = {
       executes: [],
       insertReturns: [
+        [{ id: ACCOUNT_ID }], // pré-check accountId explícito
         [
           {
             id: CARD_ID,
@@ -325,20 +320,18 @@ describe('create_card — conta default (Story 2.13 AC5)', () => {
       ],
     };
     const ctx = makeCtx(makeMockDb(state));
-    const out = await createCard.execute(
-      { name: 'Millennium', cardType: 'debit' },
-      ctx,
-    );
+    const out = await createCard.execute({ name: 'Millennium', cardType: 'debit' }, ctx);
     expect(state.executes.length).toBe(2);
     expect(state.executes[0]?.sqlText.toLowerCase()).toContain('from accounts');
     expect(state.executes[1]?.sqlText.toLowerCase()).toContain('insert into cards');
     expect(out.accountId).toBe(DINHEIRO_ACCOUNT_ID);
   });
 
-  it('com accountId explícito → NÃO chama resolveDefaultAccount (só INSERT)', async () => {
+  it('com accountId explícito → NÃO chama resolveDefaultAccount (mas faz pré-check cross-tenant)', async () => {
     const state: MockState = {
       executes: [],
       insertReturns: [
+        [{ id: ACCOUNT_ID }], // pré-check accountId
         [
           {
             id: CARD_ID,
@@ -355,8 +348,30 @@ describe('create_card — conta default (Story 2.13 AC5)', () => {
     };
     const ctx = makeCtx(makeMockDb(state));
     await createCard.execute({ name: 'X', accountId: ACCOUNT_ID, cardType: 'debit' }, ctx);
+    // pré-check accountId + INSERT cards.
+    expect(state.executes.length).toBe(2);
+    // O pré-check NÃO é resolveDefaultAccount (sem `archived_at is null`).
+    expect(
+      state.executes.some((e) => e.sqlText.toLowerCase().includes('archived_at is null')),
+    ).toBe(false);
+    expect(state.executes[1]?.sqlText.toLowerCase()).toContain('insert into cards');
+  });
+
+  it('accountId de OUTRO household → ToolExecutionError no pré-check (NÃO chega ao INSERT)', async () => {
+    const state: MockState = {
+      executes: [],
+      insertReturns: [
+        [], // pré-check accountId → 0 rows (conta de outro household / RLS)
+      ],
+    };
+    const ctx = makeCtx(makeMockDb(state));
+    await expect(
+      createCard.execute({ name: 'X', accountId: ACCOUNT_ID, cardType: 'debit' }, ctx),
+    ).rejects.toMatchObject({ name: 'ToolExecutionError' });
     expect(state.executes.length).toBe(1);
-    expect(state.executes[0]?.sqlText.toLowerCase()).toContain('insert into cards');
+    expect(state.executes.some((e) => e.sqlText.toLowerCase().includes('insert into cards'))).toBe(
+      false,
+    );
   });
 });
 
@@ -381,10 +396,11 @@ describe('create_card — reverse()', () => {
 });
 
 describe('create_card — executeAtomic integration', () => {
-  it('via executeAtomic → 2 execute calls (INSERT + reverse_op)', async () => {
+  it('via executeAtomic → 3 execute calls (pré-check + INSERT + reverse_op)', async () => {
     const state: MockState = {
       executes: [],
       insertReturns: [
+        [{ id: ACCOUNT_ID }], // pré-check accountId
         [
           {
             id: CARD_ID,
@@ -411,6 +427,7 @@ describe('create_card — executeAtomic integration', () => {
       ctx,
     );
     expect(outcome.success).toBe(true);
-    expect(state.executes.length).toBe(2);
+    // pré-check accountId + INSERT cards + INSERT reverse_op.
+    expect(state.executes.length).toBe(3);
   });
 });

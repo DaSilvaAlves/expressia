@@ -35,11 +35,12 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import type {
-  ReverseOpPayload,
-  ToolDefinition,
-  ToolExecutionContext,
-} from '../contracts';
+import type { ReverseOpPayload, ToolDefinition, ToolExecutionContext } from '../contracts';
+import {
+  assertAccountBelongsToHousehold,
+  assertCardBelongsToHousehold,
+  mapFinanceFkGuardError,
+} from './_helpers/assert-ref-belongs-to-household';
 import { formatEuroCents } from './_helpers/format-euro-cents';
 import { resolveDefaultAccount } from './_helpers/resolve-default-account';
 import { resolveDefaultCategory } from './_helpers/resolve-default-category';
@@ -58,27 +59,24 @@ const PAYMENT_METHOD_VALUES = [
   'other',
 ] as const;
 
-const CreateFinanceVariableInputSchema = z
-  .object({
-    amountCents: z.number().int().positive(),
-    kind: z.enum(['expense', 'income']),
-    transactionDate: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, 'transactionDate deve estar no formato YYYY-MM-DD'),
-    description: z.string().min(1).max(500),
-    accountId: z.string().uuid().optional(),
-    cardId: z.string().uuid().optional(),
-    categoryId: z.string().uuid().optional(),
-    paymentMethod: z.enum(PAYMENT_METHOD_VALUES).optional(),
-  });
+const CreateFinanceVariableInputSchema = z.object({
+  amountCents: z.number().int().positive(),
+  kind: z.enum(['expense', 'income']),
+  transactionDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'transactionDate deve estar no formato YYYY-MM-DD'),
+  description: z.string().min(1).max(500),
+  accountId: z.string().uuid().optional(),
+  cardId: z.string().uuid().optional(),
+  categoryId: z.string().uuid().optional(),
+  paymentMethod: z.enum(PAYMENT_METHOD_VALUES).optional(),
+});
 // Story 2.13 AC3: o `.refine()` que exigia `accountId` XOR `cardId` foi
 // removido. A presença de conta/cartão é agora delegada a `execute()`, onde
 // `resolveDefaultAccount` preenche a conta default antes de atingir o CHECK
 // Postgres `transactions_account_or_card`.
 
-export type CreateFinanceVariableInput = z.infer<
-  typeof CreateFinanceVariableInputSchema
->;
+export type CreateFinanceVariableInput = z.infer<typeof CreateFinanceVariableInputSchema>;
 
 const CreateFinanceVariableOutputSchema = z.object({
   transactionId: z.string().uuid(),
@@ -90,9 +88,7 @@ const CreateFinanceVariableOutputSchema = z.object({
   categoryId: z.string().uuid().nullable(),
 });
 
-export type CreateFinanceVariableOutput = z.infer<
-  typeof CreateFinanceVariableOutputSchema
->;
+export type CreateFinanceVariableOutput = z.infer<typeof CreateFinanceVariableOutputSchema>;
 
 interface TransactionsInsertReturn {
   readonly id: string;
@@ -139,6 +135,11 @@ export const createFinanceVariable: ToolDefinition<
     // 2) Resolver conta default quando NEM accountId NEM cardId vêm do input
     //    (Story 2.13 AC3/AC4 — ponte Finanças ↔ Cérebro). Devolve o tipo da
     //    conta para inferir o paymentMethod (DP-2.13.A).
+    //
+    //    Hardening cross-tenant (1.ª rede app-enforced, SEC-1): quando o input
+    //    TRAZ accountId/cardId EXPLÍCITO, fazemos um PRÉ-CHECK RLS-scoped que
+    //    confirma a pertença ao household corrente ANTES do INSERT. O caminho
+    //    default (resolveDefaultAccount) já é RLS-scoped — não precisa de check.
     let accountId = input.accountId;
     let resolvedAccountType: string | undefined;
     if (input.accountId === undefined && input.cardId === undefined) {
@@ -148,6 +149,21 @@ export const createFinanceVariable: ToolDefinition<
       });
       accountId = resolved.accountId;
       resolvedAccountType = resolved.accountType;
+    } else {
+      if (input.accountId !== undefined) {
+        await assertAccountBelongsToHousehold({
+          db: ctx.db,
+          accountId: input.accountId,
+          toolName: 'create_finance_variable',
+        });
+      }
+      if (input.cardId !== undefined) {
+        await assertCardBelongsToHousehold({
+          db: ctx.db,
+          cardId: input.cardId,
+          toolName: 'create_finance_variable',
+        });
+      }
     }
 
     // 3) Inferir paymentMethod (PO_FIX_INLINE F1 + DP-2.13.A):
@@ -164,28 +180,36 @@ export const createFinanceVariable: ToolDefinition<
           : 'transfer');
 
     // 4) INSERT em transactions via ctx.db (RLS authenticated).
-    const result = (await ctx.db.execute(sql`
-      insert into transactions
-        (household_id, created_by_user_id, account_id, card_id, category_id,
-         amount_cents, kind, description, transaction_date, payment_method,
-         agent_run_id, is_projected)
-      values
-        (
-          ${ctx.householdId},
-          ${ctx.userId},
-          ${accountId ?? null}::uuid,
-          ${input.cardId ?? null}::uuid,
-          ${categoryId}::uuid,
-          ${input.amountCents},
-          ${input.kind}::transaction_kind,
-          ${input.description},
-          ${input.transactionDate}::date,
-          ${paymentMethod}::payment_method_finance,
-          ${ctx.runId}::uuid,
-          false
-        )
-      returning id, amount_cents, kind, transaction_date, account_id, card_id, category_id
-    `)) as ReadonlyArray<TransactionsInsertReturn>;
+    //    REDE FINAL (2.ª rede): se o trigger DB (migration 0023, SQLSTATE
+    //    23P51) disparar por race condition, mapeamos para ToolExecutionError
+    //    PT-PT em vez de deixar borbulhar o erro técnico do Postgres.
+    let result: ReadonlyArray<TransactionsInsertReturn>;
+    try {
+      result = (await ctx.db.execute(sql`
+        insert into transactions
+          (household_id, created_by_user_id, account_id, card_id, category_id,
+           amount_cents, kind, description, transaction_date, payment_method,
+           agent_run_id, is_projected)
+        values
+          (
+            ${ctx.householdId},
+            ${ctx.userId},
+            ${accountId ?? null}::uuid,
+            ${input.cardId ?? null}::uuid,
+            ${categoryId}::uuid,
+            ${input.amountCents},
+            ${input.kind}::transaction_kind,
+            ${input.description},
+            ${input.transactionDate}::date,
+            ${paymentMethod}::payment_method_finance,
+            ${ctx.runId}::uuid,
+            false
+          )
+        returning id, amount_cents, kind, transaction_date, account_id, card_id, category_id
+      `)) as ReadonlyArray<TransactionsInsertReturn>;
+    } catch (err) {
+      throw mapFinanceFkGuardError('create_finance_variable', err);
+    }
 
     const row = result[0];
     if (!row) {

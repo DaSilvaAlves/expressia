@@ -25,11 +25,12 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import type {
-  ReverseOpPayload,
-  ToolDefinition,
-  ToolExecutionContext,
-} from '../contracts';
+import type { ReverseOpPayload, ToolDefinition, ToolExecutionContext } from '../contracts';
+import {
+  assertAccountBelongsToHousehold,
+  assertCardBelongsToHousehold,
+  mapFinanceFkGuardError,
+} from './_helpers/assert-ref-belongs-to-household';
 import { formatEuroCents } from './_helpers/format-euro-cents';
 import { resolveDefaultAccount } from './_helpers/resolve-default-account';
 import { resolveDefaultCategory } from './_helpers/resolve-default-category';
@@ -50,24 +51,21 @@ const FREQUENCY_LABELS_PT: Record<'monthly' | 'weekly' | 'yearly', string> = {
   yearly: 'anual',
 };
 
-const CreateFinanceRecurrenceInputSchema = z
-  .object({
-    amountCents: z.number().int().positive(),
-    kind: z.enum(['expense', 'income']),
-    description: z.string().min(1).max(500),
-    frequency: z.enum(['monthly', 'weekly', 'yearly']),
-    startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'startsOn deve estar no formato YYYY-MM-DD'),
-    accountId: z.string().uuid().optional(),
-    cardId: z.string().uuid().optional(),
-    categoryId: z.string().uuid().optional(),
-    paymentMethod: z.enum(PAYMENT_METHOD_VALUES).optional(),
-  });
+const CreateFinanceRecurrenceInputSchema = z.object({
+  amountCents: z.number().int().positive(),
+  kind: z.enum(['expense', 'income']),
+  description: z.string().min(1).max(500),
+  frequency: z.enum(['monthly', 'weekly', 'yearly']),
+  startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'startsOn deve estar no formato YYYY-MM-DD'),
+  accountId: z.string().uuid().optional(),
+  cardId: z.string().uuid().optional(),
+  categoryId: z.string().uuid().optional(),
+  paymentMethod: z.enum(PAYMENT_METHOD_VALUES).optional(),
+});
 // Story 2.13 AC3: refine `accountId` XOR `cardId` removido. A conta default é
 // resolvida em `execute()` via `resolveDefaultAccount` quando ambos ausentes.
 
-export type CreateFinanceRecurrenceInput = z.infer<
-  typeof CreateFinanceRecurrenceInputSchema
->;
+export type CreateFinanceRecurrenceInput = z.infer<typeof CreateFinanceRecurrenceInputSchema>;
 
 const CreateFinanceRecurrenceOutputSchema = z.object({
   recurrenceId: z.string().uuid(),
@@ -79,9 +77,7 @@ const CreateFinanceRecurrenceOutputSchema = z.object({
   nextRunOn: z.string(),
 });
 
-export type CreateFinanceRecurrenceOutput = z.infer<
-  typeof CreateFinanceRecurrenceOutputSchema
->;
+export type CreateFinanceRecurrenceOutput = z.infer<typeof CreateFinanceRecurrenceOutputSchema>;
 
 interface RecurrencesInsertReturn {
   readonly id: string;
@@ -135,6 +131,9 @@ export const createFinanceRecurrence: ToolDefinition<
 
     // Story 2.13 AC3/AC4: resolver conta default quando NEM accountId NEM
     // cardId vêm do input. Devolve o tipo para inferir paymentMethod (DP-2.13.A).
+    //
+    // Hardening cross-tenant (1.ª rede app-enforced, SEC-1): accountId/cardId
+    // EXPLÍCITO → PRÉ-CHECK RLS-scoped de pertença ao household ANTES do INSERT.
     let accountId = input.accountId;
     let resolvedAccountType: string | undefined;
     if (input.accountId === undefined && input.cardId === undefined) {
@@ -144,6 +143,21 @@ export const createFinanceRecurrence: ToolDefinition<
       });
       accountId = resolved.accountId;
       resolvedAccountType = resolved.accountType;
+    } else {
+      if (input.accountId !== undefined) {
+        await assertAccountBelongsToHousehold({
+          db: ctx.db,
+          accountId: input.accountId,
+          toolName: 'create_finance_recurrence',
+        });
+      }
+      if (input.cardId !== undefined) {
+        await assertCardBelongsToHousehold({
+          db: ctx.db,
+          cardId: input.cardId,
+          toolName: 'create_finance_recurrence',
+        });
+      }
     }
 
     const paymentMethod =
@@ -154,29 +168,36 @@ export const createFinanceRecurrence: ToolDefinition<
           ? 'cash'
           : 'transfer');
 
-    const result = (await ctx.db.execute(sql`
-      insert into recurrences
-        (household_id, created_by_user_id, description, kind, amount_cents,
-         account_id, card_id, category_id, payment_method, frequency,
-         starts_on, next_run_on, active)
-      values
-        (
-          ${ctx.householdId},
-          ${ctx.userId},
-          ${input.description},
-          ${input.kind}::transaction_kind,
-          ${input.amountCents},
-          ${accountId ?? null}::uuid,
-          ${input.cardId ?? null}::uuid,
-          ${categoryId}::uuid,
-          ${paymentMethod}::payment_method_finance,
-          ${input.frequency}::recurrence_freq_finance,
-          ${input.startsOn}::date,
-          ${input.startsOn}::date,
-          true
-        )
-      returning id, description, amount_cents, kind, frequency, starts_on, next_run_on
-    `)) as ReadonlyArray<RecurrencesInsertReturn>;
+    // REDE FINAL (2.ª rede): mapear o trigger DB (SQLSTATE 23P51, migration
+    // 0023) para ToolExecutionError PT-PT em caso de race condition.
+    let result: ReadonlyArray<RecurrencesInsertReturn>;
+    try {
+      result = (await ctx.db.execute(sql`
+        insert into recurrences
+          (household_id, created_by_user_id, description, kind, amount_cents,
+           account_id, card_id, category_id, payment_method, frequency,
+           starts_on, next_run_on, active)
+        values
+          (
+            ${ctx.householdId},
+            ${ctx.userId},
+            ${input.description},
+            ${input.kind}::transaction_kind,
+            ${input.amountCents},
+            ${accountId ?? null}::uuid,
+            ${input.cardId ?? null}::uuid,
+            ${categoryId}::uuid,
+            ${paymentMethod}::payment_method_finance,
+            ${input.frequency}::recurrence_freq_finance,
+            ${input.startsOn}::date,
+            ${input.startsOn}::date,
+            true
+          )
+        returning id, description, amount_cents, kind, frequency, starts_on, next_run_on
+      `)) as ReadonlyArray<RecurrencesInsertReturn>;
+    } catch (err) {
+      throw mapFinanceFkGuardError('create_finance_recurrence', err);
+    }
 
     const row = result[0];
     if (!row) {
@@ -185,8 +206,7 @@ export const createFinanceRecurrence: ToolDefinition<
 
     // O schema permite kind=transfer; o input nunca o introduz (DP-4.10.C),
     // mas defensivamente normalizamos.
-    const kindOut: 'expense' | 'income' =
-      row.kind === 'income' ? 'income' : 'expense';
+    const kindOut: 'expense' | 'income' = row.kind === 'income' ? 'income' : 'expense';
     const freqOut: 'monthly' | 'weekly' | 'yearly' =
       row.frequency === 'monthly' || row.frequency === 'weekly' || row.frequency === 'yearly'
         ? row.frequency
