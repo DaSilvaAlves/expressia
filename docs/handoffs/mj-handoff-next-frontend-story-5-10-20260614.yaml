@@ -1,0 +1,84 @@
+id: mj-handoff-next-frontend-story-5-10-20260614
+from_agent: claude (session orchestrator)
+to_agent: any
+created: "2026-06-14T03:30:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: frontend-feature
+
+summary: >
+  DECISÃO DO EURICO (14/06): CONTINUAR o projecto e avançar para o finish-line do
+  frontend. O guard cross-tenant (causa-raiz das tx cross-tenant) ficou FECHADO E EM
+  PROD nesta sessão (commits f40b0a1 feat + 57beaff housekeeping; migration 0023 +
+  pré-check app-level). Um levantamento read-only do frontend (feito por @architect
+  nesta sessão) revelou que o frontend está MUITO mais maduro do que se pensava:
+  19 de 20 rotas COMPLETAS e provadas E2E (chat/cérebro, tarefas 3-vistas, finanças
+  5-vistas, household, onboarding, auth com confirmação de email). O verdadeiro gap
+  para "MVP utilizável por estranhos" é pequeno e está concentrado na Story 5.10.
+  Este handoff entrega o arranque desse próximo passo a um terminal com contexto fresco.
+
+context:
+  estado_verificado:
+    - "origin/main sincronizado após esta sessão (último trabalho: guard cross-tenant em prod). Confirmar `git log -1` e `git status` no arranque."
+    - "Core E2E PASS em prod (smoke A→E, 13/06). Segurança multi-tenant sólida + agora hardened (guard cross-tenant FK, SQLSTATE 23P51 + pré-check RLS-scoped)."
+    - "Billing CONGELADO (directiva 29/05). SEC-8 (Cérebro AI avançado) em HOLD. DNS-001 (apex expressia.pt) = tarefa do Eurico, em paralelo, NÃO bloqueia."
+
+  levantamento_frontend: |
+    19/20 rotas do App Router (apps/web/src/app/**) COMPLETAS e funcionais E2E.
+    Os 3 GAPS reais que restam:
+      1) LANDING PÚBLICA — apps/web/src/app/page.tsx é stub "Em construção" sem CTA.
+         É o ÚNICO buraco que impede um visitante real de chegar ao produto. PRIORIDADE.
+      2) SWEEP RESPONSIVO + LIGHTHOUSE — nunca auditado em mobile/tablet; crítico num
+         produto chat-first. Coberto pela Story 5.10.
+      3) TOASTS vs alert() — polimento (Story 5.9): substituir alert() por <UndoToast>
+         global.
+
+  proximo_passo_recomendado: |
+    Story 5.10 — docs/stories/active/5.10.responsive-sweep-branding-auth-lighthouse.story.md
+    (única story de frontend "Ready for Dev"; fecha o Epic 5; cobre os gaps 1 e 2).
+
+  ressalvas_a_verificar_ANTES_de_arrancar_a_5_10: |
+    O próximo agente DEVE confirmar estas duas coisas antes de implementar, senão
+    arrisca refazer trabalho já feito ou bater em dependência fantasma:
+      A) O eixo "branding auth" no scope da 5.10 está PROVAVELMENTE OBSOLETO — já foi
+         entregue pela Story 6.1 (que está Done mas mal-arquivada em docs/stories/active/).
+         Ler a 6.1 antes de tocar nesse eixo.
+      B) A Story 5.9 (<EmptyState>/<UndoToast> shared em @meu-jarvis/ui) está em estado
+         documental AMBÍGUO: o código já importa EmptyState de @meu-jarvis/ui, mas não
+         há ficheiro de story nem em completed/ nem em active/, e o <UndoToast> global
+         ainda NÃO substituiu os alert(). A 5.10 depende do <EmptyState> shared →
+         confirmar o estado real da 5.9 (código vs doc) ANTES de assumir que existe.
+
+  blockers:
+    - "Nenhum técnico. Core + segurança sólidos. Isto é frontend finishing, não bug bloqueante."
+
+next_action: >
+  No novo terminal (contexto fresco): 1) ler CLAUDE.md + este handoff + HANDOFF-INDEX
+  + memória do projecto (especialmente story_5_5_done, story_6_2_onboarding_gate,
+  feature_familia_live, smoke_e2e_pass_complete). 2) Confirmar git log/status limpo.
+  3) Resolver as DUAS ressalvas acima (estado real da 5.9 e da 6.1) — reconciliar a
+  arrumação das stories se preciso (@po/@sm). 4) Validar/atualizar o scope da Story 5.10
+  removendo o que a 6.1 já entregou (@po *validate-story-draft se o scope mudar).
+  5) Implementar a 5.10 pelo ciclo SDC normal (@sm→@po→@dev→@qa→@devops): foco na
+  LANDING pública com CTA (gap 1) + sweep responsivo/Lighthouse (gap 2). 6) NÃO fazer
+  push fora do @devops. Manter billing CONGELADO e SEC-8 em HOLD.
+
+notes: |
+  - O frontend NÃO é o monstro que parecia: é finishing, não construção. Comunicar isto
+    ao Eurico evita a sensação de "projecto infinito".
+  - Higiene do INDEX: existem vários handoffs Pending ANTIGOS já superados pelos eventos
+    (seq-a-fechada, keys-rotated, sec3, datefix-inngest, refocus-billing, post-5.8).
+    A maioria está stale (>7 dias alguns) — candidatos a arquivamento em revisão humana
+    (@aiox-master ou Eurico). NÃO arquivar automaticamente sem confirmação.
+  - DNS-001: runbook docs/runbooks/dns-expressia-setup.md. NUNCA mexer nos nameservers
+    Cloudflare. Tarefa do Eurico, paralela.
+
+related:
+  - apps/web/src/app/page.tsx
+  - docs/stories/active/5.10.responsive-sweep-branding-auth-lighthouse.story.md
+  - docs/handoffs/archive/mj-handoff-smoke-pass-next-account-id-validation-20260614.yaml
+  - docs/handoffs/archive/mj-handoff-smoke-resume-c-e-20260613.yaml
