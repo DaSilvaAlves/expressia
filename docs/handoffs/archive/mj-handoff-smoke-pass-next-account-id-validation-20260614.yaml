@@ -2,8 +2,18 @@ id: mj-handoff-smoke-pass-next-account-id-validation-20260614
 from_agent: aiox-master (Orion)
 to_agent: any
 created: "2026-06-14T00:10:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-14T03:15:00Z"
+consumed_by: aiox-devops
+verdict: >
+  RESOLVIDO. Ciclo SDC completo: @data-engineer (Fase 0 — migration 0023 trigger
+  SQLSTATE 23P51) + @dev (Fase A — pré-check app-level RLS-scoped via assert-ref-belongs-to-household
+  nas 4 tools) + @qa (gate PASS, único finding LOW cosmético corrigido pelo @devops).
+  Abordagem B + A (defesa em profundidade), exactamente como recomendado pelo Orion.
+  Pushed em main como f40b0a1. db-test Testcontainers prova rejeição cross-household
+  (11 testes PASS). Gates pre-push GREEN: typecheck, lint, check:rls (28 tabelas),
+  tools 381 testes. Resta apenas DNS-001 (tarefa do Eurico) no finish-line do MVP.
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
