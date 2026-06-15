@@ -84,4 +84,55 @@ describe('<RowActionsMenu>', () => {
       );
     });
   });
+
+  // GAP-3: feedback via toast LOCAL (role="status"), nunca `alert()`.
+  it('Adiar 1 dia com fetch OK → toast de sucesso "Adiada para" (role=status)', async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ task: { id: 't1' } }),
+    });
+    render(<RowActionsMenu task={makeTask()} onEdit={() => {}} />);
+    fireEvent.click(screen.getByLabelText('Acções da tarefa'));
+    fireEvent.click(await screen.findByText('Adiar 1 dia'));
+
+    const toast = await screen.findByRole('status');
+    expect(toast).toHaveTextContent(/Adiada para/);
+    // due_date '2026-05-20' + 1 dia → 21/05/2026 (formato PT-PT)
+    expect(toast).toHaveTextContent('21/05/2026');
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/tasks/t1',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ due_date: '2026-05-21' }),
+      }),
+    );
+  });
+
+  it('Adiar 1 dia com fetch res.ok=false → toast de erro', async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'boom' }),
+    });
+    render(<RowActionsMenu task={makeTask()} onEdit={() => {}} />);
+    fireEvent.click(screen.getByLabelText('Acções da tarefa'));
+    fireEvent.click(await screen.findByText('Adiar 1 dia'));
+
+    const toast = await screen.findByRole('status');
+    expect(toast).toHaveTextContent('Erro ao actualizar tarefa. Tenta novamente.');
+  });
+
+  it('Mudar prioridade com fetch a rejeitar (throw) → toast de erro temporário', async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('network down'),
+    );
+    render(<RowActionsMenu task={makeTask()} onEdit={() => {}} />);
+    fireEvent.click(screen.getByLabelText('Acções da tarefa'));
+    fireEvent.click(await screen.findByText(/Mudar prioridade/));
+    fireEvent.click(await screen.findByText('Baixa'));
+
+    const toast = await screen.findByRole('status');
+    expect(toast).toHaveTextContent('Erro temporário. Tenta novamente.');
+  });
 });

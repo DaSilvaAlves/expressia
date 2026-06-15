@@ -19,6 +19,25 @@ export interface RowActionsMenuProps {
   readonly onEdit: () => void;
 }
 
+/**
+ * Feedback user-facing local (GAP-3 — substitui os `alert()` placeholder).
+ *
+ * Escolha de padrão: replicamos o toast LOCAL de
+ * `<KanbanBoardClient>` (irmão directo no mesmo módulo Tarefas) — `useState`
+ * + auto-dismiss 5s + render `role="status"`/`aria-live="polite"` com as
+ * mesmas classes Tailwind condicionais error/success.
+ *
+ * NÃO utilizamos o `<UndoToast>`/`undoStore` (`components/shell/`): esse é
+ * semanticamente "anular acção do agente AI", não serve para erro/sucesso de
+ * mutações manuais. Em linha com a [DEV-DECISION D-6.2.3] (ver
+ * `visao/_components/WelcomeToast.tsx`) de NÃO introduzir uma lib de toast nova
+ * — mantemos um toast local mínimo e coerente com o módulo.
+ */
+interface ToastState {
+  message: string;
+  variant: 'error' | 'success';
+}
+
 function formatPT(date: Date): string {
   const dd = String(date.getDate()).padStart(2, '0');
   const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -59,7 +78,13 @@ export function RowActionsMenu({ task, onEdit }: RowActionsMenuProps): React.Rea
   const [open, setOpen] = useState(false);
   const [showPriority, setShowPriority] = useState(false);
   const [pending, setPending] = useState(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  function showToast(message: string, variant: ToastState['variant']): void {
+    setToast({ message, variant });
+    setTimeout(() => setToast(null), 5000);
+  }
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -84,7 +109,9 @@ export function RowActionsMenu({ task, onEdit }: RowActionsMenuProps): React.Rea
     };
   }, [open]);
 
-  async function patch(body: Record<string, unknown>) {
+  // Devolve `true` em sucesso para o chamador poder encadear feedback de
+  // sucesso (ex.: `handlePostpone`) sem sobrepor o toast de erro.
+  async function patch(body: Record<string, unknown>): Promise<boolean> {
     setPending(true);
     try {
       const res = await fetch(`/api/tasks/${task.id}`, {
@@ -94,13 +121,13 @@ export function RowActionsMenu({ task, onEdit }: RowActionsMenuProps): React.Rea
       });
       if (res.ok) {
         router.refresh();
-      } else {
-        // eslint-disable-next-line no-alert
-        alert('Erro ao actualizar tarefa. Tenta novamente.');
+        return true;
       }
+      showToast('Erro ao actualizar tarefa. Tenta novamente.', 'error');
+      return false;
     } catch {
-      // eslint-disable-next-line no-alert
-      alert('Erro temporário. Tenta novamente.');
+      showToast('Erro temporário. Tenta novamente.', 'error');
+      return false;
     } finally {
       setPending(false);
       setOpen(false);
@@ -119,12 +146,10 @@ export function RowActionsMenu({ task, onEdit }: RowActionsMenuProps): React.Rea
       if (res.ok) {
         router.refresh();
       } else {
-        // eslint-disable-next-line no-alert
-        alert('Erro ao eliminar tarefa. Tenta novamente.');
+        showToast('Erro ao eliminar tarefa. Tenta novamente.', 'error');
       }
     } catch {
-      // eslint-disable-next-line no-alert
-      alert('Erro temporário. Tenta novamente.');
+      showToast('Erro temporário. Tenta novamente.', 'error');
     } finally {
       setPending(false);
       setOpen(false);
@@ -133,14 +158,18 @@ export function RowActionsMenu({ task, onEdit }: RowActionsMenuProps): React.Rea
 
   async function handlePostpone() {
     const newDate = addDaysISO(task.due_date, 1);
-    await patch({ due_date: newDate });
-    // Nota: alert é placeholder — toast UI em Story 3.6+
-    const [y, m, d] = newDate.split('-');
-    // eslint-disable-next-line no-alert
-    alert(`Adiada para ${d}/${m}/${y}`);
+    const ok = await patch({ due_date: newDate });
+    // Só confirmamos sucesso se o PATCH passou — em erro, `patch` já mostrou o
+    // toast de erro e não o queremos sobrepor.
+    if (!ok) return;
+    // `newDate` é ISO (YYYY-MM-DD) e o construtor `new Date(iso)` interpreta-o
+    // como UTC, podendo desalinhar o dia em PT; construímos a `Date` a partir
+    // dos componentes locais para formatar o feedback no formato PT-PT.
+    const [year, month, day] = newDate.split('-').map(Number);
+    if (year && month && day) {
+      showToast(`Adiada para ${formatPT(new Date(year, month - 1, day))}`, 'success');
+    }
   }
-
-  void formatPT; // suppresses unused (kept for future toast integration)
 
   return (
     <div ref={containerRef} className="relative inline-block">
@@ -225,6 +254,19 @@ export function RowActionsMenu({ task, onEdit }: RowActionsMenuProps): React.Rea
           >
             Eliminar
           </button>
+        </div>
+      )}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={
+            toast.variant === 'error'
+              ? 'fixed bottom-4 right-4 z-50 rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800 shadow-lg dark:border-red-700 dark:bg-red-950 dark:text-red-200'
+              : 'fixed bottom-4 right-4 z-50 rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm text-green-800 shadow-lg dark:border-green-700 dark:bg-green-950 dark:text-green-200'
+          }
+        >
+          {toast.message}
         </div>
       )}
     </div>

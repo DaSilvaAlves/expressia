@@ -1,0 +1,94 @@
+id: mj-handoff-session-epic5-closed-next-steps-20260615
+from_agent: aiox-master (Orion)
+to_agent: any
+created: "2026-06-15T01:00:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-15T18:21:43Z"
+consumed_by: aiox-master (Orion)
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: session-continuation
+
+summary: >
+  SESSION END — Story 5.10 EM PROD, Epic 5 (Web App UI) FECHADO 10/10. A landing
+  pública com CTA (decisão do Eurico 15/06: landing real, não só redirect) está
+  viva em prod (origin/main `b62e6b8`, working tree limpo). O ciclo SDC completo
+  correu nesta sessão (consumir handoff frontend → @po GO 9,3 → @dev → @architect
+  PASS 9,6 → @devops push). Com isto o "frontend finishing" que estava em aberto
+  está essencialmente concluído. Este handoff entrega a um terminal de contexto
+  fresco os PRÓXIMOS PASSOS de polimento/dívida + a decisão de finish-line do MVP.
+  O Eurico quer AVANÇAR (não parar) — o agente que entrar deve trabalhar autónomo.
+
+context:
+  estado_verificado:
+    - "origin/main = b62e6b8 (3 commits desta sessão: 0dcfbd6 feat 5.10 + a129062 housekeeping + b62e6b8 OBS-2). Confirmar `git log -1` e `git status` limpo no arranque."
+    - "Epic 5 fechado 10/10. Story 5.10 em docs/stories/completed/. Story 6.1 movida active→completed (estava mal-arquivada). _INDEX.md Epic 5 marcado 10/10."
+    - "Landing pública: apps/web/src/app/page.tsx é RSC que verifica sessão (autenticado → /visao; não-auth → landing com CTA 'Experimenta grátis'→/registar + 'Entrar'). Lighthouse / =99, /entrar =96, A11y 95, FCP 0,8s."
+    - "React.cache na /visao via wrappers getXCached(userId, householdId) — dedup genuína, RLS preservado (per-request, sem getServiceDb). Verificado byte-a-byte pela Aria."
+    - "Core E2E PASS em prod (smoke A→E, 13/06). Segurança multi-tenant sólida + hardened (guard cross-tenant FK)."
+
+  proximos_passos_disponiveis: |
+    Três itens de finishing/dívida, todos BOUNDED e não-bloqueantes. Recomendação
+    de ordem (user-facing primeiro):
+
+    1) [RECOMENDADO PRIMEIRO] GAP-3 — alert() → toast. Há 5 `alert()` reais em
+       apps/web/src/app/(app)/tarefas/_components/RowActionsMenu.tsx (linhas
+       99, 103, 123, 127, 140). A Story 5.9 (Done) já entregou <UndoToast>/
+       UndoToastBridge/undoStore no shell — substituir os alert() por toasts
+       coerentes (erro + sucesso/adiada). Polimento UX user-facing, baixo risco.
+       Ciclo SDC normal (toca produção).
+
+    2) OBS-2 — dívida de teste. 5 falhas PRÉ-EXISTENTES (provadas não-regressão
+       por git stash) em apps/web/src/app/api/agent/__tests__/finance-flow.test.ts
+       (Story 4.10). Repor a suite web a 100% verde. Handoff dedicado já existe:
+       mj-handoff-obs2-finance-flow-pre-existing-fails-20260615.yaml (low). Drift
+       provável de fixture/mock-rows. NÃO duplicar — consumir esse handoff.
+
+    3) OBS-3 — medir Lighthouse de /visao AUTENTICADA (não mensurável por CLI sem
+       login; o 95 no runbook é do redirect target). Usar DevTools Lighthouse com
+       sessão iniciada e completar a secção no runbook lighthouse-mobile.md. Minor.
+
+  decisao_de_produto_para_o_eurico: |
+    Com o Epic 5 fechado e o core E2E provado, o MVP frontend+core está
+    essencialmente pronto. Depois dos 3 itens acima (todos pequenos), a pergunta
+    estratégica é do Eurico: qual a próxima prioridade? Billing continua CONGELADO
+    (directiva 29/05) e SEC-8 (Cérebro AI avançado) em HOLD. Candidatos a discutir
+    com o Eurico quando os itens de finishing fecharem: soft-launch do MVP (depende
+    de DNS-001), descongelar billing, ou retomar SEC-8. NÃO decidir sozinho — é
+    decisão estratégica do Eurico.
+
+  blockers:
+    - "Nenhum técnico. Tudo o que resta é finishing/dívida/decisão estratégica."
+
+next_action: >
+  No novo terminal (contexto fresco): 1) ler CLAUDE.md + este handoff +
+  HANDOFF-INDEX + memória do projecto (especialmente epic_5_closed_landing_live,
+  smoke_e2e_pass_complete, feature_familia_live). 2) Confirmar git log/status
+  limpo (origin/main = b62e6b8). 3) AVANÇAR com GAP-3 (alert()→toast em
+  RowActionsMenu.tsx, usando o <UndoToast> da 5.9) pelo ciclo SDC normal
+  (@sm/@po se precisar de story → @dev → @qa/@architect → @devops). 4) A seguir,
+  consumir o handoff OBS-2 (suite web 100% verde) e, se houver folga, OBS-3.
+  5) Quando o finishing fechar, levar ao Eurico a decisão de finish-line do MVP
+  (soft-launch / descongelar billing / retomar SEC-8) — NÃO decidir sozinho.
+  6) Push SÓ pelo @devops. Manter billing CONGELADO e SEC-8 em HOLD; DNS-001 é
+  tarefa do Eurico (NUNCA mexer nos nameservers Cloudflare).
+
+notes: |
+  - O frontend já NÃO é o monstro que parecia: é finishing, não construção.
+  - Higiene do INDEX: existem vários handoffs Pending ANTIGOS já superados pelos
+    eventos (seq-a-fechada, keys-rotated, sec3, datefix-inngest, refocus-billing,
+    post-5.8, 1.7-post-deploy-ui-tasks). Vários são stale (>7 dias) — candidatos a
+    arquivamento em revisão humana (@aiox-master ou Eurico). NÃO arquivar
+    automaticamente sem confirmação.
+  - DNS-001: runbook docs/runbooks/dns-expressia-setup.md. NUNCA mexer nos
+    nameservers Cloudflare. Tarefa do Eurico, paralela.
+
+related:
+  - apps/web/src/app/(app)/tarefas/_components/RowActionsMenu.tsx
+  - apps/web/src/components/shell/UndoToast.tsx
+  - docs/handoffs/mj-handoff-obs2-finance-flow-pre-existing-fails-20260615.yaml
+  - docs/runbooks/lighthouse-mobile.md
+  - docs/stories/completed/5.10.responsive-sweep-branding-auth-lighthouse.story.md
