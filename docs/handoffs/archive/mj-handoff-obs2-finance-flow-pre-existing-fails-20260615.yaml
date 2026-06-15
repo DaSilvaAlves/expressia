@@ -2,8 +2,10 @@ id: mj-handoff-obs2-finance-flow-pre-existing-fails-20260615
 from_agent: gage (@devops)
 to_agent: any
 created: "2026-06-15T00:00:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-15T18:36:03Z"
+consumed_by: aiox-master (Orion)
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

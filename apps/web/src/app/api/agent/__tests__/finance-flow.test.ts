@@ -217,7 +217,11 @@ describe('Story 4.10 — create_finance_variable via executeAtomic', () => {
       insertReturns: [
         // 1) SELECT default category
         [{ id: CATEGORY_ID }],
-        // 2) INSERT transaction
+        // 2) SELECT guard cross-tenant — cardId explícito (assertCardBelongsToHousehold,
+        //    migration 0023 / 1.ª rede SEC-1). Devolve 1 row → o cartão pertence
+        //    ao household corrente.
+        [{ id: CARD_ID }],
+        // 3) INSERT transaction
         [
           {
             id: TX_ID,
@@ -229,7 +233,7 @@ describe('Story 4.10 — create_finance_variable via executeAtomic', () => {
             category_id: CATEGORY_ID,
           },
         ],
-        // 3) INSERT agent_reverse_ops
+        // 4) INSERT agent_reverse_ops
         [{ id: REVERSE_OP_ID }],
       ],
     };
@@ -258,10 +262,11 @@ describe('Story 4.10 — create_finance_variable via executeAtomic', () => {
       expect(out.transactionId).toBe(TX_ID);
       expect(outcome.results[0]?.reverseOpId).toBe(REVERSE_OP_ID);
     }
-    expect(state.executes.length).toBe(3);
-    expect(state.executes[1]?.sqlText).toMatch(/insert into transactions/i);
-    expect(state.executes[2]?.sqlText).toMatch(/insert into agent_reverse_ops/i);
-    expect(state.executes[2]?.sqlText).toMatch(
+    // 1 SELECT cat + 1 SELECT guard card + 1 INSERT tx + 1 reverse_op = 4 executes.
+    expect(state.executes.length).toBe(4);
+    expect(state.executes[2]?.sqlText).toMatch(/insert into transactions/i);
+    expect(state.executes[3]?.sqlText).toMatch(/insert into agent_reverse_ops/i);
+    expect(state.executes[3]?.sqlText).toMatch(
       /now\(\)\s*\+\s*interval\s*'30\s*seconds'/i,
     );
   });
@@ -278,6 +283,9 @@ describe('Story 4.10 — create_finance_recurrence via executeAtomic', () => {
       executes: [],
       insertReturns: [
         [{ id: CATEGORY_ID }],
+        // SELECT guard cross-tenant — accountId explícito (assertAccountBelongsToHousehold,
+        // migration 0023). Devolve 1 row → a conta pertence ao household corrente.
+        [{ id: ACCOUNT_ID }],
         [
           {
             id: REC_ID,
@@ -312,8 +320,9 @@ describe('Story 4.10 — create_finance_recurrence via executeAtomic', () => {
     );
 
     expect(outcome.success).toBe(true);
-    expect(state.executes.length).toBe(3);
-    expect(state.executes[1]?.sqlText.toLowerCase()).toContain('insert into recurrences');
+    // 1 SELECT cat + 1 SELECT guard conta + 1 INSERT recurrence + 1 reverse_op = 4.
+    expect(state.executes.length).toBe(4);
+    expect(state.executes[2]?.sqlText.toLowerCase()).toContain('insert into recurrences');
   });
 });
 
@@ -327,6 +336,9 @@ describe('Story 4.10 — create_card via executeAtomic', () => {
     const state: MockState = {
       executes: [],
       insertReturns: [
+        // SELECT guard cross-tenant — accountId explícito (assertAccountBelongsToHousehold,
+        // migration 0023). Devolve 1 row → a conta pertence ao household corrente.
+        [{ id: ACCOUNT_ID }],
         [
           {
             id: CARD_NEW_ID,
@@ -360,8 +372,9 @@ describe('Story 4.10 — create_card via executeAtomic', () => {
       ctx,
     );
     expect(outcome.success).toBe(true);
-    expect(state.executes.length).toBe(2);
-    expect(state.executes[0]?.sqlText.toLowerCase()).toContain('insert into cards');
+    // 1 SELECT guard conta + 1 INSERT card + 1 reverse_op = 3 executes.
+    expect(state.executes.length).toBe(3);
+    expect(state.executes[1]?.sqlText.toLowerCase()).toContain('insert into cards');
   });
 });
 
@@ -374,6 +387,7 @@ describe('Story 4.10 — create_installment via executeAtomic (R-4.10.1/3/4)', (
     const INSTALLMENT_ID = '99999999-aaaa-4bbb-8ccc-dddddddddddd';
     const insertReturns: ReadonlyArray<unknown>[] = [];
     insertReturns.push([{ id: CATEGORY_ID }]); // SELECT default category
+    insertReturns.push([{ id: CARD_ID }]); // SELECT guard cross-tenant (cardId obrigatório, migration 0023)
     insertReturns.push([{ id: INSTALLMENT_ID }]); // INSERT installment
     for (let i = 1; i <= 12; i += 1) {
       insertReturns.push([{ id: txId(i) }]); // INSERT transaction i
@@ -412,10 +426,10 @@ describe('Story 4.10 — create_installment via executeAtomic (R-4.10.1/3/4)', (
       expect(out.installmentId).toBe(INSTALLMENT_ID);
       expect(out.transactionIds.length).toBe(12);
     }
-    // 1 SELECT + 1 installment + 12 tx + 1 reverse_op = 15 executes
-    expect(state.executes.length).toBe(15);
+    // 1 SELECT cat + 1 SELECT guard card + 1 installment + 12 tx + 1 reverse_op = 16 executes
+    expect(state.executes.length).toBe(16);
     // Última execute é INSERT em agent_reverse_ops
-    expect(state.executes[14]?.sqlText.toLowerCase()).toContain(
+    expect(state.executes[15]?.sqlText.toLowerCase()).toContain(
       'insert into agent_reverse_ops',
     );
   });
@@ -424,13 +438,15 @@ describe('Story 4.10 — create_installment via executeAtomic (R-4.10.1/3/4)', (
     const INSTALLMENT_ID = '99999999-aaaa-4bbb-8ccc-dddddddddddd';
     const insertReturns: ReadonlyArray<unknown>[] = [];
     insertReturns.push([{ id: CATEGORY_ID }]);
+    insertReturns.push([{ id: CARD_ID }]); // SELECT guard cross-tenant (cardId obrigatório, migration 0023)
     insertReturns.push([{ id: INSTALLMENT_ID }]);
     for (let i = 1; i <= 12; i += 1) insertReturns.push([{ id: txId(i) }]);
 
     const state: MockState = {
       executes: [],
       insertReturns,
-      throwOnExecuteIndex: 6, // 0=SELECT cat, 1=INSERT installment, 2=tx1, 3=tx2, ..., 6=tx5
+      // 0=SELECT cat, 1=SELECT guard card, 2=INSERT installment, 3=tx1, 4=tx2, ..., 7=tx5
+      throwOnExecuteIndex: 7,
     };
     const ctx = makeCtx(makeMockDb(state), HOUSEHOLD_A, USER_A);
     const outcome = await executeAtomic(
@@ -528,6 +544,8 @@ describe('Story 4.10 — cross-household isolation (R-4.7 mock JWT)', () => {
       executes: [],
       insertReturns: [
         [{ id: CATEGORY_ID }],
+        // SELECT guard cross-tenant — accountId explícito (migration 0023).
+        [{ id: ACCOUNT_ID }],
         [
           {
             id: TX_A,
@@ -546,6 +564,8 @@ describe('Story 4.10 — cross-household isolation (R-4.7 mock JWT)', () => {
       executes: [],
       insertReturns: [
         [{ id: CATEGORY_ID }],
+        // SELECT guard cross-tenant — accountId explícito (migration 0023).
+        [{ id: ACCOUNT_ID }],
         [
           {
             id: TX_B,
@@ -595,8 +615,9 @@ describe('Story 4.10 — cross-household isolation (R-4.7 mock JWT)', () => {
     );
     expect(outA.success).toBe(true);
     expect(outB.success).toBe(true);
-    expect(stateA.executes.length).toBe(3);
-    expect(stateB.executes.length).toBe(3);
+    // 1 SELECT cat + 1 SELECT guard conta + 1 INSERT tx + 1 reverse_op = 4 cada.
+    expect(stateA.executes.length).toBe(4);
+    expect(stateB.executes.length).toBe(4);
   });
 
   it('inputSchema das 5 tools descarta household_id (defense em profundidade)', () => {
