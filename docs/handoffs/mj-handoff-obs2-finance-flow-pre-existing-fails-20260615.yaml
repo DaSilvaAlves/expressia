@@ -1,0 +1,54 @@
+id: mj-handoff-obs2-finance-flow-pre-existing-fails-20260615
+from_agent: gage (@devops)
+to_agent: any
+created: "2026-06-15T00:00:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: low
+type: test-debt
+
+summary: >
+  OBS-2 — follow-up NÃO bloqueante registado durante o push da Story 5.10
+  (commits 0dcfbd6 feat + a129062 housekeeping, em prod). A suite web tem 5
+  falhas PRÉ-EXISTENTES em finance-flow.test.ts (Story 4.10), PROVADAS por
+  `git stash` (Aria/@architect) como NÃO-regressão — já falhavam em HEAD limpo
+  ANTES de qualquer alteração da 5.10. Não foram causadas por esta story e não
+  bloquearam o push. Este handoff existe só para que a dívida não se perca.
+
+context:
+  estado_verificado:
+    - "5 falhas isoladas em apps/web/src/app/api/agent/__tests__/finance-flow.test.ts (Story 4.10)."
+    - "Provadas não-regressão: falhavam em HEAD limpo (git stash da Aria com working tree byte-idêntico)."
+    - "Restante suite web verde; lint/typecheck/check:rls EXIT 0 (28 tabelas / 120 policies)."
+    - "Epic 5 fechado 10/10 nesta sessão; origin/main em a129062."
+
+  caminho_recomendado: |
+    1) Ficheiro: apps/web/src/app/api/agent/__tests__/finance-flow.test.ts
+    2) Correr só essa suite: pnpm --filter @meu-jarvis/web test -- finance-flow.test.ts
+    3) Ler as 5 mensagens de falha — provável drift de fixture/mock-rows após
+       evolução de schema/output das tools de finanças (precedente recorrente:
+       mock-rows sem coluna nova → outcome.success=false). Comparar com o estado
+       actual das tools/queries de finanças.
+    4) Corrigir as fixtures OU actualizar as expectativas do teste para o
+       contrato actual. Ciclo SDC normal se o fix tocar produção.
+
+  blockers:
+    - "Nenhum. Não bloqueia merges nem o MVP — é dívida de teste isolada."
+
+next_action: >
+  Quando houver folga (não urgente): investigar e corrigir as 5 falhas
+  pré-existentes em finance-flow.test.ts (Story 4.10), repondo a suite web a
+  100% verde. NÃO fazer push fora do @devops.
+
+notes: |
+  - Estas falhas são pré-existentes e estáveis (não flaky) — não confundir com
+    regressão. Se a contagem de falhas mudar (>5 ou <5), reinvestigar a causa.
+  - Billing CONGELADO; SEC-8 em HOLD; DNS-001 tarefa do Eurico — nada disto se
+    relaciona com este follow-up.
+
+related:
+  - apps/web/src/app/api/agent/__tests__/finance-flow.test.ts
+  - docs/qa/gates/5.10-architect-gate.md
