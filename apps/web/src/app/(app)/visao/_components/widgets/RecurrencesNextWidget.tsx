@@ -4,14 +4,14 @@ import { parseISO } from 'date-fns';
 import { captureException } from '@meu-jarvis/observability';
 import { DateDisplay, MoneyDisplay } from '@meu-jarvis/ui';
 
-import { withHousehold } from '@/lib/agent/db-shim';
-import { getRecurrencesNext } from '@/lib/visao/queries';
+import { getRecurrencesNextCached } from '@/lib/visao/queries';
 import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
 
 /**
  * `<RecurrencesNextWidget>` — widget `recurrences_next` (Story 5.6 AC4).
  *
- * RSC-direct via `getDb()` + `getRecurrencesNext` (DP-5.6.A=B). Mostra até 5
+ * RSC-direct via `getRecurrencesNextCached` (Story 5.10 AC5 — `React.cache`).
+ * Mostra até 5
  * próximas recorrências: data (`<DateDisplay>`) + descrição + `<MoneyDisplay>`.
  * `tone` mapeia o `kind` (income=+verde, expense=−vermelho, transfer=neutro).
  * Empty inline quando vazio. Rodapé "Ver recorrências →" `/financas/recorrentes`.
@@ -28,12 +28,10 @@ export async function RecurrencesNextWidget({
   householdId: string;
   userId: string;
 }): Promise<React.ReactElement> {
-  let recurrences: Awaited<ReturnType<typeof getRecurrencesNext>>['recurrences'] = [];
+  let recurrences: Awaited<ReturnType<typeof getRecurrencesNextCached>>['recurrences'] = [];
   try {
-    // SEC-6 — RLS-enforced em runtime (2.ª rede); 1.ª rede mantida no helper.
-    const data = await withHousehold({ userId, householdId }, (tx) =>
-      getRecurrencesNext(tx, householdId),
-    );
+    // SEC-6 — RLS-enforced no wrapper; 1.ª rede mantida no helper. Cache dedup.
+    const data = await getRecurrencesNextCached(userId, householdId);
     recurrences = data.recurrences;
   } catch (err) {
     captureException(err instanceof Error ? err : new Error(String(err)), {

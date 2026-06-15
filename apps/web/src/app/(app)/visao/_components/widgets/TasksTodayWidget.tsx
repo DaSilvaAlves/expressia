@@ -2,19 +2,20 @@ import type * as React from 'react';
 
 import { captureException } from '@meu-jarvis/observability';
 
-import { withHousehold } from '@/lib/agent/db-shim';
-import { getTasksToday } from '@/lib/visao/queries';
+import { getTasksTodayCached } from '@/lib/visao/queries';
 import { formatDueTime, priorityDotClass } from '@/app/(app)/visao/_lib/format';
 import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
 
 /**
  * `<TasksTodayWidget>` — widget `tasks_today` (Story 5.6 AC4).
  *
- * RSC-direct via `getDb()` + `getTasksToday` (DP-5.6.A=B). Mostra até 5 tarefas
- * (título + hora). Empty inline: "Sem tarefas para hoje.". Rodapé "Ver todas →"
- * `/tarefas`. Try/catch defensivo (precedente `financas/este-mes`).
+ * RSC-direct via `getTasksTodayCached` (Story 5.10 AC5 — `React.cache`, deduplica
+ * com `isVisaoEmpty` no mesmo request; o wrapper abre o `withHousehold`/RLS
+ * internamente — ver `queries.ts`). Mostra até 5 tarefas (título + hora). Empty
+ * inline: "Sem tarefas para hoje.". Rodapé "Ver todas →" `/tarefas`. Try/catch
+ * defensivo (precedente `financas/este-mes`).
  *
- * Trace: Story 5.6 AC4 (tasks_today); RLS NFR5 via `getDb()`.
+ * Trace: Story 5.6 AC4 (tasks_today); Story 5.10 AC5; RLS NFR5.
  */
 export async function TasksTodayWidget({
   householdId,
@@ -24,12 +25,11 @@ export async function TasksTodayWidget({
   userId: string;
 }): Promise<React.ReactElement> {
   let count = 0;
-  let tasks: Awaited<ReturnType<typeof getTasksToday>>['tasks'] = [];
+  let tasks: Awaited<ReturnType<typeof getTasksTodayCached>>['tasks'] = [];
   try {
-    // SEC-6 — RLS-enforced em runtime (2.ª rede); 1.ª rede mantida no helper.
-    const data = await withHousehold({ userId, householdId }, (tx) =>
-      getTasksToday(tx, householdId),
-    );
+    // SEC-6 — RLS-enforced em runtime (2.ª rede, dentro do wrapper); 1.ª rede
+    // mantida no helper. A cache deduplica com a chamada de `isVisaoEmpty`.
+    const data = await getTasksTodayCached(userId, householdId);
     count = data.count;
     tasks = data.tasks;
   } catch (err) {

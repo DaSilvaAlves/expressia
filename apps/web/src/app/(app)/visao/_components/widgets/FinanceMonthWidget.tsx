@@ -3,14 +3,14 @@ import type * as React from 'react';
 import { captureException } from '@meu-jarvis/observability';
 import { MoneyDisplay } from '@meu-jarvis/ui';
 
-import { withHousehold } from '@/lib/agent/db-shim';
-import { getFinancesMonth } from '@/lib/visao/queries';
+import { getFinancesMonthCached } from '@/lib/visao/queries';
 import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
 
 /**
  * `<FinanceMonthWidget>` — widget `finance_month` (Story 5.6 AC4).
  *
- * RSC-direct via `getDb()` + `getFinancesMonth` (DP-5.6.A=B). Mostra o saldo do
+ * RSC-direct via `getFinancesMonthCached` (Story 5.10 AC5 — `React.cache`).
+ * Mostra o saldo do
  * mês (`balance`, tone `signed`) + entradas/saídas + nº transacções. Empty inline
  * quando não há transacções. Rodapé "Ver mês →" `/financas/este-mes`.
  *
@@ -30,10 +30,8 @@ export async function FinanceMonthWidget({
   let balance = 0;
   let transactionCount = 0;
   try {
-    // SEC-6 — RLS-enforced em runtime (2.ª rede); 1.ª rede mantida no helper.
-    const data = await withHousehold({ userId, householdId }, (tx) =>
-      getFinancesMonth(tx, householdId),
-    );
+    // SEC-6 — RLS-enforced no wrapper; 1.ª rede mantida no helper. Cache dedup.
+    const data = await getFinancesMonthCached(userId, householdId);
     incomeTotal = data.incomeTotal;
     expenseTotal = data.expenseTotal;
     balance = data.balance;

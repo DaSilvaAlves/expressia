@@ -3,14 +3,14 @@ import type * as React from 'react';
 import { captureException } from '@meu-jarvis/observability';
 import { MoneyDisplay } from '@meu-jarvis/ui';
 
-import { withHousehold } from '@/lib/agent/db-shim';
-import { getAccountsBalance } from '@/lib/visao/queries';
+import { getAccountsBalanceCached } from '@/lib/visao/queries';
 import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
 
 /**
  * `<AccountsBalanceWidget>` — widget `accounts_balance` (Story 5.6 AC4).
  *
- * RSC-direct via `getDb()` + `getAccountsBalance` (DP-5.6.A=B). Mostra o saldo
+ * RSC-direct via `getAccountsBalanceCached` (Story 5.10 AC5 — `React.cache`).
+ * Mostra o saldo
  * total (`totalBalanceCents`, tone `signed`) + nº de contas. Empty inline quando
  * não há contas. Rodapé "Ver contas →" `/financas/patrimonio`.
  *
@@ -28,10 +28,8 @@ export async function AccountsBalanceWidget({
   let totalBalanceCents = 0;
   let accountCount = 0;
   try {
-    // SEC-6 — RLS-enforced em runtime (2.ª rede); 1.ª rede mantida no helper.
-    const data = await withHousehold({ userId, householdId }, (tx) =>
-      getAccountsBalance(tx, householdId),
-    );
+    // SEC-6 — RLS-enforced no wrapper; 1.ª rede mantida no helper. Cache dedup.
+    const data = await getAccountsBalanceCached(userId, householdId);
     totalBalanceCents = data.totalBalanceCents;
     accountCount = data.accountCount;
   } catch (err) {

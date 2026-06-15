@@ -19,9 +19,11 @@
  *
  * Trace: Story 5.6 DP-5.6.A=B; Story 5.5 AC1-AC7; CO-5.5.A.
  */
+import { cache } from 'react';
 import { sql } from 'drizzle-orm';
 
 import type { DbShim } from '@/lib/agent/db-shim';
+import { withHousehold } from '@/lib/agent/db-shim';
 import { getAccountBalanceMap } from '@/lib/finance/account-balances';
 import type {
   AccountsBalanceResponse,
@@ -380,3 +382,62 @@ export function getBriefing(): BriefingResponse {
     generatedAt: null,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FUP-5.6.A — Wrappers cacheados (Story 5.10 AC5 / DP-5.10.D = A)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Elimina a double-query da `/visao` (FUP-5.6.A): antes desta story, cada
+ * agregado corria **2×** por page-load — 1× em `isVisaoEmpty` (decisão de
+ * empty-state) e 1× dentro do `<Suspense>` do widget correspondente. Como cada
+ * call-site abre o **seu próprio** `withHousehold` (transacção RLS distinta com
+ * `tx` diferente), `React.cache()` aplicado às funções base `getX(db, …)` **não**
+ * deduplicaria (a cache do `React.cache` é por identidade de argumentos, e o `db`
+ * difere). Ver PO-NOTE-1 / AC5(a).
+ *
+ * Solução (DP-5.10.D = A, real e não cosmética): cachear a um nível onde a chave
+ * é **estável** dentro do request — `(userId, householdId)` (strings) — e abrir o
+ * `withHousehold` **dentro** do wrapper cacheado. A 1.ª chamada (venha de
+ * `isVisaoEmpty` ou de um widget) executa a transacção + a query; as restantes do
+ * mesmo request servem da cache. O `<Suspense>` per-widget mantém-se intacto
+ * (cada widget continua a `await` o wrapper; a 2.ª chamada é instantânea).
+ *
+ * RLS preservado (AC5.c): o `withHousehold` corre com role `authenticated` (NUNCA
+ * `getServiceDb()`); `React.cache` é **per-request** no RSC — sem partilha entre
+ * requests de utilizadores diferentes. A 1.ª rede app-enforced (`household_id`
+ * explícito em cada `getX`) mantém-se. Defense-in-depth SEC-6 intacto.
+ *
+ * As funções base `getX(db, householdId)` permanecem exportadas e inalteradas —
+ * os route handlers `/api/visao/*` (Story 5.5) continuam a usá-las com o seu
+ * próprio `db`/contrato HTTP 1:1, fora deste caminho cacheado.
+ */
+export const getTasksTodayCached = cache(
+  (userId: string, householdId: string): Promise<TasksTodayResponse> =>
+    withHousehold({ userId, householdId }, (tx) => getTasksToday(tx, householdId)),
+);
+
+export const getTasksOverdueCached = cache(
+  (userId: string, householdId: string): Promise<TasksOverdueResponse> =>
+    withHousehold({ userId, householdId }, (tx) => getTasksOverdue(tx, householdId)),
+);
+
+export const getFinancesMonthCached = cache(
+  (userId: string, householdId: string): Promise<FinancesMonthResponse> =>
+    withHousehold({ userId, householdId }, (tx) => getFinancesMonth(tx, householdId)),
+);
+
+export const getRecurrencesNextCached = cache(
+  (userId: string, householdId: string): Promise<RecurrencesNextResponse> =>
+    withHousehold({ userId, householdId }, (tx) => getRecurrencesNext(tx, householdId)),
+);
+
+export const getAccountsBalanceCached = cache(
+  (userId: string, householdId: string): Promise<AccountsBalanceResponse> =>
+    withHousehold({ userId, householdId }, (tx) => getAccountsBalance(tx, householdId)),
+);
+
+export const getCalendarWeekCached = cache(
+  (userId: string, householdId: string): Promise<CalendarWeekResponse> =>
+    withHousehold({ userId, householdId }, (tx) => getCalendarWeek(tx, householdId)),
+);

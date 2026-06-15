@@ -52,6 +52,8 @@ vi.mock('@/lib/api-helpers/auth', () => ({
   resolveHouseholdId: mocks.resolveHouseholdIdMock,
 }));
 
+// Story 5.10 AC5 — `isVisaoEmpty` passou a chamar os wrappers `getXCached`
+// (`React.cache`). Mapeamos cada wrapper para o MESMO spy da função base.
 vi.mock('@/lib/visao/queries', () => ({
   getTasksToday: mocks.getTasksTodayMock,
   getTasksOverdue: mocks.getTasksOverdueMock,
@@ -59,6 +61,12 @@ vi.mock('@/lib/visao/queries', () => ({
   getRecurrencesNext: mocks.getRecurrencesNextMock,
   getAccountsBalance: mocks.getAccountsBalanceMock,
   getCalendarWeek: mocks.getCalendarWeekMock,
+  getTasksTodayCached: mocks.getTasksTodayMock,
+  getTasksOverdueCached: mocks.getTasksOverdueMock,
+  getFinancesMonthCached: mocks.getFinancesMonthMock,
+  getRecurrencesNextCached: mocks.getRecurrencesNextMock,
+  getAccountsBalanceCached: mocks.getAccountsBalanceMock,
+  getCalendarWeekCached: mocks.getCalendarWeekMock,
 }));
 
 vi.mock('@/app/(app)/visao/_components/WidgetGrid', () => ({

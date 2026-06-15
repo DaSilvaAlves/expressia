@@ -124,7 +124,8 @@ export function WeekNavigation({
         {label}
       </h2>
 
-      <div className="w-[140px]" aria-hidden="true" />
+      {/* Story 5.10 AC1 — spacer de simetria só em ≥640px (ver MonthNavigation). */}
+      <div className="hidden w-[140px] sm:block" aria-hidden="true" />
     </nav>
   );
 }

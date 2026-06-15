@@ -78,7 +78,9 @@ export function MonthNavigation({
         {monthLabel}
       </h2>
 
-      <div className="w-[150px]" aria-hidden="true" />
+      {/* Story 5.10 AC1 — spacer de simetria só em ≥640px; em mobile o
+          `justify-between` distribui naturalmente sem pressionar o label. */}
+      <div className="hidden w-[150px] sm:block" aria-hidden="true" />
     </nav>
   );
 }

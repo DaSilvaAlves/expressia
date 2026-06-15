@@ -4,14 +4,14 @@ import { pt } from 'date-fns/locale';
 
 import { captureException } from '@meu-jarvis/observability';
 
-import { withHousehold } from '@/lib/agent/db-shim';
-import { getCalendarWeek } from '@/lib/visao/queries';
+import { getCalendarWeekCached } from '@/lib/visao/queries';
 import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
 
 /**
  * `<CalendarWeekWidget>` — widget `calendar_week` (Story 5.6 AC4 + PO-FIX-1).
  *
- * RSC-direct via `getDb()` + `getCalendarWeek` (DP-5.6.A=B). Mostra os 7 dias da
+ * RSC-direct via `getCalendarWeekCached` (Story 5.10 AC5 — `React.cache`).
+ * Mostra os 7 dias da
  * semana (sempre 7 — a query devolve buckets vazios) com a contagem de tarefas
  * por dia. Rodapé "Ver calendário →" **`/tarefas/calendario`** (PO-FIX-1 — rota
  * dedicada verificada; NÃO `/tarefas`).
@@ -27,12 +27,10 @@ export async function CalendarWeekWidget({
   householdId: string;
   userId: string;
 }): Promise<React.ReactElement> {
-  let days: Awaited<ReturnType<typeof getCalendarWeek>>['days'] = [];
+  let days: Awaited<ReturnType<typeof getCalendarWeekCached>>['days'] = [];
   try {
-    // SEC-6 — RLS-enforced em runtime (2.ª rede); 1.ª rede mantida no helper.
-    const data = await withHousehold({ userId, householdId }, (tx) =>
-      getCalendarWeek(tx, householdId),
-    );
+    // SEC-6 — RLS-enforced no wrapper; 1.ª rede mantida no helper. Cache dedup.
+    const data = await getCalendarWeekCached(userId, householdId);
     days = data.days;
   } catch (err) {
     captureException(err instanceof Error ? err : new Error(String(err)), {

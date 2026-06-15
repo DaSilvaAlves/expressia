@@ -4,15 +4,15 @@ import { parseISO } from 'date-fns';
 import { captureException } from '@meu-jarvis/observability';
 import { DateDisplay } from '@meu-jarvis/ui';
 
-import { withHousehold } from '@/lib/agent/db-shim';
-import { getTasksOverdue } from '@/lib/visao/queries';
+import { getTasksOverdueCached } from '@/lib/visao/queries';
 import { formatDueTime, priorityDotClass } from '@/app/(app)/visao/_lib/format';
 import { WidgetCard } from '@/app/(app)/visao/_components/WidgetCard';
 
 /**
  * `<TasksOverdueWidget>` — widget `tasks_overdue` (Story 5.6 AC4 + AC4.b).
  *
- * RSC-direct via `getDb()` + `getTasksOverdue` (DP-5.6.A=B). **Hidden se vazio**
+ * RSC-direct via `getTasksOverdueCached` (Story 5.10 AC5 — `React.cache`).
+ * **Hidden se vazio**
  * (DP-5.6.E / AC4.b): quando `count === 0` o widget **não renderiza nada** (nem
  * card) — devolve `null`. Caso contrário mostra até 5 atrasadas (data + título)
  * e rodapé "Ver todas →" `/tarefas`.
@@ -30,12 +30,11 @@ export async function TasksOverdueWidget({
   userId: string;
 }): Promise<React.ReactElement | null> {
   let count = 0;
-  let tasks: Awaited<ReturnType<typeof getTasksOverdue>>['tasks'] = [];
+  let tasks: Awaited<ReturnType<typeof getTasksOverdueCached>>['tasks'] = [];
   try {
-    // SEC-6 — RLS-enforced em runtime (2.ª rede); 1.ª rede mantida no helper.
-    const data = await withHousehold({ userId, householdId }, (tx) =>
-      getTasksOverdue(tx, householdId),
-    );
+    // SEC-6 — RLS-enforced no wrapper; 1.ª rede mantida no helper. A cache
+    // deduplica com a chamada de `isVisaoEmpty`.
+    const data = await getTasksOverdueCached(userId, householdId);
     count = data.count;
     tasks = data.tasks;
   } catch (err) {

@@ -6,16 +6,16 @@ import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import { captureException } from '@meu-jarvis/observability';
 import type { WidgetsEnabled } from '@meu-jarvis/db';
 
-import { getDb, withHousehold } from '@/lib/agent/db-shim';
+import { getDb } from '@/lib/agent/db-shim';
 import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import { WidgetsEnabledSchema } from '@/lib/api-schemas/preferences';
 import {
-  getAccountsBalance,
-  getCalendarWeek,
-  getFinancesMonth,
-  getRecurrencesNext,
-  getTasksOverdue,
-  getTasksToday,
+  getAccountsBalanceCached,
+  getCalendarWeekCached,
+  getFinancesMonthCached,
+  getRecurrencesNextCached,
+  getTasksOverdueCached,
+  getTasksTodayCached,
 } from '@/lib/visao/queries';
 import { formatGreetingDate, getGreeting, resolveDisplayName } from '@/app/(app)/visao/_lib/greeting';
 import { DEFAULT_WIDGETS_ENABLED, WIDGET_ORDER } from '@/app/(app)/visao/_lib/widgets';
@@ -125,10 +125,13 @@ async function hasCompletedOnboarding(userId: string): Promise<boolean> {
  * Em erro de qualquer agregado, assume-se NÃO-vazio (devolve `false`) — preferir
  * mostrar os widgets (que têm o seu próprio fallback inline) a esconder tudo.
  *
- * NOTA: estas queries correm uma vez para a decisão de empty-state; os widgets
- * voltam a chamá-las dentro dos seus `<Suspense>`. O trade-off (queries leves
- * agregadas, indexadas) é aceite para manter a página simples; uma optimização
- * de partilha de cache fica para a Story 5.10 (perf sweep).
+ * FUP-5.6.A RESOLVIDO (Story 5.10 AC5 / DP-5.10.D = A): estas queries corriam
+ * 1× aqui (decisão de empty-state) + 1× dentro do `<Suspense>` de cada widget —
+ * uma double-query por page-load. Agora usam os wrappers `getXCached` de
+ * `queries.ts` (`React.cache` por `(userId, householdId)`): a 1.ª chamada — venha
+ * daqui ou de um widget — executa a transacção `withHousehold` + a query; as
+ * restantes do mesmo request servem da cache. Cada widget continua a `await` o
+ * mesmo wrapper, pelo que o `<Suspense>` per-widget mantém-se. Ver `queries.ts`.
  */
 async function isVisaoEmpty(
   widgetsEnabled: WidgetsEnabled,
@@ -136,39 +139,41 @@ async function isVisaoEmpty(
   userId: string,
 ): Promise<boolean> {
   try {
-    // SEC-6 — os ≤6 agregados household-scoped correm num único `withHousehold`
-    // (2.ª rede RLS em runtime). O filtro `household_id` de `queries.ts` (1.ª
-    // rede) MANTÉM-SE dentro de cada `getX` — defense-in-depth.
-    return await withHousehold({ userId, householdId }, async (tx) => {
-      const checks: Array<Promise<boolean>> = [];
+    // SEC-6 — cada `getXCached` abre o seu `withHousehold` (2.ª rede RLS em
+    // runtime); o filtro `household_id` de `queries.ts` (1.ª rede) MANTÉM-SE
+    // dentro de cada `getX` — defense-in-depth. A cache deduplica com os widgets.
+    const checks: Array<Promise<boolean>> = [];
 
-      if (widgetsEnabled.tasks_today) {
-        checks.push(getTasksToday(tx, householdId).then((d) => d.count === 0));
-      }
-      if (widgetsEnabled.tasks_overdue) {
-        checks.push(getTasksOverdue(tx, householdId).then((d) => d.count === 0));
-      }
-      if (widgetsEnabled.finance_month) {
-        checks.push(getFinancesMonth(tx, householdId).then((d) => d.transactionCount === 0));
-      }
-      if (widgetsEnabled.recurrences_next) {
-        checks.push(getRecurrencesNext(tx, householdId).then((d) => d.count === 0));
-      }
-      if (widgetsEnabled.accounts_balance) {
-        checks.push(getAccountsBalance(tx, householdId).then((d) => d.accountCount === 0));
-      }
-      if (widgetsEnabled.calendar_week) {
-        checks.push(
-          getCalendarWeek(tx, householdId).then((d) => d.days.every((day) => day.taskCount === 0)),
-        );
-      }
+    if (widgetsEnabled.tasks_today) {
+      checks.push(getTasksTodayCached(userId, householdId).then((d) => d.count === 0));
+    }
+    if (widgetsEnabled.tasks_overdue) {
+      checks.push(getTasksOverdueCached(userId, householdId).then((d) => d.count === 0));
+    }
+    if (widgetsEnabled.finance_month) {
+      checks.push(
+        getFinancesMonthCached(userId, householdId).then((d) => d.transactionCount === 0),
+      );
+    }
+    if (widgetsEnabled.recurrences_next) {
+      checks.push(getRecurrencesNextCached(userId, householdId).then((d) => d.count === 0));
+    }
+    if (widgetsEnabled.accounts_balance) {
+      checks.push(getAccountsBalanceCached(userId, householdId).then((d) => d.accountCount === 0));
+    }
+    if (widgetsEnabled.calendar_week) {
+      checks.push(
+        getCalendarWeekCached(userId, householdId).then((d) =>
+          d.days.every((day) => day.taskCount === 0),
+        ),
+      );
+    }
 
-      // Sem widgets de conteúdo activos → não há "vazio total" a comunicar aqui.
-      if (checks.length === 0) return false;
+    // Sem widgets de conteúdo activos → não há "vazio total" a comunicar aqui.
+    if (checks.length === 0) return false;
 
-      const results = await Promise.all(checks);
-      return results.every((empty) => empty);
-    });
+    const results = await Promise.all(checks);
+    return results.every((empty) => empty);
   } catch (err) {
     captureException(err instanceof Error ? err : new Error(String(err)), {
       route: '/visao',

@@ -34,6 +34,10 @@ vi.mock('@meu-jarvis/observability', () => ({
   captureException: vi.fn(),
 }));
 
+// Story 5.10 AC5 — os widgets passaram a chamar os wrappers `getXCached`
+// (`React.cache` que encapsula o `withHousehold`). Mapeamos cada wrapper para o
+// MESMO spy da função base — os testes mantêm os `mockResolvedValue` sem churn
+// (o wrapper cacheado é, no teste, indistinguível da função base mockada).
 vi.mock('@/lib/visao/queries', () => ({
   getBriefing: q.getBriefing,
   getTasksToday: q.getTasksToday,
@@ -42,6 +46,12 @@ vi.mock('@/lib/visao/queries', () => ({
   getTasksOverdue: q.getTasksOverdue,
   getAccountsBalance: q.getAccountsBalance,
   getCalendarWeek: q.getCalendarWeek,
+  getTasksTodayCached: q.getTasksToday,
+  getFinancesMonthCached: q.getFinancesMonth,
+  getRecurrencesNextCached: q.getRecurrencesNext,
+  getTasksOverdueCached: q.getTasksOverdue,
+  getAccountsBalanceCached: q.getAccountsBalance,
+  getCalendarWeekCached: q.getCalendarWeek,
 }));
 
 const { BriefingWidget } = await import('@/app/(app)/visao/_components/widgets/BriefingWidget');
