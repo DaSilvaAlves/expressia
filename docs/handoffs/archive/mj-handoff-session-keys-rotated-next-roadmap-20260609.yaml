@@ -2,7 +2,11 @@ id: mj-handoff-session-keys-rotated-next-roadmap-20260609
 from_agent: devops
 to_agent: any
 created: "2026-06-09T20:35:00Z"
-status: pending
+status: superseded
+archived: true
+archived_at: "2026-06-15T21:36:03Z"
+archived_by: aiox-master (Orion)
+superseded_by: mj-handoff-followups-soft-launch-20260615
 
 supersedes: mj-handoff-session-sec7-shipped-20260603
 supersedes_note: >

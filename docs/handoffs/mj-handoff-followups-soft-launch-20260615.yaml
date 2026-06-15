@@ -1,0 +1,75 @@
+id: mj-handoff-followups-soft-launch-20260615
+from_agent: aiox-master (Orion)
+to_agent: any
+created: "2026-06-15T19:00:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: followup-consolidation
+
+summary: >
+  CONSOLIDAÇÃO DE FOLLOW-UPS PARA O SOFT-LAUNCH DO MVP. Este handoff agrega,
+  num único sítio, todos os follow-ups accionáveis que sobreviviam espalhados
+  por 6 handoffs antigos/superados (arquivados a 15/06 por @aiox-master após
+  triagem) — para que nada se perca. NÃO é trabalho a fazer já em bloco; é o
+  catálogo vivo do que falta para abrir o Expressia a estranhos, separado por
+  owner (Eurico-humano vs agente-automatizável) e por prioridade. Contexto:
+  Epic 5 fechado 10/10, core provado E2E em prod, suite web 1196/1196 verde;
+  GAP-3, OBS-2, A2 (reset password), A3 (Sentry), A1+A4 (páginas legais) já em
+  prod (origin/main 1524ed7). Direcção escolhida pelo Eurico: SOFT-LAUNCH.
+  Billing CONGELADO (29/05); SEC-8 em HOLD.
+
+context:
+  caminho_critico_soft_launch:
+    - "[EURICO] DNS-001: apontar expressia.pt → Vercel. Falta 1 registo A (@ → 76.76.21.21, DNS-only) + CNAME www no Cloudflare. NUNCA mudar nameservers (servem outros subdomínios). Runbook docs/runbooks/dns-expressia-setup.md. Alternativa: app.expressia.pt (Cenário B). BLOQUEANTE — sem isto não há domínio público."
+    - "[EURICO] SITE-URL-PROD: definir Supabase Site URL → domínio final + verificar Redirect URLs allowlist. Sem isto magic links/reset/confirm vão para o sítio errado. Runbook supabase-auth-setup.md §5. BLOQUEANTE auth."
+    - "[EURICO] GAP-2 confirmação de email (Resend SMTP): com 'Confirm email' ON sem SMTP custom, o Supabase usa serviço default (4 emails/h, bloqueia domínios) → registo a estranhos parte. Decidir: ligar Resend SMTP (recomendado) OU 'Confirm email' OFF no soft-launch. IMPORTANTE."
+    - "[EURICO] SENTRY_DSN: configurar NEXT_PUBLIC_SENTRY_DSN na Vercel Production. O código (error.tsx) já reporta via captureException (A3, commit 06a632a) mas é no-op sem DSN. Sem isto lança-se às cegas. IMPORTANTE."
+    - "[EURICO] Smoke E2E final no domínio público: registo→confirma→login→criar tarefa/transação→reset password→logout. Gate último, depende de tudo o resto."
+    - "[EURICO] Inngest synced: confirmar que as 3 funções (cleanupExpiredReverseOps, generateRecurringTasks, generateFinanceRecurrences) continuam synced após mudança de domínio (o sync atado ao URL que resolve). C1 estava DONE em vercel.app (13/06)."
+
+  follow_ups_seguranca_e_conformidade:
+    - "[AGENTE] Host-header no reset password (CONCERNS QA da A2): o redirectTo deriva de headers controláveis pelo cliente; mitigado pela allowlist Supabase mas o wildcard *.vercel.app deixa vector residual de password-reset-poisoning (baixa prob.). Mesmo padrão já em prod no signUpAction desde 6.1. Antes de tráfego real: fixar SITE_URL via env var em prod OU restringir o wildcard. Ref: actions.ts getRequestOrigin + Directive do commit f472c22."
+    - "[AGENTE+EURICO] RGPD purge / eliminação de conta: não existe fluxo self-service nem função Inngest de purge (apesar de mencionada no .env.example/CLAUDE.md). Há ON DELETE CASCADE. Para soft-launch pequeno: documentar processo manual (via getServiceDb) + decidir se implementa self-service. Fast-follow."
+    - "[EURICO] Páginas legais (/privacidade, /termos) estão em prod mas são RASCUNHO: preencher placeholders [...] (entidade legal, morada, emails, datas, comarca, mecanismo de transferência SCC), confirmar DPA Anthropic/OpenAI (não-treino), obter validação jurídica e remover o aviso 'RASCUNHO' do topo. BLOQUEANTE de conformidade antes de divulgar."
+
+  follow_ups_higiene_e_fast_follow:
+    - "[EURICO] Cleanup de test users em prod (contas de smoke/dev-create-user)."
+    - "[AGENTE] 2 alertas Grafana (origem: handoff 1.7-post-deploy, arquivado) — configurar alertas de observabilidade pré-launch. Verificar runbook observability-setup.md."
+    - "[EURICO] INVITE-E2E-SMOKE: smoke do ciclo de convite de membro household E2E (aberto desde 01/06). Convite por link manual funciona; falta validar o ciclo completo."
+    - "[AGENTE] Multi-household: suporte a utilizador em múltiplos households (deferido; avaliar se entra no MVP ou pós-launch)."
+    - "[AGENTE] OBS-3: medir Lighthouse de /visao AUTENTICADA (DevTools com sessão) e completar docs/runbooks/lighthouse-mobile.md. Minor. Requer sessão no browser (Eurico ou medição assistida)."
+    - "[AGENTE] Avaliar rate-limiting na auth antes de abrir amplamente (Supabase GoTrue tem limites próprios — confirmar suficiência)."
+    - "[AGENTE] service_role legacy: auditar usos de getServiceDb fora dos jobs controlados (higiene de segurança contínua)."
+
+  hold_e_congelado:
+    - "BILLING/Stripe CONGELADO (directiva 29/05). Trial 14d sem cartão funciona sem paywall (confirmado por auditoria). Só descongelar por decisão explícita do Eurico."
+    - "SEC-8 (Fatia D — Cérebro AI avançado) em HOLD. Exige Adenda §12 de design do @architect ANTES de qualquer @sm *draft. NÃO draftar sem isso."
+
+next_action: >
+  Este é um catálogo de referência, não uma ordem única. Quando se retomar o
+  soft-launch: o Eurico ataca o caminho crítico (DNS-001 → Site URL → decisão
+  email → SENTRY_DSN → smoke final) em paralelo com o agente a fechar os
+  follow-ups [AGENTE] pelo ciclo SDC (host-header, RGPD purge doc, alertas
+  Grafana, OBS-3). Conformidade legal (preencher placeholders + validação
+  jurídica) é bloqueante antes de divulgar a estranhos. Push só pelo @devops.
+
+notes: |
+  - Substitui (consolida) os follow-ups que viviam em: mj-handoff-1.7-post-deploy-ui-tasks
+    (2 alertas Grafana), session-keys-rotated (SEC-8 HOLD, follow-ups roadmap),
+    session-seq-a-fechada (INVITE-E2E-SMOKE, cleanup), session-sec3-rls-fase2,
+    session-pause-datefix-inngest, session-pause-post-5.8 — todos arquivados 15/06.
+  - O handoff mj-handoff-refocus-core-freeze-billing MANTÉM-SE pending: é
+    directiva de governação viva (billing congelado), não tarefa.
+  - DNS-001: NUNCA mexer nos nameservers Cloudflare — tarefa exclusiva do Eurico.
+
+related:
+  - docs/runbooks/dns-expressia-setup.md
+  - docs/runbooks/supabase-auth-setup.md
+  - docs/runbooks/observability-setup.md
+  - docs/runbooks/lighthouse-mobile.md
+  - apps/web/src/app/(auth)/actions.ts
+  - apps/web/src/app/privacidade/page.tsx

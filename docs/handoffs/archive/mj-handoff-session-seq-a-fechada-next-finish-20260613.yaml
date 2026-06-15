@@ -2,7 +2,11 @@ id: mj-handoff-session-seq-a-fechada-next-finish-20260613
 from_agent: devops (Gage) — sessão 13/06, sequência A fechada e em prod
 to_agent: any
 created: "2026-06-13T01:30:00Z"
-status: pending
+status: superseded
+archived: true
+archived_at: "2026-06-15T21:36:03Z"
+archived_by: aiox-master (Orion)
+superseded_by: mj-handoff-followups-soft-launch-20260615
 consumed: false
 
 # NOTA DE PROGRESSO (não consome o handoff — D1/D2 são 2 das 5 tarefas;

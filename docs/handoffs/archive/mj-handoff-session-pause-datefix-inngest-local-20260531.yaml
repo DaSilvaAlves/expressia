@@ -2,7 +2,11 @@ id: mj-handoff-session-pause-datefix-inngest-local-20260531
 from_agent: aiox-master
 to_agent: any
 created: '2026-05-31T22:45:00Z'
-status: pending
+status: superseded
+archived: true
+archived_at: "2026-06-15T21:36:03Z"
+archived_by: aiox-master (Orion)
+superseded_by: mj-handoff-followups-soft-launch-20260615
 consumed: false
 
 project: meu-jarvis (Expressia)

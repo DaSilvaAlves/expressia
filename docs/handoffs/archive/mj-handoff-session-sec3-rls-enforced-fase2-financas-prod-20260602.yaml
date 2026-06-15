@@ -2,7 +2,11 @@ id: mj-handoff-session-sec3-rls-enforced-fase2-financas-prod-20260602
 from_agent: aiox-devops
 to_agent: any
 created: '2026-06-02T22:10:00Z'
-status: pending
+status: superseded
+archived: true
+archived_at: "2026-06-15T21:36:03Z"
+archived_by: aiox-master (Orion)
+superseded_by: mj-handoff-followups-soft-launch-20260615
 consumed: false
 
 project: meu-jarvis (Expressia)

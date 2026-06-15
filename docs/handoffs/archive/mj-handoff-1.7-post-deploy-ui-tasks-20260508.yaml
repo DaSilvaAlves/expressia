@@ -10,7 +10,11 @@ handoff_id: mj-handoff-1.7-post-deploy-ui-tasks-20260508
 from_agent: devops (Gage)
 to_agent: any (Eurico humano via UI; ou @devops em sessão futura com browser automation)
 created: 2026-05-08T02:58:53+01:00
-status: pending
+status: superseded
+archived: true
+archived_at: "2026-06-15T21:36:03Z"
+archived_by: aiox-master (Orion)
+superseded_by: mj-handoff-followups-soft-launch-20260615
 consumed: false
 priority: low
 project_prefix: mj
