@@ -32,8 +32,8 @@ context:
     - "[EURICO] Inngest synced: confirmar que as 3 funções (cleanupExpiredReverseOps, generateRecurringTasks, generateFinanceRecurrences) continuam synced após mudança de domínio (o sync atado ao URL que resolve). C1 estava DONE em vercel.app (13/06)."
 
   follow_ups_seguranca_e_conformidade:
-    - "[AGENTE] Host-header no reset password (CONCERNS QA da A2): o redirectTo deriva de headers controláveis pelo cliente; mitigado pela allowlist Supabase mas o wildcard *.vercel.app deixa vector residual de password-reset-poisoning (baixa prob.). Mesmo padrão já em prod no signUpAction desde 6.1. Antes de tráfego real: fixar SITE_URL via env var em prod OU restringir o wildcard. Ref: actions.ts getRequestOrigin + Directive do commit f472c22."
-    - "[AGENTE+EURICO] RGPD purge / eliminação de conta: não existe fluxo self-service nem função Inngest de purge (apesar de mencionada no .env.example/CLAUDE.md). Há ON DELETE CASCADE. Para soft-launch pequeno: documentar processo manual (via getServiceDb) + decidir se implementa self-service. Fast-follow."
+    - "[AGENTE] ✅ FECHADO 15/06 (código): Host-header no reset password (CONCERNS QA da A2). getRequestOrigin() passa a preferir SITE_URL canónico via env var, ignorando headers quando definida; fallback por headers sem regressão. +4 testes, QA gate PASS. Branch fix/auth-host-header-site-url (commit d0806be) pushed; PR a abrir (gh bloqueado por permissões). PENDENTE [EURICO]: definir SITE_URL=https://expressia.pt em Vercel Production para o fix ficar activo; remover wildcard *.vercel.app da allowlist Supabase quando o domínio estabilizar."
+    - "[AGENTE+EURICO] ✅ DOC FECHADA 15/06: RGPD purge / eliminação de conta. Runbook docs/runbooks/rgpd-account-deletion.md documenta o processo manual (ordem households→auth.users por causa do RESTRICT em owner_user_id) + caveat multi-membro + verificação. PENDENTE [EURICO+AGENTE]: decidir se implementa self-service (fast-follow, fora do soft-launch)."
     - "[EURICO] Páginas legais (/privacidade, /termos) estão em prod mas são RASCUNHO: preencher placeholders [...] (entidade legal, morada, emails, datas, comarca, mecanismo de transferência SCC), confirmar DPA Anthropic/OpenAI (não-treino), obter validação jurídica e remover o aviso 'RASCUNHO' do topo. BLOQUEANTE de conformidade antes de divulgar."
 
   follow_ups_higiene_e_fast_follow:
@@ -41,9 +41,9 @@ context:
     - "[AGENTE] 2 alertas Grafana (origem: handoff 1.7-post-deploy, arquivado) — configurar alertas de observabilidade pré-launch. Verificar runbook observability-setup.md."
     - "[EURICO] INVITE-E2E-SMOKE: smoke do ciclo de convite de membro household E2E (aberto desde 01/06). Convite por link manual funciona; falta validar o ciclo completo."
     - "[AGENTE] Multi-household: suporte a utilizador em múltiplos households (deferido; avaliar se entra no MVP ou pós-launch)."
-    - "[AGENTE] OBS-3: medir Lighthouse de /visao AUTENTICADA (DevTools com sessão) e completar docs/runbooks/lighthouse-mobile.md. Minor. Requer sessão no browser (Eurico ou medição assistida)."
-    - "[AGENTE] Avaliar rate-limiting na auth antes de abrir amplamente (Supabase GoTrue tem limites próprios — confirmar suficiência)."
-    - "[AGENTE] service_role legacy: auditar usos de getServiceDb fora dos jobs controlados (higiene de segurança contínua)."
+    - "[AGENTE] OBS-3: medir Lighthouse de /visao AUTENTICADA (DevTools com sessão) e completar docs/runbooks/lighthouse-mobile.md. Minor. Requer sessão no browser (Eurico ou medição assistida). AINDA POR FAZER."
+    - "[AGENTE] ✅ AVALIADO 15/06: rate-limiting na auth. Doc docs/security/auth-rate-limiting-eval-20260615.md. Veredicto: GoTrue chega para soft-launch pequeno; o risco real é o envio de email (GAP-2/Resend), não brute-force. Follow-ups antes de abertura ampla: throttle app-level Upstash em signUp/reset + CAPTCHA opcional. Não bloqueante."
+    - "[AGENTE] ✅ AUDITADO 15/06: service_role / getServiceDb. Doc docs/security/service-role-audit-20260615.md. Veredicto LIMPO: 5 call sites (3 jobs Inngest + incrementQuota + undo route), todos justificados; os 2 em request path têm autorização household app-enforced ANTES do bypass RLS. Sem ação requerida."
 
   hold_e_congelado:
     - "BILLING/Stripe CONGELADO (directiva 29/05). Trial 14d sem cartão funciona sem paywall (confirmado por auditoria). Só descongelar por decisão explícita do Eurico."
