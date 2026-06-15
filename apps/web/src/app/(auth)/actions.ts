@@ -35,16 +35,29 @@ import { mapSignInError, mapSignUpError } from '@/app/(auth)/_lib/error-messages
  * Deriva o origin absoluto da request actual (ex.: `https://expressia.pt` ou
  * `http://localhost:3000`) para construir o `emailRedirectTo` do Supabase.
  *
- * Story 6.1: preferimos derivar dos headers em vez de introduzir uma env var
- * `SITE_URL` (que exigiria configuração @devops em Vercel — mais um bloqueador).
- * O browser envia `origin` em POSTs same-origin; em fallback reconstruímos a
- * partir de `x-forwarded-proto` + `host` (Vercel/proxy) ou `host` simples.
+ * Soft-launch A2 (CONCERNS QA — password-reset-poisoning): em produção
+ * preferimos um origin canónico FIXO via env var `SITE_URL`, imune a
+ * host-header poisoning. Os headers `host`/`x-forwarded-*` são controláveis
+ * pelo cliente e, embora a allowlist de Redirect URLs do Supabase mitigue, o
+ * wildcard `*.vercel.app` deixava um vector residual: um atacante podia
+ * forjar o `Host` para um sub-domínio `*.vercel.app` controlado e captar o
+ * link de reset/confirmação. Quando `SITE_URL` está definida (Vercel
+ * Production), ignoramos os headers por completo.
+ *
+ * Sem `SITE_URL` (dev/preview), caímos para a derivação por headers — o
+ * browser envia `origin` em POSTs same-origin e, em fallback, reconstruímos a
+ * partir de `x-forwarded-proto` + `host`. Comportamento idêntico ao anterior,
+ * sem regressão: o fix só endurece quando a env está presente.
  *
  * NOTA: o URL resultante (`{origin}/callback`) tem de estar na allowlist de
  * Redirect URLs do Supabase Dashboard → Authentication (bloqueador externo
  * documentado na AC9 / runbook supabase-auth-setup.md).
  */
 async function getRequestOrigin(): Promise<string> {
+  // Origin canónico fixo (produção) — imune a headers controláveis pelo cliente.
+  const configured = process.env.SITE_URL?.trim();
+  if (configured) return configured.replace(/\/+$/, '');
+
   const h = await headers();
   const origin = h.get('origin');
   if (origin) return origin;
