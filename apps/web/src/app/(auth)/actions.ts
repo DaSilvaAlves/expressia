@@ -167,10 +167,32 @@ export async function signUpAction(
 }
 
 /**
- * Pedido de recuperação de palavra-passe.
+ * Path interno da página onde o utilizador define a nova palavra-passe após
+ * clicar no link de recuperação. Encaminhado via `/callback?next=...` (o callback
+ * estabelece a sessão de recovery e só então redirecciona para cá).
+ */
+const RESET_REDIRECT_PATH = '/recuperar/nova-palavra-passe';
+
+/**
+ * Pedido de recuperação de palavra-passe (Soft-launch A2).
  *
- * Supabase envia email com magic link de reset. UX completa de "definir nova
- * palavra-passe" depois do clique fica fora desta story (Epic 6 — UX completa).
+ * Supabase envia email com magic link de reset. O `redirectTo` aponta para o
+ * nosso `/callback` (mesmo Route Handler da confirmação de email) com
+ * `?next=/recuperar/nova-palavra-passe&type=recovery`:
+ *
+ *   1. O utilizador clica no link → `/callback?token_hash=…&type=recovery&next=…`.
+ *   2. O callback chama `verifyOtp({ type: 'recovery', token_hash })`, que cria
+ *      uma sessão de recuperação (cookies SSR), e redirecciona para o `next`.
+ *   3. Em `/recuperar/nova-palavra-passe` o cliente chama
+ *      `updateUser({ password })`, autenticado por essa sessão de recovery.
+ *
+ * O `origin` é derivado dos headers (mesma fonte que `signUpAction` — Story 6.1,
+ * sem env var `SITE_URL` a configurar em Vercel). O `{origin}/callback` tem de
+ * estar na allowlist de Redirect URLs do Supabase Dashboard.
+ *
+ * Anti-enumeration: tanto sucesso como falha devolvem o mesmo estado neutro
+ * (`{ error: undefined }`) — a página mostra sempre "se o email existir, recebes
+ * um link". Não revelamos se a conta existe.
  */
 export async function resetPasswordAction(
   _prevState: AuthFormState,
@@ -182,8 +204,13 @@ export async function resetPasswordAction(
     return { error: 'Indica o teu email.' };
   }
 
+  const origin = await getRequestOrigin();
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  // `redirectTo` é anexado ao link do email; o `next` instrui o callback a
+  // encaminhar para a página de definição de nova palavra-passe após o verifyOtp.
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/callback?next=${encodeURIComponent(RESET_REDIRECT_PATH)}`,
+  });
 
   if (error) {
     // Não expor existência da conta.

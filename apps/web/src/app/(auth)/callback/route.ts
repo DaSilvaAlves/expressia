@@ -19,6 +19,16 @@
  * Em ambos: sucesso → `/confirm?status=ok`; falha → `/confirm?status=error`.
  * Sem token nem code → `/entrar` (acesso directo sem fluxo de confirmação).
  *
+ * **`?next=` (Soft-launch A2 — recuperação de palavra-passe).** O fluxo de reset
+ * (`resetPasswordAction`) aponta o `redirectTo` do email para
+ * `{origin}/callback?next=/recuperar/nova-palavra-passe&type=recovery`. O
+ * `verifyOtp({ type: 'recovery', ... })` estabelece aqui (server-side, via
+ * cookies SSR) uma **sessão de recuperação** de curta duração; em vez de cair em
+ * `/confirm`, encaminhamos para o `next` indicado, onde o utilizador define a
+ * nova palavra-passe via `updateUser`. O `next` é validado contra uma allowlist
+ * de paths internos (open-redirect guard) — só aceitamos caminhos relativos
+ * conhecidos, nunca URLs absolutos fornecidos pelo atacante.
+ *
  * É um Route Handler (não Server Component), logo pode escrever cookies — o
  * `createServerSupabaseClient` partilhado trata do setAll (grava a sessão).
  *
@@ -44,10 +54,24 @@ function normalizeOtpType(raw: string | null): EmailOtpType {
   return EMAIL_OTP_TYPES.includes(raw as EmailOtpType) ? (raw as EmailOtpType) : 'email';
 }
 
+/**
+ * Allowlist de destinos `?next=` (open-redirect guard).
+ *
+ * Só permitimos caminhos relativos internos explicitamente conhecidos. Nunca
+ * confiamos no valor cru (que poderia ser `https://evil.com` ou `//evil.com`)
+ * para evitar redireccionar a sessão de recuperação para um host externo.
+ */
+const ALLOWED_NEXT_PATHS: readonly string[] = ['/recuperar/nova-palavra-passe'];
+
+function resolveNext(raw: string | null): string | null {
+  return raw && ALLOWED_NEXT_PATHS.includes(raw) ? raw : null;
+}
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const params = request.nextUrl.searchParams;
   const tokenHash = params.get('token_hash');
   const code = params.get('code');
+  const next = resolveNext(params.get('next'));
 
   const supabase = await createServerSupabaseClient();
 
@@ -57,6 +81,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       type: normalizeOtpType(params.get('type')),
       token_hash: tokenHash,
     });
+    // Recuperação de palavra-passe (A2): sessão de recovery criada → segue para
+    // a página de definição da nova palavra-passe em vez de /confirm.
+    if (!error && next) {
+      return NextResponse.redirect(new URL(next, request.url));
+    }
     const status = error ? 'error' : 'ok';
     return NextResponse.redirect(new URL(`/confirm?status=${status}`, request.url));
   }
@@ -64,6 +93,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // Fluxo 2 (retrocompat): code + exchangeCodeForSession (PKCE OAuth/magic-link).
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error && next) {
+      return NextResponse.redirect(new URL(next, request.url));
+    }
     const status = error ? 'error' : 'ok';
     return NextResponse.redirect(new URL(`/confirm?status=${status}`, request.url));
   }

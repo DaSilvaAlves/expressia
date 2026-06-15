@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   signUpMock: vi.fn(),
+  resetPasswordForEmailMock: vi.fn(),
   redirectMock: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
   }),
@@ -24,10 +25,15 @@ vi.mock('next/headers', () => ({
 }));
 vi.mock('next/navigation', () => ({ redirect: mocks.redirectMock }));
 vi.mock('@meu-jarvis/auth/server', () => ({
-  createServerSupabaseClient: vi.fn(async () => ({ auth: { signUp: mocks.signUpMock } })),
+  createServerSupabaseClient: vi.fn(async () => ({
+    auth: {
+      signUp: mocks.signUpMock,
+      resetPasswordForEmail: mocks.resetPasswordForEmailMock,
+    },
+  })),
 }));
 
-const { signUpAction } = await import('@/app/(auth)/actions');
+const { signUpAction, resetPasswordAction } = await import('@/app/(auth)/actions');
 
 function form(fields: Record<string, string>): FormData {
   const fd = new FormData();
@@ -120,5 +126,52 @@ describe('signUpAction (Story 6.1 AC2)', () => {
         options: { data: { name: 'João' }, emailRedirectTo: 'https://expressia.pt/callback' },
       }),
     );
+  });
+});
+
+describe('resetPasswordAction (Soft-launch A2)', () => {
+  beforeEach(() => {
+    mocks.resetPasswordForEmailMock.mockReset();
+    mocks.redirectMock.mockClear();
+    mocks.headerGetMock.mockReset();
+    mocks.headerGetMock.mockImplementation((k: string) =>
+      k === 'origin' ? 'https://expressia.pt' : null,
+    );
+  });
+
+  it('passa redirectTo a apontar para /callback com next=/recuperar/nova-palavra-passe', async () => {
+    mocks.resetPasswordForEmailMock.mockResolvedValue({ error: null });
+    const result = await resetPasswordAction({}, form({ email: 'quem@expressia.pt' }));
+    expect(result.error).toBeUndefined();
+    expect(mocks.resetPasswordForEmailMock).toHaveBeenCalledWith('quem@expressia.pt', {
+      redirectTo:
+        'https://expressia.pt/callback?next=%2Frecuperar%2Fnova-palavra-passe',
+    });
+  });
+
+  it('email em falta → erro PT-PT sem chamar Supabase', async () => {
+    const result = await resetPasswordAction({}, form({ email: '   ' }));
+    expect(result.error).toMatch(/email/i);
+    expect(mocks.resetPasswordForEmailMock).not.toHaveBeenCalled();
+  });
+
+  it('erro do Supabase → mensagem neutra (anti-enumeration)', async () => {
+    mocks.resetPasswordForEmailMock.mockResolvedValue({ error: { message: 'rate limit' } });
+    const result = await resetPasswordAction({}, form({ email: 'quem@expressia.pt' }));
+    expect(result.error).toMatch(/não foi possível/i);
+  });
+
+  it('fallback de origin: sem header origin usa host + x-forwarded-proto', async () => {
+    mocks.headerGetMock.mockImplementation((k: string) => {
+      if (k === 'host') return 'expressia.pt';
+      if (k === 'x-forwarded-proto') return 'https';
+      return null;
+    });
+    mocks.resetPasswordForEmailMock.mockResolvedValue({ error: null });
+    await resetPasswordAction({}, form({ email: 'quem@expressia.pt' }));
+    expect(mocks.resetPasswordForEmailMock).toHaveBeenCalledWith('quem@expressia.pt', {
+      redirectTo:
+        'https://expressia.pt/callback?next=%2Frecuperar%2Fnova-palavra-passe',
+    });
   });
 });

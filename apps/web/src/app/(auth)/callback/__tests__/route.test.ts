@@ -109,4 +109,47 @@ describe('/callback route', () => {
     expect(mocks.exchangeCodeForSessionMock).toHaveBeenCalledWith('expired');
     expect(locationOf(res)).toBe('/confirm?status=error');
   });
+
+  // --- Soft-launch A2: recuperação de palavra-passe (?next=) ---
+
+  it('recovery ok com next na allowlist → redirect para a página de nova palavra-passe', async () => {
+    mocks.verifyOtpMock.mockResolvedValue({ error: null });
+    const res = await GET(
+      new NextRequest(
+        'https://expressia.pt/callback?token_hash=r1&type=recovery&next=%2Frecuperar%2Fnova-palavra-passe',
+      ),
+    );
+    expect(mocks.verifyOtpMock).toHaveBeenCalledWith({ type: 'recovery', token_hash: 'r1' });
+    expect(locationOf(res)).toBe('/recuperar/nova-palavra-passe');
+  });
+
+  it('recovery com erro de verifyOtp ignora next → /confirm?status=error', async () => {
+    mocks.verifyOtpMock.mockResolvedValue({ error: { message: 'expired' } });
+    const res = await GET(
+      new NextRequest(
+        'https://expressia.pt/callback?token_hash=bad&type=recovery&next=%2Frecuperar%2Fnova-palavra-passe',
+      ),
+    );
+    expect(locationOf(res)).toBe('/confirm?status=error');
+  });
+
+  it('next fora da allowlist é ignorado (open-redirect guard) → /confirm?status=ok', async () => {
+    mocks.verifyOtpMock.mockResolvedValue({ error: null });
+    const res = await GET(
+      new NextRequest(
+        'https://expressia.pt/callback?token_hash=r2&type=recovery&next=https%3A%2F%2Fevil.com',
+      ),
+    );
+    expect(locationOf(res)).toBe('/confirm?status=ok');
+  });
+
+  it('next na allowlist também funciona no fluxo code (retrocompat)', async () => {
+    mocks.exchangeCodeForSessionMock.mockResolvedValue({ error: null });
+    const res = await GET(
+      new NextRequest(
+        'https://expressia.pt/callback?code=c1&next=%2Frecuperar%2Fnova-palavra-passe',
+      ),
+    );
+    expect(locationOf(res)).toBe('/recuperar/nova-palavra-passe');
+  });
 });
