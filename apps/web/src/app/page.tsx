@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 
+import { CookieNotice } from '@/components/legal/CookieNotice';
+
 export const metadata: Metadata = {
   title: 'Expressia — Tarefas, finanças e rotinas da família',
   description:
@@ -48,35 +50,64 @@ export default async function HomePage(): Promise<React.ReactElement> {
   if (user) redirect('/visao');
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-canvas px-6 py-16 text-center">
-      <div className="flex w-full max-w-md flex-col items-center gap-8">
-        <header className="flex flex-col items-center gap-4">
-          <h1 className="font-serif text-5xl font-bold tracking-tight text-primary sm:text-6xl">
-            Expressia
-          </h1>
-          <p className="max-w-prose text-balance text-lg text-foreground sm:text-xl">
-            O assistente em português europeu para organizar as tarefas, as finanças e as rotinas
-            da tua família — num só sítio.
+    <div className="flex min-h-screen flex-col bg-canvas">
+      <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+        <div className="flex w-full max-w-md flex-col items-center gap-8">
+          <header className="flex flex-col items-center gap-4">
+            <h1 className="font-serif text-5xl font-bold tracking-tight text-primary sm:text-6xl">
+              Expressia
+            </h1>
+            <p className="max-w-prose text-balance text-lg text-foreground sm:text-xl">
+              O assistente em português europeu para organizar as tarefas, as finanças e as rotinas
+              da tua família — num só sítio.
+            </p>
+          </header>
+
+          <div className="flex w-full flex-col gap-3">
+            <Link
+              href="/registar"
+              className="flex min-h-11 w-full items-center justify-center rounded-md bg-primary px-6 py-3 text-base font-medium text-surface transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+            >
+              Experimenta grátis
+            </Link>
+            <Link
+              href="/entrar"
+              className="flex min-h-11 w-full items-center justify-center rounded-md border border-border-default px-6 py-3 text-base font-medium text-foreground transition-colors hover:bg-bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+            >
+              Entrar
+            </Link>
+          </div>
+
+          <p className="text-sm text-muted-foreground">
+            14 dias grátis com plano Família. Sem cartão.
           </p>
-        </header>
-
-        <div className="flex w-full flex-col gap-3">
-          <Link
-            href="/registar"
-            className="flex min-h-11 w-full items-center justify-center rounded-md bg-primary px-6 py-3 text-base font-medium text-surface transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
-          >
-            Experimenta grátis
-          </Link>
-          <Link
-            href="/entrar"
-            className="flex min-h-11 w-full items-center justify-center rounded-md border border-border-default px-6 py-3 text-base font-medium text-foreground transition-colors hover:bg-bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
-          >
-            Entrar
-          </Link>
         </div>
+      </main>
 
-        <p className="text-sm text-muted-foreground">14 dias grátis com plano Família. Sem cartão.</p>
-      </div>
-    </main>
+      {/* Footer público — links legais + copyright (prontidão soft-launch).
+          Vive dentro do ramo NÃO-autenticado: o utilizador autenticado é
+          redirecionado para `/visao` ANTES deste render (AC6.d preservado). */}
+      <footer className="border-t border-border-default px-6 py-8">
+        <div className="mx-auto flex w-full max-w-md flex-col items-center gap-3 text-sm text-muted-foreground sm:flex-row sm:justify-center sm:gap-6">
+          <Link
+            href="/privacidade"
+            className="underline-offset-4 hover:text-foreground hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+          >
+            Privacidade
+          </Link>
+          <Link
+            href="/termos"
+            className="underline-offset-4 hover:text-foreground hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+          >
+            Termos
+          </Link>
+          <span>© 2026 Expressia</span>
+        </div>
+      </footer>
+
+      {/* Aviso de cookies — montado SÓ na landing pública (decisão documentada
+          em `CookieNotice.tsx`): primeiro ponto de contacto, fora da app. */}
+      <CookieNotice />
+    </div>
   );
 }
