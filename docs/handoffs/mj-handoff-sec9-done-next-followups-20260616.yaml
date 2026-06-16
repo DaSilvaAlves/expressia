@@ -1,0 +1,86 @@
+id: mj-handoff-sec9-done-next-followups-20260616
+from_agent: aiox-master (Orion)
+to_agent: any
+created: "2026-06-16T01:30:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: session-end-next-steps
+
+summary: >
+  SESSION END — Story SEC-9 (endurecer redirectTo auth contra host-header
+  poisoning) completada pelo ciclo SDC COMPLETO e EM PRODUÇÃO (origin/main
+  04f5f1a, working tree limpo). Primeiro item [AGENTE] de
+  follow_ups_seguranca_e_conformidade do soft-launch FECHADO. Este handoff
+  migra o contexto para um terminal fresco (sem context-low): aponta a acção
+  [EURICO] residual da SEC-9 (definir SITE_URL na Vercel) e os próximos
+  candidatos [AGENTE] do catálogo de soft-launch, que continua a ser a fonte
+  de verdade do que falta. Billing CONGELADO; SEC-8 (Fatia D) em HOLD.
+
+context:
+  story_id: SEC-9
+  story_path: docs/stories/completed/SEC-9.harden-auth-redirect-host-header.story.md
+  branch: main
+  commit: 04f5f1a
+  current_task: >
+    SEC-9 fechada e pushada. Ciclo SDC completo: @sm (Draft, 6 ACs) → @po
+    (GO 9,2/10, 2 PO_FIX_INLINE) → @dev (implementação) → @qa (PASS 9,5/10,
+    7/7 checks) + fix do concern SEC-001 (trailing-slash) → @devops (push
+    para main 04f5f1a). Gate file: docs/qa/gates/SEC-9-harden-auth-redirect-host-header.yml.
+
+  decisions_made:
+    - "Vector password-reset-poisoning fechado: getRequestOrigin() lê process.env.SITE_URL como 1.ª instrução e devolve esse valor SEM consultar headers quando definida; fallback por headers só sem SITE_URL (dev/preview)."
+    - "Truthy-check 'if (siteUrl)' em vez de '??' — SITE_URL='' (erro de config) cai no fallback, nunca devolve origin vazio."
+    - "SEC-001 (LOW, robustez não-segurança): normalização de trailing-slash via .replace(/\\/$/,'') — SITE_URL com barra final não gera '//callback'."
+    - "Env var SERVER-ONLY 'SITE_URL' (não NEXT_PUBLIC_) — mínimo privilégio, lida só em Server Actions."
+    - "CodeRabbit SKIPPED (precedente SEC-1→8 + story declara Disabled). Sem waiver Not-tested (path de auth, 15 testes + gates verdes)."
+
+  files_modified:
+    - "apps/web/src/app/(auth)/actions.ts — getRequestOrigin() + JSDoc"
+    - "apps/web/src/app/(auth)/__tests__/actions.test.ts — +3 testes (ramo A, header envenenado, trailing-slash); PO-FIX-1 isolamento de env"
+    - ".env.example — secção 'Redirect de autenticação (SEC-9)' com SITE_URL= (placeholder, sem segredos)"
+    - "docs/runbooks/supabase-auth-setup.md — §5 nota de segurança + tabela PO-FIX-2 (campo Supabase 'Site URL' vs env var Vercel 'SITE_URL')"
+    - "docs/stories/completed/SEC-9.harden-auth-redirect-host-header.story.md — movida de active/, Status Done"
+
+  gates_evidence:
+    - "lint exit 0 · typecheck exit 0 · build exit 0 · check:rls exit 0 (28 tabelas, zero touch DB)"
+    - "actions.test.ts 15/15 isolado; suite web 1199 verde no push (flaky TEST-001 calendario não reapareceu)"
+
+  blockers:
+    - "[EURICO] SITE_URL na Vercel Production: definir SITE_URL=https://expressia.pt (SEM barra final) em Vercel → Production antes de tráfego real. Enquanto vazia, a app corre mas mantém o comportamento antigo (fallback por headers) → o vector residual de baixa probabilidade persiste (mitigado pela allowlist Supabase). NÃO bloqueia o merge; bloqueia a eficácia da mitigação. Documentado no runbook §5 e na Directive do commit 04f5f1a."
+
+next_action: >
+  Num terminal fresco: ler docs/HANDOFF-INDEX.md + o catálogo vivo
+  mj-handoff-followups-soft-launch-20260615 (fonte de verdade do que falta).
+  Continuar a fechar os follow-ups [AGENTE] pelo ciclo SDC (/sdc), por
+  prioridade. Candidatos imediatos do catálogo, todos sem bloqueador externo:
+  RGPD purge (documentar processo manual via getServiceDb + decidir
+  self-service) · 2 alertas Grafana pré-launch (runbook observability-setup.md)
+  · auditoria de usos de getServiceDb fora dos jobs controlados + avaliar
+  rate-limiting GoTrue na auth. NÃO draftar SEC-8 (HOLD, exige Adenda §12 do
+  @architect). NÃO tocar billing (CONGELADO). Push só pelo @devops.
+
+notes: |
+  - SEC-9 NÃO faz parte da cadeia RLS-runtime SEC-1→8.1 (toda Done em completed/);
+    é uma story de segurança follow-up do soft-launch, numerada SEC-9 para evitar
+    colisão.
+  - O catálogo mj-handoff-followups-soft-launch-20260615 MANTÉM-SE pending e é a
+    referência completa (caminho crítico [EURICO]: DNS-001 → Supabase Site URL →
+    decisão email/Resend → SENTRY_DSN → smoke final; [AGENTE]: os candidatos acima;
+    conformidade legal: preencher placeholders + validação jurídica = bloqueante
+    antes de divulgar a estranhos).
+  - O handoff mj-handoff-refocus-core-freeze-billing-20260529 MANTÉM-SE pending —
+    directiva de governação viva (billing congelado), não tarefa.
+  - Acrescentar SITE_URL à acção [EURICO] do caminho crítico: junta-se a DNS-001,
+    Site URL Supabase, SENTRY_DSN. Quando o Eurico atacar a config externa da
+    Vercel, definir também SITE_URL na mesma passagem.
+
+related:
+  - docs/handoffs/mj-handoff-followups-soft-launch-20260615.yaml
+  - docs/handoffs/mj-handoff-refocus-core-freeze-billing-20260529.yaml
+  - docs/stories/completed/SEC-9.harden-auth-redirect-host-header.story.md
+  - docs/qa/gates/SEC-9-harden-auth-redirect-host-header.yml
+  - docs/runbooks/supabase-auth-setup.md
