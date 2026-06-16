@@ -9,7 +9,7 @@
  * `redirect()` é mockado para lançar (como o real lança NEXT_REDIRECT), de modo
  * a interromper o fluxo no ponto certo e permitir assertar o destino.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   signUpMock: vi.fn(),
@@ -56,6 +56,17 @@ describe('signUpAction (Story 6.1 AC2)', () => {
     mocks.headerGetMock.mockImplementation((k: string) =>
       k === 'origin' ? 'https://expressia.pt' : null,
     );
+    // SEC-9 PO-FIX-1: forçar o ramo B (fallback por headers) por defeito — não
+    // confiar no ambiente. Se `SITE_URL` estiver definida no ambiente de
+    // execução (CI futura, .env.test), o ramo A activava-se e os testes de
+    // fallback falhavam. String vazia cai no fallback (verificação truthy).
+    vi.stubEnv('SITE_URL', '');
+  });
+
+  // SEC-9 PO-FIX-1: restaurar env vars stubadas entre testes para isolar o
+  // ramo A (que faz `vi.stubEnv('SITE_URL', ...)` localmente).
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('passa emailRedirectTo a apontar para /callback (origin derivado dos headers)', async () => {
@@ -127,6 +138,40 @@ describe('signUpAction (Story 6.1 AC2)', () => {
       }),
     );
   });
+
+  // SEC-9 ramo A: `SITE_URL` definida → emailRedirectTo usa exactamente esse
+  // valor, sem derivar de nenhum header (mesmo que o header `origin` aponte para
+  // um domínio hostil — header poisoning fica neutralizado).
+  it('SEC-9: SITE_URL definida → emailRedirectTo usa a env var, ignora headers', async () => {
+    vi.stubEnv('SITE_URL', 'https://expressia.pt');
+    mocks.headerGetMock.mockReset();
+    mocks.headerGetMock.mockImplementation((k: string) =>
+      k === 'origin' ? 'https://atacante.com' : null,
+    );
+    mocks.signUpMock.mockResolvedValue({ data: { user: { id: 'u1' }, session: null }, error: null });
+    await expect(signUpAction({}, form(VALID))).rejects.toThrow('REDIRECT:/confirm');
+    expect(mocks.signUpMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: { data: { name: 'João' }, emailRedirectTo: 'https://expressia.pt/callback' },
+      }),
+    );
+    // O header envenenado NUNCA é consultado quando SITE_URL existe.
+    expect(mocks.headerGetMock).not.toHaveBeenCalled();
+  });
+
+  // SEC-9 SEC-001 (robustez de config): `SITE_URL` com barra final é normalizada
+  // — o resultado contém exactamente `https://expressia.pt/callback` (uma só
+  // barra), nunca `//callback`. Erro de config provável ao colar o URL na Vercel.
+  it('SEC-001: SITE_URL com barra final → emailRedirectTo sem barra dupla', async () => {
+    vi.stubEnv('SITE_URL', 'https://expressia.pt/');
+    mocks.signUpMock.mockResolvedValue({ data: { user: { id: 'u1' }, session: null }, error: null });
+    await expect(signUpAction({}, form(VALID))).rejects.toThrow('REDIRECT:/confirm');
+    expect(mocks.signUpMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: { data: { name: 'João' }, emailRedirectTo: 'https://expressia.pt/callback' },
+      }),
+    );
+  });
 });
 
 describe('resetPasswordAction (Soft-launch A2)', () => {
@@ -137,6 +182,12 @@ describe('resetPasswordAction (Soft-launch A2)', () => {
     mocks.headerGetMock.mockImplementation((k: string) =>
       k === 'origin' ? 'https://expressia.pt' : null,
     );
+    // SEC-9 PO-FIX-1: forçar o ramo B por defeito (ver nota no describe acima).
+    vi.stubEnv('SITE_URL', '');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('passa redirectTo a apontar para /callback com next=/recuperar/nova-palavra-passe', async () => {
@@ -173,5 +224,22 @@ describe('resetPasswordAction (Soft-launch A2)', () => {
       redirectTo:
         'https://expressia.pt/callback?next=%2Frecuperar%2Fnova-palavra-passe',
     });
+  });
+
+  // SEC-9 ramo A: `SITE_URL` definida → redirectTo usa exactamente a env var.
+  it('SEC-9: SITE_URL definida → redirectTo usa a env var, ignora headers', async () => {
+    vi.stubEnv('SITE_URL', 'https://expressia.pt');
+    mocks.headerGetMock.mockReset();
+    mocks.headerGetMock.mockImplementation((k: string) =>
+      k === 'origin' ? 'https://atacante.com' : null,
+    );
+    mocks.resetPasswordForEmailMock.mockResolvedValue({ error: null });
+    const result = await resetPasswordAction({}, form({ email: 'quem@expressia.pt' }));
+    expect(result.error).toBeUndefined();
+    expect(mocks.resetPasswordForEmailMock).toHaveBeenCalledWith('quem@expressia.pt', {
+      redirectTo:
+        'https://expressia.pt/callback?next=%2Frecuperar%2Fnova-palavra-passe',
+    });
+    expect(mocks.headerGetMock).not.toHaveBeenCalled();
   });
 });

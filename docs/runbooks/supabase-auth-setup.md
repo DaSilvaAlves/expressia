@@ -231,6 +231,49 @@ segurança (não usar `**` solto).
   lista.
 - Não incluir `*` (wildcard total) — abre vector de open redirect.
 
+#### SEC-9 — env var `SITE_URL` na Vercel (endurecimento contra header poisoning)
+
+Antes da Story SEC-9, a aplicação derivava o `redirectTo` dos links de
+confirmação/reset a partir dos headers HTTP (`Origin` → `Host` +
+`X-Forwarded-Proto`). Esses headers são, em cenários edge (proxy mal
+configurado, SSRF), controláveis pelo cliente — abrindo um vector residual de
+**password-reset-poisoning**: um atacante envenena o `Host`, o link de reset
+gerado pelo Supabase aponta para `https://atacante.com/callback?...`, e o
+utilizador entrega-lhe o token ao clicar.
+
+SEC-9 introduz a env var de confiança **`SITE_URL`**, lida em
+`getRequestOrigin()` (`apps/web/src/app/(auth)/actions.ts`) como primeira
+instrução: quando definida, a app devolve esse valor sem tocar em nenhum
+header, tornando o vector inviável em produção independentemente da allowlist.
+
+**Acção de configuração [EURICO/@devops]:**
+
+- **Definir `SITE_URL` em Vercel → Project → Settings → Environment Variables**,
+  ambiente **Production**, valor `https://expressia.pt` (URL absoluto, **sem
+  barra final** — é concatenado directamente com `/callback`). Obrigatória
+  antes do soft-launch com tráfego real.
+- Deixar `SITE_URL` **vazia/ausente** em Preview e Development, para que os
+  deploys de preview Vercel (subdomínios `*.vercel.app` dinâmicos) e o
+  desenvolvimento local continuem a funcionar via fallback por headers.
+- **Após o DNS de produção estar estável**, recomenda-se **restringir ou
+  eliminar o wildcard `https://*.vercel.app/**`** da allowlist de Redirect URLs
+  acima — passa a ser superfície de ataque desnecessária quando o tráfego real
+  corre no domínio próprio. Esta é uma acção de configuração [EURICO] no
+  Dashboard, não gera código.
+
+#### `Site URL` do Supabase ≠ env var `SITE_URL` da Vercel (PO-FIX-2)
+
+São **dois conceitos homónimos e independentes** — não os confundir:
+
+| Conceito | Onde se configura | O que controla |
+| --- | --- | --- |
+| Campo **`Site URL`** | Supabase Dashboard → Authentication → URL Configuration (tabela do §5, linha do `Site URL`) | Destino **default** que o Supabase usa para magic links quando o `redirectTo` não é fornecido — lado **Supabase**. |
+| Env var **`SITE_URL`** | Vercel → Settings → Environment Variables (Production) | Origin que a **aplicação** usa em `getRequestOrigin()` para construir explicitamente o `redirectTo` — lado **app** (introduzida por SEC-9). |
+
+São **camadas de defesa complementares**: ambas devem apontar para o **mesmo
+domínio de produção** (`https://expressia.pt`). Configurar uma não dispensa a
+outra.
+
 ---
 
 ## 6. Smoke test manual (Task 3.4)

@@ -32,19 +32,43 @@ import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import { mapSignInError, mapSignUpError } from '@/app/(auth)/_lib/error-messages';
 
 /**
- * Deriva o origin absoluto da request actual (ex.: `https://expressia.pt` ou
- * `http://localhost:3000`) para construir o `emailRedirectTo` do Supabase.
+ * Deriva o origin absoluto usado para construir o `emailRedirectTo` /
+ * `redirectTo` do Supabase (ex.: `https://expressia.pt` ou
+ * `http://localhost:3000`).
  *
- * Story 6.1: preferimos derivar dos headers em vez de introduzir uma env var
- * `SITE_URL` (que exigiria configuração @devops em Vercel — mais um bloqueador).
- * O browser envia `origin` em POSTs same-origin; em fallback reconstruímos a
- * partir de `x-forwarded-proto` + `host` (Vercel/proxy) ou `host` simples.
+ * SEC-9 (endurecimento): em produção lemos a env var de confiança `SITE_URL`
+ * como PRIMEIRA instrução. Quando está definida e não-vazia, devolvemos esse
+ * valor sem consultar nenhum header HTTP — eliminando por completo o vector de
+ * password-reset-poisoning (um atacante que envenene `Host`/`Origin` não
+ * consegue desviar o link de reset/confirm para um domínio sob o seu controlo).
+ *
+ * Esta secção concretiza a Directive registada no commit `f472c22` (A2 — reset
+ * de password): «Antes de tráfego real: fixar SITE_URL via env var em produção
+ * OU restringir o wildcard *.vercel.app na allowlist». `SITE_URL` não deve ter
+ * trailing slash (ex.: `https://expressia.pt`, não `https://expressia.pt/`),
+ * porque é concatenada directamente com `/callback`.
+ *
+ * Story 6.1 (fallback): quando `SITE_URL` NÃO está definida, mantemos a
+ * derivação por headers — compatível com desenvolvimento local e deploys de
+ * preview Vercel (subdomínios `*.vercel.app` dinâmicos). O browser envia
+ * `origin` em POSTs same-origin; em fallback reconstruímos a partir de
+ * `x-forwarded-proto` + `host` (Vercel/proxy) ou `host` simples.
  *
  * NOTA: o URL resultante (`{origin}/callback`) tem de estar na allowlist de
  * Redirect URLs do Supabase Dashboard → Authentication (bloqueador externo
- * documentado na AC9 / runbook supabase-auth-setup.md).
+ * documentado na AC9 / runbook supabase-auth-setup.md §5).
  */
 async function getRequestOrigin(): Promise<string> {
+  // SEC-9: env var de confiança tem precedência sobre headers controláveis pelo
+  // cliente. Verificação truthy (e não `??`) é intencional — uma string vazia
+  // configurada por engano deve cair no fallback, não tornar-se um origin `''`.
+  // SEC-001 (robustez de config): normalizamos uma eventual barra final, porque
+  // o valor é concatenado directamente com `/callback`. Se um operador colar
+  // `https://expressia.pt/` (erro de config provável), `.replace(/\/$/, '')`
+  // evita a barra dupla `//callback`. Não afecta o host nem o ramo de fallback.
+  const siteUrl = process.env.SITE_URL;
+  if (siteUrl) return siteUrl.replace(/\/$/, '');
+
   const h = await headers();
   const origin = h.get('origin');
   if (origin) return origin;
@@ -186,9 +210,10 @@ const RESET_REDIRECT_PATH = '/recuperar/nova-palavra-passe';
  *   3. Em `/recuperar/nova-palavra-passe` o cliente chama
  *      `updateUser({ password })`, autenticado por essa sessão de recovery.
  *
- * O `origin` é derivado dos headers (mesma fonte que `signUpAction` — Story 6.1,
- * sem env var `SITE_URL` a configurar em Vercel). O `{origin}/callback` tem de
- * estar na allowlist de Redirect URLs do Supabase Dashboard.
+ * O `origin` vem de `getRequestOrigin()` (mesma fonte que `signUpAction`): em
+ * produção a env var de confiança `SITE_URL` (SEC-9), com fallback por headers
+ * em dev/preview. O `{origin}/callback` tem de estar na allowlist de Redirect
+ * URLs do Supabase Dashboard.
  *
  * Anti-enumeration: tanto sucesso como falha devolvem o mesmo estado neutro
  * (`{ error: undefined }`) — a página mostra sempre "se o email existir, recebes

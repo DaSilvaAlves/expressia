@@ -1,0 +1,67 @@
+schema: 1
+story: 'SEC-9'
+slug: 'harden-auth-redirect-host-header'
+gate: PASS
+status_reason: 'Mitigação fecha por completo o vector de password-reset-poisoning em produção (SITE_URL lida antes de qualquer header, return imediato, provado nos testes ramo A). Truthy-check trata string vazia correctamente. Ramo B sem regressão. 7/7 quality checks verdes.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-06-16T00:34:00Z'
+
+quality_checks:
+  - id: 'AC1-AC2 — getRequestOrigin precedência SITE_URL + fallback headers'
+    result: PASS
+    evidence: 'actions.ts:65-66 lê process.env.SITE_URL como 1.ª instrução; return imediato antes de await headers() (linha 68). Ramo B (68-73) idêntico ao HEAD anterior — sem regressão.'
+  - id: 'AC3 — .env.example'
+    result: PASS
+    evidence: '.env.example:75-87 secção "Redirect de autenticação (SEC-9)" com propósito de segurança, formato (URL absoluto sem barra final), obrigatoriedade em prod, nota de fallback dev/preview. PT-PT.'
+  - id: 'AC4 — runbook §5 (+ PO-FIX-2)'
+    result: PASS
+    evidence: 'runbook §5 linhas 234-275: subsecção SEC-9 (config Vercel + recomendação wildcard [EURICO]) + tabela PO-FIX-2 (Supabase Site URL vs env var SITE_URL — camadas complementares).'
+  - id: 'AC5 — testes ambos os ramos (+ PO-FIX-1)'
+    result: PASS
+    evidence: 'actions.test.ts: afterEach(vi.unstubAllEnvs) em ambos os describe; beforeEach stubEnv SITE_URL="" força ramo B; 2 testes ramo A (linhas 145, 216) com origin envenenado e assert headerGetMock.not.toHaveBeenCalled(). 14/14 verde isolado.'
+  - id: 'AC6 — quality gates (lint/typecheck/test/build/check:rls)'
+    result: PASS
+    evidence: 'lint exit 0, typecheck exit 0, build exit 0 (rota /recuperar/nova-palavra-passe compilada), check:rls exit 0 (28 tabelas, zero touch DB). Re-corridos independentemente pela lane QA.'
+  - id: 'SEC — vector fechado / header poisoning neutralizado'
+    result: PASS
+    evidence: 'Quando SITE_URL definida, NENHUM header consultado (return antes de headers()). Provado: header origin=https://atacante.com ignorado, headerGetMock.not.toHaveBeenCalled() (linhas 159, 229).'
+  - id: 'SEC — truthy-check string vazia'
+    result: PASS
+    evidence: 'if (siteUrl) (não ??) — string vazia "" é falsy → cai no fallback, nunca devolve origin "". Intencional e documentado (actions.ts:62-64).'
+  - id: 'Constraints — PT-PT / RLS NFR5 / sem any / imports absolutos / billing'
+    result: PASS
+    evidence: 'PT-PT europeu confirmado (sem PT-BR). RLS intacto (check:rls verde). Zero any, zero imports relativos (git diff grep). Billing/Stripe não tocado (diff-stat confinado a 4 paths da File List).'
+
+top_issues:
+  - id: 'SEC-001'
+    severity: low
+    finding: 'getRequestOrigin() não normaliza trailing slash em SITE_URL. Se um operador configurar SITE_URL="https://expressia.pt/" (com barra), o resultado é "https://expressia.pt//callback" (barra dupla). NÃO é vector de segurança (o host fica fixo, não controlável; o callback valida o host via request.url e o ?next via allowlist ALLOWED_NEXT_PATHS). É robustez de input de configuração — barra dupla pode partir o matching exacto da rota /callback no Next.js (link de reset quebrado), nunca redireccionar para domínio hostil.'
+    suggested_action: 'Opcional (nice-to-have): adicionar .replace(/\/$/, "") defensivo na leitura de SITE_URL. Mitigado por documentação em 3 sítios (JSDoc actions.ts:47-49, .env.example:83, runbook:253-254). Não bloqueante para PASS.'
+
+waiver: { active: false }
+
+code_intel_advisory: 'Blast radius baixo: getRequestOrigin() consumida apenas por signUpAction e resetPasswordAction (grep confirmado), ambos com cobertura de teste para os dois ramos. Sem fan-out adicional.'
+
+security_notes: |
+  Story de segurança avaliada com profundidade (Risk-Based Testing, Quinn Guardian).
+  Defesa em profundidade verificada — 3 camadas independentes:
+    1. SITE_URL (app, SEC-9) — elimina dependência de headers em prod.
+    2. Allowlist Redirect URLs do Supabase Dashboard (camada externa).
+    3. Open-redirect guard no callback (?next validado contra ALLOWED_NEXT_PATHS;
+       host derivado de request.url, nunca de input do atacante).
+  O vector password-reset-poisoning fica inviável em produção independentemente
+  da allowlist, desde que SITE_URL esteja definida na Vercel Production
+  (acção de configuração [EURICO] documentada no runbook §5, pré-soft-launch).
+
+  Nota residual (config, não código): enquanto SITE_URL não estiver definida em
+  Vercel Production, a app cai no fallback por headers e o vector residual de
+  baixa probabilidade persiste (mitigado pela allowlist). A obrigatoriedade está
+  documentada como bloqueador de configuração [EURICO] no runbook.
+
+test_evidence:
+  suite_isolada: '14/14 PASS (actions.test.ts, 984ms) — re-confirmado pela lane QA, não confiado cegamente'
+  suite_completa: '1198 testes; 1 flaky pré-existente (tarefas/calendario/page.test.tsx, TEST-001) alheio a SEC-9 — passa isolado, contenção de recursos em suite paralela'
+  lint: 'exit 0 (--max-warnings=0)'
+  typecheck: 'exit 0'
+  build: 'exit 0'
+  check_rls: 'exit 0 (28 tabelas inalteradas)'
