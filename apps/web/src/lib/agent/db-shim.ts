@@ -48,6 +48,27 @@ export function getDb(): DbShim {
 
 /**
  * Carrega `getServiceDb` lazy via require.
+ *
+ * ⚠️ GUARD DE SEGURANÇA (SEC-10): re-exporta o cliente `service_role` que IGNORA
+ * RLS. **NUNCA usar em response handlers de utilizador final** (Route Handlers,
+ * RSC, Server Actions). Em caminhos de utilizador usar `getDb()` ou
+ * `withHousehold()` (ver acima).
+ *
+ * As ÚNICAS três categorias de uso legítimo (excepções permanentes, auditadas em
+ * SEC-10 — zero usos suspeitos no código de produção de `apps/web`):
+ *   1. Jobs Inngest controlados disparados por cron (sem JWT de utilizador):
+ *      `generate-recurring-tasks`, `generate-finance-recurrences`,
+ *      `cleanup-expired-reverse-ops`.
+ *   2. `incrementQuota` (audit-log.ts) — D50: RLS bloqueia `agent_quotas` a
+ *      `authenticated`.
+ *   3. `undo/route.ts` — D-12C: trigger de imutabilidade bloqueia a transição
+ *      terminal `success→reverted` em `authenticated` (pertença verificada
+ *      app-enforced antes — cross-household → 404).
+ *
+ * @see packages/db/src/client.ts — guard canónico de `getServiceDb()`
+ * @see CLAUDE.md §Multi-tenancy via Postgres RLS
+ * @see docs/adr/ADR-003-rls-enforced-runtime-hardening.md §D6, §12.3, §12.5
+ * @see docs/stories/active/SEC-10.audit-service-db-auth-rate-limiting.story.md
  */
 export function getServiceDb(): DbShim {
   // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires

@@ -481,6 +481,123 @@ delete from auth.users where id = '<user-id>';
 
 ---
 
+## 9. Rate Limiting de Autenticação (SEC-10)
+
+**Trace:** Story SEC-10 AC5/AC6/AC7. Higiene de segurança pré-soft-launch.
+
+### Estado actual — limites nativos GoTrue aplicados pelo Supabase
+
+O Supabase Auth (GoTrue) aplica rate-limiting nativo aos endpoints de
+autenticação sem que a aplicação precise de fazer nada. A app já comunica esses
+limites ao utilizador em PT-PT: `apps/web/src/app/(auth)/_lib/error-messages.ts`
+mapeia explicitamente os dois códigos de rate-limit relevantes para mensagens
+accionáveis (evidência de que os limites existem e chegam ao utilizador):
+
+| Código GoTrue | Mensagem PT-PT (signUp / signIn) |
+| --- | --- |
+| `over_email_send_rate_limit` | "Demasiados pedidos de registo deste endereço nos últimos minutos. Aguarda alguns minutos e tenta de novo." |
+| `over_request_rate_limit` | "Demasiados pedidos. Aguarda alguns minutos e tenta de novo." |
+
+Limites padrão aplicáveis aos três endpoints em uso (`signUp`,
+`signInWithPassword`, `resetPasswordForEmail`), conforme documentação Supabase
+Auth — Rate Limits (https://supabase.com/docs/guides/auth/auth-rate-limiting):
+
+| Limite | Default | Âmbito | Configurável |
+| --- | --- | --- | --- |
+| **Emails enviados** (`over_email_send_rate_limit`) | ~2/hora com SMTP default partilhado; até ~30/hora típico com SMTP custom | por servidor de email / projecto | Sim, com SMTP custom (Resend — §4) |
+| **Token / signup / OTP verifications** (`over_request_rate_limit`) | ~30/5 min por IP (endpoints sem sessão: login, registo, reset) | por IP | Sim, Dashboard (planos pagos) |
+| **Token refresh** | ~150/5 min por IP | por IP | Sim, Dashboard (planos pagos) |
+
+> Nota: os números exactos do plano Free/Pro podem variar entre versões do
+> Supabase — confirmar sempre na página de Rate Limits do Dashboard
+> (`Authentication → Rate Limits`) antes de assumir um valor. A app não depende
+> de valores exactos: degrada graciosamente comunicando ao utilizador que
+> aguarde, qualquer que seja o limite atingido.
+
+### Endpoint `/recuperar` (reset de password) — decisão de design anti-enumeration (SEC-10 PO-FIX-1)
+
+⚠️ **Importante (corrige uma suposição incorrecta do draft):** o reset de
+password **NÃO mapeia** `over_email_send_rate_limit` para uma mensagem
+específica — e **não deve passar a fazê-lo**. Por design **anti-enumeration**,
+`resetPasswordAction` (`apps/web/src/app/(auth)/actions.ts`) colapsa **todos** os
+erros do GoTrue (incluindo o rate-limit) numa única mensagem neutra:
+
+> "Não foi possível enviar o email. Tenta novamente."
+
+Em caso de sucesso devolve igualmente um estado neutro ("se o email existir,
+recebes um link"). Isto impede que um atacante distinga, pela resposta, entre um
+email registado e um não registado — revelar "demasiados pedidos para este
+email" confirmaria implicitamente a existência da conta.
+
+O comportamento está blindado por teste:
+`apps/web/src/app/(auth)/__tests__/actions.test.ts` →
+*"erro do Supabase → mensagem neutra (anti-enumeration)"* (mocka
+`{ error: { message: 'rate limit' } }` e exige a mensagem neutra). **Não
+introduzir mapping de rate-limit no caminho do reset** — seria uma regressão de
+segurança. O rate-limiting do reset continua a ser aplicado pelo GoTrue ao nível
+do servidor (limite de emails enviados), apenas não é exposto ao utilizador de
+forma distinta. A protecção contra abuso permanece intacta; a mensagem é que é
+deliberadamente opaca.
+
+`signUp` e `signIn` PODEM expor o rate-limit (ver tabela acima) porque aí não há
+risco de enumeration adicional — o utilizador está a interagir com o próprio
+fluxo e a mensagem é accionável.
+
+### Avaliação de suficiência — `[AUTO-DECISION]`
+
+`[AUTO-DECISION]` Os limites nativos do GoTrue são **suficientes** para o
+soft-launch e **não** se implementa guard de app-level (rate-limiting por IP em
+`middleware.ts` ou nas Server Actions de auth) nesta story. Justificação:
+
+- **Volume baixo e controlado:** o soft-launch é por convite, com poucos
+  utilizadores iniciais — o vector de brute-force em massa é marginal.
+- **Cobertura nativa já existe:** o GoTrue limita por IP (requests) e por email
+  (envios), e a app comunica ambos em PT-PT (`signUp`/`signIn`); o reset está
+  protegido pelo limite de envios do GoTrue (mensagem neutra por design).
+- **MVP sem Redis/Upstash:** um rate-limiter em-memória no middleware é inútil em
+  serverless (Vercel `fra1`): cada lambda tem o seu próprio processo, o estado
+  não é partilhado entre instâncias nem sobrevive a cold starts — daria uma
+  falsa sensação de protecção. Um guard robusto exigiria store partilhado
+  (Upstash/Redis), fora do âmbito do MVP e do soft-launch de baixo volume.
+- **Reavaliar quando:** o tráfego crescer para além do convite, surgirem sinais
+  de abuso nos logs/Sentry, ou se activar registo público aberto. Nessa altura,
+  preferir Supabase Dashboard Rate Limits (plano pago) + CAPTCHA (acções
+  `[EURICO]` abaixo) antes de código de app-level.
+
+### Acções `[EURICO]` — Dashboard Supabase
+
+Configurações disponíveis no Dashboard que reforçam o rate-limiting sem alterar
+código. Executar antes (ou logo após) o soft-launch, conforme o plano permitir:
+
+1. **`[EURICO]` Ajustar limites de rate-limiting** (se o plano o permitir —
+   tipicamente planos pagos): Dashboard → **Authentication → Rate Limits**.
+   - Campos relevantes: *Rate limit for sending emails*, *Rate limit for
+     token verifications / sign ups / sign ins*, *Rate limit for token refreshes*.
+   - Recomendação soft-launch: manter os defaults; baixar o limite de emails se
+     o SMTP custom (Resend) ainda não estiver configurado (evita esgotar quota).
+
+2. **`[EURICO]` Activar CAPTCHA (hCaptcha / Cloudflare Turnstile)**: Dashboard →
+   **Authentication → Settings → Bot and Abuse Protection** (designação pode
+   variar por versão; também listado como *Attack Protection*).
+   - Activar o *Enable Captcha protection* e escolher o provider (hCaptcha por
+     defeito). Requer chaves do provider (site key + secret) coladas no
+     Dashboard, e o widget no frontend (`/registar`, `/entrar`, `/recuperar`).
+   - **Nota de âmbito:** SEC-10 **não** implementa o widget de CAPTCHA no
+     frontend (exige trabalho de UI fora do âmbito). Activar CAPTCHA no Dashboard
+     SEM o widget no frontend **bloquearia** todos os pedidos — só activar em
+     conjunto com uma story de frontend dedicada. Documentado aqui como opção
+     futura.
+
+3. **`[EURICO]` SMTP custom (Resend)** — ver §4: aumenta o limite de envio de
+   emails (default partilhado é muito baixo) e remove o GoTrue do caminho
+   crítico de entregabilidade. Recomendado antes de tráfego real.
+
+> SEC-10 conclui que, para o soft-launch de baixo volume PT-PT, os limites
+> nativos + a comunicação PT-PT já existente são adequados; as acções acima são
+> reforços recomendados (Dashboard, sem código), não bloqueadores.
+
+---
+
 ## Referências
 
 - `packages/db/migrations/0002_auth_hook.sql` — função `custom_access_token_hook`.

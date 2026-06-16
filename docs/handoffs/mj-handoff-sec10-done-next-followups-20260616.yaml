@@ -1,0 +1,93 @@
+id: mj-handoff-sec10-done-next-followups-20260616
+from_agent: devops (Gage)
+to_agent: any
+created: "2026-06-16T18:20:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: session-end-next-steps
+
+summary: >
+  SESSION END — Story SEC-10 (auditoria getServiceDb + avaliação rate-limiting
+  auth, higiene de segurança pré-soft-launch) completada pelo ciclo SDC e EM
+  PRODUÇÃO (origin/main avançou para o commit de fecho; working tree limpo).
+  SEGUNDO item [AGENTE] de follow_ups_seguranca_e_conformidade do soft-launch
+  FECHADO (na verdade dois: auditoria getServiceDb legacy + avaliar
+  rate-limiting GoTrue, ambos do catálogo). Este handoff migra o contexto para
+  um terminal fresco: regista o que ficou feito, acrescenta as acções [EURICO]
+  da SEC-10 ao caminho crítico de config externa, e aponta os follow-ups
+  [AGENTE] que restam. Billing CONGELADO; SEC-8 (Fatia D) em HOLD.
+
+context:
+  story_id: SEC-10
+  story_path: docs/stories/completed/SEC-10.audit-service-db-auth-rate-limiting.story.md
+  branch: main
+  current_task: >
+    SEC-10 fechada e pushada. Ciclo SDC completo: @sm (Draft, 8 ACs) → @po
+    (GO, 2 PO-FIX inline) → @dev (implementação) → @architect (gate PASS
+    9,6/10) → @devops (push fast-forward para main). Gate file:
+    docs/qa/gates/SEC-10-audit-service-db-auth-rate-limiting.yml.
+
+  decisions_made:
+    - "AUDITORIA getServiceDb (AC1/AC2): conclusão POSITIVA — 7 invocações de produção, TODAS legítimas (3 jobs Inngest controlados + incrementQuota D50 em audit-log.ts + undo D-12C em undo/route.ts). ZERO usos suspeitos em route handlers/RSC/Server Actions. O valor está na evidência documentada, não em encontrar violações."
+    - "GUARDS JSDoc (AC3): adicionados em packages/db/src/client.ts::getServiceDb() e apps/web/src/lib/agent/db-shim.ts::getServiceDb() — ambos enumeram as 3 excepções permanentes (Inngest, incrementQuota D50, undo D-12C), citam CLAUDE.md §Multi-tenancy + ADR-003 §D6/§12.3/§12.5 + SEC-10, e contêm a string indexável 'NUNCA usar em response handlers de utilizador final'. Só documentação — implementação inalterada."
+    - "TESTE UNITÁRIO (AC4): novo packages/db/src/__tests__/getServiceDb.test.ts (5 testes) — valida que getServiceDb() usa DATABASE_URL_SERVICE_ROLE (fallback SUPABASE_DB_URL) e lança erro PT-PT exacto se nenhuma estiver definida. Singleton isolado via vi.resetModules() + import dinâmico (padrão SEC-9 PO-FIX-1). db suite 17→22 (+5)."
+    - "[AUTO-DECISION] (AC6): limites nativos GoTrue SUFICIENTES para soft-launch PT-PT de baixo volume; NÃO se implementa guard de app-level. Razão: rate-limiter em-memória é inútil em serverless (Vercel fra1 — estado não partilhado entre lambdas/cold starts = falsa protecção); guard robusto exigiria Upstash/Redis, fora do âmbito MVP. Critério de reavaliação definido no runbook §9."
+    - "RUNBOOK (AC5/AC7): nova §9 'Rate Limiting de Autenticação' em supabase-auth-setup.md — limites nativos GoTrue documentados, decisão anti-enumeration do reset (PO-FIX-1), e acções [EURICO] de Dashboard. PO-FIX-2: §9 (não §8, que já existe)."
+    - "CodeRabbit SKIPPED (precedente série SEC-1→9 + Disabled em core-config). Sem waiver Not-tested abusivo — story sem código de superfície de ataque novo (guards JSDoc + teste + docs); 6 gates verdes com evidência real."
+
+  files_modified:
+    - "packages/db/src/client.ts — guard JSDoc de getServiceDb() (AC3)"
+    - "apps/web/src/lib/agent/db-shim.ts — guard JSDoc do wrapper getServiceDb() (AC3)"
+    - "docs/runbooks/supabase-auth-setup.md — nova §9 'Rate Limiting de Autenticação' (AC5/AC6/AC7 + PO-FIX-1 anti-enumeration)"
+    - "packages/db/src/__tests__/getServiceDb.test.ts — teste unitário novo (AC4, 5 testes)"
+    - "docs/qa/gates/SEC-10-audit-service-db-auth-rate-limiting.yml — gate file @architect (PASS 9,6/10)"
+    - "docs/stories/completed/SEC-10.audit-service-db-auth-rate-limiting.story.md — movida de active/, Status Done"
+
+  gates_evidence:
+    - "lint 10/10 FULL TURBO · typecheck 10/10 FULL TURBO · check:rls exit 0 (todas as tabelas com 4 policies, zero touch DB)"
+    - "db test 22/22 (inclui novo getServiceDb.test.ts 5/5) · web test 1199/1199 (149 ficheiros) · build 10/10 FULL TURBO"
+    - "ZERO migrations/schema. 104 policies intactas. Sem db:migrate."
+
+  blockers:
+    - "[EURICO] Rate Limits no Supabase Dashboard (acção SEC-10 §9): ajustar limites em Authentication → Rate Limits (planos pagos) e/ou activar CAPTCHA em Bot/Abuse Protection. CAPTCHA SEM widget no frontend bloquearia TODOS os pedidos — exige story de frontend dedicada antes de activar. NÃO bloqueia o merge; é hardening recomendado antes de abrir amplamente. Documentado no runbook §9."
+    - "[EURICO] SMTP custom Resend (acção SEC-10 §9 + GAP-2 do catálogo): com 'Confirm email' ON sem SMTP custom, o Supabase usa serviço default (4 emails/h) → registo a estranhos parte. Decidir ligar Resend SMTP (recomendado) OU 'Confirm email' OFF no soft-launch. Junta-se ao caminho crítico de config externa (DNS-001 → Supabase Site URL → SITE_URL Vercel → SENTRY_DSN → SMTP/Rate Limits)."
+
+next_action: >
+  Num terminal fresco: ler docs/HANDOFF-INDEX.md + o catálogo vivo
+  mj-handoff-followups-soft-launch-20260615 (fonte de verdade do que falta).
+  Os DOIS itens [AGENTE] de segurança que a SEC-10 fechou (auditoria
+  getServiceDb legacy + avaliar rate-limiting GoTrue) já estão concluídos.
+  Restam follow-ups [AGENTE] do catálogo, todos sem bloqueador externo, via
+  ciclo SDC (/sdc): RGPD purge (documentar processo manual via getServiceDb +
+  decidir self-service) · 2 alertas Grafana pré-launch (runbook
+  observability-setup.md) · OBS-3 (Lighthouse /visao autenticada, requer
+  sessão). NÃO draftar SEC-8 (HOLD, exige Adenda §12 do @architect). NÃO tocar
+  billing (CONGELADO). Push só pelo @devops.
+
+notes: |
+  - SEC-10 NÃO faz parte da cadeia RLS-runtime SEC-1→8.1 (toda Done em completed/);
+    é uma story de segurança follow-up do soft-launch (higiene preventiva/documental),
+    numerada SEC-10 para evitar colisão. Não enfraqueceu nenhuma protecção — só
+    adicionou guards documentais, um teste e documentação de runbook.
+  - O catálogo mj-handoff-followups-soft-launch-20260615 MANTÉM-SE pending e é a
+    referência completa do que falta. Caminho crítico [EURICO]: DNS-001 → Supabase
+    Site URL → SITE_URL na Vercel (SEC-9) → SENTRY_DSN → SMTP/Resend + Rate Limits
+    (SEC-10) → smoke final. [AGENTE] restantes: RGPD purge (doc), 2 alertas Grafana,
+    OBS-3, multi-household (deferido), INVITE-E2E-SMOKE. Conformidade legal: preencher
+    placeholders + validação jurídica = bloqueante antes de divulgar a estranhos.
+  - O handoff mj-handoff-refocus-core-freeze-billing-20260529 MANTÉM-SE pending —
+    directiva de governação viva (billing congelado), não tarefa.
+  - Predecessor mj-handoff-sec9-done-next-followups-20260616 CONSUMIDO por esta
+    sessão (arquivado).
+
+related:
+  - docs/handoffs/mj-handoff-followups-soft-launch-20260615.yaml
+  - docs/handoffs/mj-handoff-refocus-core-freeze-billing-20260529.yaml
+  - docs/handoffs/archive/mj-handoff-sec9-done-next-followups-20260616.yaml
+  - docs/stories/completed/SEC-10.audit-service-db-auth-rate-limiting.story.md
+  - docs/qa/gates/SEC-10-audit-service-db-auth-rate-limiting.yml
+  - docs/runbooks/supabase-auth-setup.md

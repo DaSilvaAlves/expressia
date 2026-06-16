@@ -1,0 +1,118 @@
+schema: 1
+story: 'SEC-10'
+story_title: 'Auditoria getServiceDb + avaliação rate-limiting auth'
+gate: PASS
+status_reason: >-
+  Auditoria getServiceDb verificada byte-a-byte e independente — 7 invocações de
+  produção em 5 ficheiros, todas legítimas, zero usos suspeitos em response
+  handlers de utilizador. PO-FIX-1 (anti-enumeration) respeitado (zero ficheiros
+  de auth tocados). 6/6 gates verde re-corridos. Guards e teste sólidos.
+reviewer: 'Quinn (Test Architect)'
+review_type: 'adversarial / independent'
+updated: '2026-06-16T16:05:00Z'
+
+top_issues: []
+
+waiver: { active: false }
+
+# ---------------------------------------------------------------------------
+# Evidência adversarial — cada foco re-verificado com grep/diff/output próprios
+# ---------------------------------------------------------------------------
+
+adversarial_findings:
+  - focus: 'AC1/AC2 — completude da auditoria getServiceDb'
+    verdict: PASS
+    evidence: >-
+      Grep independente de `getServiceDb` em apps/web/src/** e packages/**.
+      Call sites de produção (= getServiceDb() / getServiceDb();): 7 exactos —
+      generate-recurring-tasks.ts:97 e :242, generate-finance-recurrences.ts:107
+      e :238, cleanup-expired-reverse-ops.ts:55, audit-log.ts:209,
+      undo/route.ts:183. Confirma a tabela da story byte-a-byte. db-shim.ts:76
+      (wrapper) e client.ts:172 (definição) não são usos de utilizador.
+      Todas as restantes ocorrências são imports, comentários "NUNCA
+      getServiceDb()", anotações de tipo, ou mocks de teste. ZERO invocações em
+      RSC/route handlers de utilizador/Server Actions fora das 3 excepções.
+
+  - focus: 'PO-FIX-1 — reset de password anti-enumeration intacto'
+    verdict: PASS
+    evidence: >-
+      git status e git diff de apps/web/src/app/(auth)/** = vazio (clean).
+      resetPasswordAction (actions.ts:240-243) continua a colapsar todos os erros
+      do GoTrue numa mensagem neutra ("Não foi possível enviar o email. Tenta
+      novamente.") e devolve estado neutro em sucesso. NENHUM mapping de
+      rate-limit introduzido no reset. Zero regressão de segurança.
+
+  - focus: 'AC3 — guards JSDoc'
+    verdict: PASS
+    evidence: >-
+      client.ts e db-shim.ts: guards enumeram as 3 excepções permanentes (jobs
+      Inngest, incrementQuota D50, undo D-12C), com refs rastreáveis (CLAUDE.md
+      §Multi-tenancy, ADR-003 §D6/§12.3/§12.5, SEC-10) e a string indexável
+      "NUNCA usar em response handlers de utilizador final". Apenas documentação
+      adicionada — implementação de getServiceDb() inalterada (lógica
+      `?? `/throw intacta). Nenhuma protecção enfraquecida.
+
+  - focus: 'AC4 — teste unitário getServiceDb'
+    verdict: PASS
+    evidence: >-
+      getServiceDb.test.ts cobre os 3 casos exigidos (var definida; fallback
+      SUPABASE_DB_URL; erro sem nenhuma — string PT-PT exacta) + 2 extra
+      (não usa DATABASE_URL de runtime; precedência da var primária).
+      vi.resetModules() em beforeEach + import dinâmico isolam o singleton
+      _serviceDb. Não-tautológico: captura o URL passado ao driver postgres()
+      mockado e asserta a fonte correcta. 22/22 db tests verde (5 novos
+      incluídos).
+
+  - focus: 'AC6 — [AUTO-DECISION] sem guard app-level de rate-limiting'
+    verdict: PASS
+    evidence: >-
+      Justificação sólida e bem documentada (runbook §9): rate-limiter em-memória
+      é inútil em serverless Vercel fra1 (estado não partilhado entre lambdas,
+      não sobrevive a cold starts — falsa protecção); guard robusto exigiria
+      Upstash/Redis fora do âmbito MVP. Limites nativos GoTrue cobrem IP+email;
+      app comunica em PT-PT. Critério de reavaliação definido. Decisão coerente
+      com o contexto soft-launch de baixo volume por convite.
+
+# ---------------------------------------------------------------------------
+# Gates re-corridos (output real verificado por @qa, não confiança no @dev)
+# ---------------------------------------------------------------------------
+
+gates_rerun:
+  lint: { result: PASS, detail: '10/10 tasks, FULL TURBO, 0 warnings/errors' }
+  typecheck: { result: PASS, detail: '10/10 tasks OK' }
+  check_rls: { result: PASS, detail: 'exit 0 — coverage intacto, nenhuma tabela household_id nova' }
+  db_test: { result: PASS, detail: '22/22 (5 ficheiros) — inclui os 5 novos getServiceDb.test.ts' }
+  web_test: { result: PASS, detail: '1199/1199 (149 ficheiros)' }
+  build: { result: PASS, detail: 'exit 0, FULL TURBO' }
+
+# ---------------------------------------------------------------------------
+# Governação
+# ---------------------------------------------------------------------------
+
+governance:
+  migrations_schema_touched: false
+  rls_policies_touched: false
+  billing_stripe_touched: false
+  sec8_fatia_d_touched: false
+  auth_files_touched: false
+  files_modified:
+    - 'packages/db/src/client.ts (JSDoc guard)'
+    - 'apps/web/src/lib/agent/db-shim.ts (JSDoc guard)'
+    - 'docs/runbooks/supabase-auth-setup.md (§9 rate-limiting)'
+  files_created:
+    - 'packages/db/src/__tests__/getServiceDb.test.ts (5 testes)'
+
+score: 9.6
+score_rationale: >-
+  Story de segurança modelar — evidência verificada e completa, guards
+  rastreáveis, teste não-tautológico com isolamento correcto de singleton,
+  AUTO-DECISION bem fundamentado, PO-FIX-1 respeitado sem regressão. -0.4 porque
+  o valor é sobretudo documental/hardening preventivo (sem mudança funcional de
+  runtime que feche um buraco activo) e os limites exactos de rate-limit GoTrue
+  dependem de confirmação no Dashboard (acção [EURICO]).
+
+recommendations:
+  immediate: []
+  future:
+    - 'Executar acções [EURICO] do runbook §9 (Dashboard Rate Limits + SMTP Resend) antes de tráfego real.'
+    - 'CAPTCHA só com story de frontend dedicada (widget) — activar no Dashboard sem widget bloquearia todos os pedidos.'

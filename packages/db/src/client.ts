@@ -140,14 +140,34 @@ export async function withHousehold<T>(
 }
 
 /**
- * Cliente Postgres com `service_role` — IGNORA RLS.
+ * Cliente Postgres com `service_role` — IGNORA RLS (`rolbypassrls = TRUE`).
  *
- * Use APENAS para:
- *   - Migrações
- *   - Jobs Inngest controlados (recurrences, GDPR purge, Stripe webhook handlers)
- *   - Scripts de admin
+ * ⚠️ GUARD DE SEGURANÇA (SEC-10): este cliente contorna por completo as 104 RLS
+ * policies do schema. **NUNCA usar em response handlers de utilizador final**
+ * (Route Handlers, RSC, Server Actions com JWT de utilizador no contexto). Em
+ * caminhos de utilizador usar SEMPRE `getDb()` (role `authenticated`, filtro
+ * `household_id` app-enforced — 1.ª rede SEC-1) ou `withHousehold()` (RLS
+ * activa — 2.ª rede SEC-2). Pesquisar por "NUNCA usar em response handlers de
+ * utilizador final" para auditar usos.
  *
- * NUNCA usar em response handlers de utilizador final.
+ * As ÚNICAS três categorias de uso legítimo (excepções permanentes, auditadas e
+ * verificadas em SEC-10 — zero usos suspeitos no código de produção):
+ *
+ *   1. Migrações e scripts de admin (sem JWT de utilizador no contexto).
+ *   2. Jobs Inngest controlados, disparados por cron (sem JWT de utilizador):
+ *      `generate-recurring-tasks`, `generate-finance-recurrences`,
+ *      `cleanup-expired-reverse-ops` (e futuros GDPR purge / Stripe webhooks).
+ *   3. Excepções pontuais documentadas onde a RLS bloqueia legitimamente o role
+ *      `authenticated` e o acesso é estritamente scoped pela aplicação:
+ *        - `incrementQuota` (audit-log.ts) — D50: RLS bloqueia INSERT/UPDATE em
+ *          `agent_quotas` a `authenticated` (0001_rls_policies.sql:342-362).
+ *        - `undo/route.ts` — D-12C: trigger de imutabilidade bloqueia a transição
+ *          terminal `success→reverted` em `authenticated`; pertença ao household
+ *          é verificada app-enforced antes (cross-household → 404).
+ *
+ * @see CLAUDE.md §Multi-tenancy via Postgres RLS — regra canónica getServiceDb vs getDb
+ * @see docs/adr/ADR-003-rls-enforced-runtime-hardening.md §D6, §12.3, §12.5 — justificações
+ * @see docs/stories/active/SEC-10.audit-service-db-auth-rate-limiting.story.md — auditoria
  */
 export function getServiceDb(): Database {
   if (_serviceDb) return _serviceDb;
