@@ -1,0 +1,79 @@
+id: mj-handoff-rgpd1-shipped-next-followups-20260616
+from_agent: devops (Gage)
+to_agent: any
+created: "2026-06-16T20:05:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: session-end
+
+summary: >
+  Story RGPD-1 (runbook de eliminação manual de conta — RGPD Art. 17) EM PROD.
+  Push fast-forward concluído e confirmado no GitHub (origin/main = f18d9c1,
+  working tree limpo). Doc-only: zero código/migrations/schema. Fecha o item
+  [AGENTE] "RGPD purge (doc)" do catálogo soft-launch. Este handoff migra o
+  contexto para um terminal fresco continuar os follow-ups [AGENTE] restantes.
+
+context:
+  story_id: RGPD-1
+  story_path: docs/stories/completed/RGPD-1.account-deletion-purge-process.story.md
+  branch: main
+  pushed_commits:
+    - "3036341 — docs(rgpd): RGPD-1 — runbook de eliminação manual de conta (Art. 17) + decisão self-service deferido (3 ficheiros, +640 linhas)"
+    - "f18d9c1 — chore(handoff): consumir RGPD-1 ready-for-push + actualizar INDEX (2 ficheiros, +89 linhas)"
+
+  github_confirmation: >
+    Verificado via `gh api repos/DaSilvaAlves/expressia/commits/main` — HEAD remoto
+    = f18d9c1; ambos os commits presentes no remote. `git rev-list origin/main...HEAD`
+    = 0/0. Working tree limpo.
+
+  gates_evidence:
+    - "check:rls EXIT 0 — 15 tabelas com cobertura de policies (NFR5 intacta)."
+    - "typecheck FULL TURBO 10/10 EXIT 0."
+    - "lint 10/10 EXIT 0."
+    - "test 10/10 EXIT 0 (web 1199/1199, db 22/22)."
+    - "build 10/10 EXIT 0."
+    - "SEM db:migrate (zero migrations — 104 policies intactas)."
+
+  caveat_gate_test: >
+    Na 1.ª corrida de `pnpm test` o `@meu-jarvis/db#test` falhou (exit 1). Investigado
+    ANTES de prosseguir: isolado passou 22/22 e a suite completa re-corrida ficou verde
+    10/10. Causa = contenção de conexão ao Postgres real (db-connection / getServiceDb /
+    handle-new-user.trigger tocam DB real) sob paralelismo turbo. PROVADO NÃO-REGRESSÃO
+    (commit doc-only, zero touch em packages/db). Padrão a vigiar em futuras corridas.
+
+  decisions_made:
+    - "Self-service de eliminação DEFERIDO para pós-soft-launch (decisão @po ratificada, runbook §6). Schema já preparado (account_deletion_jobs + accountDeletionStatusEnum + enums audit_action em audit.ts); falta o fluxo (rota /api/account/delete + função Inngest gdpr-purge NÃO registada em route.ts)."
+    - "CodeRabbit SKIP no push (doc-only, precedente série SEC-1→10)."
+    - "Dois commits separados (payload docs + bookkeeping handoff), padrão SEC-9/SEC-10."
+
+  blockers: []
+
+next_action: >
+  Continuar os follow-ups [AGENTE] restantes via /sdc num terminal fresco. Catálogo
+  `mj-handoff-followups-soft-launch-20260615` mantém-se a FONTE DE VERDADE. Itens
+  [AGENTE] em aberto: 2 alertas Grafana (config no dashboard é [EURICO]; só o
+  código/runbook é [AGENTE]), OBS-3 Lighthouse /visao autenticada (precisa sessão
+  browser), multi-household SET NULL (deferido), INVITE-E2E-SMOKE. NÃO draftar SEC-8
+  (HOLD). Billing CONGELADO. Push é EXCLUSIVO do @devops.
+
+notes: |
+  - Fecha o item [AGENTE] "RGPD purge / eliminação de conta (doc)" do catálogo
+    mj-handoff-followups-soft-launch-20260615 (secção follow_ups_seguranca_e_conformidade).
+  - Catálogo mj-handoff-followups-soft-launch-20260615 MANTÉM-SE pending (fonte de verdade).
+  - Caminho crítico [EURICO] inalterado: DNS-001 → Supabase Site URL → SITE_URL Vercel
+    → SENTRY_DSN → SMTP/Resend + Rate Limits → smoke final.
+  - ⚠️ Conformidade legal: o runbook RGPD-1 (§1.5) referencia o email de privacidade das
+    páginas /privacidade /termos — ainda PLACEHOLDER. Validação jurídica + preenchimento
+    dos placeholders continua bloqueante antes de divulgar a estranhos.
+  - Predecessor mj-handoff-rgpd1-ready-for-push-20260616 consumido/arquivado nesta sessão.
+
+related:
+  - docs/runbooks/rgpd-account-deletion.md
+  - docs/stories/completed/RGPD-1.account-deletion-purge-process.story.md
+  - docs/qa/gates/RGPD-1-qa-gate.md
+  - docs/handoffs/mj-handoff-followups-soft-launch-20260615.yaml
+  - docs/handoffs/archive/mj-handoff-rgpd1-ready-for-push-20260616.yaml
