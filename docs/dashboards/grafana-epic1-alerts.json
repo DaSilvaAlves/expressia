@@ -1,0 +1,50 @@
+{
+  "__comment": "Definições versionadas das 2 alert rules obrigatórias da Epic 1 (Story 1.7 / OBS-1) no formato de provisioning Grafana Alerting v1 (estrutura groups/rules, compatível com Grafana 9+). PROPÓSITO: tornar os alertas reproduzíveis sem acesso ao Dashboard — qualquer membro da equipa (ou o Eurico) consegue recriar os alarmes num stack Grafana novo a partir deste ficheiro. WORKFLOW DE IMPORTAÇÃO: Alerting → Alert rules → Import (upload deste ficheiro) → seleccionar o datasource Prometheus real → Save. NOTA: este artefacto é de REFERÊNCIA/documentação reproduzível — NÃO é garantidamente import-and-go no free-tier (o botão Import de alert rules pode não existir no plano free). Nesse caso, usar os valores aqui (queries, nomes, severidades, thresholds) para criar manualmente cada regra via UI — ver docs/runbooks/observability-setup.md secção 7 para os passos de activação. As queries PromQL espelham byte-a-byte as da secção 6 do runbook e dos painéis 1-2 de grafana-epic1.json (os alertas são a contraparte de notificação dos mesmos painéis visuais). PRECEDENTE de estrutura/__comment: docs/dashboards/grafana-epic1.json (4 painéis Epic 1) e docs/dashboards/grafana-agent-health.json (6 painéis Agent Health). Stack: expressia.grafana.net (eu-west-6 Ireland).",
+  "__datasource_note": "O datasource Prometheus usa o UID placeholder 'PROMETHEUS_UID_PLACEHOLDER' — substituir pelo UID real obtido na UI Grafana após a importação (seleccionado no wizard de import OU copiado de Connections → Data sources → Prometheus → URL contém o UID). Mesmo padrão de 'datasource UID placeholder → substituir após import UI' documentado em grafana-agent-health.json e na secção 7 do runbook observability-setup.md (precedente §7.1/§7.4).",
+  "groups": [
+    {
+      "name": "expressia-epic1-alerts",
+      "interval": "1m",
+      "rules": [
+        {
+          "alert": "expressia-error-rate-critical",
+          "expr": "sum(rate(http_server_response_count{http_status_code=~\"5..\"}[5m])) / sum(rate(http_server_response_count[5m])) > 0.01",
+          "for": "5m",
+          "labels": {
+            "severity": "critical"
+          },
+          "annotations": {
+            "summary": "Expressia 5xx error rate above 1% over 5 minutes",
+            "description": "The ratio of 5xx responses to total responses has exceeded 1% for at least 5 minutes. This indicates a production-impacting failure. Check Sentry for the underlying exceptions and the Grafana Epic 1 dashboard (panel 2 — error rate 5xx)."
+          },
+          "__datasource": "PROMETHEUS_UID_PLACEHOLDER",
+          "__contact_point": "expressia-email"
+        },
+        {
+          "alert": "expressia-latency-p95-warning",
+          "expr": "histogram_quantile(0.95, rate(http_server_duration_milliseconds_bucket{http_route=\"/api/me\"}[5m])) > 200",
+          "for": "5m",
+          "labels": {
+            "severity": "warning"
+          },
+          "annotations": {
+            "summary": "Expressia p95 latency for /api/me above 200ms over 5 minutes",
+            "description": "The 95th percentile request duration for the /api/me canary endpoint has exceeded 200ms for at least 5 minutes. Investigate database latency, cold starts or upstream slowdowns. See the Grafana Epic 1 dashboard (panel 1 — p95 latency /api/me)."
+          },
+          "__datasource": "PROMETHEUS_UID_PLACEHOLDER",
+          "__contact_point": "expressia-email"
+        }
+      ]
+    }
+  ],
+  "contactPoints": [
+    {
+      "__comment": "/* [EURICO] confirmar contact point na UI */ Contact point placeholder de email — criar/confirmar em Alerting → Contact points na UI Grafana. O nome e o endereço abaixo devem corresponder ao que for criado na UI antes de associar à notification policy.",
+      "name": "expressia-email",
+      "type": "email",
+      "settings": {
+        "addresses": "euricojsalves@gmail.com"
+      }
+    }
+  ]
+}

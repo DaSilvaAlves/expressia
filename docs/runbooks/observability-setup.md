@@ -194,9 +194,40 @@ logger.info({ household_id: 'abc' }, 'Pedido recebido');
 - **Severidade:** Warning
 - **Notificações:** Email
 
+> Para a activação na UI, ver secção 7 abaixo.
+
 ---
 
-## 7. Diagnóstico
+## 7. Activação UI dos alertas Epic 1 — passos [EURICO]
+
+As definições versionadas destes 2 alertas vivem em `docs/dashboards/grafana-epic1-alerts.json` (formato de provisioning Grafana Alerting v1). Esta secção descreve como o Eurico activa os alertas na UI Grafana antes de o stack receber tráfego real. **O `@dev` não tem acesso ao Dashboard — todos os passos abaixo são `[EURICO]`.**
+
+> **Ficheiro fonte:** `docs/dashboards/grafana-epic1-alerts.json` (versionado). Usa-o como import directo ou, se o botão Import de alert rules não existir no free-tier, copia os valores (queries, nomes, severidades, thresholds) para criar cada regra manualmente.
+
+### Pré-condições
+
+Antes de activar os alertas, confirmar:
+
+1. **Deploy production verde** — o último deploy em Vercel `fra1` está saudável (sem erros de build/runtime).
+2. **≥ 1 request real a `/api/me`** — há dados OTel a chegar ao stack Grafana. Validar em **Grafana Explore** com a query de latência da secção 6: `histogram_quantile(0.95, rate(http_server_duration_milliseconds_bucket{http_route="/api/me"}[5m]))`. Se devolver `No data`, ainda não chegou tráfego suficiente.
+3. **DNS-001 resolvido** OU `expressia-black.vercel.app` usado como URL base durante o soft-launch (o alerta opera sobre métricas internas do stack, não depende do domínio público — mas o tráfego real tem de existir).
+
+### Passos de activação (UI Grafana — `https://expressia.grafana.net`)
+
+1. **Login** em `https://expressia.grafana.net` com as credenciais OAuth do Eurico.
+2. **Criar contact point de email:** Alerting → Contact points → New contact point → tipo **Email** → endereço `euricojsalves@gmail.com` → nome `expressia-email` → Save.
+3. **Importar as alert rules:** Alerting → Alert rules → Import → JSON upload `docs/dashboards/grafana-epic1-alerts.json` → seleccionar o datasource **Prometheus** real (substituir o UID placeholder `PROMETHEUS_UID_PLACEHOLDER` pelo UID real) → Save. _Se o botão Import não existir no free-tier:_ criar manualmente cada regra (Alerting → Alert rules → New alert rule), colando a query, o nome, `for: 5m` e a severidade de cada alerta a partir do JSON.
+4. **Criar notification policy:** Alerting → Notification policies → Default policy → Edit → Contact point: `expressia-email` → Save.
+5. **Test fire:** em cada alert rule → More → Test (simular a condição `> threshold`) → confirmar a recepção do email em `euricojsalves@gmail.com`.
+6. **Confirmar silenciamento durante deploy windows:** Alerting → Silences → Add silence → duração 15 min → aplicar durante o próximo deploy para evitar falsos positivos.
+
+### Aviso de empty-state
+
+Enquanto não houver dados reais (stack sem tráfego), as queries dos 2 alertas devolvem `No data` e os alertas **nunca disparam** — este é o comportamento esperado, **não é erro**. Os alertas só passam a avaliar a condição quando começarem a chegar métricas OTel reais de `/api/me` e de respostas 5xx.
+
+---
+
+## 8. Diagnóstico
 
 ### Sintoma: spans não aparecem no Grafana
 
@@ -234,7 +265,7 @@ logger.info({ household_id: 'abc' }, 'Pedido recebido');
 
 ---
 
-## 8. Custos
+## 9. Custos
 
 **Actual (2026-05-08):** 0 EUR/mês (free tier ambas plataformas).
 
@@ -248,7 +279,7 @@ logger.info({ household_id: 'abc' }, 'Pedido recebido');
 
 ---
 
-## 9. Referências
+## 10. Referências
 
 - Story: `docs/stories/active/1.7.observability-otel-sentry.md`
 - Architecture: `docs/architecture.md` §9.1 (Observability stack)

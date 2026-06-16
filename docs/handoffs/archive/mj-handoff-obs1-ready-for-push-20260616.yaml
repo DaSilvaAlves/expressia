@@ -1,0 +1,89 @@
+id: mj-handoff-obs1-ready-for-push-20260616
+from_agent: orchestrator (/sdc)
+to_agent: devops
+created: "2026-06-16T21:30:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-16T22:10:00Z"
+consumed_by: "@devops (Gage)"
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: ready-for-push
+
+summary: >
+  Story OBS-1 (provisioning versionado dos 2 alertas Grafana Epic 1) completou o
+  ciclo SDC (@sm → @po GO 8,0 → @sm fix → @dev → @qa PASS 9,5/10) e está PRONTA
+  PARA PUSH. Doc/config-only: ZERO código de app, ZERO migrations/schema. Falta
+  apenas a fase @devops: mover a story active/→completed/, commit + push
+  fast-forward. Fecha a parte [AGENTE] do item "2 alertas Grafana" do catálogo
+  soft-launch (a activação na UI Grafana é acção [EURICO], agora documentada).
+
+context:
+  story_id: OBS-1
+  story_path: docs/stories/active/OBS-1.grafana-epic1-alerts-provisioning.story.md
+  branch: main
+  current_task: >
+    Ciclo SDC completo sem --push. Story em Status "Done (gate @qa PASS 9,5/10)"
+    ainda em active/, a aguardar a fase @devops para ir a prod. Gate file:
+    docs/qa/gates/OBS-1-grafana-epic1-alerts-provisioning.yml (PASS 9,5/10).
+
+  decisions_made:
+    - "Âmbito [AGENTE] = tornar os 2 alertas Epic 1 reproduzíveis/versionados (novo grafana-epic1-alerts.json) + documentar a activação UI [EURICO] no runbook. A activação na UI Grafana (contact point + 2 alert rules + notification policy + test fire) NÃO é executável por agente — fica documentada como [EURICO] na nova §7."
+    - "PO-FIX-1 (crítico) aplicado: a renumeração do runbook é LIMITADA ao bloco number-dot (Epic 1). Inserida ## 7. Activação UI dos alertas Epic 1 após ## 6.; empurrados Diagnóstico→8, Custos→9, Referências→10. O bloco §-prefix do Agent Health (§7/§8/§9/§10, Epic 2/Story 2.11) NÃO foi tocado — verificado por grep antes/depois."
+    - "Queries PromQL do JSON espelham byte-a-byte a §6 do runbook (error rate 5xx > 0.01; p95 /api/me > 200). Cross-confirmado vs painéis 1-2 do grafana-epic1.json."
+    - "O JSON é artefacto de referência/documentação reproduzível (estrutura groups/rules de provisioning) — NÃO garantidamente import-and-go no free-tier Grafana; alinhado com o precedente §8.4 (criação manual)."
+    - "CodeRabbit SKIPPED (Integration Disabled em core-config.yaml; precedente série SEC-1→10)."
+
+  files_modified:
+    - "docs/dashboards/grafana-epic1-alerts.json — NOVO: 2 alert rules Epic 1 (error rate 5xx >1% Critical; p95 /api/me >200ms Warning) + contact point placeholder."
+    - "docs/runbooks/observability-setup.md — nova ## 7. Activação UI dos alertas Epic 1 — passos [EURICO] + renumeração bloco number-dot (Diagnóstico→8, Custos→9, Referências→10). Bloco §-prefix Agent Health intacto."
+    - "docs/stories/active/OBS-1.grafana-epic1-alerts-provisioning.story.md — story + Dev Agent Record + QA Results (a MOVER para completed/ no push)."
+    - "docs/qa/gates/OBS-1-grafana-epic1-alerts-provisioning.yml — gate file @qa (PASS 9,5/10)."
+
+  gates_evidence:
+    - "lint exit 0 · typecheck exit 0 · build exit 0 (reportados pelo @dev, FULL TURBO)."
+    - "test @meu-jarvis/web 1199/1199 (149 ficheiros) — baseline SEC-10 intacta (story doc-only não afecta)."
+    - "check:rls EXIT 0 — re-corrido independentemente 2x (pelo @dev, e no Gate 3 e pelo @qa). 15 tabelas household_id cobertas, schema inalterado."
+    - "JSON validado (node JSON.parse) por @dev, @qa e no Gate 3."
+    - "git status: touch só em docs/; zero apps/ ou packages/."
+
+  caveat_gate_test: >
+    Nota conhecida (série RGPD-1/SEC-10): em corridas turbo o @meu-jarvis/db#test pode
+    falhar por contenção de conexão ao Postgres real sob paralelismo. Não ocorreu nesta
+    story (web test corrido isolado; check:rls GREEN prova zero-touch packages/db). Se o
+    @devops correr a suite completa pre-push e o db#test falhar na 1ª, re-correr/isolar
+    para provar não-regressão (doc-only, zero touch em packages/db).
+
+  blockers: []
+
+next_action: >
+  @devops *push OBS-1 — mover docs/stories/active/OBS-1.*.story.md para completed/,
+  commit conventional + trailers, push fast-forward para origin/main (sem --force,
+  sem --no-verify). Correr os gates pre-push (check:rls + typecheck + lint baratos;
+  build/test conforme política). Após push, fechar a parte [AGENTE] do item "2 alertas
+  Grafana" no catálogo e arquivar este handoff.
+
+notes: |
+  - Fecha a parte automatizável do item [AGENTE] "2 alertas Grafana" de
+    follow_ups_higiene_e_fast_follow no catálogo mj-handoff-followups-soft-launch-20260615
+    (que se MANTÉM pending — é a fonte de verdade do que falta).
+  - Acção residual [EURICO] após push: activar na UI Grafana (https://expressia.grafana.net
+    → Alerting) o contact point de email + as 2 alert rules + notification policy + test fire.
+    Passos concretos agora na nova §7 do runbook observability-setup.md.
+  - 2 NITs não-bloqueantes do gate @qa (higiene futura): DOC-001-NB (harmonizar
+    sum(...) by (le) entre §6 / alerta / painel 1 do grafana-epic1.json) · DOC-002-NB
+    (qualificar "## 10. Referências" como "Referências (Epic 1)" para distinguir do §10).
+  - Restantes follow-ups [AGENTE] do catálogo após OBS-1: OBS-3 Lighthouse /visao
+    autenticada (precisa sessão browser), multi-household (deferido), INVITE-E2E-SMOKE.
+    NÃO draftar SEC-8 (HOLD). Billing CONGELADO. Push é EXCLUSIVO do @devops.
+  - Caminho crítico [EURICO] inalterado: DNS-001 → Supabase Site URL → SITE_URL Vercel
+    → SENTRY_DSN → SMTP/Resend + Rate Limits → smoke final.
+
+related:
+  - docs/stories/active/OBS-1.grafana-epic1-alerts-provisioning.story.md
+  - docs/dashboards/grafana-epic1-alerts.json
+  - docs/runbooks/observability-setup.md
+  - docs/qa/gates/OBS-1-grafana-epic1-alerts-provisioning.yml
+  - docs/handoffs/mj-handoff-followups-soft-launch-20260615.yaml

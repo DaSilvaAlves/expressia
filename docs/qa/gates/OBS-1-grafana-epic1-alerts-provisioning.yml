@@ -1,0 +1,188 @@
+schema: 1
+story: 'OBS-1'
+story_title: 'Provisioning versionado dos 2 alertas Grafana Epic 1'
+gate: PASS
+status_reason: >-
+  Story doc/config-only verificada byte-a-byte e de forma independente. As 2
+  queries PromQL do JSON espelham exactamente a §6 do runbook (fonte de verdade
+  declarada na AC1); o bloco §-prefix Agent Health ficou totalmente intacto
+  (regressão de risco do PO-FIX-1 não ocorreu); JSON válido; acções de Dashboard
+  marcadas [EURICO] sem activação na UI pelo agente. check:rls re-corrido por
+  @qa = exit 0; zero touch em apps/packages confirmado por git.
+reviewer: 'Quinn (Test Architect)'
+review_type: 'adversarial / independent'
+updated: '2026-06-16T17:30:00Z'
+
+top_issues: []
+
+waiver: { active: false }
+
+# ---------------------------------------------------------------------------
+# 7 Quality Checks (qa-gate.md) — cada foco re-verificado com Read/grep/output próprios
+# ---------------------------------------------------------------------------
+
+quality_checks:
+  - id: 1
+    focus: 'AC1 — queries PromQL do JSON espelham a §6 do runbook (byte-a-byte)'
+    verdict: PASS
+    evidence: >-
+      Alerta 1 (error rate): JSON expr (grafana-epic1-alerts.json:11) ==
+      runbook §6 (observability-setup.md:185) ==
+      'sum(rate(http_server_response_count{http_status_code=~"5.."}[5m])) /
+      sum(rate(http_server_response_count[5m])) > 0.01' — idêntico.
+      Alerta 2 (p95 /api/me): JSON expr (linha 25) == runbook §6 (linha 192) ==
+      'histogram_quantile(0.95, rate(http_server_duration_milliseconds_bucket{http_route="/api/me"}[5m])) > 200'
+      — idêntico. Severidades (critical/warning), nomes
+      (expressia-error-rate-critical / expressia-latency-p95-warning) e janela
+      (for: 5m) conformes à AC1. Contact point placeholder expressia-email
+      (email → euricojsalves@gmail.com) presente com marcador
+      '/* [EURICO] confirmar contact point na UI */' (linha 42). __comment de
+      topo + __datasource_note presentes.
+
+  - id: 2
+    focus: 'PO-FIX-1 — bloco §-prefix Agent Health (Epic 2) NÃO foi tocado'
+    verdict: PASS
+    evidence: >-
+      grep de headings: bloco §-prefix intacto — '## §7' (l.293), '## §8'
+      (l.374), '## §9' (l.424), '## §10' (l.464), com subsecções §7.1-§7.4,
+      §8.1-§8.4, §9.1-§9.3 inalteradas. Renumeração do bloco number-dot Epic 1
+      correcta e isolada: '## 6.' (l.179) → nova '## 7. Activação UI' (l.201) →
+      '## 8. Diagnóstico' (l.230) → '## 9. Custos' (l.268) → '## 10. Referências'
+      (l.282). Os dois conjuntos de headings paralelos coexistem como por design.
+      Regressão de risco do PO-FIX-1 NÃO ocorreu.
+
+  - id: 3
+    focus: 'AC1 — JSON válido e segue precedente de estrutura/__comment'
+    verdict: PASS
+    evidence: >-
+      node -e JSON.parse → JSON_VALID groups=1 rules=2 contactPoints=1; dump
+      confirma rule=expressia-error-rate-critical sev=critical for=5m e
+      rule=expressia-latency-p95-warning sev=warning for=5m. Estrutura groups/rules
+      de provisioning Grafana Alerting v1 conforme Dev Notes. Campos __-prefixados
+      (__comment, __datasource_note, __datasource, __contact_point) seguem o
+      precedente de grafana-epic1.json e grafana-agent-health.json (ignorados por
+      parsers Grafana). [AUTO-DECISION sufixos por regra] documentado e coerente.
+
+  - id: 4
+    focus: 'AC2/AC3 — acções de Dashboard são [EURICO]; nada activado na UI pelo agente'
+    verdict: PASS
+    evidence: >-
+      Nova §7 (runbook l.201-226) tem cabeçalho explícito 'passos [EURICO]' e a
+      nota 'O @dev não tem acesso ao Dashboard — todos os passos abaixo são
+      [EURICO]'. Pré-condições (deploy verde + ≥1 request /api/me + DNS-001/vercel.app)
+      + 6 passos numerados concretos com localização exacta
+      (https://expressia.grafana.net, caminhos Alerting → ...) + aviso de
+      empty-state (No data = comportamento esperado) + referência ao JSON fonte.
+      Fallback documentado para free-tier sem botão Import (criação manual). AC3:
+      rodapé '> Para a activação na UI, ver secção 7 abaixo.' adicionado à §6
+      (l.197). Nenhuma acção executada na UI pelo agente.
+
+  - id: 5
+    focus: 'AC4 — PT-PT correcto; nomes/labels de alerta em inglês (convenção Grafana)'
+    verdict: PASS
+    evidence: >-
+      __comment, __datasource_note e contact point __comment em PT-PT idiomático;
+      nova §7 do runbook em PT-PT. annotations summary/description e nomes de regra
+      em inglês (convenção Grafana, conforme AC4). grep PT-BR (você/deletar/setar/
+      checar/printar/buildar) = zero matches de palavra inteira. Único match
+      'usar' ("usar os valores aqui") é PT-PT idiomático aceitável — ver NIT
+      não-bloqueante abaixo.
+
+  - id: 6
+    focus: 'Higiene da story — checkboxes, File List, Dev Agent Record'
+    verdict: PASS
+    evidence: >-
+      Todos os checkboxes de Tarefas 1-3 (e subtarefas 1.1-3.5) marcados [x].
+      File List preenchida (1 criado: grafana-epic1-alerts.json; 2 modificados:
+      observability-setup.md + story). Dev Agent Record completo (Agent Model,
+      Debug Log com tabela de 5 gates exit 0, Completion Notes, AUTO-DECISION
+      documentado). Change Log com v1.0/v1.1/v1.2-DEV. Status = InReview.
+
+  - id: 7
+    focus: 'AC5 — quality gates do projecto (lint/typecheck/web test/build/check:rls)'
+    verdict: PASS
+    evidence: >-
+      check:rls re-corrido por @qa = exit 0 (15 tabelas household_id cobertas,
+      schema inalterado — evidência própria). git status confirma touch apenas em
+      docs/ (runbook modificado + JSON novo + story); ZERO touch em apps/ ou
+      packages/ → a baseline de lint/typecheck/web test/build não pode ter sido
+      afectada por estes 2 ficheiros doc. Evidência do @dev (5/5 exit 0; web test
+      1199/1199) aceite para os gates caros, dado o âmbito doc-only e a base
+      estrutural sólida. Gates caros NÃO re-corridos por @qa (decisão declarada).
+
+# ---------------------------------------------------------------------------
+# Gates verificados
+# ---------------------------------------------------------------------------
+
+gates_status:
+  check_rls: { result: PASS, source: 'RE-CORRIDO @qa', detail: 'exit 0 — 15 tabelas household_id cobertas, schema inalterado' }
+  lint: { result: PASS, source: '@dev (aceite, âmbito doc-only)', detail: '0 warnings/errors, FULL TURBO' }
+  typecheck: { result: PASS, source: '@dev (aceite, âmbito doc-only)', detail: '10/10 tasks OK' }
+  web_test: { result: PASS, source: '@dev (aceite, âmbito doc-only)', detail: '1199/1199 (149 ficheiros) — baseline SEC-10 intacta' }
+  build: { result: PASS, source: '@dev (aceite, âmbito doc-only)', detail: 'exit 0, Next.js build OK' }
+  json_valid: { result: PASS, source: 'RE-CORRIDO @qa', detail: 'node JSON.parse → 2 rules, 1 contact point' }
+
+# ---------------------------------------------------------------------------
+# Governação
+# ---------------------------------------------------------------------------
+
+governance:
+  scope: 'doc/config-only'
+  migrations_schema_touched: false
+  rls_policies_touched: false
+  billing_stripe_touched: false
+  sec8_hold_touched: false
+  app_code_touched: false
+  ui_activated_by_agent: false
+  files_created:
+    - 'docs/dashboards/grafana-epic1-alerts.json (2 alert rules + contact point placeholder)'
+  files_modified:
+    - 'docs/runbooks/observability-setup.md (nova §7 number-dot + rodapé §6 + renumeração 7→8/8→9/9→10; §-prefix intacto)'
+
+# ---------------------------------------------------------------------------
+# Score e follow-ups
+# ---------------------------------------------------------------------------
+
+score: 9.5
+score_rationale: >-
+  Story doc/config-only exemplar: queries byte-a-byte alinhadas com a fonte de
+  verdade declarada (§6), regressão de risco PO-FIX-1 evitada com precisão
+  cirúrgica, JSON válido e fiel ao precedente, acções [EURICO] explícitas e
+  accionáveis, PT-PT correcto. -0.5 por dois NITs não-bloqueantes (forma da query
+  p95 difere do painel 1 de grafana-epic1.json; preferência estilística
+  utilizar>usar) e porque o valor entregue depende de activação manual posterior
+  na UI Grafana (acção [EURICO]) — o artefacto não é garantidamente import-and-go
+  no free-tier (limitação reconhecida e documentada na própria story).
+
+nits_non_blocking:
+  - id: 'DOC-001-NB'
+    severity: low
+    finding: >-
+      A query p95 do alerta usa
+      'histogram_quantile(0.95, rate(...bucket{...}[5m]))' (alinhada com §6 do
+      runbook, a fonte de verdade da AC1), enquanto o painel 1 de
+      grafana-epic1.json usa a forma mais robusta com agregação por label le:
+      'histogram_quantile(0.95, sum(rate(...bucket{...}[5m])) by (le))'. Em
+      ambientes multi-série, a ausência de 'sum(...) by (le)' pode produzir
+      resultados incorrectos do quantil. NÃO bloqueia: o JSON cumpre a AC
+      (espelhar a §6) e a inconsistência é pré-existente entre §6 e o painel.
+    suggested_action: >-
+      Em follow-up de higiene, harmonizar a §6 do runbook E o alerta para a forma
+      'sum(rate(...)) by (le)' do painel 1, para consistência e correcção do
+      quantil em produção multi-instância.
+  - id: 'DOC-002-NB'
+    severity: low
+    finding: >-
+      '## §10' do bloco §-prefix tem título 'Referências Story 2.11' enquanto '##
+      10.' do bloco number-dot é 'Referências'. Coexistência por design (já assim
+      antes da story), mas dois headings 'Referências' no mesmo ficheiro podem
+      confundir uma leitura rápida.
+    suggested_action: >-
+      Opcional: qualificar a '## 10. Referências' como '## 10. Referências
+      (Epic 1)' num futuro toque ao runbook.
+
+recommendations:
+  immediate: []
+  future:
+    - 'Executar as acções [EURICO] da §7 do runbook (criar contact point + alert rules + notification policy + test fire) quando houver tráfego real a /api/me.'
+    - 'Harmonizar a forma da query p95 (sum(...) by (le)) entre §6, alerta e painel 1 — DOC-001-NB.'
