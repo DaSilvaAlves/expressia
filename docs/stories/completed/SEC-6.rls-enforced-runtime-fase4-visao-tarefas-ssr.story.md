@@ -7,7 +7,9 @@
 
 ## Status
 
-**InReview — QA Gate PASS v1.2-ARCH-APPROVED (@architect Orion, 03/06/2026, 9,4/10).** Gate adversarial completo; leak fix validado ([PO-DECISION-1]). Aguarda `@devops *push` (sem db:migrate; CodeRabbit skip padrão SEC-1→5). Detalhe em QA Results §abaixo.
+**Done — shipped em produção (`@devops *push`, 03/06/2026).** Push concluído no commit `18220b6` (`feat(security): RLS enforced em runtime + leak SSR cross-household fix na Visão e 3 SSR tarefas/* — Fase 4 Fatia B [Story SEC-6]`), ancestral de `origin/main`. Housekeeping/handoff session-end em `6215cfe` (`SEC-6 shipped`) e arquivamento em `60e4b69`. Sem db:migrate; CodeRabbit skip padrão SEC-1→5. _(Reconciliação 17/06/2026: o bloco Status tinha ficado stale em "InReview — aguarda @devops \*push"; a Fase 5 DEVOPS já estava executada desde 03/06.)_
+
+> **Histórico:** **InReview — QA Gate PASS v1.2-ARCH-APPROVED (@architect Orion, 03/06/2026, 9,4/10).** Gate adversarial completo; leak fix validado ([PO-DECISION-1]). Aguardava `@devops *push` (sem db:migrate; CodeRabbit skip padrão SEC-1→5). Detalhe em QA Results §abaixo.
 
 **Ready for Review v1.1-DEV (@dev Dex, 03/06/2026)** — implementação completa. 22 ficheiros modificados (6 routes + 9 widgets/grid/page + 3 SSR tarefas + 11 tests, –1 sobreposição). Leak fechado (4 queries com `household_id` bound + regressão AC9.2). Todos os gates verdes: lint, typecheck, web (1079 ✓, calendario flaky isolado-verde AC11), db-test (196 ✓ incl. gate aplicação 25/25), build, check:rls. Sem migration. Aguarda `@architect` qa-gate (atenção adversarial dedicada ao leak fix — [PO-DECISION-1]).
 
