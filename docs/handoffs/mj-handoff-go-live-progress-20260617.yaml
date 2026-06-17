@@ -1,0 +1,111 @@
+id: mj-handoff-go-live-progress-20260617
+from_agent: claude (sessão /sdc + go-live assist com Eurico)
+to_agent: any
+created: "2026-06-17T22:30:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: go-live-progress
+
+summary: >
+  Sessão de assistência ao go-live do soft-launch com o Eurico. PROGRESSO REAL:
+  Passo 1 (DNS) e Passo 2 (auth aponta para domínio próprio) CONCLUÍDOS e
+  verificados em produção. Ficou a meio o Passo 3 (email/SMTP) — o Eurico
+  escolheu Resend SMTP mas ficou sobrecarregado com os detalhes e pediu para
+  parar e continuar noutro terminal. O próximo agente deve RETOMAR no Passo 3
+  com paciência e ritmo lento (o Eurico não é técnico de infra; explicar o
+  "porquê" antes do "como", um passo de cada vez, validar por screenshot).
+  Substitui na prática o caminho crítico do handoff go-live-checklist (os passos
+  1-2 desse já estão feitos). Descobertas importantes em baixo corrigem
+  premissas erradas do checklist original.
+
+context:
+  branch: main
+  ref_handoff_checklist: docs/handoffs/mj-handoff-go-live-checklist-20260617.yaml
+
+  passos_concluidos:
+    passo_1_dns:
+      estado: DONE (verificado 17/06)
+      o_que_foi_feito:
+        - "Cloudflare → zona expressia.pt → 2 registos novos criados (Somente DNS / nuvem cinzenta):"
+        - "  • A  @    → 76.76.21.21"
+        - "  • CNAME www → cname.vercel-dns.com"
+        - "nslookup confirma: expressia.pt → 76.76.21.21 ; www.expressia.pt → cname.vercel-dns.com (66.33.60.193 / 76.76.21.241)"
+        - "curl https://expressia.pt → HTTP 200, SSL válido, título 'Expressia — Tarefas, finanças e rotinas da família'"
+      pendente_opcional_www:
+        - "www.expressia.pt AINDA SEM CERTIFICADO (curl: SEC_E_WRONG_PRINCIPAL). CAUSA: www.expressia.pt NÃO está na lista de Domains do projecto Vercel (só lá estão expressia.pt + expressia-black.vercel.app)."
+        - "FIX opcional (1 min, não bloqueia): Vercel → projecto expressia → Settings → Domains → Add → www.expressia.pt. A Vercel emite o cert e configura redirect www→apex automaticamente."
+
+    passo_2_auth_dominio_proprio:
+      estado: DONE (verificado 17/06)
+      supabase:
+        - "Supabase project ref: llpotuxlyiyjvvxzetoo"
+        - "Authentication → URL Configuration → Site URL = https://expressia.pt (GRAVADO via Save changes)"
+        - "Redirect URLs (Total: 2): http://localhost:3000/** (dev) + https://expressia.pt/** (novo)"
+      vercel:
+        - "Settings → Environments → Production → Environment Variables → CRIADA SITE_URL = https://expressia.pt (Production). Marcada 'Sensitive' por engano — inofensivo, runtime lê à mesma, deixar estar."
+        - "Adicionar a env var disparou auto-redeploy: deployment 6bt7XPZYA (commit f67ab1d) → Status Ready / Production Current. JÁ inclui o SITE_URL."
+      nota_codigo: >
+        SEC-9 (commit 04f5f1a) — apps/web/src/app/(auth)/actions.ts lê process.env.SITE_URL.
+        Com SITE_URL definida (ramo A) o emailRedirectTo usa exactamente esse valor e
+        ignora headers (anti header-poisoning); sem ela cai em fallback por headers
+        (funcionava mas menos seguro). Logo, definir SITE_URL melhorou a segurança.
+        O código normaliza barra final, mas o valor foi posto sem barra: https://expressia.pt
+
+  descobertas_que_corrigem_o_checklist_original:
+    - "NÃO EXISTE wildcard *.vercel.app na allowlist do Supabase. Antes desta sessão a Redirect URLs tinha SÓ http://localhost:3000/**. O checklist go-live (passos 2 e 5) assumia um *.vercel.app que nunca esteve lá."
+    - "CONSEQUÊNCIA: o Passo 5 (SEC-11 — remover wildcard) é efectivamente N/A / já satisfeito. pnpm check:allowlist deve dar EXIT 0 (sem wildcard). Confirmar, mas não há wildcard para remover."
+    - "O Site URL do Supabase estava em http://localhost:3000 (errado para produção) — corrigido nesta sessão para https://expressia.pt."
+
+  estado_decisao_passo_3:
+    escolha_eurico: "Resend SMTP (recomendado) — emails fiáveis, sem limite 4/h, mantém confirmação de email."
+    bloqueio: >
+      Por o serviço de email default do Supabase (sem SMTP custom) limitar a 4 emails/h
+      e bloquear domínios, o registo a ESTRANHOS parte. Resend resolve. NOTA: para o
+      smoke E2E (Passo 4) com o EMAIL DO PRÓPRIO EURICO pode não ser estritamente
+      necessário — o default chega para 1 conta de teste. Resend é obrigatório antes
+      de divulgar a estranhos.
+    onde_parou: >
+      Ia perguntar o estado da conta Resend (tem conta? domínio expressia.pt verificado?
+      API key?) mas o Eurico ficou sobrecarregado e pediu para parar. NÃO se sabe ainda
+      se ele tem conta Resend nem se o domínio está verificado lá.
+
+next_action: >
+  RETOMAR no Passo 3 (email) com o Eurico, devagar. PRIMEIRO descobrir o estado da
+  conta Resend dele (tem conta? domínio expressia.pt verificado no Resend com DKIM/SPF?
+  tem API key?). Caminho Resend SMTP = (A) no Resend: conta → verificar domínio
+  expressia.pt (adiciona registos DNS no Cloudflare) → API key ; (B) no Supabase:
+  Authentication → SMTP Settings → ligar SMTP custom com host/port/user/pass do Resend
+  + sender. ALTERNATIVA mais leve se ele quiser avançar já: fazer o smoke E2E (Passo 4)
+  só com o email do próprio Eurico usando o serviço default, e deixar o Resend para
+  antes de divulgar publicamente. Ritmo: explicar porquê antes de como, 1 acção de cada
+  vez, pedir screenshot para validar. Tarefas opcionais soltas: adicionar www.expressia.pt
+  aos Domains da Vercel (cert do www); confirmar pnpm check:allowlist EXIT 0 (Passo 5 N/A).
+
+o_que_falta_resumido:
+  - "Passo 3 (email Resend SMTP) — decisão tomada, config por fazer. BLOQUEIA divulgação a estranhos."
+  - "Passo 4 (smoke E2E em https://expressia.pt: registo → confirmar trigger no SQL Editor → login → reset password)."
+  - "Passo 5 (SEC-11 remover wildcard) — N/A, não há wildcard. Só confirmar pnpm check:allowlist EXIT 0."
+  - "OPCIONAL www: adicionar www.expressia.pt aos Domains da Vercel para emitir cert + redirect."
+  - "Pós: NEXT_PUBLIC_SENTRY_DSN na Vercel (A3); validação jurídica dos docs legais; OBS-1 alertas Grafana UI."
+
+blockers:
+  - "Nenhum técnico do lado do código — tudo o que falta é config externa [EURICO] (Resend/Supabase/Vercel) + decisão."
+
+notes: |
+  - Perfil do operador: Eurico NÃO é técnico de infra; satura com demasiados detalhes.
+    Conduzir MUITO devagar, 1 passo de cada vez, sempre com o porquê e validação por
+    screenshot. Evitar despejar opções múltiplas de uma vez.
+  - Billing CONGELADO; push só @devops.
+  - Reconciliação SEC-6 → Done foi feita e pushada nesta sessão (commits c67e8dd + f67ab1d).
+  - O deploy de produção actual é f67ab1d (Ready). Qualquer novo push a main dispara
+    novo deploy que mantém o SITE_URL.
+
+related:
+  - docs/handoffs/mj-handoff-go-live-checklist-20260617.yaml
+  - docs/handoffs/mj-handoff-followups-soft-launch-20260615.yaml
+  - docs/runbooks/dns-expressia-setup.md
+  - docs/runbooks/supabase-auth-setup.md
