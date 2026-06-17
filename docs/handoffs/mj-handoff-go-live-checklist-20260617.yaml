@@ -1,0 +1,133 @@
+id: mj-handoff-go-live-checklist-20260617
+from_agent: devops (Gage)
+to_agent: eurico
+created: "2026-06-17T03:10:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: go-live-checklist
+
+summary: >
+  Checklist accionável do caminho crítico de go-live do soft-launch — 5 passos
+  SEQUENCIAIS, todos acções [EURICO] de configuração externa (Cloudflare,
+  Supabase Dashboard, Vercel). O trabalho de código/agente está 100% concluído;
+  o que falta NÃO é desenvolvimento, é configuração de infra que só o operador
+  com login pode fazer. A ordem é OBRIGATÓRIA: o item SEC-11 (remover o wildcard
+  *.vercel.app da allowlist) é o ÚLTIMO passo, não o primeiro — removê-lo antes
+  de expressia.pt servir o auth em produção PARTE o login e o reset de password
+  (que hoje ainda correm em *.vercel.app). Verificado em 17/06: expressia.pt
+  AINDA NÃO RESOLVE (curl: Could not resolve host) → DNS-001 por fazer = bloqueia
+  toda a cadeia. Consolida o caminho crítico [EURICO] disperso pelos catálogos
+  soft-launch / SEC-9 / SEC-10 / OBS-1 / SEC-11 numa única lista executável.
+
+context:
+  branch: main
+  estado_verificado_17_06:
+    - "nslookup expressia.pt → sem registo A (NXDOMAIN-like, exit 6)"
+    - "curl https://expressia.pt → curl (6) Could not resolve host → DNS-001 pendente"
+    - "Auth de produção corre HOJE em expressia-black.vercel.app (via wildcard *.vercel.app)"
+    - "Código SEC-11 em prod (commit dff60bf): auditor pnpm check:allowlist + procedimento runbook §5"
+
+  regra_de_ouro: >
+    NUNCA mudar os nameservers de expressia.pt para a Vercel (ns1/ns2.vercel-dns.com).
+    O Cloudflare serve 6+ subdomínios de outros projectos do ecossistema; mudar os
+    nameservers destrói o DNS de todos. Usar SEMPRE a opção (a) da Vercel: registo
+    A/CNAME no Cloudflare mantendo o Cloudflare como DNS. Ignorar a opção (b) do aviso.
+
+  checklist:
+    - passo: 1
+      titulo: "DNS-001 — apontar expressia.pt → Vercel (Cloudflare)"
+      owner: EURICO
+      bloqueante: true
+      runbook: docs/runbooks/dns-expressia-setup.md
+      acoes:
+        - "Cloudflare → dash.cloudflare.com → zona expressia.pt → DNS → Records"
+        - "Add record (apex): Type A · Name @ · IPv4 76.76.21.21 · Proxy status DNS only (nuvem cinzenta, NÃO laranja) · TTL Auto"
+        - "Add record (www): Type CNAME · Name www · Target cname.vercel-dns.com · Proxy status DNS only · TTL Auto"
+        - "Aguardar propagação (minutos a ~1h)"
+      verificacao:
+        - "vercel domains inspect expressia.pt → sem WARNING"
+        - "nslookup -type=A expressia.pt → devolve 76.76.21.21"
+      nota: "Cenário A (apex + www). Alternativa Cenário B (subdomínio app.expressia.pt) no runbook §Activação."
+
+    - passo: 2
+      titulo: "Auth aponta para o domínio próprio (Supabase + Vercel)"
+      owner: EURICO
+      bloqueante: true
+      runbook: docs/runbooks/supabase-auth-setup.md §5
+      acoes:
+        - "Supabase Dashboard → Authentication → URL Configuration → campo Site URL = https://expressia.pt"
+        - "Supabase → mesma página → Redirect URLs → ADICIONAR https://expressia.pt/** (MANTER por agora o https://*.vercel.app/** — só sai no passo 5)"
+        - "Vercel → projecto expressia → Settings → Environment Variables (Production) → SITE_URL = https://expressia.pt → Redeploy"
+      nota: >
+        Site URL (Supabase) e SITE_URL (env var Vercel/SEC-9) são conceitos homónimos
+        e independentes (PO-FIX-2 do runbook) — ambos devem apontar para o MESMO
+        domínio. Configurar um não dispensa o outro.
+
+    - passo: 3
+      titulo: "Decisão email — desbloquear registo a estranhos (GAP-2)"
+      owner: EURICO
+      bloqueante: true
+      acoes:
+        - "Com 'Confirm email' ON e sem SMTP custom o Supabase usa o serviço default (4 emails/h, bloqueia domínios) → registo a estranhos parte."
+        - "Escolher UMA: (recomendado) ligar Resend SMTP em Supabase → Authentication → SMTP Settings; OU 'Confirm email' OFF para o soft-launch."
+      relacionado: "SEC-10 §9 (limites nativos GoTrue + Rate Limits + CAPTCHA)"
+
+    - passo: 4
+      titulo: "Smoke E2E em https://expressia.pt (domínio público)"
+      owner: EURICO
+      bloqueante: true
+      runbook: docs/runbooks/supabase-auth-setup.md §6
+      acoes:
+        - "Correr o smoke manual NO DOMÍNIO PRÓPRIO (não no .vercel.app): registo → confirmar trigger no SQL Editor → login → reset de password."
+        - "Tem de passar com expressia.pt antes de avançar para o passo 5."
+
+    - passo: 5
+      titulo: "SEC-11 — remover o wildcard *.vercel.app (ÚLTIMO passo)"
+      owner: EURICO
+      bloqueante: false
+      runbook: docs/runbooks/supabase-auth-setup.md §5
+      pre_condicoes: "passos 1-4 concluídos e smoke E2E verde em expressia.pt"
+      acoes:
+        - "Preparar o auditor: no .env.local local definir SUPABASE_ACCESS_TOKEN (Supabase → Account → Tokens) + SUPABASE_PROJECT_REF (ref da URL do Dashboard)."
+        - "pnpm check:allowlist → ANTES da remoção deve dar EXIT 1 (confirma que detecta o wildcard)."
+        - "Supabase → Authentication → URL Configuration → Redirect URLs → remover https://*.vercel.app/** . Manter só http://localhost:3000/** e https://expressia.pt/** . Guardar."
+        - "pnpm check:allowlist → DEPOIS deve dar EXIT 0 ('Allowlist segura.')."
+      trade_off: >
+        A partir daqui, cada novo preview deployment que precise de testar fluxos de
+        auth exige adicionar manualmente a URL específica do preview à allowlist.
+        Custo operacional de fechar a superfície de ataque — aceitação do Eurico.
+      rollback: "Se um preview legítimo quebrar: re-adicionar https://*.vercel.app/** temporariamente e re-verificar com pnpm check:allowlist."
+
+  o_que_vem_depois:
+    - "SENTRY_DSN (Importante): definir NEXT_PUBLIC_SENTRY_DSN na Vercel Production. Código já reporta via captureException (A3, commit 06a632a) mas é no-op sem DSN."
+    - "Conformidade legal (antes de divulgar publicamente): preencher placeholders dos docs legais (email de privacidade — runbook §1.5) + validação jurídica. BLOQUEANTE para divulgação pública."
+    - "OBS-1 [EURICO]: activar na UI Grafana o contact point email + 2 alert rules + notification policy + test fire (passos na §7 do observability-setup.md)."
+    - "OBS-3 / INVITE-E2E-SMOKE [AGENTE]: precisam de browser — execução manual; o agente pode preparar."
+
+  blockers:
+    - "DNS-001 (passo 1) bloqueia toda a cadeia — sem domínio público não há passo 2-5."
+
+next_action: >
+  [EURICO] Executar os passos 1→5 por ordem. Quando o passo 1 estiver feito,
+  pedir ao agente para confirmar a propagação do DNS (nslookup/curl a expressia.pt)
+  antes de avançar para o passo 2. O agente NÃO pode executar nenhum destes passos
+  (todos exigem login externo Cloudflare/Supabase/Vercel) — apoia na verificação.
+
+notes: |
+  - Este handoff é uma CHECKLIST de referência operacional, não uma ordem de
+    desenvolvimento. O código está completo; falta só config externa.
+  - Catálogo mj-handoff-followups-soft-launch-20260615 mantém-se a fonte de
+    verdade dos follow-ups; este handoff consolida só o caminho crítico [EURICO].
+  - Billing CONGELADO; SEC-8 HOLD; push só @devops.
+  - A remoção do wildcard (passo 5) NÃO bloqueia o go-live — é higiene de
+    segurança que se faz assim que o domínio próprio estiver estável.
+
+related:
+  - docs/handoffs/mj-handoff-followups-soft-launch-20260615.yaml
+  - docs/runbooks/dns-expressia-setup.md
+  - docs/runbooks/supabase-auth-setup.md
+  - docs/handoffs/archive/mj-handoff-sec11-ready-for-push-20260617.yaml
