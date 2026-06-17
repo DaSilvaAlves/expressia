@@ -1,0 +1,70 @@
+schema: 1
+story: 'SEC-11'
+slug: 'supabase-allowlist-wildcard-restriction'
+gate: PASS
+status_reason: 'O auditor falha quando deve — provado por 16 casos adversariais independentes (case-insensitivity, espaços, todas as posições do CSV, wildcard total). Detecção do *.vercel.app é genuína (o defeito da v1.0 — exit 0 permanente — está fechado). 7/7 quality checks verdes. AC7 honrado (zero código de app existente / zero migrations).'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-06-17T00:40:00Z'
+
+quality_checks:
+  - id: 'AC1 — script via Management API lê uri_allow_list CSV + exit codes'
+    result: PASS
+    evidence: 'scripts/audit-supabase-allowlist.ts:89 monta GET https://api.supabase.com/v1/projects/{ref}/config/auth com Bearer (95-98). Campo uri_allow_list parseado por parseAllowlistCsv (137). exit 0 seguro / exit 1 risco (142-149). Detecta *.vercel.app, wildcard total e check informativo do domínio de produção (auditAllowlist).'
+  - id: 'AC2 — 2 env vars novas + modo gracioso'
+    result: PASS
+    evidence: 'Sem SUPABASE_ACCESS_TOKEN → exit 0 com aviso PT-PT (script:72-79). Token presente mas SUPABASE_PROJECT_REF ausente → exit 1 PT-PT (82-87). .env.example:90-106 secção "Auditoria operacional (SEC-11)" com nota de uso operacional (não runtime Vercel).'
+  - id: 'AC3 — package.json check:allowlist'
+    result: PASS
+    evidence: 'package.json:21 "check:allowlist": "tsx scripts/audit-supabase-allowlist.ts", análogo a check:rls (:20). tsx já presente nas devDependencies raiz (:29).'
+  - id: 'AC4 — runbook §5 sub-procedimento SEC-11'
+    result: PASS
+    evidence: 'supabase-auth-setup.md:277-329: pré-condições (DNS-001 + smoke E2E + SITE_URL Vercel), passos Dashboard (remover https://*.vercel.app/**), verificação antes/depois (exit 1 → exit 0), rollback, e aviso de trade-off irreversível [EURICO]. Ancorado por texto antes de "## 6. Smoke test manual".'
+  - id: 'AC5 — testes Vitest dos 5 cenários (formato CSV real)'
+    result: PASS
+    evidence: 'audit-supabase-allowlist.test.ts 10/10 verde (re-corrido pela lane QA, 7ms). Cenário A seguro→safe true (50); B *.vercel.app→safe false + msg PT-PT contém "*.vercel.app" e "password-reset-poisoning" (66-70); C https://** → safe false (79-82) + teste negativo expressia.pt/** não-total (85-89); D 401→exit 1 PT-PT (94-98); E sem token→exit 0 sem fetch (124-142).'
+  - id: 'AC6 — check:allowlist NÃO no pipeline CI'
+    result: PASS
+    evidence: 'check:allowlist não referenciado em .github/workflows nem em turbo pipeline. É ferramenta operacional; o comportamento gracioso garante que CI sem credencial não falha. Os 5 gates de CI mantêm-se inalterados.'
+  - id: 'AC7 — âmbito: zero código de app existente / zero migrations'
+    result: PASS
+    evidence: 'git diff --stat HEAD: apenas .env.example, runbook, package.json. Untracked: só os 2 ficheiros NOVOS apps/web/src/lib/security/audit-allowlist.ts + __tests__/ (aceites por AC5). git diff apps/web packages = vazio (nenhum existente modificado). packages/db/migrations não tocado.'
+  - id: 'SEC — o auditor FALHA quando deve (foco adversarial)'
+    result: PASS
+    evidence: '16 casos adversariais independentes (réplica da lógica, node): *.vercel.app detectado em início/meio/fim do CSV, com espaços envolventes, em UPPERCASE e MixedCase (regex /i); wildcard total https://**, http://**, ** solto, *:// e https://**/callback todos detectados. ZERO falso-negativo. Falsos-positivos descartados: foo.vercel.app (host concreto) e expressia.pt/** (path curinga) corretamente safe.'
+
+top_issues:
+  - id: 'TEST-001'
+    severity: low
+    finding: 'O Cenário E do teste (linhas 123-142) não importa nem exercita o ramo gracioso real do script CLI — replica a guarda (if (!accessToken) exitCode=0) num bloco inline dentro do próprio teste. É um teste parcialmente tautológico: prova a forma da guarda e que fetch não é chamado, mas não cobre o código de produção do script (scripts/audit-supabase-allowlist.ts:72-79). Justificado por design (D-SEC11.2: o script tem side-effects no import, não é importável limpo em jsdom). O núcleo de segurança — a lógica de DETECÇÃO — está genuinamente testado. Não bloqueante.'
+    suggested_action: 'Opcional (nice-to-have): extrair a guarda de credenciais para uma função pura evaluateCredentials(token, ref) no módulo puro (à semelhança de evaluateAuthConfigResponse), e testá-la directamente. Fecharia a última lacuna entre teste e código de produção do CLI. Não bloqueia PASS.'
+
+waiver: { active: false }
+
+code_intel_advisory: 'Blast radius nulo: apps/web/src/lib/security/audit-allowlist.ts é módulo novo, consumido apenas por scripts/audit-supabase-allowlist.ts (CLI operacional) e pelo seu teste — não vira rota no bundle Next.js (build verde confirma). Zero fan-out para código de runtime de produção.'
+
+security_notes: |
+  Story de segurança avaliada com profundidade (Risk-Based Testing, Quinn Guardian).
+  Foco adversarial obrigatório (lição do ciclo PO): a v1.0 era NO-GO porque o
+  auditor daria SEMPRE verde (endpoint /auth/v1/settings + anon key → uri_allow_list
+  undefined → exit 0 permanente). A v1.2-DEV fecha o defeito:
+    1. Fonte correcta: Supabase Management API (/v1/projects/{ref}/config/auth) com
+       Bearer PAT — expõe genuinamente uri_allow_list (CSV).
+    2. Detecção provada por 16 casos adversariais: o regex /\*\.vercel\.app/i apanha
+       o wildcard em qualquer posição do CSV, com espaços e em qualquer caixa.
+    3. hasTotalWildcard cobre https://**, ** solto e *://, sem classificar
+       expressia.pt/** (path curinga legítimo) como risco.
+    4. Parsing CSV correcto: split(',') + trim + filter(Boolean) — espaços não
+       permitem evasão (provado adversarialmente).
+  Modo gracioso não mascara risco: ausência de PAT → exit 0 (operacional, CI sem
+  credencial); MAS 401 (token inválido) e qualquer status não-2xx → exit 1 com
+  diagnóstico PT-PT (script:107-121, evaluateAuthConfigResponse:161-176). Erro de
+  rede / JSON inválido também → exit 1. Um auditor de segurança que não falha quando
+  devia seria o defeito mais perigoso — aqui está demonstrado que falha correctamente.
+
+test_evidence:
+  suite_sec11_isolada: '10/10 PASS (audit-supabase-allowlist.test.ts, 7ms) — re-corrida pela lane QA, não confiada cegamente'
+  adversarial_independente: '16/16 PASS (réplica da lógica via node — case-insensitivity, espaços, posições CSV, wildcard total, falsos-positivos descartados)'
+  lint: 'exit 0 (--max-warnings=0) — re-corrido fresh pela lane QA'
+  typecheck: 'exit 0 (tsc --noEmit) — re-corrido fresh pela lane QA'
+  build: 'verde (reportado @dev; módulo lib/security não vira rota — confirmado por code_intel)'
+  check_rls: 'exit 0 (28 tabelas, schema inalterado — story não toca DB)'

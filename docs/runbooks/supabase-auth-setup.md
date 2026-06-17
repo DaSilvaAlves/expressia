@@ -274,6 +274,60 @@ São **camadas de defesa complementares**: ambas devem apontar para o **mesmo
 domínio de produção** (`https://expressia.pt`). Configurar uma não dispensa a
 outra.
 
+#### SEC-11 — Restringir wildcard `*.vercel.app` após DNS estável
+
+Mesmo com a env var `SITE_URL` definida (SEC-9), o wildcard
+`https://*.vercel.app/**` na allowlist de Redirect URLs continua a ser
+superfície de ataque residual: qualquer preview deployment `*.vercel.app`
+arbitrário continua a ser um destino de redirect aceite pelo Supabase. Após o
+DNS de produção estar estável, este wildcard deve ser removido.
+
+**Pré-condições (todas obrigatórias antes de remover):**
+
+- DNS-001 resolvido — `expressia.pt` aponta para a Vercel.
+- Smoke E2E aprovado no domínio público (`https://expressia.pt`).
+- `SITE_URL=https://expressia.pt` definida em Vercel Production (ver subsecção
+  SEC-9 acima).
+
+**Passos no Dashboard:**
+
+1. Supabase Dashboard → Authentication → URL Configuration.
+2. Na lista de **Redirect URLs**, remover `https://*.vercel.app/**`.
+3. Manter apenas: `http://localhost:3000/**` (dev local) e
+   `https://expressia.pt/**` (produção).
+4. Guardar.
+
+**Verificação automatizada (antes e depois da alteração):**
+
+O script de auditoria `pnpm check:allowlist` consulta a Supabase **Management
+API** (`GET /v1/projects/{ref}/config/auth`) e confirma o estado REAL da
+allowlist — não depende de inspecção manual do Dashboard.
+
+```bash
+# Requer no .env.local local do operador:
+#   SUPABASE_ACCESS_TOKEN  (Personal Access Token: Dashboard → Account → Tokens)
+#   SUPABASE_PROJECT_REF   (ref do projecto, da URL do Dashboard)
+pnpm check:allowlist
+```
+
+- **Antes da remoção:** o script termina com **exit 1** e identifica o wildcard
+  `*.vercel.app` (confirma que a auditoria detecta o risco).
+- **Depois da remoção:** o script termina com **exit 0** com "Allowlist segura.".
+- Sem `SUPABASE_ACCESS_TOKEN` o script avisa e termina com exit 0 (modo
+  gracioso — não bloqueia ambientes sem credencial).
+
+**Rollback:** se um preview deployment legítimo quebrar por causa da remoção,
+re-adicionar `https://*.vercel.app/**` temporariamente no Dashboard e
+re-verificar com `pnpm check:allowlist`. A remoção volta a ser feita assim que
+o fluxo de previews deixar de depender do wildcard.
+
+> **AVISO — trade-off [EURICO]:** a remoção do wildcard é **irreversível do
+> ponto de vista de segurança** no sentido em que, a partir daí, **cada novo
+> preview deployment** que precise de testar fluxos de auth (confirmação de
+> email, reset de palavra-passe) exigirá a **adição manual da URL específica**
+> do preview à allowlist do Dashboard. É o custo operacional de fechar a
+> superfície de ataque — decisão de aceitação do trade-off é do operador.
+
 ---
 
 ## 6. Smoke test manual (Task 3.4)

@@ -1,0 +1,99 @@
+id: mj-handoff-sec11-ready-for-push-20260617
+from_agent: orchestrator (/sdc)
+to_agent: devops
+created: "2026-06-17T00:10:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-17T02:35:00Z"
+consumed_by: devops
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: ready-for-push
+
+summary: >
+  Story SEC-11 (auditor automatizável da allowlist de Redirect URLs do Supabase
+  + restrição do wildcard *.vercel.app após DNS estável) com ciclo SDC COMPLETO
+  e gate @qa PASS 9,3/10 — PRONTA PARA `@devops *push SEC-11`. Pivot fundamentado:
+  a metade "fixar SITE_URL via env var" do item [AGENTE] host-header do catálogo
+  soft-launch já fora fechada por SEC-9 (Done); SEC-11 ataca a metade residual
+  (restringir o wildcard), transformando a acção [EURICO] de Dashboard num script
+  de auditoria verificável. O ciclo apanhou e corrigiu um defeito-raiz crítico:
+  a v1.0 assumia que GET /auth/v1/settings+anon key expunha a allowlist (FALSO,
+  prova oficial GoTrue) — daria um auditor SEMPRE verde. v1.1 migrou para a
+  Management API (uri_allow_list CSV + PAT). Working tree por commitar (story
+  ainda em active/); push e mover story→completed/ é autoridade exclusiva @devops.
+
+context:
+  story_id: SEC-11
+  story_path: docs/stories/active/SEC-11.supabase-allowlist-wildcard-restriction.story.md
+  branch: main
+  current_task: >
+    Ciclo SDC (/sdc) completo sem --push. Falta apenas a fase devops: pre-push
+    quality gates + commit + push fast-forward + mover story active/→completed/
+    + consumir/arquivar este handoff + actualizar INDEX.
+
+  sdc_cycle:
+    - "@sm (River): draft v1.0 → fix v1.1 (pivot SEC-9-aware)"
+    - "@po (Pip): NO-GO 4,5/10 (endpoint errado) → GO 8,0/10 após 7 fixes aplicados"
+    - "@dev (Dex): implementado YOLO; [DEV-DECISION D-SEC11.1] Opção A (lógica pura em apps/web/src/lib/security, I/O no script raiz)"
+    - "@qa: PASS 9,3/10, confiança alta — 16 casos adversariais (zero falsos-negativos); auditor falha quando deve"
+
+  decisions_made:
+    - "Abordagem Management API (GET /v1/projects/{ref}/config/auth + Bearer PAT), NÃO /auth/v1/settings+anon (que não expõe a allowlist) nem validação estática de ficheiro (não prova o Dashboard real)."
+    - "check:allowlist é ferramenta OPERACIONAL, NÃO gate de CI (PAT fora do CI). Modo gracioso: sem SUPABASE_ACCESS_TOKEN → aviso PT-PT + exit 0."
+    - "D-SEC11.1: lógica pura testável em apps/web/src/lib/security/audit-allowlist.ts (zero node:*/process.exit) → typecheck verde sob lib:DOM; CLI raiz faz I/O e importa a lógica."
+
+  files_modified:
+    - "scripts/audit-supabase-allowlist.ts (NOVO — CLI Management API)"
+    - "apps/web/src/lib/security/audit-allowlist.ts (NOVO — lógica pura: detecção wildcard + evaluateAuthConfigResponse)"
+    - "apps/web/src/__tests__/audit-supabase-allowlist.test.ts (NOVO — 10 testes)"
+    - "package.json (script check:allowlist)"
+    - ".env.example (secção SEC-11: SUPABASE_ACCESS_TOKEN nova + SUPABASE_PROJECT_REF)"
+    - "docs/runbooks/supabase-auth-setup.md (subsecção §5: restringir wildcard após DNS estável)"
+    - "docs/qa/gates/SEC-11-supabase-allowlist-wildcard-restriction.yml (NOVO — gate PASS 9,3/10)"
+    - "docs/stories/active/SEC-11.supabase-allowlist-wildcard-restriction.story.md (NOVO — mover→completed/ no push)"
+
+  gates_evidence:
+    - "lint: exit 0 (--max-warnings=0)"
+    - "typecheck: 10/10 tasks (web fresh, sem fricção DOM)"
+    - "test web: 1209/1209 (+10 vs baseline 1199)"
+    - "build: 10/10 tasks"
+    - "check:rls: exit 0 (28 tabelas, schema inalterado)"
+    - "módulo novo isolado: 10/10; check:allowlist gracioso: exit 0 provado"
+
+  blockers: []
+
+  hypotheses_tested:
+    - "v1.0: /auth/v1/settings+anon expõe allowlist → REFUTADO (struct Settings GoTrue só tem flags signup/providers/mailer; runbook do projecto já o usa só para .mailer_autoconfirm). Auditor daria sempre verde."
+    - "v1.1: Management API expõe uri_allow_list CSV → CONFIRMADO; @qa provou detecção real de *.vercel.app e ** + 401/erro→exit 1 (não mascara risco)."
+
+next_action: >
+  @devops *push SEC-11 — correr pre-push gates (nota: doc+script+test, ZERO toques
+  em código de app existente/packages/migrations conforme AC7; check:rls inalterado),
+  commit conventional + trailers, push fast-forward, mover a story active/→completed/,
+  consumir+arquivar este handoff e actualizar o HANDOFF-INDEX.
+
+notes: |
+  - AC7 honrado: git diff --stat só toca .env.example/runbook/package.json (tracked);
+    ficheiros novos em apps/web/src/ são só a lógica de auditoria + teste (sem código
+    de app modificado). packages/db/migrations intacto. SEM db:migrate.
+  - NIT não-bloqueante TEST-001 (low): cenário E do teste replica a guarda de
+    credenciais inline (parcialmente tautológico) — opcional extrair
+    evaluateCredentials() para o módulo puro. Não bloqueia push.
+  - Acção residual [EURICO] (NÃO bloqueia merge): remover o wildcard *.vercel.app
+    no Supabase Dashboard só DEPOIS de expressia.pt estável + smoke E2E. check:allowlist
+    (com PAT) é a ferramenta de verificação; procedimento na §5 do runbook.
+  - CodeRabbit SKIP (Integration Disabled em core-config; padrão série SEC-1→10).
+  - Fecha definitivamente o item [AGENTE] "host-header reset password hardening"
+    do catálogo mj-handoff-followups-soft-launch-20260615 (a 1.ª metade foi SEC-9).
+  - [AGENTE] restantes no catálogo: OBS-3 Lighthouse /visao (precisa browser),
+    INVITE-E2E-SMOKE (precisa browser), multi-household (deferido). NÃO draftar
+    SEC-8 (HOLD — exige Adenda §12 do @architect). Billing CONGELADO.
+  - Push só @devops. Catálogo soft-launch mantém-se a fonte de verdade.
+
+related:
+  - docs/handoffs/mj-handoff-followups-soft-launch-20260615.yaml
+  - docs/runbooks/supabase-auth-setup.md
+  - docs/stories/completed/SEC-9.*.story.md
