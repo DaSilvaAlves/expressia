@@ -2,8 +2,11 @@ id: mj-handoff-go-live-progress-20260617
 from_agent: claude (sessão /sdc + go-live assist com Eurico)
 to_agent: any
 created: "2026-06-17T22:30:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-18T01:35:00Z"
+consumed_by: aiox-master (Orion)
+consumed_note: "Passo 3 (email Resend SMTP) retomado e FEITO + registo/confirmacao provados E2E; sucessor pending mj-handoff-go-live-email-progress-20260618 (falta so template Reset Password)."
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

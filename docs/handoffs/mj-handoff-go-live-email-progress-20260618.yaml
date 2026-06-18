@@ -1,0 +1,137 @@
+id: mj-handoff-go-live-email-progress-20260618
+from_agent: aiox-master (Orion — go-live assist com Eurico)
+to_agent: any
+created: "2026-06-18T01:35:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: go-live-progress
+supersedes: docs/handoffs/mj-handoff-go-live-progress-20260617.yaml
+
+summary: >
+  ACTUALIZACAO 18/06 (sessao 2): template "Reset Password" CONFIGURADO e o email
+  ja chega em PT-PT a CAIXA DE ENTRADA (provado E2E). Ao testar o LINK, o fluxo
+  caia em "Algo correu mal" (error boundary global) — investigado e identificado
+  como BUG DE CODIGO (nao config). Causa raiz: packages/auth/src/browser.ts lia
+  as env vars via acesso DINAMICO process.env[name], que o Next.js NAO substitui
+  no bundle do browser → undefined em runtime → getEnv lanca → a pagina
+  /recuperar/nova-palavra-passe (UNICO consumidor do cliente browser em toda a
+  app, por isso nunca testada em prod) caia no error boundary. FIX aplicado:
+  referencias ESTATICAS process.env.NEXT_PUBLIC_SUPABASE_URL/ANON_KEY (Next
+  inlines em build). Verificado: typecheck + lint + build do apps/web verdes.
+  Falta DEPLOY (Vercel auto-deploy no push a main) + re-teste do link em prod.
+  Eurico autorizou publicar.
+
+  HISTORICO sessao 1: Resend SMTP custom configurado no Supabase; registo + email
+  de confirmacao + login provados em https://expressia.pt.
+
+context:
+  branch: main
+  deploy_prod_actual: f67ab1d (Ready) — inclui SITE_URL=https://expressia.pt
+
+  passo_3_email_DONE:
+    resend:
+      - "Conta Resend do Eurico (euricojsalves@gmail.com) ja existia."
+      - "Dominio VERIFICADO no Resend: euricoalves.pt (regiao Ireland/eu-west-1, EU-OK)."
+      - "DECISAO Caminho A: usar euricoalves.pt como sender (ja verificado, zero DNS extra)."
+      - "expressia.pt NAO esta no Resend (Caminho B) — opcional, fazer antes de divulgar a estranhos para o remetente ser @expressia.pt."
+      - "API key Resend criada (nome expressia-supabase, full access) e usada como password SMTP."
+    supabase_smtp:
+      - "Supabase ref llpotuxlyiyjvvxzetoo → Authentication → Emails → SMTP Settings → Enable custom SMTP = ON, GRAVADO."
+      - "Sender email: noreply@euricoalves.pt | Sender name: Expressia"
+      - "Host: smtp.resend.com | Port: 465 | Username: resend | Password: <resend API key re_...>"
+      - "Minimum interval per user: 60s (default, inalterado)."
+    template_confirm_signup_OK:
+      - "Authentication → Emails → Templates → 'Confirm sign up' confirmado/reposto correcto e GRAVADO."
+      - "Body actual (FUNCIONA):"
+      - "  <h2>Confirma o teu registo na Expressia</h2>"
+      - "  <p>Ola! Falta so um passo para activares a tua conta.</p>"
+      - "  <p><a href=\"{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email\">Confirmar o meu email</a></p>"
+      - "  <p>Se nao foste tu, ignora este email.</p>"
+      - "Subject ainda em ingles 'Confirm Your Signup' (COSMETICO — nao afecta funcionamento; opcional pôr 'Confirma o teu registo na Expressia')."
+
+  passo_4_registo_confirmacao_PROVADO_E2E:
+    - "Registo de conta de teste euricojsalves+teste1@gmail.com em https://expressia.pt."
+    - "Email 'Confirma o teu registo na Expressia' chegou a CAIXA DE ENTRADA (nao spam), de Expressia <noreply@euricoalves.pt>."
+    - "Link confirmou → https://expressia.pt/confirm?status=ok → 'Email confirmado'."
+    - "Continuar → entrou em https://expressia.pt/visao → 'Bom dia, Eurico Alves' (trigger household/display_name OK)."
+
+  reset_password_RESOLVIDO_18_06_sessao2:
+    template_email:
+      - "DONE: template 'Reset Password' no Supabase com Subject/Body PT-PT (valores em fix_preparado abaixo)."
+      - "PROVADO: email 'Repor a tua palavra-passe na Expressia' chega a CAIXA DE ENTRADA (nao spam), em PT-PT."
+    bug_link_encontrado_e_corrigido:
+      sintoma: "Clicar 'Definir nova palavra-passe' → expressia.pt/recuperar/nova-palavra-passe → 'Algo correu mal'."
+      diagnostico_descartado: "NAO era o token_hash/type=recovery (o utilizador chegava a pagina = verifyOtp OK). NAO era env var em falta (login usa as mesmas e funciona)."
+      causa_raiz: >
+        packages/auth/src/browser.ts usava getEnv com acesso DINAMICO
+        process.env[name]. Next.js so faz inline de process.env.NEXT_PUBLIC_*
+        ESTATICO no bundle do browser → dinamico fica undefined em runtime →
+        getEnv lanca → error boundary. server.ts usa o mesmo padrao mas funciona
+        porque server-side process.env e real. Esta pagina e o UNICO consumidor
+        do cliente browser na app (grep: 1 match) → bug nunca exercido em prod.
+      fix_aplicado: "browser.ts agora le process.env.NEXT_PUBLIC_SUPABASE_URL / _ANON_KEY estaticamente (com guard !url||!anonKey). typecheck+lint+build verdes."
+      pendente: "DEPLOY a main (Vercel auto) + re-teste do link em https://expressia.pt/recuperar com euricojsalves+teste1@gmail.com."
+
+  PENDENTE_unico_template_reset_password:
+    problema:
+      - "Template 'Reset Password' continua no DEFAULT ingles (usa {{ .ConfirmationURL }})."
+      - "Sintomas observados no teste: email foi para SPAM + aviso Gmail 'mensagem perigosa' (phishing); e o link deu 'Algo correu mal / Ocorreu um erro inesperado' em expressia.pt/recuperar/nova-palavra-passe."
+      - "Causa raiz: o callback (apps/web/src/app/(auth)/callback/route.ts) espera o fluxo token_hash + verifyOtp; o default ConfirmationURL nao entrega token_hash nesse formato → fluxo de recovery parte."
+    fix_preparado_NAO_aplicado:
+      onde: "Supabase → Authentication → Emails → Templates → 'Reset Password' (CONFIRMAR que a URL do browser termina em /templates/reset-password ANTES de colar — na sessao anterior houve confusao e o conteudo foi colado por engano no 'confirm-sign-up')."
+      subject: "Repor a tua palavra-passe na Expressia"
+      body: |
+        <h2>Repor a tua palavra-passe</h2>
+        <p>Ola! Recebemos um pedido para repor a palavra-passe da tua conta Expressia.</p>
+        <p><a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=recovery">Definir nova palavra-passe</a></p>
+        <p>Se nao foste tu, ignora este email — a tua palavra-passe continua igual.</p>
+      nota_critica_ampersand: >
+        Usa &token_hash (com &, NAO ?) e type=recovery. Razao: resetPasswordAction
+        (apps/web/src/app/(auth)/actions.ts) define redirectTo = {origin}/callback?next=%2Frecuperar%2Fnova-palavra-passe
+        — ou seja {{ .RedirectTo }} JA contem uma query string (?next=...), logo o
+        token_hash tem de ser anexado com & (senao ficavam dois ? na URL e partia).
+        No confirm-sign-up e ?token_hash porque emailRedirectTo = {origin}/callback (sem query).
+      porque_funciona: >
+        callback/route.ts: resolveNext() tem /recuperar/nova-palavra-passe na ALLOWED_NEXT_PATHS;
+        type 'recovery' esta em EMAIL_OTP_TYPES; com token_hash presente faz
+        verifyOtp({type:'recovery', token_hash}) → cria sessao de recovery → redirect para next →
+        pagina nova-palavra-passe chama updateUser({password}).
+
+next_action: >
+  APOS o deploy do fix browser.ts (@devops push a main → Vercel auto-deploy):
+  re-testar o reset com euricojsalves+teste1@gmail.com em
+  https://expressia.pt/recuperar — clicar no link do email deve abrir o
+  formulario "Definir nova palavra-passe" (SEM 'Algo correu mal'), definir nova
+  palavra-passe e entrar. Template de email + email-na-inbox JA estao FEITOS e
+  provados; so falta confirmar o link end-to-end com a nova versao em prod.
+
+opcionais_soltos_nao_bloqueantes:
+  - "www.expressia.pt → Vercel → Settings → Domains → Add (emite cert + redirect www→apex). Hoje www nao tem cert."
+  - "expressia.pt verificado no Resend (Caminho B) para o remetente passar a @expressia.pt — antes de divulgar a estranhos."
+  - "Subject do 'Confirm sign up' em PT-PT (cosmetico)."
+  - "Passo 5 SEC-11: confirmar 'pnpm check:allowlist' EXIT 0. N/A na pratica — nao existe wildcard *.vercel.app na allowlist (so localhost:3000/** + expressia.pt/**)."
+  - "NEXT_PUBLIC_SENTRY_DSN na Vercel (A3); validacao juridica dos docs legais; OBS-1 alertas Grafana UI."
+
+perfil_operador:
+  - "Eurico NAO e tecnico; satura e frustra-se com edicao de codigo/templates e com excesso de opcoes/detalhe."
+  - "Conduzir 1 passo de cada vez, copy-paste mecanico ('Ctrl+A, apaga, cola isto'), sem jargao, validar por screenshot."
+  - "ARMADILHA observada: confundiu QUAL template estava aberto e colou no errado. Ao retomar, fazer SEMPRE confirmar a URL/titulo do template antes de qualquer colagem."
+
+blockers:
+  - "Nenhum tecnico (codigo da app esta correcto). So falta 1 accao de config externa [EURICO+agente] no Dashboard Supabase."
+
+notes: |
+  - Billing CONGELADO; push so @devops. Esta sessao foi 100% config externa (Dashboard/Vercel/Resend) — ZERO codigo alterado, ZERO commits.
+  - Predecessor mj-handoff-go-live-progress-20260617 marcado consumed (Passos 1-2 ja la estavam feitos; este consome o Passo 3 e avanca).
+
+related:
+  - docs/handoffs/mj-handoff-go-live-progress-20260617.yaml
+  - docs/handoffs/mj-handoff-go-live-checklist-20260617.yaml
+  - docs/handoffs/mj-handoff-followups-soft-launch-20260615.yaml
+  - docs/runbooks/supabase-auth-setup.md
+  - apps/web/src/app/(auth)/actions.ts
+  - apps/web/src/app/(auth)/callback/route.ts
