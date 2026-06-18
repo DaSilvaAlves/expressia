@@ -2,8 +2,10 @@ id: mj-handoff-go-live-email-progress-20260618
 from_agent: aiox-master (Orion — go-live assist com Eurico)
 to_agent: any
 created: "2026-06-18T01:35:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-18T02:28:00Z"
+consumed_by: claude (go-live assist com Eurico — fix browser.ts + deploy + re-teste E2E PASS)
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
