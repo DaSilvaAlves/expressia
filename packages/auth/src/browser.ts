@@ -19,17 +19,6 @@
 import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-function getEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(
-      `[@meu-jarvis/auth] Variável de ambiente ${name} não está definida. ` +
-        'NEXT_PUBLIC_* tem de estar disponível no browser via Next.js.',
-    );
-  }
-  return value;
-}
-
 /**
  * Cria um cliente Supabase Auth para uso em Client Components.
  *
@@ -37,10 +26,28 @@ function getEnv(name: string): string {
  * isto é OK porque o `@supabase/ssr` partilha o storage de cookies. Para evitar
  * recriar a instância em cada render, o consumidor deve memoizar com `useMemo`
  * ou criar a instância fora do componente.
+ *
+ * IMPORTANTE — acesso ESTÁTICO às env vars (`process.env.NEXT_PUBLIC_X`):
+ *   No bundle do browser o Next.js só substitui (inlines) referências
+ *   ESTÁTICAS de `process.env.NEXT_PUBLIC_*` por literais em build-time. Um
+ *   acesso DINÂMICO (`process.env[name]` com `name` variável) NÃO é substituído
+ *   e resolve para `undefined` em runtime no browser — o cliente rebentava com
+ *   "variável não definida" mesmo com as vars correctamente configuradas na
+ *   Vercel, fazendo a página de recuperação de palavra-passe (único consumidor
+ *   deste cliente) cair no error boundary global. O `server.ts` usa o mesmo
+ *   padrão dinâmico mas funciona porque no servidor `process.env` é o objecto
+ *   Node real. Aqui as referências TÊM de ser estáticas.
  */
 export function createBrowserSupabaseClient(): SupabaseClient {
-  return createBrowserClient(
-    getEnv('NEXT_PUBLIC_SUPABASE_URL'),
-    getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-  );
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    throw new Error(
+      '[@meu-jarvis/auth] NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY ' +
+        'não estão definidas. NEXT_PUBLIC_* têm de estar disponíveis no browser via Next.js.',
+    );
+  }
+
+  return createBrowserClient(url, anonKey);
 }
