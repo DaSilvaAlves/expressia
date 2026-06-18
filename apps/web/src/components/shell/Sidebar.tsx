@@ -120,6 +120,7 @@ const NAV_ITEMS: readonly NavItem[] = [
 const CONTA_ITEMS: readonly NavLeafItem[] = [
   { kind: 'leaf', label: 'Conta', href: '/conta/preferencias', icon: '⚙' },
   { kind: 'leaf', label: 'Família', href: '/conta/household', icon: '⌂' },
+  { kind: 'leaf', label: 'Os meus dados', href: '/conta/dados', icon: '⤓' },
 ];
 
 // ───────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,55 @@
+schema: 1
+story: '6.8'
+gate: PASS
+status_reason: >-
+  Re-gate iteração 2/2: REL-001 (households usava household_id inexistente) e
+  TEST-001 (sem cobertura da query real) resolvidos. `households` passa a
+  `where: self_by_id` → `where id = $hid`; buildQuery é switch exaustivo sem
+  default; novo teste de invariante schema↔export (34 testes) validado por
+  mutação (falha de forma determinística com o bug reintroduzido). 5 gates
+  verdes re-corridos (lint 0, typecheck 0, test 1272/1272, check:rls EXIT 0).
+  RLS/AC8, ausência de IDOR no GET e billing congelado intactos. Bucket
+  `exports` permanece bloqueador de RUNTIME para o E2E pós-deploy, não de código.
+reviewer: 'Quinn'
+updated: '2026-06-18T20:05:00Z'
+score: 9
+confidence: high
+top_issues: []
+resolved_issues:
+  - id: 'REL-001'
+    severity: high
+    resolution: >-
+      Novo modo de scoping `self_by_id` em entities.ts; `households` migrada de
+      `where: household` para `where: self_by_id` (PK é `id`, não tem
+      `household_id` — confirmado em tenancy.ts:47-72). buildQuery reescrito como
+      switch exaustivo (user/self_by_id/household) sem default. Auditoria
+      independente das 16 entidades confirma que nenhuma outra referencia coluna
+      de scoping inexistente.
+  - id: 'TEST-001'
+    severity: medium
+    resolution: >-
+      entities-schema.test.ts (34 testes) faz parse dos schemas Drizzle reais e
+      valida coluna de scoping + colunas do SELECT por entidade, sem DB.
+      Provado por TESTE DE MUTAÇÃO: revertendo `households` para `where: household`
+      o teste falha com exit 1 e 2 assertions vermelhas. Não é falso-PASS.
+  - id: 'MNT-001'
+    severity: low
+    resolution: >-
+      Dead code `where: 'household_or_global'` removido do union de tipos
+      ExportEntity.where (agora `household | self_by_id | user`).
+follow_ups:
+  - id: 'NIT-1'
+    severity: low
+    note: >-
+      O teste de invariante valida existência de colunas, não tipos. Suficiente
+      para o risco (REL-001 era coluna inexistente). Um teste de integração com
+      DB efémera (it.skipIf(!HAS_DB)) exercitando collectEntityData seria a rede
+      definitiva — melhoria, não bloqueador.
+  - id: 'RUNTIME-1'
+    severity: external
+    note: >-
+      E2E pós-deploy (upload real + signed URL) requer bucket privado `exports`
+      em eu-central-1 (acção EURICO). Bloqueador de RUNTIME, não de código —
+      não bloqueia o gate.
+recommendation: 'Status → Done. Bucket `exports` fica como bloqueador de runtime para o E2E pós-deploy.'
+waiver: { active: false }
