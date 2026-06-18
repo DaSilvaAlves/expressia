@@ -1,0 +1,80 @@
+id: mj-handoff-go-live-residues-20260618
+from_agent: claude (go-live assist com Eurico)
+to_agent: any
+created: "2026-06-18T02:32:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: low
+type: go-live-progress
+supersedes: docs/handoffs/archive/mj-handoff-go-live-email-progress-20260618.yaml
+
+summary: >
+  Migracao de terminal. O CAMINHO CRITICO go-live de auth/email esta 100%
+  COMPLETO e provado E2E em https://expressia.pt: registo, confirmacao de email,
+  login E recuperacao de palavra-passe TODOS a funcionar. Ultimo bloqueio
+  (reset password) resolvido nesta sessao: template PT-PT no Supabase + bug de
+  codigo browser.ts corrigido e deployed (commit 940c6c3). O proximo terminal so
+  tem RESIDUOS OPCIONAIS nao-bloqueantes (nenhum impede o arranque do
+  soft-launch). Catalogo-mae dos follow-ups continua a ser
+  mj-handoff-followups-soft-launch-20260615.
+
+context:
+  branch: main
+  origin_main: d536522 (working tree limpo)
+  current_task: "Go-live soft-launch — caminho critico auth/email CONCLUIDO."
+
+  concluido_esta_sessao_18_06:
+    - "Template 'Reset Password' no Supabase configurado em PT-PT (Body com {{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=recovery)."
+    - "Email de reset chega a CAIXA DE ENTRADA em PT-PT (nao spam)."
+    - "BUG corrigido: packages/auth/src/browser.ts lia env vars via acesso DINAMICO process.env[name] (Next NAO faz inline no bundle browser → undefined → throw → /recuperar/nova-palavra-passe caia no error boundary). Fix = referencias ESTATICAS process.env.NEXT_PUBLIC_SUPABASE_URL/_ANON_KEY com guard."
+    - "Deploy: commits 940c6c3 (fix) + a9aa4ac + d536522 (handoff bookkeeping) em origin/main; gates GREEN (web 1209/1209)."
+    - "Re-teste E2E em prod PASS: formulario 'Definir nova palavra-passe' aparece e funciona."
+
+  licao_tecnica_critica: >
+    Referencias a NEXT_PUBLIC_* em codigo que corre no BROWSER (Client
+    Components, etc.) TEM de ser ESTATICAS — process.env.NEXT_PUBLIC_X — nunca
+    dinamicas process.env[name]. So funciona dinamico SERVER-SIDE (server.ts
+    mantem o padrao dinamico de proposito porque server-side process.env e o
+    objecto Node real). Repetir este padrao parte silenciosamente qualquer
+    pagina client que dependa de env publicas.
+
+  residuos_opcionais_nao_bloqueantes:
+    - "[EURICO] www.expressia.pt sem certificado → Vercel → Settings → Domains → Add 'www.expressia.pt' (emite cert + redirect www→apex). Hoje so o apex tem cert."
+    - "[EURICO] NEXT_PUBLIC_SENTRY_DSN na Vercel (A3) — sem isto o error boundary nao reporta a Sentry (captureException e no-op). Codigo ja pronto, so falta a env var."
+    - "[EURICO+juridico] Validacao juridica dos textos legais (/termos, /privacidade) — placeholders; bloqueante so ANTES de divulgar a estranhos, nao para uso proprio."
+    - "[EURICO] expressia.pt verificado no Resend (Caminho B) para o remetente passar de noreply@euricoalves.pt para @expressia.pt — fazer antes de divulgar a estranhos."
+    - "[EURICO] Subject do template 'Confirm sign up' ainda em ingles ('Confirm Your Signup') — COSMETICO, opcional pôr 'Confirma o teu registo na Expressia'."
+    - "[AGENTE+EURICO] OBS-1 — activar na UI Grafana os 2 alert rules ja versionados (contact point email + notification policy + test fire). Ver docs/runbooks/observability-setup.md §7."
+    - "[N/A na pratica] SEC-11 — 'pnpm check:allowlist' EXIT 0; NAO existe wildcard *.vercel.app na allowlist Supabase (so localhost:3000/** + expressia.pt/**), logo nao ha nada a remover."
+
+  decisoes_em_vigor:
+    - "Billing/Stripe CONGELADO (directiva Eurico) — nao escrever codigo de billing."
+    - "SEC-8 em HOLD."
+    - "Push/PR e EXCLUSIVO do @devops."
+    - "Mercado PT-PT exclusivo; PT-PT em tudo."
+
+  blockers:
+    - "Nenhum. Caminho critico go-live concluido; tudo o que resta e opcional."
+
+next_action: >
+  Perguntar ao Eurico qual o proximo foco (os residuos go-live sao todos
+  opcionais e quase todos config externa [EURICO]; nenhum bloqueia o arranque).
+  Se ele quiser fechar o go-live a 100%, atacar os residuos [EURICO] um a um,
+  DEVAGAR (Eurico nao e tecnico, cansa-se com config/templates — 1 passo de cada
+  vez, copy-paste mecanico, confirmar URL antes de colar, validar por
+  screenshot). Em alternativa, retomar desenvolvimento de produto.
+
+perfil_operador:
+  - "Eurico NAO e tecnico de infra; satura com excesso de opcoes/detalhe e edicao de templates."
+  - "Conduzir 1 passo de cada vez, sem jargao, validar por screenshot. Confirmar SEMPRE a URL/titulo antes de qualquer colagem (ja colou no template errado uma vez)."
+
+related:
+  - docs/handoffs/archive/mj-handoff-go-live-email-progress-20260618.yaml
+  - docs/handoffs/mj-handoff-followups-soft-launch-20260615.yaml
+  - docs/runbooks/supabase-auth-setup.md
+  - docs/runbooks/observability-setup.md
+  - packages/auth/src/browser.ts
+  - packages/auth/src/server.ts
