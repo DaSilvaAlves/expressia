@@ -3,7 +3,14 @@ import { redirect } from 'next/navigation';
 
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 
+import { resolveHouseholdId } from '@/lib/api-helpers/auth';
+import { readActiveDeletionJob } from '@/lib/gdpr/read-deletion-status';
+
+import { DeleteAccount } from './_components/delete-account';
 import { ExportData } from './_components/export-data';
+
+// Estado de eliminação lido a cada carregamento (SSR, sem polling — AC6).
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Os meus dados — Expressia',
@@ -30,6 +37,10 @@ export default async function DadosPage() {
   if (!user) {
     redirect('/entrar');
   }
+
+  // Estado de eliminação de conta (Story 6.9 AC6) — lido server-side.
+  const householdId = await resolveHouseholdId(user.id);
+  const deletionJob = householdId ? await readActiveDeletionJob(householdId) : null;
 
   return (
     <div className="space-y-6">
@@ -62,6 +73,8 @@ export default async function DadosPage() {
           euros (formato português, com vírgula decimal).
         </p>
       </div>
+
+      <DeleteAccount initialJob={deletionJob} />
     </div>
   );
 }
