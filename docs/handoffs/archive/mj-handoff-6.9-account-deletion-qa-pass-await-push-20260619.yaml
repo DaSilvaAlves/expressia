@@ -1,0 +1,105 @@
+id: mj-handoff-6.9-account-deletion-qa-pass-await-push-20260619
+from_agent: orchestrator (/sdc)
+to_agent: devops
+created: "2026-06-19T21:30:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-19T23:55:00Z"
+consumed_by: devops (Gage)
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: story-ready-for-push
+
+summary: >
+  Story 6.9 (Eliminacao de conta self-service, GDPR Art. 17 — purge agendado 30 dias revogavel)
+  passou o ciclo /sdc COMPLETO: @sm (Draft) -> @po (GO 8,5/10) -> @dev (YOLO, 3 PO-FIX absorvidos)
+  -> @qa (PASS 9,3/10, confianca ALTA, gates re-corridos independentemente). Codigo na branch
+  feat/6.9-account-deletion (working tree, SEM commit/push — este ciclo /sdc NAO teve --push).
+  Falta apenas o @devops fazer commit + push + PR. ZERO migrations novas (tabela
+  account_deletion_jobs + enum + 4 RLS policies ja existiam; check:rls EXIT 0). Billing CONGELADO
+  e SEC-8 HOLD respeitados; app single-user (sem familia).
+
+context:
+  branch_codigo: feat/6.9-account-deletion (criada a partir de chore/handoff-bookkeeping-family-cleanup)
+  working_tree: alteracoes por commitar (10 ficheiros novos + 2 modificados + story)
+  origin_main: "812e785 (pivot single-user em prod)"
+  nota_branch: >
+    O trabalho de codigo arrancou a partir da branch de bookkeeping (chore/handoff-bookkeeping-family-cleanup),
+    nao de origin/main directo. @devops deve confirmar a base antes do push (idealmente rebase/branch a
+    partir de origin/main para a PR ficar limpa) e ter em conta que o PR #7 (bookkeeping doc-only) continua OPEN.
+
+  ciclo_sdc:
+    - "@sm River: Draft 6.9 — 9 ACs, 8 tasks/54 subtasks. Descoberta: schema account_deletion_jobs ja existe (zero migrations)."
+    - "@po: GO 8,5/10 confianca ALTA. Spot-check byte-a-byte (zero invencoes). 3 PO-FIX para o @dev absorver. Gate: docs/qa/gates/6.9-po-gate.md."
+    - "@dev Dex: YOLO completo, 54/54 checkboxes [x]. 5 DEV-DECISIONS. 3 PO-FIX absorvidos."
+    - "@qa Quinn: PASS 9,3/10 confianca ALTA, gates re-corridos com evidencia propria. Gate: docs/qa/gates/6.9-qa-gate.md."
+
+  po_fix_absorvidos:
+    - "PO-FIX-1: todos os SELECT/INSERT/UPDATE de account_deletion_jobs via getDb() filtram household_id EXPLICITAMENTE (RLS inerte em runtime, auth.uid()=NULL; app-enforced como na 6.8). Cadeia SEC-1->8."
+    - "PO-FIX-2: helper de audit dedicado (account-deletion-audit.ts); mocks no path real @/lib/agent/db-shim."
+    - "PO-FIX-3: Step 5 do purge (UPDATE status=completed) e no-op garantido (job morre no CASCADE do DELETE households); estado terminal real = audit_log Step 6 com household_id=NULL."
+
+  ficheiros_entregues:
+    criados:
+      - apps/web/src/lib/api-schemas/account-deletion.ts
+      - apps/web/src/lib/gdpr/account-deletion-audit.ts
+      - apps/web/src/lib/gdpr/supabase-admin.ts
+      - apps/web/src/lib/gdpr/read-deletion-status.ts
+      - apps/web/src/app/api/conta/delete/route.ts
+      - apps/web/src/lib/inngest/functions/gdpr-purge.ts
+      - apps/web/src/app/(app)/conta/dados/_components/delete-account.tsx
+      - apps/web/src/app/api/conta/delete/__tests__/route.test.ts
+      - apps/web/src/lib/inngest/functions/__tests__/gdpr-purge.test.ts
+      - apps/web/src/app/(app)/conta/dados/_components/__tests__/delete-account.test.tsx
+    modificados:
+      - apps/web/src/app/(app)/conta/dados/page.tsx
+      - apps/web/src/app/api/inngest/route.ts
+      - docs/stories/active/6.9.account-deletion-scheduled-purge.story.md
+
+  quality_gates_evidencia:
+    - "lint @meu-jarvis/web: EXIT 0 (0 warnings)"
+    - "typecheck: EXIT 0"
+    - "test @meu-jarvis/web: EXIT 0 — 1261/1261 GREEN (153 ficheiros, +29 vs baseline ~1232)"
+    - "check:rls: EXIT 0 (27 tabelas, zero migrations)"
+    - "build @meu-jarvis/web: EXIT 0 (manifesto inclui /api/conta/delete + /conta/dados)"
+    - "Re-corridos independentemente pelo @qa (nao so pelo @dev)."
+
+  concerns_nao_bloqueantes:
+    - "REL-001 (low): purgeAccountDeletionJob captura excepcoes e devolve failed sem re-lancar; jobs failed ficam presos sem retry; falha pos-Step-2 deixa utilizador orfao em auth.users (so rasto no audit_log). Aceitavel single-user; recomendar alerta Sentry/reconciliacao manual."
+    - "DOC-001 (low): runbook nao documenta recuperacao de purge parcialmente falhado."
+
+  precondicoes_externas_eurico:
+    - "SUPABASE_SERVICE_ROLE_KEY + NEXT_PUBLIC_SUPABASE_URL confirmados em prod (Auth Admin deleteUser + Storage no purge)."
+    - "Bucket PRIVADO 'exports' no Supabase Storage (eu-central-1) — herdado/partilhado com a 6.8 (Step 4 do purge e best-effort; nao bloqueia merge)."
+    - "Resync da nova funcao Inngest gdprPurge no workspace (PUT /api/inngest apos deploy) para o cron 0 3 * * * disparar."
+    - "Estas precondicoes NAO bloqueiam o merge — bloqueiam apenas o purge E2E real."
+
+  decisoes_em_vigor:
+    - "PROJETO saiu da pausa para ESTE ciclo por decisao do Eurico (foco: arrancar story nova). Confirmar com o Eurico antes de arrancar a story SEGUINTE."
+    - "Familia ELIMINADA — app single-user; nao reintroduzir."
+    - "NAO remover household_id/RLS/tenancy."
+    - "Billing/Stripe CONGELADO; SEC-8 HOLD."
+    - "Push/PR/merge EXCLUSIVO do @devops; PT-PT em tudo."
+
+  blockers:
+    - "Nenhum bloqueador de codigo. So falta o push do @devops. Resto e config externa [EURICO] (nao bloqueia merge)."
+
+next_action: >
+  [@devops] Consumir este handoff: confirmar a base da branch feat/6.9-account-deletion (idealmente
+  a partir de origin/main, ciente do PR #7 bookkeeping ainda OPEN), correr os 5 gates pre-push,
+  commit conventional + trailers, push fast-forward (sem --force/--no-verify) e abrir PR -> main.
+  Depois mover a story docs/stories/active/6.9.*.md -> docs/stories/completed/ e actualizar o
+  HANDOFF-INDEX. Precondicoes [EURICO] (service-role key, bucket exports, resync Inngest) ficam para
+  o Eurico e nao bloqueiam o merge. NAO reintroduzir familia; billing CONGELADO; SEC-8 HOLD.
+
+related:
+  - docs/stories/active/6.9.account-deletion-scheduled-purge.story.md
+  - docs/qa/gates/6.9-po-gate.md
+  - docs/qa/gates/6.9-qa-gate.md
+  - docs/handoffs/mj-handoff-6.8-export-gdpr-pr-open-20260618.yaml
+  - docs/runbooks/rgpd-account-deletion.md
+
+perfil_operador:
+  - "Eurico NAO e tecnico; satura com excesso de detalhe. Executar autonomamente com defaults sensatos e documentar. PORQUE antes do COMO. 1 passo de cada vez em config externa."
