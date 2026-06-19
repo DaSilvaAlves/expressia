@@ -34,6 +34,13 @@ vi.mock('@/lib/api-helpers/audit', () => ({
   insertAuditLog: vi.fn(async () => undefined),
 }));
 
+// Story INVITE-EMAIL — o handler POST agora envia email best-effort via este
+// helper. Mockamo-lo para não importar o cliente Resend real e manter o teste
+// 201 isolado da camada de email (sucesso por defeito; falha é best-effort).
+vi.mock('@/lib/email/resend', () => ({
+  sendInviteEmail: vi.fn(async () => ({ ok: true })),
+}));
+
 vi.mock('@meu-jarvis/observability', () => ({
   withSpan: vi.fn((_name, _attrs, fn) => fn({ setAttribute: vi.fn() })),
   annotateSpan: vi.fn(),
