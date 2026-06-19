@@ -146,9 +146,9 @@ function buildReadme(
   lines.push('================================');
   lines.push('');
   lines.push(`Data da exportação: ${formatPtDateTime(generatedAt)}`);
-  lines.push(`Família (household) exportada: ${householdId}`);
+  lines.push(`Conta (household) exportada: ${householdId}`);
   lines.push('');
-  lines.push('Este ficheiro ZIP contém todos os dados pessoais e da tua família');
+  lines.push('Este ficheiro ZIP contém todos os dados pessoais e da tua conta');
   lines.push('geridos pela Expressia, ao abrigo do direito de portabilidade de dados');
   lines.push('previsto no RGPD (Artigo 20.º).');
   lines.push('');

@@ -88,10 +88,10 @@ describe('Story 5.10 AC6 — raiz `/` landing pública + redirect autenticado', 
 
     // Wordmark
     expect(text).toContain('Expressia');
-    // Claim PT-PT (tarefas + finanças + rotinas da família)
+    // Claim PT-PT (tarefas + finanças + dia a dia)
     expect(text).toContain('tarefas');
     expect(text).toContain('finanças');
-    expect(text).toContain('família');
+    expect(text).toContain('dia a dia');
     // Labels dos 2 CTAs
     expect(text).toContain('Experimenta grátis');
     expect(text).toContain('Entrar');

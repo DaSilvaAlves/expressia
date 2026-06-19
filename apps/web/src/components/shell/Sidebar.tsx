@@ -113,13 +113,12 @@ const NAV_ITEMS: readonly NavItem[] = [
 ] as const;
 
 /**
- * Bloco "Conta" — único item abaixo do divider. Futuras sub-rotas (`/conta/perfil`,
- * `/conta/plano`, `/conta/household`, `/conta/exportar`) listadas em
+ * Bloco "Conta" — items abaixo do divider. Futuras sub-rotas (`/conta/perfil`,
+ * `/conta/plano`, `/conta/exportar`) listadas em
  * `architecture.md §8.1 linhas 676-680` adicionar-se-ão quando Epic 6 chegar.
  */
 const CONTA_ITEMS: readonly NavLeafItem[] = [
   { kind: 'leaf', label: 'Conta', href: '/conta/preferencias', icon: '⚙' },
-  { kind: 'leaf', label: 'Família', href: '/conta/household', icon: '⌂' },
   { kind: 'leaf', label: 'Os meus dados', href: '/conta/dados', icon: '⤓' },
 ];
 

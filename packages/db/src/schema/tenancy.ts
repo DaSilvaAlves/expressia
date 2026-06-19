@@ -103,50 +103,6 @@ export type HouseholdMember = typeof householdMembers.$inferSelect;
 export type NewHouseholdMember = typeof householdMembers.$inferInsert;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// household_invites — convites por email
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Convites por email com token de aceitação (FR27).
- *
- * Limites de membros enforced em SQL function `accept_invite()` (defesa em
- * profundidade) e em UI (apply-time). Ver architecture §5.3.
- */
-export const householdInvites = pgTable(
-  'household_invites',
-  {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
-    householdId: uuid('household_id')
-      .notNull()
-      .references(() => households.id, { onDelete: 'cascade' }),
-    invitedByUserId: uuid('invited_by_user_id')
-      .notNull()
-      .references(() => authUsers.id, { onDelete: 'cascade' }),
-    email: text('email').notNull(),
-    role: householdRoleEnum('role').notNull().default('member'),
-    /** Token aleatório (random_bytes(32) hex) — usado no link `/aceitar-convite/{token}`. */
-    token: text('token').notNull().unique(),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
-    /** Quem aceitou (preenchido em `accept_invite()`). */
-    acceptedByUserId: uuid('accepted_by_user_id').references(() => authUsers.id, {
-      onDelete: 'set null',
-    }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => ({
-    householdIdx: index('household_invites_household_idx').on(t.householdId),
-    emailIdx: index('household_invites_email_idx').on(t.email),
-    tokenIdx: index('household_invites_token_idx').on(t.token),
-    /** Não permitir 2 convites pendentes para o mesmo email no mesmo household. */
-    uniquePending: unique('household_invites_unique_pending').on(t.householdId, t.email),
-  }),
-);
-
-export type HouseholdInvite = typeof householdInvites.$inferSelect;
-export type NewHouseholdInvite = typeof householdInvites.$inferInsert;
-
-// ─────────────────────────────────────────────────────────────────────────────
 // kanban_columns — colunas customizáveis por household (FR9)
 // ─────────────────────────────────────────────────────────────────────────────
 

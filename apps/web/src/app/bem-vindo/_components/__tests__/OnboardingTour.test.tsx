@@ -27,12 +27,12 @@ describe('OnboardingTour', () => {
     expect(screen.getByText(/Recorrente criada:/)).toBeInTheDocument();
   });
 
-  it('"Continuar" avança para o Passo 2 (trial, Família €8,88) (AC4)', () => {
+  it('"Continuar" avança para o Passo 2 (trial, Premium €8,88) (AC4)', () => {
     render(<OnboardingTour completeAction={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Continuar →' }));
     expect(screen.getByText('Passo 2 de 2')).toBeInTheDocument();
     expect(screen.getByText('Tens 14 dias grátis.')).toBeInTheDocument();
-    expect(screen.getByText(/Família €8,88\/mês/)).toBeInTheDocument();
+    expect(screen.getByText(/Premium €8,88\/mês/)).toBeInTheDocument();
     expect(
       screen.getByText(/Só te avisamos no dia 12 por email. Sem surpresas./),
     ).toBeInTheDocument();

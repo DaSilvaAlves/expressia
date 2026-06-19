@@ -7,9 +7,9 @@ import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import { CookieNotice } from '@/components/legal/CookieNotice';
 
 export const metadata: Metadata = {
-  title: 'Expressia — Tarefas, finanças e rotinas da família',
+  title: 'Expressia — Tarefas, finanças e o teu dia a dia',
   description:
-    'O assistente em português europeu para organizar tarefas, finanças e as rotinas da tua família. Experimenta grátis, sem cartão.',
+    'O assistente em português europeu para organizar as tuas tarefas, as tuas finanças e o teu dia a dia. Experimenta grátis, sem cartão.',
 };
 
 /**
@@ -28,7 +28,7 @@ export const dynamic = 'force-dynamic';
  *   (a) AUTENTICADO → `redirect('/visao')` (precedente RSC `visao/page.tsx`).
  *   (b) NÃO-AUTENTICADO → landing pública de marketing: wordmark "Expressia"
  *       (`font-serif`, coerente com `(auth)/layout.tsx`/`OnboardingTour`), claim
- *       PT-PT (tarefas + finanças + rotinas da família), CTA primário
+ *       PT-PT (tarefas + finanças + dia a dia), CTA primário
  *       "Experimenta grátis" → `/registar` (sem cartão, FR33) + CTA secundário
  *       "Entrar" → `/entrar`.
  *
@@ -58,8 +58,8 @@ export default async function HomePage(): Promise<React.ReactElement> {
               Expressia
             </h1>
             <p className="max-w-prose text-balance text-lg text-foreground sm:text-xl">
-              O assistente em português europeu para organizar as tarefas, as finanças e as rotinas
-              da tua família — num só sítio.
+              O assistente em português europeu para organizar as tuas tarefas, as tuas finanças e
+              o teu dia a dia — num só sítio.
             </p>
           </header>
 
@@ -79,7 +79,7 @@ export default async function HomePage(): Promise<React.ReactElement> {
           </div>
 
           <p className="text-sm text-muted-foreground">
-            14 dias grátis com plano Família. Sem cartão.
+            14 dias grátis com plano Premium. Sem cartão.
           </p>
         </div>
       </main>

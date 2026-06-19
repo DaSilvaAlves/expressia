@@ -16,6 +16,24 @@
 const FALLBACK_MESSAGE = 'Erro temporário. Tenta de novo.';
 
 /**
+ * Labels visíveis para os valores internos de `plan_tier`. O valor de enum na
+ * base de dados mantém-se (`'familia'`) — aqui só traduzimos para o texto que o
+ * utilizador vê. Qualquer valor desconhecido cai num rótulo neutro.
+ */
+const PLAN_LABELS: Readonly<Record<string, string>> = {
+  free: 'Grátis',
+  pessoal: 'Pessoal',
+  familia: 'Premium',
+  pro: 'Pro',
+};
+
+/** Devolve o label visível de um plano, ou um rótulo neutro se desconhecido. */
+function planLabel(plan: string | undefined): string {
+  if (!plan) return 'atual';
+  return PLAN_LABELS[plan] ?? 'atual';
+}
+
+/**
  * Detalhes opcionais do erro, vindos de `body.error.details`. Apenas os campos
  * usados para interpolação nas mensagens da tabela §3 da spec.
  */
@@ -51,7 +69,7 @@ function formatPeriodEnd(periodEnd: string | undefined): string {
 export function errorMessageFor(code: string | undefined, details?: ErrorDetails): string {
   switch (code) {
     case 'HOUSEHOLD_NOT_FOUND':
-      return 'Ainda não tens um agregado configurado. Termina o registo para começares a usar o Jarvis.';
+      return 'Ainda não tens a tua conta configurada. Termina o registo para começares a usar o Jarvis.';
     case 'VALIDATION_ERROR':
       return 'Não percebi esse pedido. Escreve o que precisas em texto (até 2000 caracteres).';
     case 'IDEMPOTENCY_IN_PROGRESS':
@@ -61,7 +79,7 @@ export function errorMessageFor(code: string | undefined, details?: ErrorDetails
       return `Estás a enviar pedidos depressa demais. Tenta de novo em ${retry} segundos.`;
     }
     case 'QUOTA_EXCEEDED': {
-      const plan = details?.plan ?? 'atual';
+      const plan = planLabel(details?.plan);
       return `Atingiste o limite de pedidos do teu plano (${plan}). A próxima janela abre ${formatPeriodEnd(details?.period_end)}.`;
     }
     case 'CLASSIFIER_ERROR':

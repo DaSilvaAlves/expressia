@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     template: '%s — Expressia',
   },
   description:
-    'Expressia — o teu assistente fullstack para tarefas, finanças e rotinas familiares em português europeu.',
+    'Expressia — o teu assistente fullstack para tarefas, finanças e o teu dia a dia em português europeu.',
   applicationName: 'Expressia',
   authors: [{ name: 'Expressia' }],
   generator: 'Next.js',

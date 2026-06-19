@@ -4,8 +4,7 @@
  * Cobertura:
  *   1. Renderiza avatar (iniciais email) + botão Sair quando `user` válido.
  *   2. Renderiza topbar minimal sem crash quando `user === null`.
- *   3. Slots `data-slot="theme-toggle"` + `data-slot="household-switcher"`
- *      ambos presentes no DOM.
+ *   3. Slot `data-slot="theme-toggle"` presente no DOM.
  *
  * Notes:
  *   - `logoutAction` Server Action é mocked (apenas precisamos que o `<form>`
@@ -50,9 +49,8 @@ describe('<TopBar>', () => {
     expect(screen.getByRole('button', { name: /sair/i })).toBeInTheDocument();
   });
 
-  it('inclui ambos os slots data-slot="theme-toggle" e data-slot="household-switcher"', () => {
+  it('inclui o slot data-slot="theme-toggle"', () => {
     const { container } = render(<TopBar user={FAKE_USER} />);
     expect(container.querySelector('[data-slot="theme-toggle"]')).not.toBeNull();
-    expect(container.querySelector('[data-slot="household-switcher"]')).not.toBeNull();
   });
 });

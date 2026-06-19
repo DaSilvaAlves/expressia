@@ -373,29 +373,6 @@ export async function insertAuditLog(
 }
 
 /**
- * Insere um household_invite.
- */
-export async function insertHouseholdInvite(
-  sql: QuerySql,
-  householdId: string,
-  invitedByUserId: string,
-  email = `convidado-${randomUUID().slice(0, 6)}@meu-jarvis.test`,
-): Promise<string> {
-  const id = randomUUID();
-  await sql`
-    insert into public.household_invites (
-      id, household_id, invited_by_user_id, email, token, expires_at
-    )
-    values (
-      ${id}, ${householdId}, ${invitedByUserId}, ${email},
-      ${'tok_' + randomUUID()},
-      now() + interval '7 days'
-    )
-  `;
-  return id;
-}
-
-/**
  * Insere um data_export_job.
  */
 export async function insertDataExportJob(

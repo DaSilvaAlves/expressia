@@ -44,7 +44,7 @@ async function main(): Promise<number> {
 
     // Para cada tabela com dados, quantas linhas a connection runtime VÊ?
     // households não tem household_id mas é a raiz — testamos algumas tabelas-chave.
-    const tables = ['households', 'household_members', 'household_invites', 'tasks', 'transactions', 'accounts', 'categories'];
+    const tables = ['households', 'household_members', 'tasks', 'transactions', 'accounts', 'categories'];
     console.log('\nLinhas VISÍVEIS via SELECT normal (sujeito a RLS se aplicada):');
     for (const t of tables) {
       try {

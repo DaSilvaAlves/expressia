@@ -1,17 +1,16 @@
 /**
  * `<TopBar>` — barra superior 56px com hamburger (mobile/tablet), breadcrumb
- * minimal, 2 slots (theme/household) e bloco avatar+logout (Story 5.3 AC3).
+ * minimal, slot de tema e bloco avatar+logout (Story 5.3 AC3).
  *
  * Server Component — recebe `user` injectado pelo `AppShell` (evita
  * `getUser()` duplicado). O `<TopBarHamburger>` é o único sub-componente
  * Client (state do drawer mobile).
  *
  * Layout:
- *   [Hamburger (lg:hidden)] [Breadcrumb h1] [spacer] [slot theme] [slot household] [Avatar+Sair]
+ *   [Hamburger (lg:hidden)] [Breadcrumb h1] [spacer] [slot theme] [Avatar+Sair]
  *
- * Slots vazios renderizam `<div data-slot="…">` para que Story 5.8 (theme
- * toggle) e Epic 6 (household switcher) possam montar componentes sem
- * tocar nesta story.
+ * O slot vazio renderiza `<div data-slot="theme-toggle">` para que a Story 5.8
+ * possa montar o `<ThemeToggle>` sem tocar nesta story.
  *
  * **D-5.3.2:** breadcrumb minimal incluído via sub-componente Client
  * `<BreadcrumbLabel>` (precisa `usePathname()`). KISS — label-pai apenas.
@@ -46,13 +45,6 @@ export function TopBar({ user }: TopBarProps) {
       {/* Slot theme-toggle — Story 5.8 monta `<ThemeToggle>` aqui. */}
       <div
         data-slot="theme-toggle"
-        aria-hidden="true"
-        className="empty:hidden"
-      />
-
-      {/* Slot household-switcher — Epic 6. */}
-      <div
-        data-slot="household-switcher"
         aria-hidden="true"
         className="empty:hidden"
       />

@@ -26,7 +26,6 @@ import {
   admin,
   insertAccount,
   insertCategory,
-  insertHouseholdInvite,
   insertKanbanColumn,
   insertTag,
   insertTask,
@@ -422,51 +421,6 @@ describe('RLS application gate (SEC-5 / ADR-003 Fase 4 Fatia A): task_recurrence
     const rows = await admin()<
       { n: number }[]
     >`select count(*)::int as n from public.task_recurrences`;
-    expect(rows[0]?.n).toBe(0);
-  });
-});
-
-describe('RLS application gate (SEC-7 / ADR-003 Fase 4 Fatia C): household_invites (household-scoped)', () => {
-  beforeEach(async () => {
-    await resetData();
-  });
-
-  test('userA só vê o seu convite (1 row), 0 de B', async () => {
-    const { householdA, householdB, userA, userB } = await seedTwoHouseholds();
-    await insertHouseholdInvite(admin(), householdA.id, userA.id, 'convite-a@meu-jarvis.test');
-    await insertHouseholdInvite(admin(), householdB.id, userB.id, 'convite-b@meu-jarvis.test');
-
-    await asUser(userA.id, householdA.id, async (sql) => {
-      const rows = await sql<
-        { household_id: string }[]
-      >`select household_id from public.household_invites`;
-      expect(rows).toHaveLength(1);
-      expect(rows.every((r) => r.household_id === householdA.id)).toBe(true);
-    });
-  });
-
-  test('SELECT com filtro cruzado (userA, WHERE household_id = B) → 0 rows', async () => {
-    const { householdA, householdB, userA, userB } = await seedTwoHouseholds();
-    await insertHouseholdInvite(admin(), householdA.id, userA.id, 'convite-a@meu-jarvis.test');
-    await insertHouseholdInvite(admin(), householdB.id, userB.id, 'convite-b@meu-jarvis.test');
-
-    await asUser(userA.id, householdA.id, async (sql) => {
-      const rows = await sql`select id from public.household_invites where household_id = ${householdB.id}`;
-      expect(rows).toHaveLength(0);
-    });
-  });
-
-  test('INSERT cross-household (userA → convite de household B) é bloqueado por RLS', async () => {
-    const { householdA, householdB, userA } = await seedTwoHouseholds();
-
-    const blocked = await expectRlsBlocks(userA.id, householdA.id, async (sql) => {
-      await insertHouseholdInvite(sql, householdB.id, userA.id, 'invalido@meu-jarvis.test');
-    });
-    expect(blocked).toBe(true);
-
-    const rows = await admin()<
-      { n: number }[]
-    >`select count(*)::int as n from public.household_invites`;
     expect(rows[0]?.n).toBe(0);
   });
 });

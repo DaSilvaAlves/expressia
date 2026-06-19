@@ -37,7 +37,7 @@ export default function RegistarPage() {
     <>
       <h1 className="mb-1 text-xl font-semibold text-foreground">Criar conta</h1>
       <p className="mb-6 text-sm text-muted-foreground">
-        14 dias grátis com plano Família. Sem cartão.
+        14 dias grátis com plano Premium. Sem cartão.
       </p>
 
       <form action={formAction} className="space-y-4">
@@ -54,7 +54,7 @@ export default function RegistarPage() {
             maxLength={80}
             className={INPUT_CLASS}
           />
-          <p className={HINT_CLASS}>É assim que apareces na app e para a tua família.</p>
+          <p className={HINT_CLASS}>É assim que apareces na app.</p>
         </div>
 
         <div>
