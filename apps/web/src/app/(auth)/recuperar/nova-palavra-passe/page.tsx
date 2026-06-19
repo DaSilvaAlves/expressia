@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useRef, useState } from 'react';
+
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { createBrowserSupabaseClient } from '@meu-jarvis/auth/browser';
 
@@ -51,8 +53,23 @@ import {
  * Trace: Soft-launch A2; (auth)/actions.ts (resetPasswordAction);
  *        (auth)/callback/route.ts (next + verifyOtp recovery).
  */
+
+/**
+ * Rota interativa de recuperação de palavra-passe — semanticamente nunca deve ser
+ * conteúdo estático. Esta directiva declara a intenção (render dinâmico) e é inócua;
+ * note-se que num Client Component puro o Next pode ainda gerar o shell estático.
+ * O que GARANTE que o build não parte é a criação lazy do cliente (abaixo): o
+ * `createBrowserSupabaseClient()` deixou de correr durante o render/prerender.
+ */
+export const dynamic = 'force-dynamic';
+
 export default function NovaPalavraPassePage() {
-  const supabase = useMemo(() => createBrowserSupabaseClient(), []);
+  // Criação LAZY do cliente Supabase: só é instanciado na primeira utilização real
+  // (no `handleSubmit`, sempre no browser). NUNCA durante o render/prerender — é o
+  // que evita que `createBrowserSupabaseClient()` (que lê `NEXT_PUBLIC_*`, vazias no
+  // job Build da CI) corra no servidor de build e lance. O `ref` persiste entre
+  // renders sem recriar o cliente (substitui o antigo `useMemo`, que corria no render).
+  const supabaseRef = useRef<SupabaseClient | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -73,6 +90,7 @@ export default function NovaPalavraPassePage() {
     }
 
     setSubmitting(true);
+    const supabase = (supabaseRef.current ??= createBrowserSupabaseClient());
     const { error: updateError } = await supabase.auth.updateUser({ password });
     setSubmitting(false);
 
