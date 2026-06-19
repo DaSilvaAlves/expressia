@@ -14,10 +14,11 @@ import { describe, expect, it } from 'vitest';
 import { errorMessageFor } from '@/components/chat/error-messages';
 
 describe('errorMessageFor — códigos mapeados (tabela §3)', () => {
-  it('HOUSEHOLD_NOT_FOUND → fala de "agregado", nunca "Household"', () => {
+  it('HOUSEHOLD_NOT_FOUND → fala da "conta", nunca jargão técnico nem "Household"', () => {
     const msg = errorMessageFor('HOUSEHOLD_NOT_FOUND');
-    expect(msg).toContain('agregado');
+    expect(msg).toContain('conta');
     expect(msg).not.toContain('Household');
+    expect(msg).not.toContain('agregado');
   });
 
   it('VALIDATION_ERROR → pede para reformular, sem jargão "Body"', () => {
@@ -42,12 +43,14 @@ describe('errorMessageFor — códigos mapeados (tabela §3)', () => {
     expect(errorMessageFor('RATE_LIMIT_EXCEEDED')).toContain('60 segundos');
   });
 
-  it('QUOTA_EXCEEDED → mostra plano + janela mensal (NÃO "60 segundos")', () => {
+  it('QUOTA_EXCEEDED → mostra label visível do plano + janela mensal (NÃO "60 segundos" nem enum cru)', () => {
     const msg = errorMessageFor('QUOTA_EXCEEDED', {
       plan: 'familia',
       period_end: '2026-06-15T12:00:00.000Z',
     });
-    expect(msg).toContain('familia');
+    // O valor de enum interno ('familia') é traduzido para o label visível.
+    expect(msg).toContain('Premium');
+    expect(msg).not.toContain('familia');
     expect(msg).toMatch(/\/06\/2026/); // mês/ano da janela — dia tolerante a timezone
     expect(msg).toContain('às');
     expect(msg).not.toContain('60 segundos');
@@ -55,7 +58,7 @@ describe('errorMessageFor — códigos mapeados (tabela §3)', () => {
 
   it('QUOTA_EXCEEDED sem period_end → fallback neutro sem crash', () => {
     const msg = errorMessageFor('QUOTA_EXCEEDED', { plan: 'pessoal' });
-    expect(msg).toContain('pessoal');
+    expect(msg).toContain('Pessoal');
     expect(msg).toContain('próximo período');
   });
 

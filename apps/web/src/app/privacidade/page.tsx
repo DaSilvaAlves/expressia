@@ -81,8 +81,7 @@ export default function PrivacidadePage(): React.ReactElement {
             </li>
             <li>
               <strong>Dados que o utilizador insere:</strong> tarefas, transações e dados
-              financeiros, bem como informação sobre o agregado familiar (household) e os seus
-              membros.
+              financeiros associados à tua conta.
             </li>
             <li>
               <strong>Dados técnicos de utilização:</strong> registos de atividade (logs) e cookies
@@ -108,7 +107,7 @@ export default function PrivacidadePage(): React.ReactElement {
             <li>
               <strong>Funcionamento e segurança da conta</strong> (interesse legítimo, Art. 6.º, n.º
               1, al. f): prevenir abusos, garantir a integridade dos dados e o isolamento entre
-              agregados familiares.
+              contas.
             </li>
             <li>
               <strong>Processamento por inteligência artificial</strong>: interpretar e executar os

@@ -136,7 +136,7 @@ describe('generate-export — buildReadme (AC4)', () => {
 
   it('inclui data, household, nota de cêntimos/decimal e separador ;', () => {
     const readme = __testing.buildReadme('hh-1', generatedAt, data);
-    expect(readme).toContain('Família (household) exportada: hh-1');
+    expect(readme).toContain('Conta (household) exportada: hh-1');
     expect(readme).toContain('Artigo 20.º');
     expect(readme).toContain('CÊNTIMOS');
     expect(readme).toContain('separador decimal');

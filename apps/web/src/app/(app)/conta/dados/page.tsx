@@ -51,7 +51,7 @@ export default async function DadosPage() {
         <p className="mt-1">
           A exportação inclui as tuas tarefas e recorrências, etiquetas, colunas Kanban,
           contas, cartões, transações, recorrências e prestações financeiras, as tuas
-          categorias próprias, os dados e membros da tua família, as tuas preferências e o
+          categorias próprias, os dados e membros da tua conta, as tuas preferências e o
           registo de auditoria da conta.
         </p>
         <h2 className="mt-3 text-sm font-medium text-foreground">O que não está incluído</h2>

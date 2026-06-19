@@ -165,7 +165,6 @@ const TABLES_TO_TRUNCATE = [
   'data_export_jobs',
   'account_deletion_jobs',
   'feature_flags',
-  'household_invites',
   'household_members',
   'households',
 ] as const;

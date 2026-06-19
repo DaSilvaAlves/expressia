@@ -11,7 +11,7 @@
  *     "Mostrar o que acontece" revela um preview canned estático (tarefa +
  *     despesa + recorrente). **Sem chamadas LLM, sem escrever em DB** — é uma
  *     demonstração determinística do diferenciador (AC3).
- *   Passo 2 — Trial (AC4): "14 dias grátis, sem cartão", planos (Família €8,88
+ *   Passo 2 — Trial (AC4): "14 dias grátis, sem cartão", planos (Premium €8,88
  *     destacado), microcopy anti-pressão. Read-only sobre `subscriptions`.
  *
  * "Saltar tudo" (Passo 1) e "Começar a usar" (Passo 2) submetem o mesmo server
@@ -144,7 +144,7 @@ export function OnboardingTour({ completeAction }: OnboardingTourProps): React.R
                 Subir para <strong>Pessoal €4,90/mês</strong>
               </li>
               <li className="rounded-lg border border-primary bg-surface px-4 py-3">
-                Ou <strong>Família €8,88/mês</strong> — até 4 pessoas
+                Ou <strong>Premium €8,88/mês</strong> — tudo incluído
               </li>
             </ul>
 

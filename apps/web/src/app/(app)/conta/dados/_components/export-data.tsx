@@ -93,7 +93,7 @@ export function ExportData(): React.ReactElement {
           Exportar os meus dados
         </span>
         <span className="block text-xs text-muted-foreground">
-          Gera um ficheiro ZIP com todos os teus dados (tarefas, finanças, família e
+          Gera um ficheiro ZIP com todos os teus dados (tarefas, finanças, conta e
           preferências) em formato JSON e CSV. A geração pode demorar alguns segundos.
         </span>
       </div>

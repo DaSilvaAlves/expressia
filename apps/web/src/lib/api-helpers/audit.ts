@@ -68,15 +68,7 @@ export type TasksAuditAction =
   | 'finance_recurrence.updated'
   | 'finance_recurrence.deleted'
   | 'installment.created'
-  | 'installment.deleted'
-  // Story 6.7 (Convite e remoção de membros) — enum values JÁ presentes na DB
-  // (migration 0000, `audit_action`: household_invite_sent/accepted/revoked,
-  // household_member_removed). Extensão puramente aditiva — sem migration nem
-  // feature flag (mesmo caso de account.* na Story 4.2). `household_invite_accepted`
-  // é inserido pela função SQL `accept_invite()` directamente (não via este helper).
-  | 'household_invite_sent'
-  | 'household_invite_revoked'
-  | 'household_member_removed';
+  | 'installment.deleted';
 
 export interface AuditLogParams {
   readonly db: DbShim;
@@ -94,9 +86,7 @@ export interface AuditLogParams {
     | 'transactions'
     | 'categories'
     | 'recurrences'
-    | 'installments'
-    | 'household_invites'
-    | 'household_members';
+    | 'installments';
   readonly entityId?: string | null;
   readonly beforeState?: Record<string, unknown> | null;
   readonly afterState?: Record<string, unknown> | null;

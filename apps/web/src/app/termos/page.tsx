@@ -53,8 +53,8 @@ export default function TermosPage(): React.ReactElement {
           <h2 className="font-serif text-2xl font-semibold text-primary">1. Objeto do serviço</h2>
           <p className="text-base leading-relaxed">
             A Expressia é um assistente em português europeu que permite organizar tarefas, gerir
-            finanças pessoais e familiares e automatizar rotinas, com recurso a inteligência
-            artificial. O Serviço destina-se exclusivamente a utilizadores em Portugal continental.
+            finanças pessoais e automatizar o dia a dia, com recurso a inteligência artificial. O
+            Serviço destina-se exclusivamente a utilizadores em Portugal continental.
           </p>
         </section>
 
@@ -94,10 +94,7 @@ export default function TermosPage(): React.ReactElement {
           </p>
           <ul className="flex list-disc flex-col gap-2 pl-6 text-base leading-relaxed">
             <li>Violar qualquer lei aplicável ou direitos de terceiros;</li>
-            <li>
-              Tentar aceder, sem autorização, a dados de outros utilizadores ou agregados
-              familiares;
-            </li>
+            <li>Tentar aceder, sem autorização, a dados de outros utilizadores ou contas;</li>
             <li>
               Comprometer a segurança, a integridade ou a disponibilidade do Serviço (por exemplo,
               através de ataques, engenharia reversa ou utilização automatizada abusiva);

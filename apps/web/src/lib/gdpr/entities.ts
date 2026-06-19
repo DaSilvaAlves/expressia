@@ -63,10 +63,10 @@ export interface ExportEntity {
  * geração e a listagem no README.
  */
 export const EXPORT_ENTITIES: readonly ExportEntity[] = [
-  // ─── Household e membros ───────────────────────────────────────────────────
+  // ─── Conta (household) e membros ───────────────────────────────────────────
   {
     file: 'households',
-    label: 'Família (household)',
+    label: 'Conta (household)',
     from: 'select id, name, owner_user_id, plan, locale, timezone, currency, created_at, updated_at from public.households',
     // A tabela `households` NÃO tem coluna `household_id` — a PK é `id`. Scoping
     // pela própria PK do household (REL-001 / QA fix 6.8).
@@ -86,33 +86,15 @@ export const EXPORT_ENTITIES: readonly ExportEntity[] = [
   },
   {
     file: 'household_members',
-    label: 'Membros da família',
+    label: 'Membros da conta',
     from: 'select household_id, user_id, role, display_name, joined_at from public.household_members',
     where: 'household',
     columns: [
-      { key: 'household_id', label: 'ID da família' },
+      { key: 'household_id', label: 'ID da conta' },
       { key: 'user_id', label: 'ID do utilizador' },
       { key: 'role', label: 'Papel' },
       { key: 'display_name', label: 'Nome a apresentar' },
       { key: 'joined_at', label: 'Entrou em' },
-    ],
-    moneyColumns: [],
-  },
-  {
-    file: 'household_invites',
-    label: 'Convites da família',
-    from: 'select id, household_id, invited_by_user_id, email, role, expires_at, accepted_at, accepted_by_user_id, created_at from public.household_invites',
-    where: 'household',
-    columns: [
-      { key: 'id', label: 'ID' },
-      { key: 'household_id', label: 'ID da família' },
-      { key: 'invited_by_user_id', label: 'Convidado por' },
-      { key: 'email', label: 'Email' },
-      { key: 'role', label: 'Papel' },
-      { key: 'expires_at', label: 'Expira em' },
-      { key: 'accepted_at', label: 'Aceite em' },
-      { key: 'accepted_by_user_id', label: 'Aceite por' },
-      { key: 'created_at', label: 'Criado em' },
     ],
     moneyColumns: [],
   },
@@ -123,7 +105,7 @@ export const EXPORT_ENTITIES: readonly ExportEntity[] = [
     where: 'household',
     columns: [
       { key: 'id', label: 'ID' },
-      { key: 'household_id', label: 'ID da família' },
+      { key: 'household_id', label: 'ID da conta' },
       { key: 'name', label: 'Nome' },
       { key: 'sort_order', label: 'Ordem' },
       { key: 'color', label: 'Cor' },
@@ -141,7 +123,7 @@ export const EXPORT_ENTITIES: readonly ExportEntity[] = [
     where: 'household',
     columns: [
       { key: 'id', label: 'ID' },
-      { key: 'household_id', label: 'ID da família' },
+      { key: 'household_id', label: 'ID da conta' },
       { key: 'created_by_user_id', label: 'Criado por' },
       { key: 'assigned_to_user_id', label: 'Atribuído a' },
       { key: 'title', label: 'Título' },
@@ -168,7 +150,7 @@ export const EXPORT_ENTITIES: readonly ExportEntity[] = [
     where: 'household',
     columns: [
       { key: 'id', label: 'ID' },
-      { key: 'household_id', label: 'ID da família' },
+      { key: 'household_id', label: 'ID da conta' },
       { key: 'template_task_id', label: 'ID da tarefa modelo' },
       { key: 'frequency', label: 'Frequência' },
       { key: 'interval', label: 'Intervalo' },
@@ -189,7 +171,7 @@ export const EXPORT_ENTITIES: readonly ExportEntity[] = [
     where: 'household',
     columns: [
       { key: 'id', label: 'ID' },
-      { key: 'household_id', label: 'ID da família' },
+      { key: 'household_id', label: 'ID da conta' },
       { key: 'name', label: 'Nome' },
       { key: 'color', label: 'Cor' },
       { key: 'created_at', label: 'Criada em' },
@@ -205,7 +187,7 @@ export const EXPORT_ENTITIES: readonly ExportEntity[] = [
     columns: [
       { key: 'task_id', label: 'ID da tarefa' },
       { key: 'tag_id', label: 'ID da etiqueta' },
-      { key: 'household_id', label: 'ID da família' },
+      { key: 'household_id', label: 'ID da conta' },
       { key: 'created_at', label: 'Associada em' },
     ],
     moneyColumns: [],
@@ -218,7 +200,7 @@ export const EXPORT_ENTITIES: readonly ExportEntity[] = [
     where: 'household',
     columns: [
       { key: 'id', label: 'ID' },
-      { key: 'household_id', label: 'ID da família' },
+      { key: 'household_id', label: 'ID da conta' },
       { key: 'name', label: 'Nome' },
       { key: 'bank_name', label: 'Banco' },
       { key: 'account_type', label: 'Tipo de conta' },
@@ -239,7 +221,7 @@ export const EXPORT_ENTITIES: readonly ExportEntity[] = [
     where: 'household',
     columns: [
       { key: 'id', label: 'ID' },
-      { key: 'household_id', label: 'ID da família' },
+      { key: 'household_id', label: 'ID da conta' },
       { key: 'account_id', label: 'ID da conta' },
       { key: 'name', label: 'Nome' },
       { key: 'last4', label: 'Últimos 4 dígitos' },
@@ -255,13 +237,13 @@ export const EXPORT_ENTITIES: readonly ExportEntity[] = [
   },
   {
     file: 'categories',
-    label: 'Categorias (próprias da família)',
+    label: 'Categorias (próprias da conta)',
     from: 'select id, household_id, name, icon, color, parent_id, is_default, kind, sort_order, archived_at, created_at, updated_at from public.categories',
     // Só per-household (AC3: categorias globais is_default=true NÃO exportadas).
     where: 'household',
     columns: [
       { key: 'id', label: 'ID' },
-      { key: 'household_id', label: 'ID da família' },
+      { key: 'household_id', label: 'ID da conta' },
       { key: 'name', label: 'Nome' },
       { key: 'icon', label: 'Ícone' },
       { key: 'color', label: 'Cor' },
@@ -282,7 +264,7 @@ export const EXPORT_ENTITIES: readonly ExportEntity[] = [
     where: 'household',
     columns: [
       { key: 'id', label: 'ID' },
-      { key: 'household_id', label: 'ID da família' },
+      { key: 'household_id', label: 'ID da conta' },
       { key: 'created_by_user_id', label: 'Criada por' },
       { key: 'account_id', label: 'ID da conta' },
       { key: 'card_id', label: 'ID do cartão' },
@@ -311,7 +293,7 @@ export const EXPORT_ENTITIES: readonly ExportEntity[] = [
     where: 'household',
     columns: [
       { key: 'id', label: 'ID' },
-      { key: 'household_id', label: 'ID da família' },
+      { key: 'household_id', label: 'ID da conta' },
       { key: 'created_by_user_id', label: 'Criada por' },
       { key: 'description', label: 'Descrição' },
       { key: 'kind', label: 'Tipo' },
@@ -340,7 +322,7 @@ export const EXPORT_ENTITIES: readonly ExportEntity[] = [
     where: 'household',
     columns: [
       { key: 'id', label: 'ID' },
-      { key: 'household_id', label: 'ID da família' },
+      { key: 'household_id', label: 'ID da conta' },
       { key: 'created_by_user_id', label: 'Criada por' },
       { key: 'card_id', label: 'ID do cartão' },
       { key: 'description', label: 'Descrição' },
@@ -365,7 +347,7 @@ export const EXPORT_ENTITIES: readonly ExportEntity[] = [
     where: 'user',
     columns: [
       { key: 'user_id', label: 'ID do utilizador' },
-      { key: 'household_id', label: 'ID da família' },
+      { key: 'household_id', label: 'ID da conta' },
       { key: 'always_preview', label: 'Pré-visualizar sempre' },
       { key: 'theme', label: 'Tema' },
       { key: 'widgets_enabled', label: 'Widgets ativos' },
@@ -384,7 +366,7 @@ export const EXPORT_ENTITIES: readonly ExportEntity[] = [
     where: 'household',
     columns: [
       { key: 'id', label: 'ID' },
-      { key: 'household_id', label: 'ID da família' },
+      { key: 'household_id', label: 'ID da conta' },
       { key: 'user_id', label: 'ID do utilizador' },
       { key: 'action', label: 'Ação' },
       { key: 'entity_table', label: 'Tabela' },
