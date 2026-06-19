@@ -40,6 +40,7 @@ import {
 } from '@/lib/api-schemas/households';
 import { insertAuditLog } from '@/lib/api-helpers/audit';
 import { requireAuth, resolveHouseholdRole } from '@/lib/api-helpers/auth';
+import { sendInviteEmail } from '@/lib/email/resend';
 import { apiError } from '@/lib/errors';
 
 const ROUTE = '/api/conta/household/invites';
@@ -207,6 +208,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           log.warn({ err: auditErr }, 'audit_log INSERT falhou (best-effort)');
         }
 
+        // Story INVITE-EMAIL — envio best-effort do email de convite via Resend.
+        // O link usa o padrão canónico SEC-9: `SITE_URL` truthy (não `??`, para
+        // que uma string vazia caia no fallback) + `.replace(/\/$/, '')` para
+        // normalizar a barra final. Nunca usa `window.location` nem headers HTTP.
+        // A resposta 201 é devolvida independentemente do resultado do email; o
+        // `acceptPath` permanece no JSON como fallback visível na UI (AC6).
+        const acceptPath = `/aceitar-convite/${token}`;
+        const base = process.env.SITE_URL
+          ? process.env.SITE_URL.replace(/\/$/, '')
+          : 'https://expressia.pt';
+        const inviteUrl = `${base}${acceptPath}`;
+        try {
+          const emailResult = await sendInviteEmail({ to: body.email, inviteUrl });
+          if (!emailResult.ok) {
+            log.warn(
+              { reason: emailResult.reason, to: body.email },
+              'email de convite não enviado (best-effort)',
+            );
+          }
+        } catch (emailErr) {
+          log.warn({ err: emailErr, to: body.email }, 'email de convite falhou (best-effort)');
+          captureException(emailErr instanceof Error ? emailErr : new Error(String(emailErr)), {
+            userId: auth.userId,
+            route: ROUTE,
+          });
+        }
+
         annotateSpan(span, { statusCode: 201 });
         log.info(
           {
@@ -220,7 +248,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const invite = toDTO(created);
         const responseBody: InviteCreatedResponse = {
           invite,
-          acceptPath: `/aceitar-convite/${token}`,
+          acceptPath,
         };
         return NextResponse.json(responseBody, { status: 201 });
       } catch (err) {

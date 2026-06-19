@@ -1,0 +1,85 @@
+id: mj-handoff-terminal-migration-obs3-pr5-20260618
+from_agent: orchestrator (/sdc)
+to_agent: any
+created: "2026-06-18T13:45:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: terminal-migration
+
+summary: >
+  MIGRACAO DE TERMINAL. A sessao anterior correu o ciclo /sdc completo da Story
+  OBS-3 (Lighthouse /visao autenticada) ate InReview/WAIVED e parou para mudar
+  de terminal. Ha trabalho doc-only NAO COMMITADO no working tree (6 ficheiros,
+  ver estado_git) e NADA foi pushado. Objectivo do novo terminal: retomar os
+  passos sugeridos (lista em next_action). Este e um handoff-ponteiro de sessao:
+  os dois handoffs de ACAO concreta ja existem e devem ser lidos
+  (mj-handoff-obs3-inreview-await-medicao e mj-handoff-6.8-export-gdpr-pr-open).
+  Billing CONTINUA CONGELADO.
+
+context:
+  estado_git:
+    branch: feat/6.8-export-gdpr
+    head: "a1a8abd (feat(gdpr) Story 6.8)"
+    pushed: "NAO — zero commits novos nesta sessao; trabalho OBS-3 vive no working tree"
+    working_tree_nao_commitado:
+      - "M  docs/HANDOFF-INDEX.md  (bookkeeping OBS-3 + 6.8)"
+      - "M  docs/runbooks/lighthouse-mobile.md  (entrega @dev da OBS-3)"
+      - "?? docs/stories/active/OBS-3.lighthouse-visao-autenticada.story.md"
+      - "?? docs/qa/gates/OBS-3-lighthouse-visao-autenticada.yml"
+      - "?? docs/handoffs/mj-handoff-obs3-inreview-await-medicao-20260618.yaml"
+      - "?? docs/handoffs/mj-handoff-6.8-export-gdpr-pr-open-20260618.yaml  (resíduo da sessao 6.8 anterior)"
+    nota: >
+      O novo terminal na MESMA pasta ve este working tree intacto — nada se perde
+      na migracao. Tudo e doc-only (zero apps/packages/.github/migrations).
+
+  o_que_aconteceu_nesta_sessao:
+    - "/sdc sem args: a sucessao natural do Epic 6 (6.3 Stripe) esta CONGELADA, logo nao havia story legitima a criar automaticamente."
+    - "Eurico escolheu o foco: follow-up [AGENTE] OBS-3 (Lighthouse /visao autenticada)."
+    - "Ciclo /sdc completo: @sm (APPROVED) -> @po (GO 8,5/10, fix PO-S1) -> @dev (scope autonomo doc-only) -> @qa (CONCERNS REQ-001)."
+    - "Gate CONCERNS aceite WAIVED pelo Eurico. Story fica InReview (nunca Done sem a medicao real — regra PO-S1)."
+    - "Nucleo da OBS-3 (medicao Lighthouse real da /visao autenticada) DEFERIDO ao Eurico: exige sessao no browser; Constitution Article IV proibe inventar valores."
+
+  handoffs_de_accao_a_ler_primeiro:
+    - "docs/handoffs/mj-handoff-obs3-inreview-await-medicao-20260618.yaml — detalhe completo da OBS-3 + passos exactos da medicao [EURICO] via §1.4 Alternativa A do runbook."
+    - "docs/handoffs/mj-handoff-6.8-export-gdpr-pr-open-20260618.yaml — PR #5 da Story 6.8 ABERTO a aguardar revisao/merge; bloqueador runtime = bucket `exports` no Supabase Storage."
+    - "docs/handoffs/mj-handoff-followups-soft-launch-20260615.yaml — catalogo-mae dos follow-ups [AGENTE] e do caminho critico [EURICO]."
+
+  decisoes_em_vigor:
+    - "Billing/Stripe CONGELADO (directiva Eurico 2026-05-29) — NAO draftar 6.3/6.4/6.5/6.6/6.10 nem escrever codigo de billing."
+    - "SEC-8 em HOLD."
+    - "Push/PR e EXCLUSIVO do @devops (e exige --push explicito no /sdc)."
+    - "Mercado PT-PT exclusivo; PT-PT em tudo."
+
+  perfil_operador:
+    - "Eurico NAO e tecnico de infra; satura com excesso de opcoes/detalhe. Conduzir 1 passo de cada vez, confirmar nome/URL antes de gravar, validar por screenshot."
+
+  blockers:
+    - "Nenhum bloqueador de codigo. Trabalho OBS-3 e doc-only e nem foi pushado. Tudo pendente e accao externa do Eurico (medicao /visao; revisao/merge PR #5; bucket exports)."
+
+next_action: >
+  Passos sugeridos para o novo terminal (sem ordem obrigatoria — perguntar ao
+  Eurico qual atacar):
+  1) OBS-3 — quando o Eurico tiver ~5 min num browser, medir a /visao
+     autenticada seguindo a §1.4 Alternativa A do runbook lighthouse-mobile.md
+     (login em expressia.pt -> F12 Lighthouse -> Mobile/Slow 4G/4x CPU ->
+     registar 6 valores + captura). Depois um agente preenche a tabela §2,
+     remove a nota §1.3, decide o Plano Fase 2 (>=85 nao-aplicavel / <85 abre
+     story + @architect) e leva OBS-3 a Done.
+  2) PR #5 da Story 6.8 — rever e fazer merge para main (accao @devops/Eurico);
+     pedir ao Eurico o bucket PRIVADO `exports` no Supabase Storage (eu-central-1)
+     + confirmar SUPABASE_SERVICE_ROLE_KEY/NEXT_PUBLIC_SUPABASE_URL em prod.
+  3) Em alternativa, retomar outro follow-up [AGENTE] do catalogo soft-launch
+     via /sdc (INVITE-E2E, multi-household) — NUNCA billing.
+  Decisao paralela: estrategia de push do trabalho doc-only OBS-3 (provavelmente
+  branch propria a partir de main, para nao contaminar o PR #5) — accao @devops.
+
+related:
+  - docs/handoffs/mj-handoff-obs3-inreview-await-medicao-20260618.yaml
+  - docs/handoffs/mj-handoff-6.8-export-gdpr-pr-open-20260618.yaml
+  - docs/handoffs/mj-handoff-followups-soft-launch-20260615.yaml
+  - docs/stories/active/OBS-3.lighthouse-visao-autenticada.story.md
+  - docs/runbooks/lighthouse-mobile.md

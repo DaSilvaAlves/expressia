@@ -1,0 +1,62 @@
+schema: 1
+story: 'OBS-3'
+slug: 'lighthouse-visao-autenticada'
+gate: CONCERNS
+status_reason: 'Trabalho autónomo doc-only sólido e tecnicamente correcto (procedimento §1.4 executável, rejeição da Alternativa B fundamentada contra o middleware real, zero valores Lighthouse inventados). CONCERNS — não PASS — porque o núcleo (T2 medição real da /visao autenticada, AC1/AC2/AC4/AC5) está deferido ao Eurico por design; a story permanece InReview e só passa a Done com o valor real + captura de ecrã (regra PO-S1).'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-06-18T00:00:00Z'
+
+quality_checks:
+  - id: 'AC3 — procedimento §1.4 Alternativa A (DevTools com sessão)'
+    result: PASS
+    evidence: 'runbook §1.4 linhas 63-76: fluxo passo-a-passo correcto e executável (build prod Vercel real, login conta com dados p/ forçar 7 widgets, F12→Lighthouse, Navigation/Mobile/Performance+Accessibility, Slow 4G+4×CPU). Equivalência aos flags CLI da §1.2 (--throttling-method=simulate + cpuSlowdownMultiplier=4) tecnicamente correcta. Exige captura de ecrã como evidência (Article IV).'
+  - id: 'AC3 — Alternativa B (CLI com sessão) avaliada e rejeitada'
+    result: PASS
+    evidence: 'runbook §1.4 linhas 78-86: rejeição solidamente fundamentada e verificada contra código de produção. (1) Cookie httpOnly confirmado — createServerClient @supabase/ssr no middleware.ts:21,54 escreve sb-* httpOnly. (2) JWT TTL 1h + refresh por request via getUser() confirmado no JSDoc middleware.ts:7 e linha 79; cookie estático em --extra-headers não dispara refresh-flow (depende do middleware reescrever cookies na response, linhas 62-70) — afirmação exacta. (3) Risco de segurança (token vivo em linha de comandos/histórico shell/logs CI) num SaaS multi-tenant — argumento válido. Sem furos técnicos.'
+  - id: 'Article IV — honestidade, zero valores inventados'
+    result: PASS
+    evidence: 'Linha §2 da /visao autenticada com 6 placeholders inequívocos _(a medir — sessão Eurico, OBS-3 T2)_ em TODAS as células. Nota §2 (linha 101) reforça pendência e proíbe estimativa. §1.4 termina com recusa explícita de documentar comando CLI não verificado. Nenhum número Lighthouse fabricado em todo o diff.'
+  - id: 'AC5 — nota de honestidade §1.3 actualizada (NÃO removida prematuramente)'
+    result: PASS
+    evidence: 'runbook §1.3 (diff linha 57): nota original mantida e actualizada para apontar §1.4 e marcar a medição autenticada como pendente (OBS-3 T2). Correcto — a remoção da nota só após valor real (AC5 + T3.3-parte-remoção deixada [ ]).'
+  - id: 'Distinção redirect vs autenticada (§2)'
+    result: PASS
+    evidence: 'Linha de redirect re-anotada "redirect target, NÃO a /visao real" (diff §2 linha 98); linha autenticada distinta e separada com nota dedicada a reforçar que a linha de redirect mede /entrar, não a rota renderizada. Inequívoco.'
+  - id: 'AC6 — scope contido, doc-only (zero código)'
+    result: PASS
+    evidence: 'git status: só docs/runbooks/lighthouse-mobile.md + a própria story modificados (HANDOFF-INDEX e YAML 6.8 alheios à story). Diff do runbook confinado a §1.3/§1.4/§2/§3 — zero alterações a baselines existentes ou §4/§5/§6. Afirmação doc-only verdadeira: lint/typecheck/test/build/check:rls não afectados, correctamente não re-corridos.'
+  - id: 'Coerência story↔entrega (checkboxes, Dev Agent Record, File List)'
+    result: PASS
+    evidence: 'Checkboxes [x] (T1, T3.1, T3.2, T5) correspondem ao entregue; deferidos [ ] (T2.x, T3.3-remoção, T4.x) correctos e justificados. Dev Agent Record, Completion Notes, Change Log v1.1-DEV e File List preenchidos e honestos (distinguem entregue vs deferido).'
+  - id: 'Blindagem contra Done prematuro (PO-S1)'
+    result: PASS
+    evidence: 'Regra PO-S1 no topo da story + ACs 1/2/5 dependentes de valor real + §3 condicional + Status=InReview. Story não pode ser fechada sem o número do Eurico — blindagem adequada.'
+
+top_issues:
+  - id: 'REQ-001'
+    severity: medium
+    finding: 'O núcleo da story (T2 — medição Lighthouse real da /visao autenticada) está deferido ao Eurico; AC1, AC2, AC4 (decisão Plano Fase 2) e AC5 (remoção da nota) ficam abertos até existir o valor real + captura de ecrã. Deferimento aprovado por design (PO GO 8,5/10; precedente Story 6.8) — não é defeito de implementação, mas é trabalho rastreado pendente que impede Done.'
+    suggested_action: 'Eurico executa a medição via §1.4 Alternativa A (DevTools, sessão real em produção), regista os 6 valores na linha §2 da /visao autenticada, guarda captura de ecrã, aplica a árvore de decisão da §3 (≥85 não-aplicável / <85 aplicável→nova story+@architect) e remove/actualiza a nota de honestidade da §1.3. Só então a story transita InReview→Done.'
+
+waiver: { active: false }
+
+defer_notes: |
+  Deferimento intencional e legítimo, não bloqueante para a qualidade do trabalho autónomo:
+    - T2.x (medição real) — exige sessão autenticada num browser real; agente headless
+      não autentica de forma segura (veredicto Alternativa B confirmado contra middleware.ts).
+      Constitution Article IV proíbe inventar/estimar o valor.
+    - T3.3 (parte de remoção da nota §1.3) — só após existir o valor real.
+    - T4.x (decisão Plano Fase 2) — depende do número (≥85 vs <85); §3 deixada condicional.
+  Precedente directo: Story 6.8 (Done) deferiu subtasks de runtime ao Eurico sem evidência
+  inventada (bucket exports / E2E upload). Mesmo padrão aplicado aqui — sólido.
+
+verdict_rationale: |
+  CONCERNS (não PASS): o trabalho autónomo entregue está completo no seu scope, é
+  tecnicamente correcto e honesto (Article IV cumprido à risca). Mas PASS exigiria todos
+  os ACs cumpridos — AC1/AC2/AC4/AC5 ficam abertos por desenho. CONCERNS exprime
+  exactamente o estado: nada está mal feito, há trabalho rastreado pendente de acção
+  externa do Eurico, e a story mantém-se InReview com blindagem PO-S1 contra Done prematuro.
+  Não é FAIL: zero erros técnicos no procedimento ou na avaliação da Alternativa B,
+  zero valores inventados, scope doc-only respeitado.
+
+code_intel_advisory: 'Blast radius nulo — entrega doc-only (1 ficheiro runbook). Sem impacto em código de produção, sem fan-out, gates de código inalterados.'

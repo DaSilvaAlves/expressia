@@ -1,0 +1,100 @@
+id: mj-handoff-6.8-export-gdpr-pr-open-20260618
+from_agent: orchestrator (/sdc)
+to_agent: any
+created: "2026-06-18T12:00:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: story-pr-open
+
+summary: >
+  Story 6.8 (Export GDPR — portabilidade de dados Art. 20 por endpoint
+  autenticado) percorreu o ciclo /sdc completo (sm -> po -> dev -> qa -> devops)
+  e esta em PR ABERTO a aguardar revisao/merge: PR #5
+  (https://github.com/DaSilvaAlves/expressia/pull/5), branch
+  feat/6.8-export-gdpr, commit a1a8abd. Gate @qa PASS 9/10 (alta confianca, com
+  teste de mutacao). 5/5 quality gates pre-push GREEN (lint 0 / typecheck 0 /
+  test web 1272/1272 / build 0 / check:rls EXIT 0). NAO foi feito merge. Existe
+  UM bloqueador de RUNTIME (nao de codigo): o bucket privado `exports` no
+  Supabase Storage tem de ser criado pelo Eurico antes do export funcionar em
+  producao. Billing CONTINUA CONGELADO; o proximo passo natural do Epic 6 (6.3
+  Stripe) NAO deve ser draftado.
+
+context:
+  branch_pr: feat/6.8-export-gdpr
+  commit: a1a8abd
+  pr: https://github.com/DaSilvaAlves/expressia/pull/5
+  pr_estado: OPEN / MERGEABLE / nao-draft
+  base: main
+  story_path: docs/stories/active/6.8.export-gdpr.story.md
+  story_status: Done
+  gate_path: docs/qa/gates/6.8-export-gdpr.yml
+  gate_veredicto: PASS 9/10 (Quinn @qa)
+
+  o_que_foi_entregue:
+    - "Endpoints: POST /api/conta/export (inicia job sincrono) + GET /api/conta/export/[jobId] (estado + signed URL)."
+    - "Logica GDPR em apps/web/src/lib/gdpr/: serialize (CSV PT-PT separador ; + BOM + colunas *_cents e *_eur com virgula decimal; JSON snake_case), entities (lista de entidades exportadas), storage (client service-role + upload ZIP + createSignedUrl 24h), export-job (transicoes de estado), audit, generate-export (orquestracao archiver@7.0.1)."
+    - "UI: pagina NOVA /conta/dados ('Os meus dados') + _components/export-data.tsx + link na Sidebar."
+    - "Schema data_export_jobs JA EXISTIA (audit.ts) — ZERO migrations, zero impacto no RLS Coverage Gate."
+    - "Testes: +34 (entities-schema invariante) -> total web 1272/1272."
+
+  decisoes_chave:
+    - "PO-D1 = geracao do ZIP SINCRONA/inline no request (nao Inngest) — KISS para soft-launch."
+    - "PO-D2 = headers CSV em PT-PT (JSON preserva snake_case tecnico para interoperabilidade Art. 20)."
+    - "PO-D3 = CSV inclui AMBAS as colunas amount_cents (fonte de verdade CON9) + amount_eur (decimal PT-PT) -> obriga separador de colunas ;."
+    - "UI ancorada em pagina NOVA /conta/dados (decisao Eurico) — /conta raiz NAO existe; so /conta/household e /conta/preferencias existiam."
+
+  seguranca_rls:
+    - "INSERT/SELECT do job via getDb()/withHousehold (role authenticated, RLS aplicada)."
+    - "TODO UPDATE/DELETE de status via getServiceDb() PRECEDIDO de verificacao app-level de pertenca (loadOwnedJob + assertOwnership: job.household_id === household do JWT). Obrigatorio porque a policy data_export_jobs_update_blocked usa using(false) — UPDATE via authenticated falha sempre. Precedente D-12C."
+    - "GET [jobId] valida pertenca antes de devolver o signed URL (sem IDOR; 404 sem revelar existencia)."
+    - "Billing congelado respeitado: export EXCLUI subscriptions/invoices/payment_methods/feature_flags + categorias globais is_default=true."
+
+  bug_apanhado_no_gate: >
+    O 1.o gate @qa deu FAIL (REL-001): a entidade households era exportada com
+    WHERE household_id = $hid, mas households nao tem essa coluna (PK e id) ->
+    Postgres 42703 partia o export inteiro (transacao unica). Corrigido na
+    iteracao 1/2: novo modo where 'self_by_id' (WHERE id = $hid) + switch
+    exaustivo em buildQuery + teste de invariante que parseia os schemas Drizzle
+    reais e valida que cada entidade so referencia colunas existentes (prova de
+    mutacao confirmou que apanharia o bug). Re-gate PASS 9/10.
+
+  bloqueador_runtime:
+    - "[EURICO] Criar bucket PRIVADO `exports` no Supabase Storage (eu-central-1). Sem ele, POST /api/conta/export falha no upload do ZIP. E bloqueador de RUNTIME, NAO de codigo."
+    - "[EURICO] Garantir SUPABASE_SERVICE_ROLE_KEY + NEXT_PUBLIC_SUPABASE_URL em producao (Vercel) para o client service-role de Storage."
+    - "Subtasks T1.2 (confirmar bucket) e T4.6-live (E2E upload real) ficaram DEFERIDAS e NAO marcadas — sem evidencia E2E inventada. Cobertas por mock + teste de invariante."
+
+  decisoes_em_vigor:
+    - "Billing/Stripe CONGELADO (directiva critica Eurico 2026-05-29) — NAO draftar 6.3/6.4/6.5/6.6/6.10 nem escrever codigo de billing."
+    - "SEC-8 em HOLD."
+    - "Push/PR e EXCLUSIVO do @devops."
+    - "Mercado PT-PT exclusivo; PT-PT em tudo."
+
+  blockers:
+    - "Nenhum bloqueador de codigo/merge. PR #5 esta MERGEABLE. So falta revisao humana + (runtime) o bucket exports."
+
+next_action: >
+  1) Rever e fazer merge do PR #5 (feat/6.8-export-gdpr) para main — accao do
+  @devops/Eurico (push/merge e exclusivo do @devops). 2) Pedir ao Eurico para
+  criar o bucket PRIVADO `exports` no Supabase Storage (eu-central-1) e confirmar
+  SUPABASE_SERVICE_ROLE_KEY + NEXT_PUBLIC_SUPABASE_URL em prod, DEVAGAR (1 passo
+  de cada vez, confirmar nomes antes de gravar — Eurico nao e tecnico de infra).
+  3) So depois do bucket: smoke E2E do export em producao (registar -> /conta/dados
+  -> exportar -> descarregar ZIP -> validar JSON+CSV). Em alternativa, retomar
+  outro follow-up [AGENTE] do catalogo soft-launch via /sdc (2 alertas Grafana,
+  OBS-3 Lighthouse, INVITE-E2E) — NUNCA billing.
+
+perfil_operador:
+  - "Eurico NAO e tecnico de infra; satura com excesso de opcoes/detalhe. Conduzir 1 passo de cada vez, confirmar nome/URL antes de gravar, validar por screenshot."
+
+related:
+  - docs/stories/active/6.8.export-gdpr.story.md
+  - docs/qa/gates/6.8-export-gdpr.yml
+  - docs/handoffs/mj-handoff-followups-soft-launch-20260615.yaml
+  - docs/handoffs/mj-handoff-go-live-residues-20260618.yaml
+  - apps/web/src/lib/gdpr/generate-export.ts
+  - apps/web/src/lib/gdpr/entities.ts
+  - apps/web/src/app/api/conta/export/route.ts

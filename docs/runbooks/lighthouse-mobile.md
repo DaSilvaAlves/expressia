@@ -54,7 +54,36 @@ Alternativa sem CLI: Chrome DevTools → painel Lighthouse → device "Mobile" +
 | `/entrar` | Superfície auth simples (form de login) |
 | `/visao` | Rota app mais complexa (até 7 widgets) |
 
-> **Limitação honesta (CLI sem sessão):** `/visao` exige sessão autenticada. Um pedido Lighthouse sem cookies de sessão é interceptado pelo `middleware.ts` e redireccionado para `/entrar?next=/visao` — pelo que o CLI mede, de facto, a **página de destino do redirect** (`/entrar`), não a `/visao` renderizada com widgets. A `/visao` autenticada não é mensurável por CLI sem um fluxo de login programático (fora do scope desta story — DP-5.10.C rejeita E2E Playwright). Para medir a `/visao` real, usar o painel Lighthouse do Chrome DevTools com uma sessão iniciada manualmente. O valor abaixo para `/visao` corresponde ao redirect target.
+> **Limitação honesta (CLI sem sessão):** `/visao` exige sessão autenticada. Um pedido Lighthouse sem cookies de sessão é interceptado pelo `middleware.ts` e redireccionado para `/entrar?next=/visao` — pelo que o CLI mede, de facto, a **página de destino do redirect** (`/entrar`), não a `/visao` renderizada com widgets. A `/visao` autenticada não é mensurável por CLI sem um fluxo de login programático (fora do scope desta story — DP-5.10.C rejeita E2E Playwright). Para medir a `/visao` real, usar o painel Lighthouse do Chrome DevTools com uma sessão iniciada manualmente (ver §1.4). O valor da `/visao` na tabela da §2 que corresponde ao redirect target está anotado como tal; a medição autenticada real está **pendente** (OBS-3 T2, sessão Eurico).
+
+### 1.4 Medição de rotas autenticadas (com sessão)
+
+As rotas em `(app)/**` (`/visao`, `/tarefas`, `/financas`, …) exigem sessão autenticada — o `middleware.ts` redirecciona qualquer pedido sem cookies de sessão para `/entrar?next=...` (ver §1.3, limitação honesta). Para medir a **`/visao` real** (com os 7 widgets do `<WidgetGrid>` carregados), é preciso medir com uma sessão iniciada no browser.
+
+#### Alternativa A — Chrome DevTools com sessão (recomendada)
+
+Este é o procedimento aprovado para rotas autenticadas. Não exige CLI nem extracção de cookies.
+
+1. **Build de produção.** Medir contra produção real (Vercel), não localhost — para reflectir a latência de rede real, o bundle de produção e os tempos de resposta dos endpoints `/api/visao/*`. URL: `https://expressia.pt` (se DNS activo) ou `https://expressia-black.vercel.app` (fallback).
+2. **Iniciar sessão.** Fazer login com uma conta de teste que tenha **dados existentes** (algumas tarefas, transacções, contas) — isto força o carregamento real dos 7 widgets, em vez de estados vazios que subestimariam o trabalho de render.
+3. **Navegar para `/visao`** e aguardar que os widgets carreguem completamente.
+4. **Abrir o painel Lighthouse:** `F12` (DevTools) → separador **Lighthouse**.
+5. **Configurar a auditoria:**
+   - **Mode:** Navigation (default).
+   - **Device:** `Mobile`.
+   - **Categories:** `Performance` + `Accessibility` (desmarcar SEO/PWA/Best Practices — não medidos neste MVP, alinhado com `--only-categories` da §1.2).
+   - **Throttling:** o painel DevTools aplica por defeito `Slow 4G` + `4× CPU slowdown` em modo Mobile — equivalente aos flags `--throttling-method=simulate` + `--throttling.cpuSlowdownMultiplier=4` da §1.2. Confirmar em ⚙ (settings do painel) que o throttling está em "Simulated throttling".
+6. **Correr `Analyze page load`.** Com a sessão activa, o Lighthouse audita a `/visao` renderizada (não o redirect). Registar: **Performance, Accessibility, FCP, LCP, TBT, CLS** e **guardar captura de ecrã** do relatório como evidência (exigência da Constitution Article IV — medições reais).
+
+#### Alternativa B — Lighthouse CLI com cookie de sessão (avaliada: **inviável** para esta story)
+
+Avaliou-se a viabilidade do Lighthouse CLI com a flag `--extra-headers` (injecção do cookie de sessão Supabase no pedido headless). **Conclusão: não recomendada.** Razões:
+
+1. **Cookie httpOnly.** O `@supabase/ssr` (`createServerClient` no `middleware.ts`) escreve a sessão em cookies `sb-<project-ref>-auth-token` marcados **httpOnly** — não acessíveis via `document.cookie`/JS. A extracção exigiria copiar manualmente o valor via DevTools → Application → Cookies, uma operação frágil e propensa a erro (o cookie pode estar fragmentado em `.0`/`.1`).
+2. **Sessão de curta duração.** O JWT Supabase tem TTL de 1h (Architecture §5.1; o `middleware.ts` refresca-o por request via `getUser()`). Um cookie estático passado em `--extra-headers` **não dispara o refresh-token flow** (que depende de o middleware reescrever cookies na response) — pelo que a medição é não-reprodutível e pode correr já com a sessão expirada (medindo, outra vez, o redirect para `/entrar`).
+3. **Risco de segurança.** Colar um token de sessão vivo num argumento de linha de comandos (fica em histórico de shell, logs de CI, ficheiros de configuração) é má prática para um SaaS multi-tenant — expõe credenciais de sessão.
+
+Por estas razões, **não se documenta um comando CLI autenticado** (não verificado e não seguro). A medição autenticada faz-se exclusivamente pela **Alternativa A (DevTools)**. O procedimento CLI da §1.2 mantém-se válido e inalterado para as rotas **públicas** (`/`, `/entrar`).
 
 ---
 
@@ -66,7 +95,10 @@ Medições reais, mobile, CPU 4× slowdown, 4G simulado (Lantern), build de prod
 |------|:-----------:|:-------------:|:---:|:---:|:---:|:---:|
 | `/` (landing) | **99** | **95** | 0,8 s | 1,0 s | 140 ms | 0 |
 | `/entrar` | **96** | **95** | 0,8 s | 2,6 s | 120 ms | 0 |
-| `/visao` (→ redirect `/entrar?next=/visao`) | 95 | 95 | 0,9 s | — | — | 0 |
+| `/visao` (→ redirect `/entrar?next=/visao` — **redirect target, NÃO a `/visao` real**) | 95 | 95 | 0,9 s | — | — | 0 |
+| `/visao` (autenticada — sessão DevTools, 7 widgets) | _(a medir — sessão Eurico, OBS-3 T2)_ | _(a medir — OBS-3 T2)_ | _(a medir — OBS-3 T2)_ | _(a medir — OBS-3 T2)_ | _(a medir — OBS-3 T2)_ | _(a medir — OBS-3 T2)_ |
+
+> **Linha `/visao` autenticada — pendente de medição real.** Os campos `_(a medir …)_` acima são placeholders explícitos: a `/visao` autenticada (rota mais complexa da app, com os 7 widgets do `<WidgetGrid>`) ainda **não foi medida**. A medição faz-se via Chrome DevTools com sessão iniciada (procedimento em §1.4, Alternativa A) e está deferida ao Eurico (OBS-3 T2 — exige sessão real no browser; um agente headless não autentica de forma segura, ver §1.4 Alternativa B). Proibido preencher com valores inventados ou estimados (Constitution Article IV). A linha de redirect imediatamente acima **não** representa a `/visao` real — mede a página `/entrar` de destino do redirect.
 
 ### 2.1 AC numérico adoptado (DP-5.10.A = B)
 
@@ -91,6 +123,8 @@ Caso uma futura medição da `/visao` **autenticada** (com 7 widgets activos, vi
 3. Revisão do First Load JS partilhado (≈ 207 kB no baseline) — auditar dependências do shell.
 
 Estas acções ficam registadas como follow-up condicional, **não** como trabalho desta story.
+
+> **Avaliação pendente da medição autenticada (OBS-3).** A decisão "aplicável" vs. "não aplicável" para a `/visao` **autenticada** continua **condicional** até existir o valor real de Performance dessa rota (ver §2, linha `/visao` autenticada — placeholders `a medir`). O baseline ≥ 95 acima refere-se às rotas **públicas mensuráveis** (`/`, `/entrar`) e ao redirect target — **não** à `/visao` renderizada com os 7 widgets. Assim que a medição da §1.4 for registada (OBS-3 T2, sessão Eurico), aplicar a árvore: Performance ≥ 85 → manter "não aplicável" com o valor real; Performance < 85 → marcar "aplicável" e abrir story de optimização com as acções acima por ordem de impacto, escalando ao @architect. Esta avaliação **não** é decidida nesta passagem do runbook — depende do número real.
 
 ---
 

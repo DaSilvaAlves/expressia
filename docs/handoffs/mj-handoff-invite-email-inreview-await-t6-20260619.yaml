@@ -1,0 +1,98 @@
+id: mj-handoff-invite-email-inreview-await-t6-20260619
+from_agent: orchestrator (/sdc)
+to_agent: any
+created: "2026-06-19T02:30:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: story-inreview + estado-a-preservar
+
+summary: >
+  Ciclo /sdc COMPLETO da story INVITE-EMAIL (envio automático de email no convite de
+  família via Resend, reverte D-6.7.3 "MVP sem Resend"). @sm (Draft) -> @po (GO 8,5/10,
+  3 SHOULD-FIX aplicados: padrao SEC-9 truthy, ancora de integracao) -> @dev (codigo
+  completo, 5/5 gates verdes) -> @qa (PASS 9,4/10, teste de mutacao + 8/8 checks
+  anti-alucinacao). Codigo PRONTO no working tree de feat/6.8-export-gdpr; SEM push
+  (ciclo sem --push; push e exclusivo do @devops). Transicao para Done BLOQUEADA por T6
+  (precondicao externa [EURICO]). Persiste o estado a preservar do predecessor: hotfix
+  0024 vivo em prod por commitar.
+
+context:
+  branch_atual: feat/6.8-export-gdpr
+  push: NAO (nada commitado; push exclusivo do @devops)
+
+  story:
+    path: docs/stories/active/INVITE-EMAIL.envio-email-convite-resend.story.md
+    status: "InReview — @qa PASS 9,4/10; Done bloqueado por T6"
+    gate_file: docs/qa/gates/INVITE-EMAIL-envio-email-convite-resend.yml
+
+  entregue_codigo:
+    - "NOVO apps/web/src/lib/email/resend.ts — helper sendInviteEmail({to,inviteUrl,inviterName?}): Promise<{ok,reason?}>; NUNCA lanca; guard RESEND_API_KEY ausente -> {ok:false,reason:'missing-api-key'}; remetente 'Expressia <convites@euricoalves.pt>' (ALTERADO 19/06 de @expressia.pt -> @euricoalves.pt: unico dominio verificado no plano gratuito do Resend; expressia.pt exigiria Pro $20/mes; decisao Eurico); copy PT-PT (plaintext + HTML com escapeHtml no inviteUrl); RESEND_API_KEY lido em RUNTIME dentro da funcao (nao top-level)."
+    - "NOVO apps/web/src/lib/email/__tests__/resend.test.ts — 6 testes (sucesso, Resend lanca, chave ausente, smoke copy PT-PT); vi.mock('resend') + vi.hoisted."
+    - "MOD apps/web/src/app/api/conta/household/invites/route.ts — integracao best-effort entre o try/catch do insertAuditLog e o annotateSpan(201); inviteUrl com padrao SEC-9 truthy (NAO ??): base = SITE_URL ? SITE_URL.replace(/\\/$/,'') : 'https://expressia.pt'; falha de email faz log.warn + captureException, resposta 201 mantida; acceptPath continua no JSON (fallback UI)."
+    - "MOD apps/web/src/app/api/conta/household/invites/__tests__/route.test.ts — vi.mock('@/lib/email/resend') para o teste 201 nao importar o cliente Resend real; 6/6 verdes."
+    - "MOD apps/web/package.json + pnpm-lock.yaml — resend ^6.14.0."
+
+  dev_decisions:
+    - "D-IE.1: erro da API Resend e ErrorResponse ({message,statusCode,name}), NAO instancia de Error; usar error.message directo (tipado, sem any) — caso contrario reason ficaria '[object Object]'."
+    - "D-IE.2: versao HTML minima adicionada (nao-bloqueante) com escapeHtml no inviteUrl (anti-XSS via token). Plaintext mantem-se como corpo principal."
+    - "D-IE.3: teste do helper usa vi.hoisted para as refs do mock (factory de vi.mock e icada; nao pode referenciar const normais)."
+
+  gates_verdes:
+    lint: "exit 0 — No ESLint warnings or errors (re-corrido sem cache pelo @qa)"
+    typecheck: "exit 0 — TS strict (re-corrido sem cache pelo @qa)"
+    test_web: "1278/1278 verdes (156 ficheiros; +6 do helper; handler 6/6 com novo mock)"
+    build: "exit 0 — corrido (nao saltado; porta 3000 livre, gotcha .next nao aplicavel)"
+    check_rls: "exit 0 — zero-migration; household_invites coberto"
+    teste_mutacao: "removido o catch interno do helper -> 2 testes falharam (contrato AC8/AC10 guardado); ficheiro restaurado, resend.ts fora do git diff"
+
+  finding_qa_low:
+    TEST-001: "Nao ha teste no route.test.ts que prove, no handler, que email a falhar ainda devolve 201 (mock devolve sucesso por defeito). Best-effort provado por leitura de codigo + mutacao ao helper. Sugestao (nao-bloqueante): 1 caso onde sendInviteEmail rejeita e assertar 201."
+
+  # ─────────────────────────────────────────────────────────────────
+  estado_a_preservar_do_predecessor:
+    HOTFIX_0024_EM_PROD_POR_COMMITAR:
+      o_que: "packages/db/migrations/0024_fix_invites_select_policy_auth_users.sql APLICADA em prod (registada em __schema_migrations) mas SO no working tree — repo diverge de prod ate o @devops commitar/pushar."
+      fix_resumo: "funcao public.current_user_email() SECURITY DEFINER + recriacao da policy household_invites_select_household_or_invited (deixou de aceder auth.users inline -> resolve SQLSTATE 42501)."
+      validado: "@data-engineer APROVADO; suite RLS local 12/12; re-teste prod GET/POST /invites = 200, zero 42501."
+      accao_devops: "commitar 0024 ao repo (branch propria a partir de main + PR, ou conforme estrategia @devops). Auditar __schema_migrations vs ficheiros 0000..0024 (nota_0023: 0023 nao estava registada em prod, re-aplicada idempotente)."
+    OUTRO_INREVIEW_EURICO:
+      - "Story 6.8 (export GDPR): PR #5 ABERTO + bucket exports [EURICO]. Handoff mj-handoff-6.8-export-gdpr-pr-open-20260618."
+      - "Story OBS-3 (Lighthouse /visao): InReview, aguarda medicao [EURICO]. Handoff mj-handoff-obs3-inreview-await-medicao-20260618."
+      - "Story INVITE-E2E (smoke convite): InReview, aguarda smoke real [EURICO]. Handoff mj-handoff-invite-e2e-inreview-await-smoke-20260618."
+
+  decisoes_em_vigor:
+    - "Billing/Stripe CONGELADO (directiva Eurico 2026-05-29)."
+    - "SEC-8 em HOLD."
+    - "Push/PR e EXCLUSIVO do @devops."
+    - "Mercado PT-PT exclusivo; PT-PT em tudo."
+    - "Eurico nao e tecnico de infra — 1 passo de cada vez, validar por screenshot/logs, porque antes de como."
+
+  config_externa_eurico_19jun:
+    - "T6.1 FEITO: RESEND_API_KEY criada (key 'expressia-web', Sending? -> Full access) e guardada na Vercel como env var Sensitive em Production+Preview. Aviso da Vercel 'new deployment needed' NAO accionado (codigo novo ainda nao esta em prod; o redeploy fica para o @devops apos push)."
+    - "T6.2 FEITO: dominio remetente = euricoalves.pt (ja Verified no Resend, Ireland eu-west-1). expressia.pt NAO foi adicionado (plano gratuito Resend = 1 dominio; adicionar 2.o exige Pro $20/mes). Decisao Eurico: usar euricoalves.pt; nome de exibicao mantem-se 'Expressia'. Codigo alterado + testes 6/6 verdes + typecheck/lint OK (re-corridos 19/06)."
+
+  blockers:
+    - "So falta T6.3 para Done: smoke E2E manual em prod (criar convite -> email chega a euricoalvesia@gmail.com -> link /aceitar-convite/{token} funciona). SO POSSIVEL APOS o @devops pushar+deployar o codigo (a feature ainda nao esta em prod)."
+
+next_action: >
+  [@devops] PRIMEIRO: sincronizar repo (commitar migration 0024 — viva em prod por commitar —
+  depois esta story) e push/deploy conforme estrategia (branch a partir de main / PR). A
+  RESEND_API_KEY ja esta na Vercel, por isso o deploy do @devops ja a apanha. DEPOIS [EURICO]:
+  T6.3 smoke E2E em prod (criar convite -> confirmar email chega de 'Expressia <convites@euricoalves.pt>'
+  -> link funciona) -> story passa a Done. Opcional [AGENTE]: fechar o NIT TEST-001 (1 caso de
+  email-a-falhar no route.test) antes do push.
+
+related:
+  - docs/stories/active/INVITE-EMAIL.envio-email-convite-resend.story.md
+  - docs/qa/gates/INVITE-EMAIL-envio-email-convite-resend.yml
+  - apps/web/src/lib/email/resend.ts
+  - apps/web/src/app/api/conta/household/invites/route.ts
+  - packages/db/migrations/0024_fix_invites_select_policy_auth_users.sql
+  - docs/handoffs/mj-handoff-invite-email-resend-20260619.yaml
+
+perfil_operador:
+  - "Eurico NAO e tecnico; satura com excesso de detalhe. 1 passo de cada vez, validar por screenshot. Explicar o PORQUE antes do COMO e mostrar evidencia."

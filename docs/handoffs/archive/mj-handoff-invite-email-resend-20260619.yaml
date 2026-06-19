@@ -1,0 +1,139 @@
+id: mj-handoff-invite-email-resend-20260619
+from_agent: orchestrator (/sdc + hotfix)
+to_agent: any
+created: "2026-06-19T00:40:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-19T02:30:00Z"
+consumed_by: orchestrator (/sdc)
+consumed_note: >
+  Feature arrancada e ciclo /sdc completo — story INVITE-EMAIL (@qa PASS 9,4/10),
+  InReview a aguardar T6 [EURICO]. Residuais (hotfix 0024 por commitar + push @devops +
+  T6) transportados para o sucessor mj-handoff-invite-email-inreview-await-t6-20260619.
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: feature-request + estado-a-preservar
+
+summary: >
+  MIGRAÇÃO DE TERMINAL (este terminal com contexto já alto). Pedido do Eurico:
+  LIGAR O ENVIO DE EMAIL AOS CONVITES DE FAMÍLIA (hoje o convite só gera um link
+  manual na UI — DEV-DECISION D-6.7.3 "MVP sem Resend"). O Eurico esperava que o
+  convite chegasse por email a euricoalvesia@gmail.com e não chegou — porque o
+  envio automático nunca existiu. A feature de convites em si está PROVADA E2E em
+  produção nesta sessão (ver abaixo). Falta a melhoria: enviar o link por email
+  via Resend.
+  ATENÇÃO — ESTADO A PRESERVAR ANTES DE QUALQUER COISA: um hotfix de base de dados
+  (migration 0024) foi APLICADO EM PRODUÇÃO mas o ficheiro NÃO está commitado nem
+  pushado (vive no working tree). O repo está dessincronizado de produção até o
+  @devops commitar/pushar. Ver secção estado_a_preservar.
+
+context:
+  branch_atual: feat/6.8-export-gdpr
+  push: NAO (nada commitado nesta sessão; push é exclusivo do @devops)
+
+  # ─────────────────────────────────────────────────────────────────
+  estado_a_preservar:
+    HOTFIX_0024_EM_PROD_POR_COMMITAR:
+      o_que: >
+        Bug real apanhado pelo smoke INVITE-E2E em prod (expressia.pt): criar/listar
+        convites dava 500. Causa-raiz (log Vercel): SQLSTATE 42501 "permission denied
+        for table users". A policy `household_invites_select_household_or_invited`
+        (0001_rls_policies.sql:117-124) acedia `auth.users` INLINE:
+        `or email = (select email from auth.users where id = auth.uid())`.
+        A subconsulta corre como role `authenticated` (sem SELECT em auth.users) → 42501.
+        Como o POST faz INSERT...RETURNING, o RETURNING avalia a policy SELECT → o INSERT
+        também rebentava. (Era a ÚNICA policy do schema com auth.users inline.)
+      fix: >
+        Nova migration `packages/db/migrations/0024_fix_invites_select_policy_auth_users.sql`:
+        função `public.current_user_email()` SECURITY DEFINER (padrão idêntico a
+        is_household_member; devolve só o email do próprio auth.uid()) + recriação da
+        policy a usá-la. NÃO se fez `GRANT SELECT ON auth.users TO authenticated` (inseguro).
+      validado: >
+        Revisão @data-engineer = APROVADO. Suite RLS local (Testcontainers, Docker) aplicou
+        TODAS as migrations incl. 0024 e passou 12/12 (9 accept_invite + 3 household_invites.rls).
+        APLICADO EM PROD via `pnpm --filter @meu-jarvis/db db:migrate` (DIRECT_URL) — sucesso.
+        Re-teste em prod: GET/POST /invites passaram a 200 (antes 500); zero 42501 nos logs.
+      ACCAO_DEVOPS_URGENTE: >
+        Commitar `packages/db/migrations/0024_*.sql` ao repo (branch própria a partir de main +
+        PR, ou conforme estratégia @devops) — o ficheiro está SÓ no working tree mas a migration
+        JÁ corre em prod (registada em __schema_migrations). Sem commit, o repo diverge de prod.
+      nota_0023: >
+        O runner também (re)aplicou a 0023_finance_cross_tenant_fk_guard.sql — não estava
+        registada em __schema_migrations em prod (apesar de a memória a dar como aplicada).
+        É idempotente (drop+create trigger), re-aplicação inócua. Mas indica POSSÍVEL
+        dessincronização do tracking de migrations em prod — vale a pena o @data-engineer/@devops
+        auditar `__schema_migrations` vs ficheiros 0000..0024 num momento calmo.
+
+    SMOKE_INVITE_E2E_RESULTADO:
+      provado_em_prod:
+        - "Criar convite (POST /invites) → gera token + acceptPath. OK (após fix 0024)."
+        - "Link de convite aparece na UI (/conta/household, caixa 'Link de convite')."
+        - "Página de aceitação /aceitar-convite/{token} carrega ('Convite para uma família' + botão Aceitar)."
+        - "Guard de email-match: abrir o link numa conta com email diferente mostra 'Este convite foi enviado para outro email. Entra com a conta certa.' — correcto."
+      por_validar: "Aceitar de facto numa 2.ª conta com o email certo (euricoalvesia@gmail.com) + membro aparece na lista; remover membro; owner-guard 422."
+      story: docs/stories/active/INVITE-E2E.smoke-ciclo-convite-household.story.md (InReview)
+      runbook: docs/runbooks/invite-e2e-smoke.md
+
+    OUTRO_WORKING_TREE_NAO_COMMITADO:
+      - "Story 6.8 (export GDPR): PR #5 ABERTO a aguardar revisão/merge + bucket `exports` [EURICO]. Handoff mj-handoff-6.8-export-gdpr-pr-open-20260618."
+      - "Story OBS-3 (Lighthouse /visao): InReview, a aguardar medição [EURICO]. Handoff mj-handoff-obs3-inreview-await-medicao-20260618."
+      - "Story INVITE-E2E: runbook + story + gate (handoff mj-handoff-invite-e2e-inreview-await-smoke-20260618)."
+
+  # ─────────────────────────────────────────────────────────────────
+  feature_pedida_ligar_email_convites:
+    objetivo: >
+      Após criar um convite (POST /api/conta/household/invites), enviar AUTOMATICAMENTE
+      um email ao endereço convidado com o link /aceitar-convite/{token}. Reverter a
+      DEV-DECISION D-6.7.3 ("MVP sem Resend — link manual"). Manter o link na UI como
+      fallback.
+
+    estado_tecnico_actual:
+      - "`RESEND_API_KEY` declarado em .env.example (linha 55, 'Email transaccional (Resend, EU)'). Confirmar se está definido em prod (Vercel) — o Resend HOJE só está ligado via SMTP do Supabase para emails de AUTH (registo/confirmação/reset, provado E2E — memória go_live_email_live)."
+      - "NÃO existe lib/helper de envio de email custom na app (sem package @meu-jarvis/email, sem sendEmail). Enviar email de convite é via API Resend DIRECTA (não o fluxo de auth do Supabase) → trabalho novo."
+      - "Handler do convite: apps/web/src/app/api/conta/household/invites/route.ts (POST, ~linha 165-225). Já constrói o convite e devolve acceptPath. O link absoluto na UI é window.location.origin + acceptPath; num email server-side usar a origin de confiança (env SITE_URL=https://expressia.pt já em prod; ver .env.example linha 78 sobre origin de confiança para links de email)."
+      - "Template/copy: PT-PT obrigatório. Remetente: confirmar domínio Resend (memória soft_launch: `@expressia.pt` no Resend é Caminho B, pode ainda não estar verificado — validar)."
+
+    decisoes_a_tomar_po_architect:
+      - "Envio best-effort (cria o convite e tenta enviar; link continua na UI como fallback; falha de email NÃO reverte o convite) vs bloqueante. Recomendado: best-effort + log, espelhando o padrão insertAuditLog do handler."
+      - "Onde vive o cliente Resend: lib nova em apps/web/src/lib/email/ ou package @meu-jarvis/email. Seguir convenção do repo (imports absolutos @/..., PT-PT, sem any)."
+      - "Reenvio/expiração: o convite expira em 7 dias; avaliar botão 'reenviar email' (pode ficar fora de scope)."
+
+    sugestao_de_arranque: >
+      Correr via /sdc como story nova (ex.: 6.7.1 ou INVITE-EMAIL): @sm draft → @po →
+      @dev (criar lib Resend + template PT-PT + chamada best-effort no POST invites +
+      testes) → @qa. NÃO fazer push (deixar ao @devops). Verificar RESEND_API_KEY em prod
+      com o Eurico antes de marcar a feature como provada E2E (precondição externa, padrão
+      das stories anteriores).
+
+  decisoes_em_vigor:
+    - "Billing/Stripe CONGELADO (directiva Eurico 2026-05-29)."
+    - "SEC-8 em HOLD."
+    - "Push/PR é EXCLUSIVO do @devops."
+    - "Mercado PT-PT exclusivo; PT-PT em tudo (copy do email de convite incluída)."
+    - "Eurico não é técnico de infra — conduzir 1 passo de cada vez, validar por screenshot/logs."
+
+  blockers:
+    - "Nenhum bloqueador de código para arrancar a feature. Precondição externa antes de provar E2E: RESEND_API_KEY em prod + domínio remetente verificado no Resend."
+
+next_action: >
+  PRIMEIRO (urgente, @devops): commitar/pushar a migration 0024 (já viva em prod) para
+  realinhar repo↔prod; idealmente branch própria a partir de main + PR. DEPOIS arrancar a
+  feature de envio de email dos convites via Resend (story nova /sdc, sem --push). Verificar
+  RESEND_API_KEY/remetente em prod com o Eurico. Estado paralelo a não esquecer: PR #5 da 6.8
+  (revisão/merge + bucket exports) e medição OBS-3 — ambos [EURICO].
+
+related:
+  - packages/db/migrations/0024_fix_invites_select_policy_auth_users.sql
+  - apps/web/src/app/api/conta/household/invites/route.ts
+  - apps/web/src/app/(app)/conta/household/_components/household-editor.tsx
+  - apps/web/src/app/aceitar-convite/[token]/page.tsx
+  - docs/stories/active/INVITE-E2E.smoke-ciclo-convite-household.story.md
+  - docs/runbooks/invite-e2e-smoke.md
+  - docs/handoffs/mj-handoff-invite-e2e-inreview-await-smoke-20260618.yaml
+  - docs/handoffs/mj-handoff-6.8-export-gdpr-pr-open-20260618.yaml
+  - docs/handoffs/mj-handoff-obs3-inreview-await-medicao-20260618.yaml
+
+perfil_operador:
+  - "Eurico NÃO é técnico; satura com excesso de detalhe. Conduzir 1 passo de cada vez, validar por screenshot. Frustra-se quando algo 'não funciona' — explicar o PORQUÊ antes do COMO e mostrar evidência."

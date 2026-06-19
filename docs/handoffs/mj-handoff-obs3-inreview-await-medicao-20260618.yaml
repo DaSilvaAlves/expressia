@@ -1,0 +1,75 @@
+id: mj-handoff-obs3-inreview-await-medicao-20260618
+from_agent: orchestrator (/sdc)
+to_agent: eurico
+created: "2026-06-18T13:30:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: low
+type: story-inreview-await-external
+
+summary: >
+  Story OBS-3 (medir Lighthouse da /visao AUTENTICADA e completar
+  docs/runbooks/lighthouse-mobile.md) percorreu o ciclo /sdc completo
+  (sm -> po -> dev -> qa) e esta em InReview. O trabalho AUTONOMO doc-only
+  esta entregue e validado: gate @qa = CONCERNS (REQ-001), aceite WAIVED pelo
+  Eurico. O nucleo da story — a medicao Lighthouse real — fica DEFERIDO ao
+  Eurico porque exige uma sessao autenticada num browser real (Constitution
+  Article IV proibe inventar valores). NAO foi feito push (ciclo correu sem
+  --push); o trabalho vive no working tree. Billing CONTINUA CONGELADO.
+
+context:
+  story_path: docs/stories/active/OBS-3.lighthouse-visao-autenticada.story.md
+  story_status: InReview
+  gate_path: docs/qa/gates/OBS-3-lighthouse-visao-autenticada.yml
+  gate_veredicto: CONCERNS (Quinn @qa) -> WAIVED (Eurico)
+  branch_atual: feat/6.8-export-gdpr
+  push: NAO (ciclo /sdc sem --push; trabalho no working tree, nao commitado)
+
+  ciclo_sdc:
+    - "@sm (River): story criada, story-draft-checklist APPROVED."
+    - "@po (Pax): GO 8,5/10. Should-fix S1 aplicado (regra de transicao de estado PO-S1: nunca Done sem medicao real)."
+    - "@dev (Dex): scope reduzido ao autonomo. Doc-only, zero codigo."
+    - "@qa (Quinn): CONCERNS (REQ-001) — trabalho autonomo solido, story aguarda medicao externa."
+
+  o_que_foi_entregue:
+    - "Runbook docs/runbooks/lighthouse-mobile.md: nova §1.4 'Medicao de rotas autenticadas (com sessao)' — Alternativa A (Chrome DevTools com sessao, recomendada, passo-a-passo) + Alternativa B (Lighthouse CLI com cookie) AVALIADA E REJEITADA como inviavel/insegura (cookie sb-* httpOnly; JWT TTL 1h sem refresh via --extra-headers; risco de expor token vivo)."
+    - "§2 tabela: linha nova '/visao (autenticada — sessao DevTools, 7 widgets)' com placeholders inequivocos '_(a medir — sessao Eurico, OBS-3 T2)_' nas 6 celulas; linha de redirect existente re-anotada 'redirect target, NAO a /visao real'."
+    - "§1.3 nota de honestidade ACTUALIZADA (nao removida) — aponta §1.4 e marca medicao pendente."
+    - "§3 Plano Fase 2: nota de que a avaliacao fica pendente da medicao; estrutura condicional intacta."
+
+  o_que_falta_DEFERIDO_eurico:
+    - "[EURICO] Medir a /visao AUTENTICADA via §1.4 Alternativa A: 1) login em https://expressia.pt (ou https://expressia-black.vercel.app) com conta com dados (forcar os 7 widgets); 2) F12 -> Lighthouse -> Mode=Navigation, Device=Mobile, Categories=Performance+Accessibility, Throttling=Slow 4G/4x CPU (confirmar 'Simulated throttling' nas settings do painel); 3) navegar para /visao, aguardar widgets; 4) 'Analyze page load'; 5) registar Performance, Accessibility, FCP, LCP, TBT, CLS + guardar captura de ecra."
+    - "Depois da medicao (acoes de fecho da story, podem ser de agente): T2.5 preencher a linha da tabela §2 com os 6 valores reais; T3.3 remover a nota de limitacao da §1.3 (so apos existir o numero real); T4 decidir o Plano Fase 2 pela arvore da §3 — Performance >= 85 => 'nao aplicavel' (confirmar com o valor real); Performance < 85 => 'aplicavel', abrir story de optimizacao (dynamic import dos widgets / code splitting por rota / revisao First Load JS ~207kB) e escalar ao @architect."
+    - "So depois disto: Status InReview -> Done (regra PO-S1)."
+
+  decisoes_em_vigor:
+    - "Billing/Stripe CONGELADO (directiva Eurico 2026-05-29) — NAO draftar 6.3/6.4/6.5/6.6/6.10."
+    - "SEC-8 em HOLD."
+    - "Push/PR e EXCLUSIVO do @devops."
+    - "Mercado PT-PT exclusivo; PT-PT em tudo."
+
+  blockers:
+    - "Nenhum bloqueador de codigo. So falta a medicao externa (sessao Eurico no browser). Nao e bloqueador de merge — e doc-only e nem sequer foi pushado."
+
+next_action: >
+  Quando o Eurico tiver 5 min num browser: medir a /visao autenticada seguindo
+  a §1.4 Alternativa A do runbook (passos acima), guardar os 6 valores + captura
+  de ecra, e pedir a um agente para preencher a tabela §2, fechar T3.3/T4 e
+  transicionar a story para Done. Conduzir DEVAGAR (Eurico nao e tecnico de
+  infra; confirmar cada passo). Em alternativa, retomar outro follow-up [AGENTE]
+  do catalogo soft-launch via /sdc (INVITE-E2E, multi-household) — NUNCA billing.
+  Decisao paralela em aberto: rever+merge do PR #5 da Story 6.8 (handoff
+  mj-handoff-6.8-export-gdpr-pr-open-20260618) — accao do @devops/Eurico.
+
+related:
+  - docs/stories/active/OBS-3.lighthouse-visao-autenticada.story.md
+  - docs/qa/gates/OBS-3-lighthouse-visao-autenticada.yml
+  - docs/runbooks/lighthouse-mobile.md
+  - docs/handoffs/mj-handoff-followups-soft-launch-20260615.yaml
+  - docs/handoffs/mj-handoff-6.8-export-gdpr-pr-open-20260618.yaml
+
+perfil_operador:
+  - "Eurico NAO e tecnico de infra; satura com excesso de opcoes/detalhe. Conduzir 1 passo de cada vez, validar por screenshot."
