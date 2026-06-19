@@ -1,0 +1,83 @@
+id: mj-handoff-terminal-migration-invite-email-20260619
+from_agent: orchestrator (/sdc + apoio config externa Eurico)
+to_agent: any
+created: "2026-06-19T18:00:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: migracao-de-terminal (handoff-ponteiro)
+
+summary: >
+  MIGRACAO DE TERMINAL — continuar num terminal novo, mesma pasta. Esta sessao correu
+  o ciclo /sdc completo da story INVITE-EMAIL (envio de email do convite via Resend) ate
+  @qa PASS 9,4/10, e DEPOIS apoiou o Eurico na config externa (T6.1/T6.2 FEITAS). Tudo no
+  working tree de feat/6.8-export-gdpr; NADA pushado (push exclusivo do @devops). O novo
+  terminal herda o working tree intacto. LER PRIMEIRO os handoffs filhos abaixo antes de
+  aceitar tarefas relacionadas.
+
+context:
+  branch_atual: feat/6.8-export-gdpr
+  head: a1a8abd
+  push: NAO (nada commitado nesta sessao)
+  working_tree_intacto: true
+
+  ler_primeiro:
+    - "docs/handoffs/mj-handoff-invite-email-inreview-await-t6-20260619.yaml — DETALHE da story INVITE-EMAIL (codigo, gates, decisoes, blocker T6.3)."
+    - "docs/handoffs/mj-handoff-6.8-export-gdpr-pr-open-20260618.yaml — PR #5 da 6.8 + bucket exports [EURICO]."
+    - "docs/handoffs/mj-handoff-obs3-inreview-await-medicao-20260618.yaml — OBS-3 Lighthouse [EURICO]."
+    - "docs/handoffs/mj-handoff-invite-e2e-inreview-await-smoke-20260618.yaml — INVITE-E2E smoke [EURICO]."
+
+  feito_nesta_sessao:
+    ciclo_sdc_invite_email:
+      veredicto: "@sm (Draft) -> @po (GO 8,5/10, 3 SHOULD-FIX aplicados) -> @dev (5/5 gates verdes) -> @qa (PASS 9,4/10, teste de mutacao + 8/8 anti-alucinacao)."
+      story: "docs/stories/active/INVITE-EMAIL.envio-email-convite-resend.story.md (InReview)"
+      gate: "docs/qa/gates/INVITE-EMAIL-envio-email-convite-resend.yml (PASS)"
+    config_externa_eurico:
+      - "T6.1 FEITO: RESEND_API_KEY (key Resend 'expressia-web', Full access) guardada na Vercel como env var Sensitive em Production+Preview. Aviso 'new deployment needed' da Vercel NAO accionado de proposito (codigo novo ainda nao esta em prod)."
+      - "T6.2 FEITO: remetente = euricoalves.pt (unico dominio Verified no Resend; plano gratuito = 1 dominio, expressia.pt exigiria Pro $20/mes). DECISAO EURICO 19/06: usar @euricoalves.pt com nome de exibicao 'Expressia'. Codigo ALTERADO nesta sessao (FROM em resend.ts) + assertion do teste; re-corrido: helper 6/6 verdes, typecheck OK, lint 'No ESLint warnings or errors'."
+
+  working_tree_nao_commitado:
+    novos_codigo_invite_email:
+      - "apps/web/src/lib/email/resend.ts (NOVO — helper sendInviteEmail, remetente @euricoalves.pt)"
+      - "apps/web/src/lib/email/__tests__/resend.test.ts (NOVO — 6 testes)"
+      - "apps/web/src/app/api/conta/household/invites/route.ts (MOD — integracao best-effort)"
+      - "apps/web/src/app/api/conta/household/invites/__tests__/route.test.ts (MOD — vi.mock do helper)"
+      - "apps/web/package.json + pnpm-lock.yaml (MOD — resend ^6.14.0)"
+    hotfix_db_critico:
+      - "packages/db/migrations/0024_fix_invites_select_policy_auth_users.sql (NOVO — JA VIVO EM PROD, por commitar; ver handoff filho invite-email-inreview). @devops tem de o commitar para realinhar repo<->prod + auditar __schema_migrations."
+    doc_outras_stories_inreview:
+      - "docs/stories/active/{INVITE-EMAIL,INVITE-E2E,OBS-3}.*.story.md + docs/qa/gates/{INVITE-EMAIL,INVITE-E2E,OBS-3}*.yml + docs/runbooks/{invite-e2e-smoke,lighthouse-mobile}.md — varias InReview a aguardar [EURICO]."
+    handoffs_e_index:
+      - "docs/HANDOFF-INDEX.md (MOD) + varios docs/handoffs/*.yaml untracked + archive/mj-handoff-invite-email-resend-20260619.yaml (consumido nesta sessao)."
+
+  decisoes_em_vigor:
+    - "Billing/Stripe CONGELADO (directiva Eurico 2026-05-29)."
+    - "SEC-8 em HOLD."
+    - "Push/PR e EXCLUSIVO do @devops."
+    - "Mercado PT-PT exclusivo; PT-PT em tudo."
+    - "Eurico NAO e tecnico de infra — 1 passo de cada vez, validar por screenshot/logs, PORQUE antes do COMO."
+
+  blockers:
+    - "INVITE-EMAIL: so falta T6.3 (smoke E2E em prod) para Done — mas SO POSSIVEL apos @devops pushar+deployar o codigo (a feature ainda nao esta em prod). RESEND_API_KEY ja esta na Vercel, o deploy apanha-a."
+
+next_action: >
+  Prioridade [@devops]: sincronizar repo (commitar migration 0024 primeiro — viva em prod por
+  commitar — depois a story INVITE-EMAIL) e push/deploy conforme estrategia (branch a partir de
+  main / PR). Depois [EURICO]: T6.3 smoke E2E (criar convite em prod -> email chega de
+  'Expressia <convites@euricoalves.pt>' -> link /aceitar-convite/{token} funciona) -> INVITE-EMAIL
+  passa a Done. Em paralelo [EURICO]: PR #5 da 6.8 (revisao/merge + bucket exports) e medicao OBS-3.
+  Opcional [AGENTE]: fechar NIT TEST-001 (1 caso de email-a-falhar no route.test) antes do push.
+
+related:
+  - docs/handoffs/mj-handoff-invite-email-inreview-await-t6-20260619.yaml
+  - docs/handoffs/mj-handoff-6.8-export-gdpr-pr-open-20260618.yaml
+  - docs/handoffs/mj-handoff-obs3-inreview-await-medicao-20260618.yaml
+  - docs/handoffs/mj-handoff-invite-e2e-inreview-await-smoke-20260618.yaml
+  - docs/stories/active/INVITE-EMAIL.envio-email-convite-resend.story.md
+  - packages/db/migrations/0024_fix_invites_select_policy_auth_users.sql
+
+perfil_operador:
+  - "Eurico NAO e tecnico; satura com excesso de detalhe. 1 passo de cada vez, validar por screenshot. Explicar o PORQUE antes do COMO e mostrar evidencia. Frustra-se quando algo 'nao funciona' — gerir expectativa (ex.: feature so funciona apos deploy do @devops)."

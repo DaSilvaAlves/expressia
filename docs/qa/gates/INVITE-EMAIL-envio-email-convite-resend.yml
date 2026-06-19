@@ -1,0 +1,67 @@
+schema: 1
+story: 'INVITE-EMAIL'
+slug: 'envio-email-convite-resend'
+gate: PASS
+status_reason: 'Envio de email de convite via Resend implementado com best-effort real (convite e 201 nunca revertidos por falha de email), helper que nunca lança, padrao SEC-9 correcto e copy PT-PT verificada. 4 gates re-corridos verdes; teste de mutacao confirma que os testes guardam o contrato.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-06-19T01:20:00Z'
+
+score: 9.4
+
+quality_checks:
+  - id: best-effort-real
+    result: PASS
+    evidence: 'route.ts:222-236 — sendInviteEmail em try/catch posterior ao INSERT confirmado (created, route.ts:191); falha so faz log.warn + captureException; return 201 (route.ts:253) fora do alcance da falha. Convite NAO revertido.'
+  - id: helper-never-throws
+    result: PASS
+    evidence: 'resend.ts:101 (guard chave), :118 (guard error), :123 (catch interno) — todos os caminhos retornam objecto. Provado por teste de mutacao (remover catch → 2 testes falham).'
+  - id: sec9-inviteurl
+    result: PASS
+    evidence: 'route.ts:218-220 — process.env.SITE_URL ? .replace(/\/$/,"") : "https://expressia.pt". Truthy if (nao ??) + replace barra final. Correcto.'
+  - id: copy-pt-pt
+    result: PASS
+    evidence: 'resend.ts:28 subject "Foste convidado..."; :52 "Foste convidado para te juntares"; :57 "podes ignora-lo"; :59 "A equipa Expressia". Zero PT-BR.'
+  - id: security-server-side-xss
+    result: PASS
+    evidence: 'RESEND_API_KEY server-side (grep NEXT_PUBLIC_RESEND → 0 matches). escapeHtml (resend.ts:80) aplicado ao inviteUrl no HTML (:68,:73). Token e hex randomBytes — vector XSS nulo + defesa-em-profundidade.'
+  - id: no-any-imports-d-ie-1
+    result: PASS
+    evidence: 'grep any/as any em lib/email → 0 matches. Imports @/lib/email/resend (route.ts:43). D-IE.1: error.message do ErrorResponse Resend correcto (SDK devolve {data,error} sem lancar em erro de negocio).'
+  - id: zero-migration
+    result: PASS
+    evidence: 'Ultima migration 0024_fix_invites_select_policy_auth_users.sql (pre-existente, hotfix em prod). Nenhuma migration nova nesta story. AC9 confirmado.'
+  - id: ac10-three-scenarios
+    result: PASS
+    evidence: 'resend.test.ts:45 (a sucesso), :55 (b lanca), :64 (c chave ausente). +erro de negocio :74, +nunca-lanca :86, +smoke copy :94. Mutacao confirma significancia.'
+
+gates_rerun:
+  lint:
+    result: PASS
+    detail: 'pnpm lint exit 0 (10/10 tasks); forcado pnpm exec next lint --max-warnings=0 em apps/web → "No ESLint warnings or errors" (sem cache).'
+  typecheck:
+    result: PASS
+    detail: 'pnpm typecheck exit 0 (10/10 tasks); forcado pnpm exec tsc --noEmit em apps/web → exit 0 (sem cache).'
+  test:
+    result: PASS
+    detail: 'pnpm --filter @meu-jarvis/web test → 1278 passed / 1278 (156 ficheiros). Confirma evidencia do @dev.'
+  check_rls:
+    result: PASS
+    detail: 'pnpm check:rls exit 0 — household_invites coberto (tenancy.ts); schema inalterado.'
+
+mutation_test:
+  performed: true
+  detail: 'Removido o catch interno do helper (re-throw) → 2 testes falharam (b "Resend lanca" + "nunca lanca"). Prova que os testes guardam o contrato AC8/AC10 — nao sao vazios. Ficheiro restaurado ao original.'
+
+top_issues:
+  - id: 'TEST-001'
+    severity: low
+    finding: 'Nao ha teste de integracao que prove no proprio handler route.ts que uma falha de sendInviteEmail (emailResult.ok=false ou excecao) ainda devolve 201. O teste do handler mocka o helper com sucesso por defeito.'
+    suggested_action: 'Opcional: adicionar 1 caso no route.test.ts onde sendInviteEmail rejeita/devolve ok:false e assertar status 201. O best-effort esta provado por leitura de codigo (catch fora do return 201) mas um teste fecharia a malha. Nao bloqueante.'
+
+t6_external_precondition:
+  blocking_for: 'Done (NAO para o gate de codigo)'
+  note: 'T6 (RESEND_API_KEY em Vercel Production + dominio @expressia.pt verificado no Resend SPF/DKIM + E2E manual em prod) e accao [EURICO]. O gate de codigo passa sem ela; a story so transita para Done apos validacao E2E em prod (email chega + link funciona).'
+
+devops_note: 'Migration 0024 esta em prod mas nao-commitada (handoff mj-handoff-invite-email-resend-20260619.yaml). Ortogonal a esta story; @devops deve commitar/sincronizar antes de qualquer push.'
+
+waiver: { active: false }

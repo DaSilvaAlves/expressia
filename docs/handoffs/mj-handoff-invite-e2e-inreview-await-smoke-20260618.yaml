@@ -1,0 +1,81 @@
+id: mj-handoff-invite-e2e-inreview-await-smoke-20260618
+from_agent: orchestrator (/sdc)
+to_agent: eurico
+created: "2026-06-18T23:30:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: low
+type: story-inreview-await-external
+
+summary: >
+  Story INVITE-E2E (smoke do ciclo completo de convite de membro household)
+  percorreu o ciclo /sdc completo (sm -> po -> dev -> qa) e esta em InReview.
+  A feature de convites JA ESTA implementada e versionada (6 endpoints + UI
+  gestao + UI aceitacao + funcao SQL accept_invite + ~584 linhas de testes
+  unit/RLS) — o gap NAO e codigo, e a VALIDACAO E2E do ciclo completo com 2
+  sessoes reais no browser. O trabalho AUTONOMO doc-only esta entregue e
+  validado: criado o runbook docs/runbooks/invite-e2e-smoke.md (240 linhas);
+  gate @qa = CONCERNS 9,0/10 (REQ-001), aceite WAIVED pelo Eurico. O nucleo —
+  a execucao real do smoke — fica DEFERIDO ao Eurico (exige 2 contas reais num
+  browser; Constitution Article IV proibe inventar evidencia). NAO foi feito
+  push (ciclo correu sem --push); o trabalho vive no working tree. Billing
+  CONTINUA CONGELADO.
+
+context:
+  story_path: docs/stories/active/INVITE-E2E.smoke-ciclo-convite-household.story.md
+  story_status: InReview
+  gate_path: docs/qa/gates/INVITE-E2E-smoke-ciclo-convite-household.yml
+  gate_veredicto: CONCERNS 9,0/10 (Quinn @qa) -> WAIVED (Eurico)
+  runbook_path: docs/runbooks/invite-e2e-smoke.md
+  branch_atual: feat/6.8-export-gdpr
+  push: NAO (ciclo /sdc sem --push; trabalho no working tree, nao commitado)
+
+  ciclo_sdc:
+    - "@sm (River): story criada, Draft."
+    - "@po (Pax): GO 8,5/10 condicional. 3 fixes (FIX-1 citacao 9 casos de teste, FIX-2 nome de erro real OWNER_NOT_REMOVABLE, FIX-3 regra de transicao de estado nunca Done) aplicados pelo @dev."
+    - "@dev (Dex): scope autonomo doc-only. Criou o runbook; aplicou os 3 fixes; zero codigo de producao tocado."
+    - "@qa (Quinn): CONCERNS 9,0/10 (REQ-001). Verificou TODAS as citacoes do runbook contra o codigo de producao — batem byte-a-byte. Story aguarda execucao externa."
+
+  o_que_foi_entregue:
+    - "Runbook NOVO docs/runbooks/invite-e2e-smoke.md (240 linhas): pre-condicoes (2 contas, conta anfitria promovida a plano 'familia' = limite 4 membros, URLs de prod), ciclo completo P1->P8 com paths exactos de UI e endpoint, checkpoints de verificacao por passo, 3 cenarios de erro (convite expirado, email mismatch, convite revogado) com os nomes/mensagens de erro REAIS, tabela de evidencia (vazia, a preencher pelo Eurico com screenshots), nota multi-household."
+    - "Citacoes verificadas contra codigo real: guard auth da pagina de aceitacao (aceitar-convite/[token]/page.tsx redirect /entrar?next=); POST /api/conta/household/invites devolve acceptPath + expira 7 dias; guard de remocao do owner = OWNER_NOT_REMOVABLE / 'O dono da familia nao pode ser removido.' / 422; 8 erros tipados de accept_invite (migration 0022); limite plano familia=4."
+    - "Story actualizada: T1+T3 [x], T2/AC6 [ ] (deferidos), Dev Agent Record + Change Log (v1.1-DEV, v1.1-WAIVED) + Status=InReview. Gate file criado."
+
+  o_que_falta_DEFERIDO_eurico:
+    - "[EURICO] Executar o smoke E2E real seguindo o runbook docs/runbooks/invite-e2e-smoke.md, ciclo P1->P8: 1) Conta A (anfitria, owner/admin, plano 'familia') em /conta/household -> escrever email da Conta B + escolher role -> Convidar; 2) copiar o link de convite gerado (/aceitar-convite/{token}); 3) na Conta B (2.ª conta, mesmo email do convite) abrir o link -> autenticar -> 'Aceitar convite'; 4) verificar que a Conta B aparece como membro na lista da Conta A; 5) revogar um convite pendente; 6) a Conta A tenta remover-se a si propria (owner) -> confirmar erro OWNER_NOT_REMOVABLE 422; 7) Conta A remove a Conta B -> membro desaparece. Guardar captura de ecra por checkpoint (tabela §7 do runbook) + ao menos 1 cenario de erro do §3."
+    - "Depois da execucao (accao de fecho, pode ser de agente): preencher a tabela de evidencia §7 do runbook com os resultados/screenshots; marcar T2.1-T2.5 [x]; entao Status InReview -> Done."
+
+  decisoes_em_vigor:
+    - "Billing/Stripe CONGELADO (directiva Eurico 2026-05-29) — NAO draftar 6.3/6.4/6.5/6.6/6.10."
+    - "SEC-8 em HOLD."
+    - "Push/PR e EXCLUSIVO do @devops."
+    - "Mercado PT-PT exclusivo; PT-PT em tudo."
+
+  blockers:
+    - "Nenhum bloqueador de codigo. So falta a execucao externa (2 sessoes Eurico no browser). Nao e bloqueador de merge — e doc-only e nem sequer foi pushado."
+
+next_action: >
+  Quando o Eurico tiver ~10 min com 2 contas: executar o smoke E2E seguindo o
+  runbook docs/runbooks/invite-e2e-smoke.md (ciclo P1->P8 acima), guardar
+  screenshots por checkpoint + 1 cenario de erro, e pedir a um agente para
+  preencher a tabela §7, marcar T2 [x] e transicionar a story para Done.
+  Conduzir DEVAGAR (Eurico nao e tecnico; confirmar cada passo). Em alternativa,
+  retomar outro follow-up [AGENTE] do catalogo soft-launch via /sdc
+  (multi-household — deferido, precisa @architect) — NUNCA billing. Decisoes
+  paralelas em aberto: (1) medicao da OBS-3 (handoff
+  mj-handoff-obs3-inreview-await-medicao-20260618); (2) rever+merge do PR #5 da
+  Story 6.8 + bucket exports (handoff mj-handoff-6.8-export-gdpr-pr-open-20260618).
+
+related:
+  - docs/stories/active/INVITE-E2E.smoke-ciclo-convite-household.story.md
+  - docs/qa/gates/INVITE-E2E-smoke-ciclo-convite-household.yml
+  - docs/runbooks/invite-e2e-smoke.md
+  - docs/handoffs/mj-handoff-followups-soft-launch-20260615.yaml
+  - docs/handoffs/mj-handoff-obs3-inreview-await-medicao-20260618.yaml
+  - docs/handoffs/mj-handoff-6.8-export-gdpr-pr-open-20260618.yaml
+
+perfil_operador:
+  - "Eurico NAO e tecnico de infra; satura com excesso de opcoes/detalhe. Conduzir 1 passo de cada vez, validar por screenshot."
