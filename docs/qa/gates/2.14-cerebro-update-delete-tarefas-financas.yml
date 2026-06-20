@@ -1,0 +1,132 @@
+schema: 1
+story: '2.14'
+slug: cerebro-update-delete-tarefas-financas
+gate: PASS
+score: 9.3
+status_reason: >-
+  As 4 tools UPDATE/DELETE estão implementadas conforme contrato, o bloqueador
+  R-2.14.1 (undo de eliminação via reinsert_row) está provado com testes de
+  engine reais, PO-FIX-1 (snapshots snake_case) confirmado ficheiro a ficheiro,
+  e os 4 contratos de intent (DB/classifier/planner) estão sincronizados. 5/5
+  gates GREEN. Concerns são apenas tech-debt LOW não-bloqueante.
+reviewer: 'Quinn (Guardian)'
+updated: '2026-06-20T23:08:27Z'
+
+evidence:
+  gates_reexecuted_by_orchestrator:
+    typecheck: 'exit 0 (10/10)'
+    lint: 'exit 0 (10/10, zero warnings)'
+    test: 'exit 0 — web 1263 · tools 438 · planner-executor 74 · db 22'
+    build: 'exit 0 (10/10)'
+    check_rls: 'exit 0'
+  audited_independently: true
+
+critical_audit_findings:
+  - point: 'R-2.14.1 — undo de eliminação funciona (reinsert_row)'
+    verdict: PASS
+    detail: >-
+      Branch reinsert_row em undo/route.ts:335-359 monta INSERT com id original
+      + colunas do snapshot, dentro da whitelist ALLOWED_REVERSE_TABLES (validação
+      em :324 antes do branch). AC2/AC4 emitem kind 'reinsert_row' (não
+      restore_row) — confirmado em eliminar-tarefa.ts:238 e
+      delete-finance-variable.ts:299. Testes de engine reais em undo.test.ts:244
+      (tasks) e :295 (transactions) provam: id original preservado, colunas
+      snake_case, apóstrofe escapada (O''Brien), enum (expense) e date
+      (transaction_date) re-inseridos. Cobertura load-bearing presente.
+  - point: 'PO-FIX-1 — snapshots em snake_case'
+    verdict: PASS
+    detail: >-
+      Os 4 ficheiros de tool usam exclusivamente chaves snake_case nos snapshots
+      (atualizar-tarefa.ts:197-223 due_date/completed_at; update-finance-variable.ts:220-243
+      amount_cents/transaction_date/category_id/payment_method; eliminar-tarefa.ts
+      buildSnapshot:144-163; delete-finance-variable.ts buildSnapshot:185-206).
+      Espelha o precedente completar-tarefa.ts:232. Testes asseguram
+      out.snapshot.created_by_user_id / due_date / is_recurrence_template.
+  - point: 'Preview-then-confirm (FR4 / DP-2.14.B)'
+    verdict: PASS
+    detail: >-
+      Eliminações forçam preview com confirmed !== true (eliminar-tarefa.ts:210,
+      delete-finance-variable.ts:267) — early-return sem DELETE e sem reverse_op.
+      Endpoint reutiliza flow previewToken Story 2.7 via outcomeNeedsConfirmation
+      (route.ts:601-618). Ambiguidade múltiplos matches → lista cap 3
+      (listTopMatches em delete-finance-variable.ts:168-183). Classifier força
+      needs_confirmation=true para intents destrutivos (classifier-system.ts:57).
+      Testado.
+  - point: 'RLS NFR5 — ctx.db, nunca getServiceDb em código de utilizador'
+    verdict: PASS
+    detail: >-
+      As 4 tools usam exclusivamente ctx.db. Resolução por id/fuzzy sem
+      household_id explícito no WHERE replica o padrão gate-aprovado de
+      completar-tarefa.ts (Done v1.3) e create-finance-variable.ts. Dupla rede
+      activa via executeAtomic: 1.ª app-enforced, 2.ª withHousehold (SET LOCAL
+      ROLE authenticated + claims → 104 policies vivas) em atomic.ts:133-149.
+      O getServiceDb() no undo route é pré-existente (Story 2.8) e justificado
+      (trigger de imutabilidade terminal — NFR9), não introduzido por esta story.
+  - point: 'Atomicidade transaccional + expires_at (FR6)'
+    verdict: PASS
+    detail: >-
+      Tools correm dentro de executeAtomic (transacção única, rollback em falha);
+      reverse_op persistido com expires_at = now() + interval 30 seconds
+      (atomic.ts:264). Padrão inalterado por esta story.
+  - point: 'Segurança — SQL injection / PII'
+    verdict: PASS
+    detail: >-
+      reinsert_row escapa strings (replace /'/g) e usa whitelist de tabela; o
+      vector table é controlado pela whitelist. Valores das tools são
+      parametrizados via sql template (ILIKE/desambiguadores). PII: spans seguem
+      TOOL_SPAN_ATTRIBUTE_KEYS, householdId hashado (atomic.ts:34-37).
+  - point: 'Migration 0026 + sync de enum (4 contratos)'
+    verdict: PASS
+    detail: >-
+      0026 usa ALTER TYPE ADD VALUE IF NOT EXISTS (idempotente, append-only).
+      Sincronização confirmada: agent.ts:62-65 (Drizzle), classifier
+      schemas.ts:56-59 (INTENT_VALUES), planner schemas.ts:220-223
+      (TOOL_TO_INTENT_MAP). O @dev corrigiu dessincronização real (D-2.14.2/3)
+      apanhada pelo sanity-check Article IV — validado.
+  - point: 'PT-PT exclusivo'
+    verdict: PASS
+    detail: >-
+      Error messages, previews, few-shots e warnings em PT-PT europeu
+      (actualizar, eliminar, transacção). Sem PT-BR. EUR com vírgula decimal via
+      formatEuroCents.
+
+project_constraints:
+  family_not_reintroduced: PASS  # household_id mantido como tenancy, sem feature família
+  billing_untouched: PASS
+  sec8_untouched: PASS  # withHousehold/getServiceDb pré-existentes inalterados
+
+top_issues:
+  - id: 'TEST-001'
+    severity: low
+    finding: >-
+      AC13 pedia o ficheiro integration E2E
+      apps/web/src/app/api/agent/__tests__/update-delete-flow.test.ts (flow
+      Classifier→Planner→Executor). Não foi criado; a cobertura load-bearing do
+      FIX-1 foi assegurada via 2 testes de engine reais em undo.test.ts
+      (D-2.14.4). Os caminhos individuais estão cobertos (tools 438 + undo
+      engine), mas o flow ponta-a-ponta não tem teste dedicado.
+    suggested_action: >-
+      Criar o flow E2E mockable-friendly como follow-up FUP-2.14.B (não
+      bloqueante — risco coberto pelos testes de unidade + engine).
+  - id: 'MNT-001'
+    severity: low
+    finding: >-
+      Drift de naming PT (atualizar_tarefa) vs EN (update_finance_variable)
+      mantido — herdado de Stories 3.8/4.10.
+    suggested_action: 'Harmonizar em Fase 2 (FUP-2.14.A / FUP-4.10.A já registado).'
+  - id: 'REL-001'
+    severity: low
+    finding: >-
+      Migration 0026 não aplicada localmente nesta sessão (delegada a @devops,
+      padrão D-3.8.1). Schema Drizzle já sincronizado e validado por typecheck +
+      sanity-check.
+    suggested_action: >-
+      @devops aplica 0026 no push (ALTER TYPE ADD VALUE IF NOT EXISTS é
+      idempotente e não-destrutivo). OBRIGATÓRIO antes de runtime em prod.
+
+follow_ups_non_blocking:
+  - 'FUP-2.14.B — flow E2E update-delete (TEST-001)'
+  - 'FUP-2.14.A — harmonização naming PT/EN (MNT-001)'
+  - 'DEPLOY — aplicar migration 0026 no push (REL-001, @devops)'
+
+waiver: { active: false }

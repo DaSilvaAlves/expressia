@@ -1,0 +1,94 @@
+id: mj-handoff-2.14-qa-pass-await-push-20260621
+from_agent: orchestrator (/sdc — ciclo sm->po->dev->qa)
+to_agent: devops
+created: "2026-06-21T00:00:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: story-ready-for-push
+
+summary: >
+  Story 2.14 (Cerebro AI: editar e eliminar tarefas e transaccoes variaveis via chat) correu o ciclo
+  /sdc completo SEM --push: @sm (draft, retry pos NO-GO) -> @po (GO 7,5/10 na re-validacao) -> @dev
+  (implementacao + fix de typecheck) -> @qa (PASS 9,3/10). Codigo COMPLETO no working tree da branch
+  main, NAO commitado, NAO pushado (push e exclusivo do @devops). 5/5 quality gates re-corridos
+  independentemente pelo orquestrador, todos EXIT 0. Falta @devops: branch + commit (conventional +
+  trailers) + push + PR + APLICAR migration 0026. Story decidida pelo Eurico nesta sessao (levantou a
+  pausa de decisao para "criar story nova de produto" -> escolheu expandir o Cerebro AI para editar/eliminar).
+
+context:
+  branch_atual: main
+  origin_main: dd9186e
+  working_tree: sujo (alteracoes 2.14 por commitar) + bookkeeping de handoffs
+
+  o_que_foi_entregue:
+    - "4 tools novas no Cerebro AI: atualizar_tarefa, eliminar_tarefa (PT) + update_finance_variable, delete_finance_variable (EN), todas RLS-scoped via ctx.db (nunca getServiceDb)."
+    - "Novo kind reverse_op `reinsert_row` no contrato (packages/tools/src/contracts.ts) + branch no undo engine (apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts) que faz INSERT com id original. Story 2.8/contrato reverse_op ESTENDIDOS."
+    - "Eliminacoes forcam preview-then-confirm (FR4); ambiguidade fuzzy -> preview com cap de 3 matches. Snapshots em snake_case (PO-FIX-1 critico — senao undo parte silenciosamente)."
+    - "Migration 0026_agent_intent_update_delete_tools.sql: ALTER TYPE agent_intent ADD VALUE IF NOT EXISTS (4 intents). Enum DB <-> array Drizzle (agent.ts) <-> classifier INTENT_VALUES <-> planner TOOL_TO_INTENT_MAP sincronizados (o @dev apanhou e corrigiu uma dessincronizacao real)."
+    - "Bump prompts classifier-system.ts + planner-system.ts v2->v3 (4 intents + few-shots PT-PT + needs_confirmation). Guard needsConfirmation no endpoint /api/agent/prompt (reutiliza flow previewToken HMAC da Story 2.7)."
+
+  gates_evidencia_orquestrador:
+    - "typecheck: EXIT 0 (10/10 FULL TURBO)"
+    - "lint: EXIT 0 (10/10, zero warnings)"
+    - "test: EXIT 0 — web 1263 passed (153 files), tools 438, planner-executor 74, db 22, classifier (cached). Logs de erro no output sao error-path assertions deliberados, nao falhas."
+    - "build: EXIT 0 (10/10)"
+    - "check:rls: EXIT 0 (nenhuma tabela nova com household_id — so enum)"
+
+  ficheiros_tocados:
+    novos:
+      - packages/tools/src/tasks/atualizar-tarefa.ts
+      - packages/tools/src/tasks/eliminar-tarefa.ts
+      - packages/tools/src/tasks/__tests__/atualizar-tarefa.test.ts
+      - packages/tools/src/tasks/__tests__/eliminar-tarefa.test.ts
+      - packages/tools/src/finance/update-finance-variable.ts
+      - packages/tools/src/finance/delete-finance-variable.ts
+      - packages/tools/src/finance/__tests__/update-finance-variable.test.ts
+      - packages/tools/src/finance/__tests__/delete-finance-variable.test.ts
+      - packages/db/migrations/0026_agent_intent_update_delete_tools.sql
+    modificados:
+      - packages/tools/src/contracts.ts
+      - packages/tools/src/index.ts
+      - packages/tools/src/tasks/index.ts
+      - packages/tools/src/finance/index.ts
+      - packages/db/src/schema/agent.ts
+      - packages/classifier/src/prompts/classifier-system.ts
+      - packages/classifier/src/__tests__/prompts.test.ts
+      - packages/planner-executor/src/prompts/planner-system.ts
+      - packages/planner-executor/src/__tests__/prompts.test.ts
+      - apps/web/src/app/api/agent/prompt/route.ts
+      - apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts
+      - docs/stories/active/2.14.cerebro-update-delete-tarefas-financas.story.md
+    novo_doc:
+      - docs/qa/gates/2.14-cerebro-update-delete-tarefas-financas.yml
+
+  concerns_qa_nao_bloqueantes:
+    - "TEST-001 (LOW): AC13 pedia E2E update-delete-flow.test.ts; nao foi criado. Cobertura load-bearing do FIX-1 ficou em 2 testes de engine reais (undo.test.ts). -> FUP-2.14.B."
+    - "MNT-001 (LOW): drift naming PT/EN herdado de 3.8/4.10 -> Fase 2."
+    - "REL-001 (LOW mas OPERACIONALMENTE OBRIGATORIO): migration 0026 NAO aplicada localmente. @devops TEM de a aplicar (db:migrate, idempotente) antes de runtime em prod, senao os 4 intents novos partem."
+
+  decisoes_em_vigor:
+    - "Pausa de decisao LEVANTADA pelo Eurico nesta sessao (so para esta linha de trabalho de produto)."
+    - "Familia ELIMINADA — single-user; story nao toca convites/membros/partilha."
+    - "household_id/RLS/tenancy INTACTOS."
+    - "Billing/Stripe CONGELADO (story nao toca billing)."
+    - "SEC-8 em HOLD."
+    - "Push/PR/merge EXCLUSIVO do @devops; merge so com delegacao explicita do Eurico."
+
+next_action: >
+  [@devops] Reposicionar sobre origin/main (dd9186e), criar branch feat/2.14-cerebro-update-delete,
+  commitar as alteracoes 2.14 (conventional + trailers, sem --no-verify), re-correr os 5 gates pre-push,
+  abrir PR -> main. CRITICO: aplicar a migration 0026 (db:migrate via DIRECT_URL) no fluxo de deploy.
+  Depois mover a story active/ -> completed/ e reconciliar o HANDOFF-INDEX. Sem delegacao explicita do
+  Eurico, NAO fazer merge.
+
+related:
+  - docs/stories/active/2.14.cerebro-update-delete-tarefas-financas.story.md
+  - docs/qa/gates/2.14-cerebro-update-delete-tarefas-financas.yml
+  - docs/handoffs/mj-handoff-terminal-migration-post-pr9-merge-20260620.yaml
+
+perfil_operador:
+  - "Eurico NAO e tecnico; defaults sensatos + documentar. Push/PR e do @devops; merge so com ordem explicita do Eurico."

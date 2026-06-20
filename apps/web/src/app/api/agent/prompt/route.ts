@@ -598,6 +598,39 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         );
       }
 
+      // ─── 8b. Guard needsConfirmation (Story 2.14 AC10) ────────────
+      // As tools destrutivas (`eliminar_tarefa`, `delete_finance_variable`)
+      // fazem early-return com `needsConfirmation: true` quando o utilizador
+      // ainda não confirmou (DP-2.14.B) — NÃO executaram o DELETE. Tratamos a
+      // resposta como preview-then-confirm, reutilizando o flow `previewToken`
+      // da Story 2.7 (5min), distinto do trigger `confidence < 0.70`. NÃO
+      // marcamos a run como `success` — fica `pending_preview` aguardando confirm.
+      if (outcomeNeedsConfirmation(outcome)) {
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5min D20
+        await updatePreviewState(runId, expiresAt, db);
+
+        const pendingActions = collectPendingConfirmations(outcome);
+
+        annotateAgentPromptSpan(span, {
+          mode: 'preview',
+          status_code: 200,
+          duration_ms: Date.now() - startedAt,
+        });
+        log.info(
+          { run_id: runId, mode: 'preview', reason: 'needs_confirmation' },
+          'Preview mode — acção destrutiva aguarda confirmação 5min',
+        );
+
+        return NextResponse.json({
+          mode: 'preview' as const,
+          run_id: runId,
+          plan_summary: pendingActions,
+          confidence: classification.overall_confidence,
+          confirmation_url: `/api/agent/prompt/${runId}/confirm`,
+          expires_at: expiresAt.toISOString(),
+        });
+      }
+
       // Success path
       const summary = buildSummaryText(outcome);
       await updateAfterExecutor(
@@ -797,6 +830,48 @@ function createClassifier(): Classifier {
     apiKey: process.env.OPENAI_API_KEY ?? 'unset',
   }) as OpenAIClientLike;
   return new Classifier(client);
+}
+
+/**
+ * Story 2.14 AC10 — type guard: o output de uma tool sinaliza
+ * `needsConfirmation: true`?
+ *
+ * As tools destrutivas (`eliminar_tarefa`, `delete_finance_variable`) devolvem
+ * `needsConfirmation: true` quando o utilizador ainda não confirmou — sem terem
+ * executado o DELETE (DP-2.14.B).
+ */
+function toolOutputNeedsConfirmation(output: unknown): output is { needsConfirmation: true } {
+  return (
+    typeof output === 'object' &&
+    output !== null &&
+    'needsConfirmation' in output &&
+    (output as { needsConfirmation?: unknown }).needsConfirmation === true
+  );
+}
+
+/**
+ * Story 2.14 AC10 — alguma tool do outcome pede confirmação?
+ */
+function outcomeNeedsConfirmation(outcome: AtomicOutcome): boolean {
+  if (outcome.success === false) {
+    return false;
+  }
+  const result = outcome as AtomicResult;
+  return (result.results ?? []).some((r) => toolOutputNeedsConfirmation(r.output));
+}
+
+/**
+ * Story 2.14 AC10 — constrói a lista de acções destrutivas pendentes para o
+ * payload de preview (sem PII — apenas a descrição da acção).
+ */
+function collectPendingConfirmations(outcome: AtomicOutcome): string[] {
+  if (outcome.success === false) {
+    return [];
+  }
+  const result = outcome as AtomicResult;
+  return (result.results ?? [])
+    .filter((r) => toolOutputNeedsConfirmation(r.output))
+    .map((r) => `${r.toolName} — confirmação necessária`);
 }
 
 /**

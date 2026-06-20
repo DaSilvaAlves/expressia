@@ -2,13 +2,14 @@
  * Snapshot test do system prompt — protege contra deriva acidental.
  *
  * Trace: Story 2.4 AC4 + AC11 (prompts.test.ts mínimo 1 caso);
- *        Story 4.10 AC7 (bump v1→v2 + 11 intents).
+ *        Story 4.10 AC7 (bump v1→v2 + 11 intents);
+ *        Story 2.14 AC9 (bump v2→v3 + 15 intents + 4 few-shots update/delete).
  *
  * Estratégia:
  *   - Hash SHA-256 do conteúdo da constante `CLASSIFIER_SYSTEM_PROMPT`.
  *   - Qualquer mudança requer actualização intencional do hash + bump
  *     do `CLASSIFIER_SYSTEM_PROMPT_VERSION`.
- *   - Versão actual: `v2`.
+ *   - Versão actual: `v3`.
  */
 import { createHash } from 'node:crypto';
 
@@ -20,17 +21,21 @@ import {
 } from '@/prompts/classifier-system';
 
 describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
-  it('versão é "v2" (Story 4.10 bump)', () => {
-    expect(CLASSIFIER_SYSTEM_PROMPT_VERSION).toBe('v2');
+  it('versão é "v3" (Story 2.14 bump)', () => {
+    expect(CLASSIFIER_SYSTEM_PROMPT_VERSION).toBe('v3');
   });
 
-  it('contém os 11 intents canónicos por nome (Story 4.10 — inclui intents Tarefas Story 3.8)', () => {
+  it('contém os 15 intents canónicos por nome (Story 2.14 — +4 update/delete)', () => {
     const intents = [
       'criar_tarefa',
       'completar_tarefa',
+      'atualizar_tarefa',
+      'eliminar_tarefa',
       'listar_tarefas',
       'listar_atrasadas',
       'criar_financa_variavel',
+      'update_finance_variable',
+      'delete_finance_variable',
       'criar_financa_recorrente',
       'criar_cartao',
       'criar_parcelada',
@@ -43,9 +48,16 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
     }
   });
 
-  it('header anuncia 11 intents (não 8)', () => {
-    // Format real do header: `# Intents canónicos (11)`.
-    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/Intents can[óo]nicos \(11\)/);
+  it('header anuncia 15 intents (Story 2.14)', () => {
+    // Format real do header: `# Intents canónicos (15)`.
+    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/Intents can[óo]nicos \(15\)/);
+  });
+
+  it('intents destrutivos forçam needs_confirmation true (DP-2.14.B)', () => {
+    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/eliminar_tarefa/);
+    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/delete_finance_variable/);
+    // A regra 5 menciona intent destrutiva + needs_confirmation true.
+    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/destrutiva/i);
   });
 
   it('instrui retorno em PT-PT (CON3)', () => {
@@ -53,10 +65,10 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
     expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/portugu[êe]s europeu/i);
   });
 
-  it('inclui pelo menos 10 exemplos few-shot (Story 4.10: 5 novos Finance)', () => {
+  it('inclui pelo menos 14 exemplos few-shot (Story 2.14: 4 novos update/delete)', () => {
     const matches = CLASSIFIER_SYSTEM_PROMPT.match(/## Exemplo \d/g);
     expect(matches).not.toBeNull();
-    expect(matches?.length ?? 0).toBeGreaterThanOrEqual(10);
+    expect(matches?.length ?? 0).toBeGreaterThanOrEqual(14);
   });
 
   it('inclui exemplo de input non-PT-PT → unknown (PT-PT exclusivo)', () => {

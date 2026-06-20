@@ -19,8 +19,15 @@ import {
 } from '@/prompts/planner-system';
 
 describe('PLANNER_SYSTEM_PROMPT', () => {
-  it('versão é v5 (OBS-2 — hora da tarefa dueTime)', () => {
-    expect(PLANNER_SYSTEM_PROMPT_VERSION).toBe('v5');
+  it('versão é v6 (Story 2.14 — tools update/delete)', () => {
+    expect(PLANNER_SYSTEM_PROMPT_VERSION).toBe('v6');
+  });
+
+  it('v6: inclui as 4 intents/tools update/delete (Story 2.14)', () => {
+    expect(PLANNER_SYSTEM_PROMPT).toContain('atualizar_tarefa');
+    expect(PLANNER_SYSTEM_PROMPT).toContain('eliminar_tarefa');
+    expect(PLANNER_SYSTEM_PROMPT).toContain('update_finance_variable');
+    expect(PLANNER_SYSTEM_PROMPT).toContain('delete_finance_variable');
   });
 
   it('v4: instrui o cálculo de datas relativas a partir do bloco [Data de hoje]', () => {
@@ -36,13 +43,17 @@ describe('PLANNER_SYSTEM_PROMPT', () => {
     expect(PLANNER_SYSTEM_PROMPT).toMatch(/dueTime: '15:00'/);
   });
 
-  it('inclui as 11 intents canónicas (Story 4.10: 8 originais + 3 da Story 3.8)', () => {
+  it('inclui as 15 intents canónicas (Story 2.14: 11 + 4 update/delete)', () => {
     const intents = [
       'criar_tarefa',
       'completar_tarefa',
+      'atualizar_tarefa',
+      'eliminar_tarefa',
       'listar_tarefas',
       'listar_atrasadas',
       'criar_financa_variavel',
+      'update_finance_variable',
+      'delete_finance_variable',
       'criar_financa_recorrente',
       'criar_cartao',
       'criar_parcelada',
@@ -55,8 +66,8 @@ describe('PLANNER_SYSTEM_PROMPT', () => {
     }
   });
 
-  it('header anuncia 11 intents canónicas', () => {
-    expect(PLANNER_SYSTEM_PROMPT).toMatch(/11/);
+  it('header anuncia 15 intents canónicas', () => {
+    expect(PLANNER_SYSTEM_PROMPT).toMatch(/INTENTS CANÓNICAS \(15\)/);
   });
 
   it('instrução PT-PT exclusiva', () => {

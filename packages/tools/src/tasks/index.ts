@@ -19,23 +19,43 @@
 // dentro do package tools.
 import { toolRegistry } from '../registry';
 
+import { atualizarTarefa } from './atualizar-tarefa';
 import { completarTarefa } from './completar-tarefa';
 import { criarTarefa } from './criar-tarefa';
+import { eliminarTarefa } from './eliminar-tarefa';
 import { listarAtrasadas } from './listar-atrasadas';
 import { listarTarefas } from './listar-tarefas';
 
-// Side-effect: regista as 4 tools no singleton.
+// Side-effect: regista as tools no singleton.
 toolRegistry.register(criarTarefa);
 toolRegistry.register(completarTarefa);
 toolRegistry.register(listarTarefas);
 toolRegistry.register(listarAtrasadas);
+// Story 2.14 — tools update/delete.
+toolRegistry.register(atualizarTarefa);
+toolRegistry.register(eliminarTarefa);
 
-export { completarTarefa, criarTarefa, listarAtrasadas, listarTarefas };
+export {
+  atualizarTarefa,
+  completarTarefa,
+  criarTarefa,
+  eliminarTarefa,
+  listarAtrasadas,
+  listarTarefas,
+};
 export type {
   CompletarTarefaInput,
   CompletarTarefaOutput,
 } from './completar-tarefa';
 export type { CriarTarefaInput, CriarTarefaOutput } from './criar-tarefa';
+export type {
+  AtualizarTarefaInput,
+  AtualizarTarefaOutput,
+} from './atualizar-tarefa';
+export type {
+  EliminarTarefaInput,
+  EliminarTarefaOutput,
+} from './eliminar-tarefa';
 export type {
   ListarAtrasadasInput,
   ListarAtrasadasOutput,

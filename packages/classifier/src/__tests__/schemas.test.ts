@@ -41,13 +41,13 @@ function extractAgentIntentEnumFromSource(): string[] {
 }
 
 describe('IntentSchema (AC2)', () => {
-  it('aceita os 11 valores canónicos', () => {
+  it('aceita os 15 valores canónicos', () => {
     for (const value of INTENT_VALUES) {
       expect(IntentSchema.safeParse(value).success).toBe(true);
     }
   });
 
-  it('rejeita valores fora dos 11 canónicos (Article IV)', () => {
+  it('rejeita valores fora dos 15 canónicos (Article IV)', () => {
     expect(IntentSchema.safeParse('inventado').success).toBe(false);
     expect(IntentSchema.safeParse('criar_evento').success).toBe(false);
     expect(IntentSchema.safeParse('').success).toBe(false);
@@ -57,8 +57,9 @@ describe('IntentSchema (AC2)', () => {
     const dbValues = extractAgentIntentEnumFromSource().sort();
     const classifierValues = [...INTENT_VALUES].sort();
     expect(classifierValues).toEqual(dbValues);
-    // 8 baseline (Story 2.1) + 3 Story 3.8 tools cérebro Tarefas (migration 0012).
-    expect(dbValues.length).toBe(11);
+    // 8 baseline (Story 2.1) + 3 Story 3.8 tools cérebro Tarefas (migration 0012)
+    // + 4 Story 2.14 tools UPDATE/DELETE Tarefas e Finanças (migration 0026).
+    expect(dbValues.length).toBe(15);
   });
 });
 
