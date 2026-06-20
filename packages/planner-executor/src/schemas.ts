@@ -175,9 +175,10 @@ export type ExecutorInput = z.infer<typeof ExecutorInputSchema>;
  * (3) tools são single source of truth da Story 2.3 e não mudam entre runs;
  * (4) tool name fora do MAP → fallback `'unknown'` (graceful degradation).
  *
- * **Cobertura obrigatória:** as 11 intents do `IntentSchema` (Story 2.4 AC2
- * baseline 8 + Story 3.8 tools cérebro Tarefas +3) têm pelo menos 1 tool name
- * mapeado. Validável em `__tests__/contract.test.ts`.
+ * **Cobertura obrigatória:** as 15 intents do `IntentSchema` (Story 2.4 AC2
+ * baseline 8 + Story 3.8 tools cérebro Tarefas +3 + Story 2.14 tools
+ * UPDATE/DELETE +4) têm pelo menos 1 tool name mapeado. Validável em
+ * `__tests__/contract.test.ts`.
  *
  * Nomenclatura tools snake_case lowercase (alinhada com Architecture §4.3
  * `create_task`, `query_finance_summary`, etc.).
@@ -215,6 +216,11 @@ export const TOOL_TO_INTENT_MAP: Record<string, Intent> = {
   completar_tarefa: 'completar_tarefa',
   listar_tarefas: 'listar_tarefas',
   listar_atrasadas: 'listar_atrasadas',
+  // Story 2.14 — tools UPDATE/DELETE Tarefas e Finanças (tool name === intent name)
+  atualizar_tarefa: 'atualizar_tarefa',
+  eliminar_tarefa: 'eliminar_tarefa',
+  update_finance_variable: 'update_finance_variable',
+  delete_finance_variable: 'delete_finance_variable',
 };
 
 /**

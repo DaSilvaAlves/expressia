@@ -241,6 +241,121 @@ describe('POST /api/agent/prompt/[runId]/undo', () => {
     expect(body.reverted).toBe(true);
   });
 
+  it('Story 2.14 FIX-1 — reinsert_row de tasks re-insere a row eliminada com id original', async () => {
+    const future = new Date(Date.now() + 30 * 1000).toISOString();
+    let callCount = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return [{ id: RUN_ID, household_id: TEST_HOUSEHOLD_ID, status: 'success' }];
+      }
+      if (callCount === 2) {
+        return [
+          {
+            id: 'rop-reinsert-task',
+            reverse_op: {
+              kind: 'reinsert_row',
+              table: 'tasks',
+              id: 'task-deleted-1',
+              snapshot: {
+                household_id: TEST_HOUSEHOLD_ID,
+                title: "tarefa apagada O'Brien",
+                priority: 'high',
+                status: 'todo',
+                is_recurrence_template: false,
+                completed_at: null,
+              },
+            },
+            expires_at: future,
+            executed_at: null,
+          },
+        ];
+      }
+      return [];
+    });
+    mocks.serviceDbExecuteMock.mockResolvedValue([]);
+
+    const res = await POST(makeRequest() as never, makeContext());
+    expect(res.status).toBe(200);
+
+    // O engine deve emitir um INSERT em tasks com o id original + colunas snake_case.
+    const insertCall = mocks.serviceDbExecuteMock.mock.calls.find((call) => {
+      const flat = JSON.stringify(call[0] ?? {});
+      return /insert into tasks/i.test(flat);
+    });
+    expect(insertCall).toBeDefined();
+    const flat = JSON.stringify(insertCall![0] ?? {});
+    expect(flat).toMatch(/insert into tasks \(id, household_id, title/i);
+    expect(flat).toContain('task-deleted-1'); // id original preservado
+    expect(flat).toContain("O''Brien"); // string com apóstrofe escapada
+    expect(flat).toMatch(/is_recurrence_template/); // boolean coluna
+    expect(flat).toMatch(/completed_at/); // coluna com valor NULL
+  });
+
+  it('Story 2.14 FIX-1 / PO-FIX-2 — reinsert_row de transactions re-insere com kind (enum) + transaction_date', async () => {
+    const future = new Date(Date.now() + 30 * 1000).toISOString();
+    let callCount = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return [{ id: RUN_ID, household_id: TEST_HOUSEHOLD_ID, status: 'success' }];
+      }
+      if (callCount === 2) {
+        return [
+          {
+            id: 'rop-reinsert-tx',
+            reverse_op: {
+              kind: 'reinsert_row',
+              table: 'transactions',
+              id: 'txn-deleted-1',
+              snapshot: {
+                household_id: TEST_HOUSEHOLD_ID,
+                created_by_user_id: TEST_USER_ID,
+                account_id: 'acc-1',
+                card_id: null,
+                category_id: 'cat-1',
+                amount_cents: 1200,
+                currency: 'EUR',
+                kind: 'expense', // enum — re-inserido como valor literal
+                description: 'almoço',
+                transaction_date: '2026-06-22', // date — re-inserido como literal string
+                payment_method: 'card',
+                installment_id: null,
+                is_projected: false,
+                created_at: '2026-06-22T13:00:00Z',
+              },
+            },
+            expires_at: future,
+            executed_at: null,
+          },
+        ];
+      }
+      return [];
+    });
+    mocks.serviceDbExecuteMock.mockResolvedValue([]);
+
+    const res = await POST(makeRequest() as never, makeContext());
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { reverted: boolean; ops_count: number };
+    expect(body.reverted).toBe(true);
+    expect(body.ops_count).toBe(1);
+
+    // PO-FIX-2: o INSERT em transactions deve incluir kind (enum) e transaction_date.
+    const insertCall = mocks.serviceDbExecuteMock.mock.calls.find((call) => {
+      const flat = JSON.stringify(call[0] ?? {});
+      return /insert into transactions/i.test(flat);
+    });
+    expect(insertCall).toBeDefined();
+    const flat = JSON.stringify(insertCall![0] ?? {});
+    expect(flat).toContain('txn-deleted-1'); // id original
+    expect(flat).toMatch(/kind/); // coluna enum presente
+    expect(flat).toContain('expense'); // valor enum
+    expect(flat).toMatch(/transaction_date/); // coluna date presente
+    expect(flat).toContain('2026-06-22'); // valor date
+    expect(flat).toContain('1200'); // amount_cents numérico
+    expect(flat).toMatch(/values \(/i);
+  });
+
   it('AC7 — 500 quando reverse op tabela não whitelisted (defesa SQL injection)', async () => {
     const future = new Date(Date.now() + 30 * 1000).toISOString();
     let callCount = 0;

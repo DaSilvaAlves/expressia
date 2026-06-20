@@ -8,7 +8,7 @@
  *        sanity-check (`__tests__/schemas.test.ts`).
  *
  * Princípios:
- *   - Os 8 valores de `IntentSchema` batem EXACTAMENTE com o enum DB. Sem
+ *   - Os 15 valores de `IntentSchema` batem EXACTAMENTE com o enum DB. Sem
  *     desvios, sem invenção — Article IV (No Invention).
  *   - `intents.min(1)` é literal de Architecture §4.2 (sempre pelo menos
  *     `unknown` em prompts não-PT-PT ou ambíguos).
@@ -23,10 +23,10 @@ import { z } from 'zod';
 import type { LlmModel } from '@meu-jarvis/agent';
 
 /**
- * Os 11 intents canónicos do classifier — alinhados com enum Postgres
- * `agent_intent` (Story 2.1, migration 0005; Story 3.8 migration 0012).
- * NÃO modificar sem actualizar simultaneamente o enum DB e correr
- * `db:migrate`.
+ * Os 15 intents canónicos do classifier — alinhados com enum Postgres
+ * `agent_intent` (Story 2.1, migration 0005; Story 3.8 migration 0012;
+ * Story 2.14 migration 0026). NÃO modificar sem actualizar simultaneamente o
+ * enum DB e correr `db:migrate`.
  *
  * Sanity-check em runtime (test): `__tests__/schemas.test.ts` LÊ o ficheiro
  * `packages/db/src/schema/agent.ts` via `fs.readFile` + regex sobre
@@ -49,6 +49,14 @@ export const INTENT_VALUES = [
   'completar_tarefa',
   'listar_tarefas',
   'listar_atrasadas',
+  // Story 2.14 — tools UPDATE/DELETE Tarefas e Finanças. Sync com migration
+  // 0026 + `packages/db/src/schema/agent.ts` enum agent_intent. Article IV:
+  // INTENT_VALUES bate EXACTAMENTE com o enum DB (sanity-check em
+  // `__tests__/schemas.test.ts`).
+  'atualizar_tarefa',
+  'eliminar_tarefa',
+  'update_finance_variable',
+  'delete_finance_variable',
 ] as const;
 
 export const IntentSchema = z.enum(INTENT_VALUES);

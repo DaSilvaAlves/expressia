@@ -72,6 +72,7 @@ interface ReverseOpRow extends Record<string, unknown> {
 type ReverseOp =
   | { readonly kind: 'delete_row'; readonly table: string; readonly id: string }
   | { readonly kind: 'restore_row'; readonly table: string; readonly id: string; readonly snapshot: Record<string, unknown> }
+  | { readonly kind: 'reinsert_row'; readonly table: string; readonly id: string; readonly snapshot: Record<string, unknown> }
   | { readonly kind: 'composite'; readonly ops: ReadonlyArray<ReverseOp> };
 
 export async function POST(
@@ -270,6 +271,9 @@ export async function POST(
  * Tipos suportados:
  *   - `delete_row` → DELETE FROM table WHERE id
  *   - `restore_row` → UPDATE table SET ... WHERE id (snapshot full)
+ *   - `reinsert_row` → INSERT INTO table (id, ...cols) VALUES (...) — undo de
+ *     hard delete (Story 2.14 FIX-1). As keys do snapshot são usadas como nomes
+ *     de coluna LITERALMENTE — devem vir em snake_case (PO-FIX-1).
  *   - `composite` → recursivamente cada op
  *
  * Tabelas alvo são whitelisted para evitar SQL injection via `table` field.
@@ -325,6 +329,32 @@ async function applyReverseOp(
     // sql.identifier não está exposto pelo Drizzle de forma estável — usar
     // raw template com whitelist para safety.
     await db.execute(sql.raw(`delete from ${op.table} where id = '${op.id}'`));
+    return;
+  }
+
+  if (op.kind === 'reinsert_row') {
+    // Story 2.14 FIX-1 — undo de hard delete: re-inserir a row eliminada com o
+    // `id` original. As keys do snapshot são usadas LITERALMENTE como nomes de
+    // coluna (PO-FIX-1: snapshot DEVE vir em snake_case). O `id` original é
+    // incluído explicitamente para restaurar a identidade da row.
+    const snapshot = op.snapshot ?? {};
+    const allFields: Record<string, unknown> = { id: op.id, ...snapshot };
+    const cols = Object.keys(allFields).join(', ');
+    const vals = Object.values(allFields)
+      .map((value) => {
+        if (value === null || value === undefined) {
+          return 'NULL';
+        }
+        if (typeof value === 'number' || typeof value === 'boolean') {
+          return String(value);
+        }
+        // Strings — escape simples (snapshot vem do executeAtomic da Story 2.3
+        // que valida tipos).
+        const safe = String(value).replace(/'/g, "''");
+        return `'${safe}'`;
+      })
+      .join(', ');
+    await db.execute(sql.raw(`insert into ${op.table} (${cols}) values (${vals})`));
     return;
   }
 

@@ -37,6 +37,7 @@ export {
   ReverseOpPayloadSchema,
   ReverseOpDeleteRowSchema,
   ReverseOpRestoreRowSchema,
+  ReverseOpReinsertRowSchema,
   COMPOSITE_REVERSE_OP_MAX_OPS,
   serializeReverseOp,
   deserializeReverseOp,

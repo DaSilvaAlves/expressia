@@ -58,6 +58,11 @@ export const agentIntentEnum = pgEnum('agent_intent', [
   'completar_tarefa',
   'listar_tarefas',
   'listar_atrasadas',
+  // Story 2.14 — tools UPDATE/DELETE Tarefas e Finanças (migration 0026).
+  'atualizar_tarefa',
+  'eliminar_tarefa',
+  'update_finance_variable',
+  'delete_finance_variable',
 ]);
 
 export const llmModelEnum = pgEnum('llm_model', [

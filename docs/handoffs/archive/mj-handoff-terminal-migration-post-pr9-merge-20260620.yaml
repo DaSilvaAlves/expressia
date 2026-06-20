@@ -1,0 +1,74 @@
+id: mj-handoff-terminal-migration-post-pr9-merge-20260620
+from_agent: orchestrator (/sdc — arrumacao Git)
+to_agent: any
+created: "2026-06-20T18:55:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-21T00:00:00Z"
+consumed_by: orchestrator (/sdc — Eurico levantou a pausa e escolheu story de produto 2.14)
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: migracao-de-terminal (handoff-ponteiro)
+
+summary: >
+  MIGRACAO DE TERMINAL — continuar num terminal novo, mesma pasta. Esta sessao correu /sdc mas NAO
+  fez ciclo sm->po->dev->qa: o projeto esta em PAUSA DE DECISAO e nao se arranca trabalho novo sem
+  ordem do Eurico. O Eurico escolheu ARRUMAR O GIT. Resultado: bookkeeping pos-remocao de familia
+  CONSOLIDADO e JA EM MAIN (PR #9 mergeado por delegacao explicita do Eurico); PR #7 (superado,
+  conflituante) fechado e branch apagada. Repo 100% limpo, sem PRs abertos. Nada pendente do lado
+  do agente nesta cadeia. Itens vivos continuam bloqueados em config externa do Eurico (6.8 bucket,
+  OBS-3 medicao). Billing CONGELADO; SEC-8 HOLD; push/PR/merge so @devops (ou delegacao explicita).
+
+context:
+  branch_atual: main
+  head: dd9186e
+  origin_main: dd9186e (sincronizado)
+  working_tree: limpo
+
+  o_que_foi_feito_esta_sessao:
+    diagnostico:
+      - "Ao arrancar o /sdc: nao havia story corrivel (as 3 activas estao bloqueadas em config externa do Eurico) e o projeto esta em pausa de decisao -> NAO se criou story nova. Perguntou-se o foco ao Eurico."
+      - "Detectado estado Git sujo: PR #7 (bookkeeping doc-only, base antiga 812e785) OPEN mas CONFLICTING + working tree da main com bookkeeping duplicado por commitar."
+    arrumacao_git_consolidada:
+      - "@devops criou branch chore/handoff-bookkeeping-consolidated a partir de origin/main (db191a8); consolidou TODO o bookkeeping (5 handoffs->archive/ com consumed:true; 2 stories INVITE-EMAIL/INVITE-E2E->completed/ Cancelled; runbook invite-e2e-smoke.md->runbooks/archive/; handoff-pointer post-family-bookkeeping) + reconciliou HANDOFF-INDEX (lacuna do pass anterior)."
+      - "Commit 3d9002f (conventional + trailers, doc-only; gates de codigo N/A — zero apps/packages; CodeRabbit SKIP). PR #9 aberto -> main."
+      - "PR #7 fechado (gh pr close 7) com comentario explicando que foi superado; branch remota chore/handoff-bookkeeping-family-cleanup apagada."
+    merge_pr9:
+      - "Eurico autorizou EXPLICITAMENTE o merge ('faz tu o merge, ja faz muito tempo que deleguei isso para ti') — sobrepoe a regra default de merge-exclusivo do Eurico."
+      - "@devops: gh pr merge 9 --squash --delete-branch (5/5 checks CI verdes; mergeStateStatus CLEAN; sem --admin/--force). Merge commit dd9186e. main local+origin sincronizadas via git pull (fast-forward). Working tree limpa."
+
+  decisoes_em_vigor:
+    - "PROJETO EM PAUSA DE DECISAO (continuar vs arquivar) — NAO decidir sozinho; perguntar ao Eurico o foco antes de arrancar trabalho novo."
+    - "FAMILIA ELIMINADA — app single-user; NAO reintroduzir convites/membros/partilha/multi-household."
+    - "NAO remover household_id/RLS/tenancy (infra invisivel, nao e 'familia')."
+    - "Billing/Stripe CONGELADO (directiva Eurico 2026-05-29)."
+    - "SEC-8 em HOLD."
+    - "Push/PR/merge EXCLUSIVO do @devops; merge so com delegacao explicita do Eurico (precedente desta sessao NAO e mandato permanente). Mercado PT-PT exclusivo; PT-PT em tudo."
+
+  pending_vivos_a_preservar:
+    - "mj-handoff-6.8-export-gdpr-pr-open — Story 6.8 Export GDPR em prod; bloqueada [EURICO]: criar bucket PRIVADO 'exports' no Supabase Storage (eu-central-1) + confirmar SUPABASE_SERVICE_ROLE_KEY/NEXT_PUBLIC_SUPABASE_URL em prod."
+    - "mj-handoff-obs3-inreview-await-medicao — Story OBS-3 InReview; bloqueada [EURICO]: medir Lighthouse da /visao autenticada (DevTools, sessao no browser) via runbook lighthouse-mobile.md §1.4 Alternativa A."
+
+  residuos_eurico_browser:
+    - "Confirmacao visual em expressia.pt de zero vestigios de 'familia' (sidebar, /conta, landing) — tarefa de browser, nao executavel por agente."
+
+  blockers:
+    - "Nenhum bloqueador de codigo. Repo limpo, sem PRs abertos. Tudo o que resta e accao externa [EURICO] (bucket exports, medicao OBS-3, confirmacao visual) ou decisao estrategica [EURICO]."
+
+next_action: >
+  [AGENTE proximo terminal] No arranque: ler CLAUDE.md + HANDOFF-INDEX + este handoff; depois
+  PERGUNTAR ao Eurico o foco (o projeto esta em pausa de decisao). Itens concretos disponiveis:
+  quando o Eurico desbloquear config externa, fechar 6.8 (bucket exports) ou OBS-3 (medicao
+  Lighthouse) via os handoffs pending dedicados. NAO reintroduzir familia; NAO tocar
+  household_id/tenancy; billing CONGELADO; SEC-8 HOLD; push/merge so @devops (ou delegacao explicita do Eurico).
+
+related:
+  - https://github.com/DaSilvaAlves/expressia/pull/9
+  - docs/handoffs/mj-handoff-6.8-export-gdpr-pr-open-20260618.yaml
+  - docs/handoffs/mj-handoff-obs3-inreview-await-medicao-20260618.yaml
+  - docs/handoffs/archive/mj-handoff-terminal-migration-post-family-bookkeeping-20260619.yaml
+
+perfil_operador:
+  - "Eurico NAO e tecnico; satura com excesso de detalhe e frustra-se com perguntas a mais. Directiva firme = executar autonomamente com defaults sensatos e documentar. Validar por screenshot/evidencia. PORQUE antes do COMO. 1 passo de cada vez em config externa."

@@ -200,6 +200,32 @@ export const ReverseOpRestoreRowSchema = z.object({
 });
 
 /**
+ * Variante `reinsert_row` — usada quando a tool fez um hard DELETE que deve
+ * ser revertido re-inserindo a row com o id original e o snapshot completo.
+ *
+ * Distinto de `restore_row` (que faz UPDATE): se a row foi eliminada,
+ * UPDATE não atinge nenhuma linha e o undo seria no-op silencioso.
+ *
+ * Confirmado em `undo/route.ts` (branch `restore_row` faz apenas UPDATE).
+ * Re-insert de row hard-deleted requer este novo kind.
+ *
+ * **IMPORTANTE (Story 2.14 PO-FIX-1):** as chaves do `snapshot` são usadas
+ * LITERALMENTE como nomes de coluna no INSERT do engine de undo
+ * (`insert into ${table} (${cols}) ...`). Por isso o snapshot DEVE usar
+ * chaves em snake_case (ex: `transaction_date`, `created_by_user_id`), tal
+ * como o snapshot de `restore_row` (precedente `completar-tarefa.ts` —
+ * `completed_at`/`status`). camelCase resultaria em "coluna inexistente".
+ *
+ * Story 2.14 — FIX-1 (undo de eliminar_tarefa / delete_finance_variable).
+ */
+export const ReverseOpReinsertRowSchema = z.object({
+  kind: z.literal('reinsert_row'),
+  table: z.string().min(1),
+  id: z.string().uuid(),
+  snapshot: z.record(z.unknown()), // snapshot completo com todos os campos da row eliminada (snake_case)
+});
+
+/**
  * Variante `composite` — lista de outras `ReverseOpPayload` (potencialmente
  * recursivas).
  *
@@ -211,12 +237,14 @@ export const ReverseOpRestoreRowSchema = z.object({
 export type ReverseOpPayload =
   | z.infer<typeof ReverseOpDeleteRowSchema>
   | z.infer<typeof ReverseOpRestoreRowSchema>
+  | z.infer<typeof ReverseOpReinsertRowSchema> // NOVO — Story 2.14 FIX-1
   | { readonly kind: 'composite'; readonly ops: ReverseOpPayload[] };
 
 export const ReverseOpPayloadSchema: z.ZodType<ReverseOpPayload> = z.lazy(() =>
   z.discriminatedUnion('kind', [
     ReverseOpDeleteRowSchema,
     ReverseOpRestoreRowSchema,
+    ReverseOpReinsertRowSchema, // NOVO — Story 2.14 FIX-1
     z.object({
       kind: z.literal('composite'),
       ops: z.array(ReverseOpPayloadSchema).max(COMPOSITE_REVERSE_OP_MAX_OPS),

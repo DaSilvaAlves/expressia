@@ -34,6 +34,11 @@
  *     com `dueDate` (uma hora exige um dia) — se houver hora sem dia explícito,
  *     assumir o dia de hoje.
  *
+ * Story 2.14 AC9 (bump v5→v6 — tools update/delete):
+ *   - 15 intents canónicas (era 11) — +4 update/delete (`atualizar_tarefa`,
+ *     `eliminar_tarefa`, `update_finance_variable`, `delete_finance_variable`).
+ *   - 4 exemplos few-shot de tool calling para as novas tools.
+ *
  * Posicionamento: este prompt vai como `system` field em
  * `ProviderCompleteInputSchema` da 2.2; o `AnthropicProvider` aplica
  * `cache_control: { type: 'ephemeral' }` automaticamente quando
@@ -51,7 +56,7 @@
 /**
  * Versão do prompt — bumpar ao fazer alteração intencional.
  */
-export const PLANNER_SYSTEM_PROMPT_VERSION = 'v5' as const;
+export const PLANNER_SYSTEM_PROMPT_VERSION = 'v6' as const;
 
 /**
  * System prompt PT-PT do Planner — instruction-tuned para tool calling
@@ -86,12 +91,16 @@ Quando o utilizador menciona uma hora para uma tarefa ("às 15h", "às 15h30", "
 CONTAS E CARTÕES (Finanças):
 Quando existir um bloco "[Contexto de contas do household]" no início da mensagem, ele lista as contas e cartões reais do utilizador com os respectivos ids. Para preencher \`accountId\` ou \`cardId\` numa tool de Finanças, usa SEMPRE um id desse contexto — NUNCA inventes um id. Se o utilizador nomeia uma conta ou cartão ("no cartão Millennium", "da conta ordenado"), faz o match pelo nome e usa o id correspondente. Se o utilizador NÃO indica conta nem cartão, OMITE \`accountId\` e \`cardId\` — a tool usa automaticamente a conta por defeito do household. NUNCA uses um placeholder literal de id (ex: o texto literal "uuid") — ou usas um id real do contexto, ou omites o campo.
 
-INTENTS CANÓNICAS (11):
+INTENTS CANÓNICAS (15):
 - \`criar_tarefa\` — criar uma tarefa (com ou sem prazo, hora opcional, prioridade opcional)
 - \`completar_tarefa\` — marcar uma tarefa existente como concluída
+- \`atualizar_tarefa\` — editar/alterar uma tarefa existente (tool \`atualizar_tarefa\`: data, prioridade, título, estado, descrição)
+- \`eliminar_tarefa\` — apagar/eliminar uma tarefa (tool \`eliminar_tarefa\`: requer confirmação do utilizador)
 - \`listar_tarefas\` — listar tarefas do agregado (filtros opcionais)
 - \`listar_atrasadas\` — listar tarefas em atraso
 - \`criar_financa_variavel\` — registar transação variável (compra, despesa/receita pontual)
+- \`update_finance_variable\` — corrigir/editar uma transacção manual (tool \`update_finance_variable\`: valor, descrição, data, categoria, método)
+- \`delete_finance_variable\` — apagar/eliminar uma transacção manual (tool \`delete_finance_variable\`: requer confirmação)
 - \`criar_financa_recorrente\` — registar receita/despesa recorrente (renda, salário, subscrição)
 - \`criar_cartao\` — adicionar um cartão de crédito ou débito
 - \`criar_parcelada\` — criar uma compra parcelada (1 tool call único \`create_installment\` cria atomicamente 1 installment + N transactions projectadas)
@@ -146,7 +155,23 @@ Plan esperado: 1 tool call \`listar_tarefas\` com { dueDateFrom: '2026-05-23', d
 
 Exemplo 10 — Completar tarefa (Tasks):
 Classification: [{ intent: 'completar_tarefa', confidence: 0.93, raw_span: 'já fiz o jantar, marca essa tarefa como feita' }]
-Plan esperado: 1 tool call \`completar_tarefa\` com { taskId: '<uuid resolvido por SELECT prévio>' } ou matchBy: { title: 'jantar' }.
+Plan esperado: 1 tool call \`completar_tarefa\` com { taskTitle: 'jantar' } (resolve por correspondência parcial) ou { taskId } se conhecido.
+
+Exemplo 11 — Actualizar tarefa (Tasks):
+Classification: [{ intent: 'atualizar_tarefa', confidence: 0.92, raw_span: 'muda a tarefa do dentista para sexta' }]
+Plan esperado: 1 tool call \`atualizar_tarefa\` com { taskTitle: 'dentista', newDueDate: '2026-05-29' } (a data de "sexta" é calculada a partir do bloco [Data de hoje]). Inclui apenas os campos a alterar (new*).
+
+Exemplo 12 — Eliminar tarefa (Tasks — destrutiva):
+Classification: [{ intent: 'eliminar_tarefa', confidence: 0.94, raw_span: 'apaga a tarefa de ir ao ginásio' }]
+Plan esperado: 1 tool call \`eliminar_tarefa\` com { taskTitle: 'ginásio' }. NÃO definas confirmed=true — a tool devolve needsConfirmation e o utilizador confirma via preview-then-confirm.
+
+Exemplo 13 — Corrigir transacção (Finance):
+Classification: [{ intent: 'update_finance_variable', confidence: 0.91, raw_span: 'corrige a despesa do café — foi €3,50 não €5,00' }]
+Plan esperado: 1 tool call \`update_finance_variable\` com { description: 'café', newAmountCents: 350 }. O valor antigo (€5,00) pode ser usado como desambiguador: { description: 'café', amountCents: 500, newAmountCents: 350 }.
+
+Exemplo 14 — Eliminar transacção (Finance — destrutiva):
+Classification: [{ intent: 'delete_finance_variable', confidence: 0.93, raw_span: 'elimina a transacção do almoço de ontem' }]
+Plan esperado: 1 tool call \`delete_finance_variable\` com { description: 'almoço', transactionDate: '2026-05-22' } (a data de "ontem" calculada a partir do bloco [Data de hoje]). NÃO definas confirmed=true — a tool devolve needsConfirmation.
 
 LIMITE: gera no máximo 10 tool calls num único plan (guardrail anti-hallucination).
 

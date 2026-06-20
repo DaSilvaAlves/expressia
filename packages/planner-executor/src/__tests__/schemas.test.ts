@@ -123,7 +123,7 @@ describe('TOOL_TO_INTENT_MAP + resolveIntentFromToolName (D6)', () => {
     expect(resolveIntentFromToolName('foo_bar_unknown')).toBe('unknown');
   });
 
-  it('mapa cobre as 11 intents canónicas (D6 contract — 8 baseline + 3 Story 3.8)', () => {
+  it('mapa cobre as 15 intents canónicas (D6 contract — 8 baseline + 3 Story 3.8 + 4 Story 2.14)', () => {
     const intents = new Set(Object.values(TOOL_TO_INTENT_MAP));
     expect(intents).toContain('criar_tarefa');
     expect(intents).toContain('criar_financa_variavel');
@@ -137,5 +137,10 @@ describe('TOOL_TO_INTENT_MAP + resolveIntentFromToolName (D6)', () => {
     expect(intents).toContain('completar_tarefa');
     expect(intents).toContain('listar_tarefas');
     expect(intents).toContain('listar_atrasadas');
+    // Story 2.14 — tools UPDATE/DELETE Tarefas e Finanças
+    expect(intents).toContain('atualizar_tarefa');
+    expect(intents).toContain('eliminar_tarefa');
+    expect(intents).toContain('update_finance_variable');
+    expect(intents).toContain('delete_finance_variable');
   });
 });

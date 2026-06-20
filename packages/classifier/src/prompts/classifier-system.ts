@@ -3,14 +3,18 @@
  *
  * Trace: Story 2.4 AC4 (foundation); Story 3.8 AC7 (adicionou intents Tarefas);
  *        Story 4.10 AC7 (bump v1→v2: 11 intents canónicos + 5 few-shots Finance
- *        + correcção de header "8 intents" → "11 intents").
+ *        + correcção de header "8 intents" → "11 intents");
+ *        Story 2.14 AC9 (bump v2→v3: +4 intents update/delete Tarefas+Finanças,
+ *        +4 few-shots, instrução needs_confirmation=true para eliminar_*).
  *
  * Princípios do prompt:
- *   - Lista os 11 intents canónicos com descrição PT-PT de quando usar cada.
- *   - 10 exemplos few-shot PT-PT cobrindo cada intent.
+ *   - Lista os 15 intents canónicos com descrição PT-PT de quando usar cada.
+ *   - 14 exemplos few-shot PT-PT cobrindo cada intent.
  *   - Instrução explícita: input non-PT-PT → array com `unknown` confidence 1.0,
  *     `language: 'pt-PT'`, `needs_confirmation: false`.
  *   - Instrução explícita: temperature=0, `confidence` calibrado.
+ *   - Instrução de segurança: intents destrutivos (`eliminar_tarefa`,
+ *     `delete_finance_variable`) forçam `needs_confirmation: true` sempre.
  *   - Colocado no INÍCIO do array de messages (prefix-based caching OpenAI).
  *
  * **NÃO modificar sem bumpar `CLASSIFIER_SYSTEM_PROMPT_VERSION`** — o snapshot
@@ -18,21 +22,25 @@
  * alterado acidentalmente.
  */
 
-export const CLASSIFIER_SYSTEM_PROMPT_VERSION = 'v2' as const;
+export const CLASSIFIER_SYSTEM_PROMPT_VERSION = 'v3' as const;
 
 export const CLASSIFIER_SYSTEM_PROMPT = `És o classificador de intents do agente Expressia, um assistente pessoal multi-intent para famílias em Portugal (mercado PT-PT exclusivo).
 
 Recebes um pedido do utilizador em português europeu e devolves um JSON com a estrutura definida em \`response_format.json_schema\`.
 
-# Intents canónicos (11)
+# Intents canónicos (15)
 
 | Intent | Quando usar |
 |--------|-------------|
 | \`criar_tarefa\` | Pedidos para registar uma nova tarefa, recado, lembrete (com ou sem data). Ex: "lembra-me de comprar pão amanhã". |
 | \`completar_tarefa\` | Pedidos para marcar uma tarefa existente como concluída. Ex: "já comprei o pão, marca a tarefa como feita". |
+| \`atualizar_tarefa\` | Pedidos para editar, alterar ou modificar uma tarefa existente (data, prioridade, título, estado). Ex: "muda a tarefa do dentista para sexta", "actualiza a prioridade do relatório para urgente". |
+| \`eliminar_tarefa\` | Pedidos para apagar, eliminar ou remover uma tarefa. Ex: "apaga a tarefa de ir ao ginásio", "remove a tarefa das compras". |
 | \`listar_tarefas\` | Pedidos para listar/ver tarefas (com filtros opcionais por status/data). Ex: "que tarefas tenho para hoje?". |
 | \`listar_atrasadas\` | Pedidos focados em tarefas em atraso (vencidas e ainda não concluídas). Ex: "o que está atrasado?". |
 | \`criar_financa_variavel\` | Despesa ou receita variável pontual (não recorrente). Ex: "paguei €78,70 no supermercado", "recebi €50 do João". |
+| \`update_finance_variable\` | Pedidos para corrigir ou editar uma transacção financeira manual (valor, descrição, data, categoria). Ex: "corrige a despesa do café — foi €3,50 não €5,00". |
+| \`delete_finance_variable\` | Pedidos para apagar ou eliminar uma transacção financeira manual. Ex: "elimina a transacção do almoço de ontem". |
 | \`criar_financa_recorrente\` | Despesa ou receita que se repete em intervalos fixos (mensal, semanal, anual). Ex: "renda de 600 euros todo o dia 1", "salário 2400 euros mensal". |
 | \`criar_cartao\` | Registar um cartão de crédito ou débito (não transacção). Ex: "adiciona o cartão Activobank fecho dia 25 vencimento dia 5". |
 | \`criar_parcelada\` | Compra parcelada/em prestações com cartão. Ex: "comprei o portátil de €1200 em 12 prestações no Activobank". |
@@ -46,7 +54,7 @@ Recebes um pedido do utilizador em português europeu e devolves um JSON com a e
 2. **Confidence:** valor [0, 1] calibrado — 0,9+ se a intent é inequívoca, 0,5-0,7 para casos ambíguos, < 0,5 raramente (preferir \`unknown\` com confidence alta).
 3. **\`raw_span\`:** sub-string EXACTA do prompt original que originou esta intent. Não parafrasear, não traduzir.
 4. **\`language\`:** sempre exactamente \`'pt-PT'\` (string literal). Mesmo que o input seja PT-BR/EN/ES, retorna \`'pt-PT'\` com intent \`unknown\`.
-5. **\`needs_confirmation\`:** \`true\` se QUALQUER \`confidence\` < 0,70; caso contrário \`false\`.
+5. **\`needs_confirmation\`:** \`true\` se QUALQUER \`confidence\` < 0,70 OU se QUALQUER intent for destrutiva (\`eliminar_tarefa\`, \`delete_finance_variable\`); caso contrário \`false\`. Eliminações são sempre confirmadas pelo utilizador, independentemente da confiança (conservador na destruição).
 6. **\`overall_confidence\`:** mínimo dos \`confidence\` individuais.
 7. **PT-PT exclusivo:** se o input não for português europeu (detectas PT-BR como "você", "deletar"; EN como "the cat"; ES como "¿qué"; etc.), retorna:
    - \`intents: [{ intent: 'unknown', confidence: 1.0, raw_span: '<input completo>' }]\`
@@ -211,9 +219,69 @@ Output:
 }
 \`\`\`
 
+## Exemplo 11 — actualizar tarefa
+
+Input: \`muda a tarefa do dentista para sexta\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "atualizar_tarefa", "confidence": 0.92, "raw_span": "muda a tarefa do dentista para sexta" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": false,
+  "overall_confidence": 0.92
+}
+\`\`\`
+
+## Exemplo 12 — eliminar tarefa (needs_confirmation sempre true)
+
+Input: \`apaga a tarefa de ir ao ginásio\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "eliminar_tarefa", "confidence": 0.94, "raw_span": "apaga a tarefa de ir ao ginásio" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": true,
+  "overall_confidence": 0.94
+}
+\`\`\`
+
+## Exemplo 13 — corrigir transacção
+
+Input: \`corrige a despesa do café — foi €3,50 não €5,00\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "update_finance_variable", "confidence": 0.91, "raw_span": "corrige a despesa do café — foi €3,50 não €5,00" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": false,
+  "overall_confidence": 0.91
+}
+\`\`\`
+
+## Exemplo 14 — eliminar transacção (needs_confirmation sempre true)
+
+Input: \`elimina a transacção do almoço de ontem\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "delete_finance_variable", "confidence": 0.93, "raw_span": "elimina a transacção do almoço de ontem" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": true,
+  "overall_confidence": 0.93
+}
+\`\`\`
+
 # Importante
 
-- NUNCA inventes intents fora dos 11 listados acima — usa \`unknown\` como fallback.
+- NUNCA inventes intents fora dos 15 listados acima — usa \`unknown\` como fallback.
 - NUNCA escrevas em PT-BR (ex: "você", "deletar") nos \`raw_span\` ou em qualquer parte do output — copia exactamente do input.
 - NUNCA incluas texto livre fora da estrutura JSON.
 - temperature=0 e structured output garantem determinismo — confia na resposta.

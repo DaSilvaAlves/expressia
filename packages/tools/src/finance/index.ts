@@ -19,21 +19,28 @@ import { createCard } from './create-card';
 import { createFinanceRecurrence } from './create-finance-recurrence';
 import { createFinanceVariable } from './create-finance-variable';
 import { createInstallment } from './create-installment';
+import { deleteFinanceVariable } from './delete-finance-variable';
 import { queryFinanceSummary } from './query-finance-summary';
+import { updateFinanceVariable } from './update-finance-variable';
 
-// Side-effect: regista as 5 tools no singleton.
+// Side-effect: regista as tools no singleton.
 toolRegistry.register(createFinanceVariable);
 toolRegistry.register(createFinanceRecurrence);
 toolRegistry.register(createCard);
 toolRegistry.register(createInstallment);
 toolRegistry.register(queryFinanceSummary);
+// Story 2.14 — tools update/delete.
+toolRegistry.register(updateFinanceVariable);
+toolRegistry.register(deleteFinanceVariable);
 
 export {
   createCard,
   createFinanceRecurrence,
   createFinanceVariable,
   createInstallment,
+  deleteFinanceVariable,
   queryFinanceSummary,
+  updateFinanceVariable,
 };
 export type { CreateCardInput, CreateCardOutput } from './create-card';
 export type {
@@ -49,6 +56,14 @@ export type {
   CreateInstallmentOutput,
 } from './create-installment';
 export type {
+  DeleteFinanceVariableInput,
+  DeleteFinanceVariableOutput,
+} from './delete-finance-variable';
+export type {
   QueryFinanceSummaryInput,
   QueryFinanceSummaryOutput,
 } from './query-finance-summary';
+export type {
+  UpdateFinanceVariableInput,
+  UpdateFinanceVariableOutput,
+} from './update-finance-variable';
