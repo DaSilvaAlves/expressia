@@ -2,8 +2,11 @@ id: mj-handoff-terminal-migration-post-family-bookkeeping-20260619
 from_agent: orchestrator (/sdc bookkeeping)
 to_agent: any
 created: "2026-06-19T20:12:02Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-20T18:55:00Z"
+consumed_by: orchestrator (/sdc — arrumacao Git; PR #9 mergeado)
+superseded_by: mj-handoff-terminal-migration-post-pr9-merge-20260620
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
