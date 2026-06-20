@@ -1,0 +1,75 @@
+id: mj-handoff-terminal-migration-post-family-bookkeeping-20260619
+from_agent: orchestrator (/sdc bookkeeping)
+to_agent: any
+created: "2026-06-19T20:12:02Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: medium
+type: migracao-de-terminal (handoff-ponteiro)
+
+summary: >
+  MIGRACAO DE TERMINAL — continuar num terminal novo, mesma pasta. Esta sessao correu /sdc em
+  MODO BOOKKEEPING (escolha do Eurico; nao houve ciclo sm->po->dev->qa) para limpar o estado
+  apos o pivot single-user (feature de familia removida e ja em prod). Bookkeeping commitado e
+  pushado pelo @devops num PR CONSOLIDADO (branch chore/handoff-bookkeeping-consolidated -> main),
+  a partir da main actual (db191a8). Este PR consolidado SUPERA o antigo PR #7 (branch estreita
+  chore/handoff-bookkeeping-family-cleanup, base antiga 812e785, ja CONFLICTING com main): o #7
+  foi FECHADO como superado e a sua branch remota apagada. Nada mais pendente do lado do agente
+  nesta cadeia. O projeto permanece em PAUSA DE DECISAO (continuar vs arquivar) e os unicos
+  trabalhos vivos estao bloqueados em config externa do Eurico. Billing CONGELADO; SEC-8 HOLD;
+  push exclusivo do @devops.
+
+context:
+  branch_atual: chore/handoff-bookkeeping-consolidated
+  head: "(commit do PR consolidado a partir de db191a8)"
+  working_tree: limpo (tudo commitado+pushado na branch consolidada)
+  origin_main: "db191a8 (merge PR #8 — eliminacao de conta GDPR; ja em prod)"
+
+  o_que_foi_feito_esta_sessao:
+    bookkeeping_doc_only:
+      - "Stories obsoletas INVITE-EMAIL e INVITE-E2E -> Status: Cancelled (feature de familia removida) + movidas docs/stories/active/ -> docs/stories/completed/."
+      - "Runbook morto docs/runbooks/invite-e2e-smoke.md -> docs/runbooks/archive/."
+      - "Gates mantidos em docs/qa/gates/ (registo historico plano; NAO movidos por design)."
+      - "5 handoffs superados pelo pivot marcados consumed:true/consumed_at/consumed_by e movidos -> docs/handoffs/archive/: family-feature-removed-prod, terminal-migration-invite-email, invite-email-inreview-await-t6, invite-e2e-inreview-await-smoke, terminal-migration-obs3-pr5."
+      - "docs/HANDOFF-INDEX.md reconciliado (4 linhas removidas de Pending + linha malformada eliminada; 5 entradas adicionadas em Archived)."
+    push_devops:
+      - "Branch fresca chore/handoff-bookkeeping-consolidated a partir de origin/main (db191a8); commit conventional + trailers; PR CONSOLIDADO -> main."
+      - "Scope 100% docs/ -> gates de codigo (lint/typecheck/test/build/check:rls) N/A e nao corridos (justificado). CodeRabbit SKIP. Sem --force/--no-verify."
+      - "PR #7 (branch estreita chore/handoff-bookkeeping-family-cleanup, base 812e785, CONFLICTING) FECHADO como superado + branch remota apagada. O bookkeeping completo + INDEX reconciliado vive no PR consolidado."
+
+  decisoes_em_vigor:
+    - "PROJETO EM PAUSA DE DECISAO (continuar vs arquivar) — NAO decidir sozinho; perguntar ao Eurico o foco antes de arrancar trabalho novo."
+    - "FAMILIA ELIMINADA — app single-user; NAO reintroduzir convites/membros/partilha/multi-household."
+    - "NAO remover household_id/RLS/tenancy (infra invisivel, nao e 'familia')."
+    - "Billing/Stripe CONGELADO (directiva Eurico 2026-05-29)."
+    - "SEC-8 em HOLD."
+    - "Push/PR/merge EXCLUSIVO do @devops; mercado PT-PT exclusivo; PT-PT em tudo."
+
+  pending_vivos_a_preservar:
+    - "mj-handoff-6.8-export-gdpr-pr-open — Story 6.8 Export GDPR em prod; bloqueada [EURICO]: criar bucket PRIVADO 'exports' no Supabase Storage (eu-central-1) + confirmar SUPABASE_SERVICE_ROLE_KEY/NEXT_PUBLIC_SUPABASE_URL em prod."
+    - "mj-handoff-obs3-inreview-await-medicao — Story OBS-3 InReview; bloqueada [EURICO]: medir Lighthouse da /visao autenticada (DevTools, sessao no browser) via runbook lighthouse-mobile.md §1.4 Alternativa A."
+
+  residuos_eurico_browser:
+    - "Confirmacao visual em expressia.pt de zero vestigios de 'familia' (sidebar, /conta, landing) — tarefa de browser, nao executavel por agente."
+
+  blockers:
+    - "Nenhum bloqueador de codigo. O PR de bookkeeping CONSOLIDADO e doc-only e so aguarda merge do Eurico (PR #7 ja fechado/superado). Tudo o resto pendente e accao externa [EURICO] (bucket exports, medicao OBS-3, confirmacao visual) ou decisao estrategica [EURICO]."
+
+next_action: >
+  [AGENTE proximo terminal] No arranque: ler HANDOFF-INDEX + este handoff; depois PERGUNTAR ao
+  Eurico o foco (o projeto esta em pausa de decisao). Itens concretos disponiveis: (1) merge do
+  PR de bookkeeping CONSOLIDADO doc-only (accao Eurico; PR #7 ja fechado/superado); (2) quando o
+  Eurico desbloquear config externa, fechar 6.8 (bucket exports) ou OBS-3 (medicao Lighthouse) via
+  os handoffs pending dedicados. NAO reintroduzir familia; NAO tocar household_id/tenancy; billing
+  CONGELADO; SEC-8 HOLD; push so @devops.
+
+related:
+  - docs/handoffs/mj-handoff-6.8-export-gdpr-pr-open-20260618.yaml
+  - docs/handoffs/mj-handoff-obs3-inreview-await-medicao-20260618.yaml
+  - docs/handoffs/archive/mj-handoff-family-feature-removed-prod-20260619.yaml
+
+perfil_operador:
+  - "Eurico NAO e tecnico; satura com excesso de detalhe e frustra-se com perguntas a mais. Directiva firme = executar autonomamente com defaults sensatos e documentar. Validar por screenshot/evidencia. PORQUE antes do COMO. 1 passo de cada vez em config externa."

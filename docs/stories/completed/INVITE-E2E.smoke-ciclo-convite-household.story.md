@@ -2,7 +2,7 @@
 
 ## Status
 
-InReview
+Cancelled (19/06/2026) — feature de Família/convites REMOVIDA por completo do produto e em prod (pivot single-user; commit `080559d`, merge PR #6 `812e785`, migration `0025_drop_family_feature.sql`). Não existe mais ciclo de convite de membro para fazer smoke E2E. Esta story fica sem objeto. Histórico anterior (era InReview a aguardar smoke do Eurico) preservado abaixo para registo. Ref.: handoff `mj-handoff-family-feature-removed-prod-20260619`.
 
 > **Regra de transição de estado (PO-S1 / FIX-3):** esta story só pode passar a **Done** após a execução real do smoke E2E em produção pelo Eurico com 2 contas/sessões distintas e captura de ecrã como evidência de cada checkpoint. O trabalho autónomo do agente (T1 — runbook + T3 — gates doc-only) leva a story **apenas a `InReview`**, NUNCA a `Done`. A execução real (T2) e a AC6 ficam deferidas ao Eurico; só depois de o runbook ser preenchido com evidência real é que a transição `InReview → Done` é permitida. Proibido marcar Done com passos não verificados ou evidência inventada (Constitution Article IV).
 
