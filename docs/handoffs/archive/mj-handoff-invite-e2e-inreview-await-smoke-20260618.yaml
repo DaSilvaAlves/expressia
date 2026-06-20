@@ -2,8 +2,11 @@ id: mj-handoff-invite-e2e-inreview-await-smoke-20260618
 from_agent: orchestrator (/sdc)
 to_agent: eurico
 created: "2026-06-18T23:30:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-19T19:29:34Z"
+consumed_by: orchestrator (/sdc bookkeeping)
+consumed_note: "Story INVITE-E2E Cancelled — feature de família/convites removida em prod (pivot single-user). Superado por mj-handoff-family-feature-removed-prod-20260619."
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

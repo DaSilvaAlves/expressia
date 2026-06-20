@@ -2,7 +2,7 @@
 
 ## Status
 
-InReview — gate @qa **PASS 9,4/10** (código completo, 5/5 gates verdes). Config externa [EURICO] **FEITA 19/06**: `RESEND_API_KEY` em Vercel Prod ✓ + remetente alterado para `@euricoalves.pt` (único domínio verificado no plano grátis; decisão Eurico) ✓. **Falta só T6.3** (smoke E2E em prod, após deploy do @devops) para Done. Push pendente (@devops; ciclo /sdc correu sem `--push`).
+Cancelled (19/06/2026) — feature de Família/convites REMOVIDA por completo do produto e em prod (pivot single-user; commit `080559d`, merge PR #6 `812e785`, migration `0025_drop_family_feature.sql`). O envio de email de convite (Resend) e a dependência `resend` foram removidos do código. Esta story fica sem objeto. Histórico anterior (era InReview PASS 9,4/10 a aguardar T6.3) preservado abaixo para registo. Ref.: handoff `mj-handoff-family-feature-removed-prod-20260619`.
 
 ## Executor Assignment
 

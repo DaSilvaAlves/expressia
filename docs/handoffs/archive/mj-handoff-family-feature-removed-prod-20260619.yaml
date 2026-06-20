@@ -1,0 +1,100 @@
+id: mj-handoff-family-feature-removed-prod-20260619
+from_agent: orchestrator (/sdc + remoção de feature)
+to_agent: any
+created: "2026-06-19T19:00:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-19T19:29:34Z"
+consumed_by: orchestrator (/sdc bookkeeping)
+consumed_note: "Parte [AGENTE] do next_action executada: stories INVITE-EMAIL/INVITE-E2E marcadas Cancelled + arquivadas (story+gate+runbook); handoffs superados (invite-email, invite-e2e, terminal-migration-*) consumidos+arquivados. Resíduos [EURICO] (bucket 'exports' da 6.8, medição OBS-3) permanecem rastreados pelos handoffs dedicados pending mj-handoff-6.8-export-gdpr-pr-open e mj-handoff-obs3-inreview-await-medicao."
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: pivot-de-produto + estado-em-prod + bookkeeping
+
+summary: >
+  PIVOT DE PRODUTO (decisão firme e enfática do Eurico): a app deixa de ter qualquer
+  funcionalidade de "Família"/partilha multi-membro. "Não quero ver família em lado
+  nenhum." A feature foi REMOVIDA POR COMPLETO e está EM PRODUÇÃO. Antes disso, na mesma
+  sessão, fechou-se o trabalho /sdc pronto (PR #5: Story 6.8 Export GDPR + código
+  INVITE-EMAIL) com merge para main + deploy, e corrigiu-se uma falha pré-existente da CI
+  (Build vermelho na main há dias). A app é agora SINGLE-USER: cada utilizador só vê os
+  seus dados. A tenancy household_id/RLS ficou INTACTA (é a fundação invisível de
+  Tarefas/Finanças/Visão/Chat/export — NÃO confundir com a feature de família).
+
+context:
+  branch_atual: main (working tree limpo após merges)
+  origin_main: "812e785 (merge PR #6 — remoção família)"
+
+  o_que_foi_feito_esta_sessao:
+    bloco_1_fechar_trabalho_pronto_PR5:
+      - "PR #5 (feat/6.8-export-gdpr) merged para main (merge commit a44d8fd) + deploy prod Vercel SUCCESS."
+      - "Conteúdo: Story 6.8 Export GDPR (a1a8abd) + código INVITE-EMAIL/migration 0024 (d936cd2) + docs InReview (96f61c1)."
+      - "FIX CI pré-existente (80c8fe3): a página (auth)/recuperar/nova-palavra-passe criava o cliente Supabase browser no render -> rebentava no prerender do build (sem NEXT_PUBLIC_* no job Build da CI). A main estava VERMELHA há dias por isto. Fix: lazy-init do cliente (criado só no handleSubmit, no browser) + export const dynamic='force-dynamic'. CI da main voltou a verde."
+    bloco_2_remocao_familia_PR6:
+      - "PR #6 (chore/remove-family-feature) merged para main (merge commit 812e785) + deploy prod Vercel SUCCESS."
+      - "Commit principal 080559d feat(household)!: breaking change."
+      - "REMOVIDO (UI+API+email): link 'Família' na Sidebar; página /conta/household (gestão+rename+plano); página /aceitar-convite; APIs api/conta/household/{invites,members,aceitar-convite,route.ts} + testes; lib/email/ (sendInviteEmail Resend) + dep 'resend'; lib/api-schemas/households.ts."
+      - "REMOVIDO (BD): migration 0025_drop_family_feature.sql -> drop table household_invites cascade + drop function accept_invite(text,uuid)/(text). Schema Drizzle householdInvites removido de tenancy.ts. APLICADA EM PROD (alvo Supabase llpotuxlyiyjvvxzetoo via DIRECT_URL): 0025 registada em __schema_migrations, household_invites=null, accept_invite=0 procs."
+      - "REESCRITO (copy visível 'família' -> neutro): landing app/page.tsx + layout.tsx ('rotinas da família'->'o teu dia a dia'); /registar; onboarding OnboardingTour; export-data; termos/privacidade ('agregado familiar'->'conta'); chat error-messages (QUOTA já não mostra enum cru 'familia')."
+      - "RENOME label de plano 'Família €8,88' -> 'Premium €8,88' (preço mantido). DECISÃO AUTÓNOMA do orchestrator (Eurico disse para não perguntar mais). Mapa PLAN_LABELS em components/chat/error-messages.ts."
+      - "TopBar: removido slot vazio data-slot='household-switcher' (era invisível)."
+
+  fronteira_preservada_INTACTA:
+    - "household_id em todas as tabelas de domínio — NÃO tocado."
+    - "RLS policies de todas as outras tabelas — NÃO tocado."
+    - "Tabelas households + household_members — INTACTAS (4 policies cada, provado vivo em prod pós-migração)."
+    - "Trigger handle_new_user (cria 1 household por utilizador no registo) — INTACTO. Cada user continua com o seu household como tenant SILENCIOSO."
+    - "Enum plan_tier='familia' na BD — MANTIDO (valor interno, nunca mostrado em cru; só labels visíveis mudaram). NÃO foi feita migração de enum (risco)."
+
+  gates_verdes_pre_push_PR6:
+    lint: "exit 0"
+    typecheck: "exit 0"
+    test: "web 1232/1232 + db-test 205 (38 files, Docker UP)"
+    build: "exit 0 — /conta/household e /aceitar-convite AUSENTES do manifest"
+    check_rls: "exit 0 — 27 tabelas (era 28; household_invites saiu)"
+    ci_pr6: "Quality + RLS Gate + Build + Vercel TODOS verdes"
+
+  decisoes_em_vigor:
+    - "FAMÍLIA ELIMINADA — NÃO reintroduzir convites/membros/partilha/multi-household. App é single-user."
+    - "NÃO remover household_id/RLS/tenancy (parte tudo). É infra invisível, não é 'família'."
+    - "Billing/Stripe CONGELADO (directiva Eurico 2026-05-29)."
+    - "SEC-8 em HOLD."
+    - "Push/PR/merge é EXCLUSIVO do @devops."
+    - "Mercado PT-PT exclusivo; PT-PT em tudo."
+
+  residuos_para_proximo_terminal:
+    stories_obsoletas:
+      - "INVITE-EMAIL (docs/stories/active/INVITE-EMAIL.*) — OBSOLETA (feature removida). Marcar Cancelled e arquivar story + gate."
+      - "INVITE-E2E (docs/stories/active/INVITE-E2E.*) — OBSOLETA (feature removida). Marcar Cancelled e arquivar story + gate + runbook invite-e2e-smoke.md."
+    enum_plan_familia:
+      - "Decisão humana pendente: nome final do plano (label provisório='Premium') e se vale migrar o enum plan_tier 'familia' (interno, invisível). Baixo risco deixar como está."
+    story_6_8_export:
+      - "6.8 Export GDPR EM PROD, mas para o export funcionar E2E falta [EURICO] criar bucket PRIVADO 'exports' no Supabase Storage (eu-central-1) + confirmar SUPABASE_SERVICE_ROLE_KEY/NEXT_PUBLIC_SUPABASE_URL em prod. Ver mj-handoff-6.8-export-gdpr-pr-open-20260618."
+    obs3:
+      - "OBS-3 (Lighthouse /visao) InReview, aguarda medição [EURICO]. Ver mj-handoff-obs3-inreview-await-medicao-20260618."
+    bookkeeping_git:
+      - "Branches remotas chore/remove-family-feature e feat/6.8-export-gdpr não apagadas (cleanup opcional)."
+      - "PRs antigos #3 (fix/auth-host-header) e #4 (soft-launch-followups) ainda OPEN — stale, revisão humana."
+    handoffs_a_consumir:
+      - "Os handoffs invite-email-inreview-await-t6, invite-e2e-inreview-await-smoke e os terminal-migration-* ficaram superados por este pivot — marcar consumed e arquivar."
+
+next_action: >
+  [AGENTE próximo terminal] 1) Bookkeeping de stories: marcar INVITE-EMAIL e INVITE-E2E como
+  Cancelled (feature removida) e mover story+gate+runbook para arquivo; consumir/arquivar os
+  handoffs superados (invite-email/invite-e2e/terminal-migration). 2) Confirmar visualmente em
+  expressia.pt que não há vestígios de 'família' (sidebar, /conta, landing). [EURICO] residuais
+  não relacionados: bucket 'exports' (6.8) + medição OBS-3. NÃO reintroduzir família; NÃO tocar
+  em household_id/tenancy; billing CONGELADO; SEC-8 HOLD.
+
+related:
+  - packages/db/migrations/0025_drop_family_feature.sql
+  - packages/db/src/schema/tenancy.ts
+  - apps/web/src/components/shell/Sidebar.tsx
+  - apps/web/src/app/page.tsx
+  - docs/handoffs/mj-handoff-6.8-export-gdpr-pr-open-20260618.yaml
+  - docs/handoffs/mj-handoff-obs3-inreview-await-medicao-20260618.yaml
+
+perfil_operador:
+  - "Eurico NÃO é técnico; satura com excesso de detalhe e fica frustrado com perguntas a mais. Quando dá uma directiva firme ('faz tudo, não perguntes'), executar autonomamente com defaults sensatos e documentar as decisões no handoff. Validar por screenshot/evidência. Porquê antes do como."
