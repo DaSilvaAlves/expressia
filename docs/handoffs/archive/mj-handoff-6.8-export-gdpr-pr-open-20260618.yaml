@@ -2,8 +2,20 @@ id: mj-handoff-6.8-export-gdpr-pr-open-20260618
 from_agent: orchestrator (/sdc)
 to_agent: any
 created: "2026-06-18T12:00:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-21T13:10:00Z"
+consumed_by: "orchestrator (/sdc — bookkeeping dívida de estado)"
+consumed_note: >
+  PR #5 (feat/6.8-export-gdpr) foi MERGED em main a 2026-06-19T17:33:42Z
+  (merge commit a44d8fd; squash a1a8abd). Código export GDPR vivo em main
+  (apps/web/src/lib/gdpr/ + /api/conta/export + /conta/dados). Story 6.8
+  movida active/ -> completed/. Bloqueador de RUNTIME [EURICO] (criar bucket
+  privado `exports` no Supabase Storage eu-central-1 + confirmar
+  SUPABASE_SERVICE_ROLE_KEY/NEXT_PUBLIC_SUPABASE_URL em prod) PERMANECE em
+  aberto e está preservado no handoff pending de migração de terminal
+  (mj-handoff-terminal-migration-post-2.14-6.4-merged-20260621) e no catálogo
+  soft-launch. NÃO é bloqueador de código/merge.
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
