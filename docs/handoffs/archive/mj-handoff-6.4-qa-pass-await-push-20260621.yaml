@@ -2,8 +2,10 @@ id: mj-handoff-6.4-qa-pass-await-push-20260621
 from_agent: orchestrator (/sdc — ciclo sm->po->dev->qa)
 to_agent: eurico
 created: "2026-06-21T14:00:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-21T08:45:00Z"
+consumed_by: devops
 
 project: meu-jarvis (Expressia)
 project_prefix: mj
