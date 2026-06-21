@@ -1,0 +1,118 @@
+schema: 1
+story: '6.4'
+slug: expire-trials-inngest-job
+gate: PASS
+score: 9.4
+status_reason: >-
+  Job Inngest expire-trials implementado conforme AC1-AC8. Os 2 PO-MUST-FIX
+  estão correctamente aplicados ao código real (audit usa enum EXISTENTE
+  'plan_changed', e os 2 UPDATEs correm dentro de db.transaction() por-subscription
+  com atomicidade real). Billing-freeze respeitado (zero Stripe), service_role
+  justificado, idempotência e zero-PII provados por testes. 6/6 gates GREEN.
+  Concerns são apenas follow-ups não-bloqueantes (email diferido + nota deploy).
+reviewer: 'Quinn (Guardian)'
+updated: '2026-06-21T02:30:00Z'
+
+evidence:
+  gates_reexecuted_independently: true
+  exit_codes:
+    focused_test: 'exit 0 — expire-trials.test.ts 9/9 pass'
+    lint: 'exit 0 — zero warnings (10/10, FULL TURBO)'
+    typecheck: 'exit 0 (10/10)'
+    test_full: 'exit 0 — web 1272 pass (154 files, +9 da 6.4)'
+    build: 'exit 0 (10/10)'
+    check_rls: 'exit 0 — todas as tabelas cobertas, nenhuma nova'
+  audited_independently: true
+  files_reviewed:
+    - apps/web/src/lib/inngest/functions/expire-trials.ts
+    - apps/web/src/lib/inngest/functions/__tests__/expire-trials.test.ts
+    - apps/web/src/app/api/inngest/route.ts
+    - packages/db/src/schema/audit.ts (verificação enum)
+    - apps/web/src/lib/agent/db-shim.ts (verificação transaction)
+    - packages/db/migrations/0001_rls_policies.sql (verificação RLS subscriptions)
+
+critical_audit_findings:
+  - point: 'PO-MUST-FIX-1 — audit usa valor de enum EXISTENTE (plan_changed)'
+    verdict: PASS
+    detail: >-
+      audit.ts:36 confirma 'plan_changed' presente (categoria Billing). Grep
+      confirma que 'trials_expired'/'trial_expired' NÃO existem no enum
+      audit_action. expire-trials.ts:211 emite "'plan_changed'::audit_action"
+      com cast explícito (espelha gdpr-purge.ts:135). TC7 prova que a query
+      INSERT contém 'plan_changed'::audit_action e NÃO contém trials_expired.
+      INSERT mapeia 1:1 às colunas reais (audit.ts:135-154); household_id é
+      nullable (sem .notNull()) logo household_id=null é válido. Sem ALTER TYPE
+      → AC8 intacto.
+  - point: 'PO-MUST-FIX-2 — 2 UPDATEs dentro de db.transaction() (atomicidade real)'
+    verdict: PASS
+    detail: >-
+      db-shim.ts:31 expõe transaction<T>(fn). expire-trials.ts:123-151 envolve
+      UPDATE subscriptions + UPDATE households num db.transaction(async (tx) =>)
+      por-subscription — não statements sequenciais auto-commit. Se households
+      falhar, subscriptions faz rollback (zero divergência plan↔plan, mitiga
+      R-6.4.2). UPDATE households só corre se subUpdate.length>0 (D-6.4.2). Mock
+      de teste expõe transaction: partilhando o executeMock, tornando a sequência
+      observável; TC2 prova 2 UPDATEs por trial.
+  - point: 'Billing-freeze / Stripe — sem SDK, sem key, sem webhook'
+    verdict: PASS
+    detail: >-
+      Grep stripe|Stripe|STRIPE no expire-trials.ts → 0 matches. A função importa
+      apenas drizzle-orm sql, @meu-jarvis/observability, getServiceDb e inngest
+      client. Opera só sobre subscriptions+households via SELECT/UPDATE. Trials
+      internos (trigger 0003) não têm stripe_customer_id (nullable). Billing-freeze
+      respeitado integralmente.
+  - point: 'getServiceDb (não ctx RLS) — justificado para job sistémico'
+    verdict: PASS
+    detail: >-
+      0001_rls_policies.sql:185-196 confirma subscriptions INSERT/UPDATE/DELETE
+      bloqueados para authenticated (with check false / using false). Cron job não
+      tem JWT de utilizador (sem current_household_id() no contexto) → service_role
+      é a única opção viável e é categoria-1 auditada em SEC-10 (db-shim.ts:59-61).
+      Justificação documentada no cabeçalho da função. Correcto.
+  - point: 'Idempotência — rerun = no-op'
+    verdict: PASS
+    detail: >-
+      SELECT filtra status='trialing' AND trial_ends_at<=now(). UPDATE subscriptions
+      tem segunda linha de defesa AND status='trialing' (expire-trials.ts:131). Se
+      tocar 0 rows (race/rerun), salta UPDATE households e conta skipped. TC4 prova
+      households NÃO tocado quando UPDATE subscriptions é no-op. Inngest at-least-once
+      coberto (R-6.4.3).
+  - point: 'PII em spans/logs — zero household_id raw, email, conteúdo'
+    verdict: PASS
+    detail: >-
+      Span attrs são whitelist de contadores: expired_count, skipped_count,
+      duration_ms, run_id (expire-trials.ts:225-228). Nenhum household_id raw,
+      user_id, email ou valor monetário. TC6 assert explícito: attrs NÃO contêm
+      household.id/user.id/email/amount. Logs estruturados emitem subscription_id
+      + household_id (identificadores técnicos, não PII de utilizador — sem email,
+      nome ou conteúdo). audit_log.after_state só tem contadores + run_id.
+  - point: 'AC8 / check:rls — zero migrações, nenhuma tabela nova com household_id'
+    verdict: PASS
+    detail: >-
+      File List não contém qualquer .sql novo. Nenhuma pgTable nova. pnpm check:rls
+      exit 0 com todas as tabelas existentes cobertas. subscriptions e households
+      pré-existem (0000/0001/0003). Gate CI NFR5 inalterado.
+  - point: 'Cobertura de testes — 9 testes load-bearing'
+    verdict: PASS
+    detail: >-
+      9 testes (excede mínimo 6 do AC7). Cobrem: registo id/cron, zero trials,
+      1 trial (2 UPDATEs na tx), N trials (counts somados), idempotência (no-op →
+      households não tocado), erro DB (re-throw + captureException com tags
+      corretas), span attrs sem PII, audit usa enum existente, audit INSERT falha
+      → warn não-fatal handler conclui. Asserts inspeccionam o texto real das
+      queries (update subscriptions, plan='free', 'plan_changed'::audit_action) —
+      cobertura real, não superficial.
+
+project_constraints:
+  family_not_reintroduced: PASS  # household_id mantido como tenancy, sem feature família
+  billing_untouched: PASS        # zero Stripe SDK/key/webhook — billing-freeze respeitado
+  sec10_service_db_justified: PASS  # getServiceDb categoria-1 (job Inngest cron) auditada
+  pt_pt_exclusive: PASS          # comentários, logs e mensagens em PT-PT europeu
+
+top_issues: []
+
+follow_ups_non_blocking:
+  - 'FUP-6.4.A — email de notificação ao expirar trial diferido (Resend, contexto Story 6.3/6.5)'
+  - 'DEPLOY — confirmar que a função expire-trials é sincronizada no workspace Inngest no push (PUT /api/inngest); cron 0 3 * * * só dispara após sync'
+
+waiver: { active: false }

@@ -1,0 +1,80 @@
+id: mj-handoff-6.4-qa-pass-await-push-20260621
+from_agent: orchestrator (/sdc — ciclo sm->po->dev->qa)
+to_agent: eurico
+created: "2026-06-21T14:00:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: story-pr-open-await-merge
+
+summary: >
+  Story 6.4 (job Inngest `expire-trials` — Epic 6) correu o ciclo /sdc completo:
+  @sm (draft) -> @po (GO 7,5/10) -> @dev (6/6 gates green, 2 MUST-FIX aplicados) ->
+  @qa (PASS 9,4/10). O @devops (Gage) reposicionou sobre origin/main (8280931),
+  criou a branch feat/6.4-expire-trials, re-correu os 5 gates pre-push (todos EXIT 0),
+  commitou (5df619a, conventional + trailers, sem --no-verify), pushou e abriu o
+  PR #11 -> main. Falta a DECISAO DE MERGE do Eurico (merge e exclusivo com ordem
+  explicita). Story NAO toca no Stripe — billing congelado respeitado. ZERO migrations
+  novas (opera sobre subscriptions/households existentes).
+
+context:
+  pr_number: 11
+  pr_url: https://github.com/DaSilvaAlves/expressia/pull/11
+  branch: feat/6.4-expire-trials
+  base: main
+  commit: 5df619a
+  origin_main_no_arranque: 8280931
+  merge_style_sugerido: squash (coerente com PRs #8, #9, #10)
+
+  o_que_foi_entregue:
+    - "Nova funcao Inngest expire-trials.ts: cron 0 3 * * * que le subscriptions em trial expirado (status='trialing' AND trial_ends_at <= now()) via getServiceDb() e regride household a Free."
+    - "Atomicidade POR-SUBSCRIPTION via db.transaction (PO-MUST-FIX-2): os 2 UPDATEs (subscriptions canceled/free + households free) correm no mesmo commit; se households falhar, subscriptions faz rollback (zero divergencia de plan). Por-subscription, nao por-batch."
+    - "Idempotencia (AC3): WHERE status='trialing' na SELECT + 2.a linha de defesa AND status='trialing' no UPDATE — reruns inofensivos (Inngest at-least-once)."
+    - "Audit log agregado por run (PO-MUST-FIX-1): action='plan_changed'::audit_action (enum EXISTENTE, categoria Billing). NAO criou trials_expired (evitaria ALTER TYPE — AC8). household_id=null. Falha nao-fatal."
+    - "Observability: withSpan('billing.trials.expire') + atributos sem PII + childLogger Pino. Registo em /api/inngest junto dos restantes crons (AC4)."
+
+  gates_evidencia_devops:
+    - "lint: EXIT 0 (10/10, zero warnings)"
+    - "typecheck: EXIT 0 (10/10 FULL TURBO)"
+    - "test: EXIT 0 — web 154 ficheiros (incl. expire-trials.test.ts 9 testes); todos os 10 packages verdes"
+    - "build: EXIT 0 (10/10)"
+    - "check:rls: EXIT 0 (27 tabelas, 120 policies — nenhuma tabela nova)"
+
+  ficheiros_no_commit_5df619a:
+    novos:
+      - apps/web/src/lib/inngest/functions/expire-trials.ts
+      - apps/web/src/lib/inngest/functions/__tests__/expire-trials.test.ts
+      - docs/qa/gates/6.4-expire-trials-inngest-job.yml
+      - docs/stories/active/6.4.expire-trials-inngest-job.story.md
+    modificados:
+      - apps/web/src/app/api/inngest/route.ts
+
+  gate_qa: "PASS 9,4/10"
+
+  follow_ups_nao_bloqueantes:
+    - "FUP-6.4.A (LOW): email de notificacao ao utilizador no downgrade — diferido (audit log agregado e nao-fatal/opcional)."
+    - "DEPLOY (operacional): a funcao Inngest precisa de sync no workspace via PUT /api/inngest no deploy para o cron 0 3 * * * disparar. Alinhada com generate-finance-recurrences, generate-recurring-tasks, cleanup-expired-reverse-ops, gdpr-purge."
+
+  decisoes_em_vigor:
+    - "Billing/Stripe CONGELADO — a story NAO toca billing (so regride plan/status em BD)."
+    - "Familia ELIMINADA — single-user; household_id/RLS/tenancy INTACTOS."
+    - "SEC-8 em HOLD."
+    - "Push/PR/merge EXCLUSIVO do @devops; merge so com delegacao explicita do Eurico."
+
+next_action: >
+  [Eurico] decidir o merge do PR #11. Apos merge (squash sugerido): mover a story
+  docs/stories/active/6.4.expire-trials-inngest-job.story.md -> completed/, marcar este
+  handoff consumed: true + mover para docs/handoffs/archive/, reconciliar o HANDOFF-INDEX
+  (remover de Pending, adicionar em Archived). No deploy, garantir o sync Inngest via
+  PUT /api/inngest para o cron disparar. Sem delegacao explicita do Eurico, NAO fazer merge.
+
+related:
+  - docs/stories/active/6.4.expire-trials-inngest-job.story.md
+  - docs/qa/gates/6.4-expire-trials-inngest-job.yml
+  - https://github.com/DaSilvaAlves/expressia/pull/11
+
+perfil_operador:
+  - "Eurico NAO e tecnico; defaults sensatos + documentar. Push/PR e do @devops; merge so com ordem explicita do Eurico."
