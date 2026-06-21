@@ -1,0 +1,65 @@
+from_agent: "orchestrator (/sdc — ciclos 2.14 + 6.4)"
+to_agent: "any"
+created: "2026-06-21T09:15:00Z"
+status: pending
+consumed: false
+
+project: "meu-jarvis (Expressia)"
+project_prefix: "mj"
+priority: "normal"
+type: "terminal-migration"
+
+summary: >
+  MIGRAÇÃO DE TERMINAL. Sessão fechou DOIS ciclos /sdc completos, ambos mergeados em main e
+  com bookkeeping feito: Story 2.14 (Cérebro AI editar/eliminar tarefas e finanças via chat,
+  gate PASS 9,3/10, PR #10 → `2e230f5`) e Story 6.4 (job Inngest expire-trials, gate PASS
+  9,4/10, PR #11 → `cdd66a9`). A migration 0026 (4 intents novos da 2.14) FOI APLICADA em prod
+  (enum agent_intent com 15 labels, verificado). Epic 2 confirmado ESGOTADO (todas as stories
+  resolvidas ou bloqueadas por decisão humana). origin/main = `823a2aa`, working tree limpo.
+  Próximo: retomar via /sdc no novo terminal — Epic 6 tem stories executáveis SEM Stripe
+  (billing continua CONGELADO).
+
+context:
+  branch: "main"
+  origin_main: "823a2aa"
+  working_tree: "limpo"
+
+  entregue_e_mergeado_esta_sessao:
+    - "Story 2.14 — PR #10 squash-merged em main (`2e230f5`). 4 tools novas (atualizar/eliminar-tarefa PT + update/delete-finance-variable EN), novo kind reverse_op `reinsert_row` (contrato + undo engine), bump prompts classifier/planner v3, guard needsConfirmation no endpoint. Story em `completed/`."
+    - "Migration 0026 (`0026_agent_intent_update_delete_tools.sql`) APLICADA em prod via db:migrate/DIRECT_URL — 4 valores de enum vivos (atualizar_tarefa, eliminar_tarefa, update_finance_variable, delete_finance_variable). REL-001 da 2.14 RESOLVIDO."
+    - "Story 6.4 — PR #11 squash-merged em main (`cdd66a9`). Função Inngest expire-trials (cron `0 3 * * *`) regride households com trial expirado (status='trialing' AND trial_ends_at <= now()) a Free via getServiceDb. Atomicidade por-subscription via db.transaction (rollback se households falhar). Audit usa enum EXISTENTE plan_changed (zero-migration, AC8). NÃO toca Stripe. Story em `completed/`."
+
+  decisoes_em_vigor:
+    - "Billing/Stripe CONGELADO — NÃO draftar 6.3 (Stripe setup) nem stories que chamem a API Stripe/checkout/webhook. Stories Epic 6 só executáveis se forem DB/UI/jobs sem Stripe."
+    - "Epic 2 ESGOTADO — não há próxima story planeada no Epic 2 (2.1-2.14 resolvidas; 2.10 benchmark bloqueada por decisão DPA UE + execução manual [EURICO])."
+    - "Família ELIMINADA (single-user); household_id/RLS/tenancy INTACTOS — não reintroduzir família, não remover household_id."
+    - "SEC-8 em HOLD — não draftar."
+    - "Push/PR/merge EXCLUSIVO do @devops; merge só com delegação explícita do Eurico."
+
+  candidatos_proxima_story_epic6_sem_stripe:
+    - "6.8 Export GDPR — JÁ TEM PR #5 ABERTO (handoff dedicado pending mj-handoff-6.8-export-gdpr-pr-open-20260618); bloqueador de RUNTIME [EURICO]: criar bucket privado `exports` no Supabase Storage eu-central-1. Verificar estado real do PR #5 (pode precisar de rebase/reconciliação — foram mergeados #10 e #11 depois)."
+    - "6.9 Eliminação de conta + purge 30 dias — JÁ CONSTA como completed (6.9.account-deletion-scheduled-purge); confirmar antes de re-draftar."
+    - "6.7 Convite de membros — completed; mas feature família removida (single-user) pode tornar convites obsoletos — validar relevância antes."
+    - "Ramo household/GDPR é o caminho disponível sem Stripe; o ramo billing (6.3/6.5/6.6/6.10) está bloqueado pelo congelamento."
+
+  itens_vivos_eurico_pre_existentes:
+    - "OBS-3 (Lighthouse /visao autenticada) — InReview a aguardar medição [EURICO]; handoff pending mj-handoff-obs3-inreview-await-medicao-20260618."
+    - "6.8 bucket Supabase Storage `exports` [EURICO] — bloqueia o export funcionar em runtime."
+    - "Caminho crítico go-live [EURICO] (DNS/Site URL/Sentry/Resend domínio) — handoffs go-live pending; não-bloqueante para trabalho de produto."
+
+  deploy_lembrete:
+    - "A função Inngest expire-trials precisa de SYNC no workspace Inngest via PUT /api/inngest no deploy para o cron `0 3 * * *` disparar (igual às outras 4 funções cron). Não bloqueia o merge, mas o cron não corre até ao sync."
+
+next_action: >
+  No novo terminal: ler este INDEX + CLAUDE.md, depois correr /sdc para arrancar a próxima story
+  do Epic 6 SEM Stripe (sugestão: verificar o estado do PR #5 da 6.8 export GDPR e reconciliar/mergear
+  se aplicável, OU draftar a próxima story household/GDPR executável). NÃO draftar stories de billing
+  (6.3 Stripe congelado) nem SEC-8 (HOLD). Push/merge só @devops com ordem explícita do Eurico.
+
+notes: |
+  Sessão muito produtiva: 2 stories do início ao merge num só fluxo /sdc orquestrado por subagentes
+  (sm→po→dev→qa→devops), com gates de fase a apanharem problemas reais (PO apanhou 2 MUST-FIX na 6.4:
+  enum inexistente + atomicidade; o SM tentou draftar uma 6.4 alucinando o ficheiro mas o conteúdo/conceito
+  estava certo). Eurico autorizou ambos os merges explicitamente. Eurico NÃO é técnico de infra — defaults
+  sensatos + confirmar URLs/passos um a um quando for config externa. Catálogo-mãe de follow-ups soft-launch:
+  mj-handoff-followups-soft-launch-20260615.
