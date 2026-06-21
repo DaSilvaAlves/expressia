@@ -1,0 +1,2916 @@
+{
+  "run_at": "2026-06-21T08:51:59.306Z",
+  "mode": "real",
+  "prompts_total": 200,
+  "correct": 190,
+  "accuracy_pct": 95,
+  "latency_p50_ms": 1376,
+  "latency_p95_ms": 2014,
+  "cost_eur_total": 0,
+  "by_intent": {
+    "criar_tarefa": {
+      "correct": 39,
+      "total": 40,
+      "accuracy_pct": 97.5
+    },
+    "criar_financa_variavel": {
+      "correct": 39,
+      "total": 40,
+      "accuracy_pct": 97.5
+    },
+    "criar_financa_recorrente": {
+      "correct": 20,
+      "total": 20,
+      "accuracy_pct": 100
+    },
+    "criar_parcelada": {
+      "correct": 15,
+      "total": 15,
+      "accuracy_pct": 100
+    },
+    "criar_cartao": {
+      "correct": 10,
+      "total": 10,
+      "accuracy_pct": 100
+    },
+    "consultar_dados": {
+      "correct": 24,
+      "total": 30,
+      "accuracy_pct": 80
+    },
+    "cancelar_ultima": {
+      "correct": 8,
+      "total": 10,
+      "accuracy_pct": 80
+    },
+    "multi_intent": {
+      "correct": 25,
+      "total": 25,
+      "accuracy_pct": 100
+    },
+    "unknown": {
+      "correct": 10,
+      "total": 10,
+      "accuracy_pct": 100
+    }
+  },
+  "threshold_accuracy": 90,
+  "threshold_p95_ms": 6000,
+  "pass": true,
+  "results": [
+    {
+      "prompt_hash": "908188d027756cc2",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 2908,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "dc63630f0bafa9d2",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1298,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "dbdc3f473793d719",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1477,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "717a08d3996a6f69",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1313,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "1aefa1bebc1d79c8",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1528,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "c69481a11bfbd7f9",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 2014,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "3da97153e0d459fe",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1367,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "e905a5e9bde6a175",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1584,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "9c91d3a8fd563965",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1346,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "1176c00a54102b28",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1807,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "baf775f58ca4f6ce",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 2228,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "0c5adcefdb378cb0",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1386,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "3e960051670e7811",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1986,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "99b6cb371d2c616c",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1667,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "28a4b430862c5d06",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1133,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "79ea8949a6b5d642",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1406,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "6d9e356bb88c9ec3",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1320,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "6e40777e02e9c543",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1169,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "8287dd294f6cf7b4",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1122,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "13f56a2df1cd9f3b",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1320,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "8c5b3c2ab3a903e4",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1173,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "8a416f5ea3a15c01",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1446,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "9122d9ba6c38e906",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1413,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "2951e187e24ea840",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1407,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "a9be43683e6c145b",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1222,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "5036a82a1314c86b",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1337,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "74bb93ff1d6f9190",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1168,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "a33b70d4bdd0f5de",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "unknown"
+      ],
+      "actual_confidence": 0.85,
+      "latency_ms": 1161,
+      "cost_eur": 0,
+      "correct": false,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "6f2bdb8ffd15a2a7",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1338,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "4981c21f9c96c7bd",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1215,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "c149775fb5131d69",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1219,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "829501e32758e328",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1320,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "da8b2b27897213c1",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1170,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "4851a7449ba29eeb",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1248,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "f2e6813f7af207ec",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1242,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "868c72c3eda6746e",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1313,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "2174d81c24edcfd4",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1345,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "ba4fe05e6b3d4bf2",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1307,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "cb94ebacb6d68470",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1430,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "d59400a88ce53aa3",
+      "expected_intents": [
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1381,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "1b9ded826154ec54",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1394,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "5da5c93905a7210a",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1377,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "c6586c5fff1ed26a",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1470,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "b5da8281007525e9",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1452,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "9783a04112d31c5a",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1426,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "bff5625e13f87c95",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1553,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "4fd7d47fd9a0744a",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1327,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "bdaa4f5ed0e8a6a8",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1411,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "0969c37a7352a9b8",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1294,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "4738d54828304ce6",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1257,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "b6defcc6da677c96",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1366,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "05840f47a87041f6",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1289,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "006cbf8bc3488ee4",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1785,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "47206e1e3918cfd6",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1621,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "64ea7bf265651214",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 2619,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "73aadad5213e20de",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 2150,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "4a8d60a6330d4563",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1487,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "20d4b2c6c40e64f2",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1445,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "79aa3c6817dcb838",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1416,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "7388a282a3404470",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1408,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "782ca5a17bb353d4",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1502,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "575a96ecae61c487",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1383,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "dd79250be226479f",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1491,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "56937a8819bdfb9f",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1274,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "8bb8348c605d5946",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1316,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "1dc26d41d820196f",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1296,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "05eee682a1d7fb84",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1466,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "2af114a3ee3eb771",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1893,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "5f37743706f358df",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 2075,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "07ebcfbfb130188f",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1284,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "c8ef84db3127ff18",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1361,
+      "cost_eur": 0,
+      "correct": false,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "d4a91431ed5e31b8",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1757,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "9d86fcee90caaaab",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1766,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "228fe80efa1f0452",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1404,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "52c1400c50dc349c",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1616,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "0ffd47bf2c65031a",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1265,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "50dc648a8bdd42b5",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1318,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "aa7cb43a6c764106",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1209,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "b2386732e9f50cfb",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1283,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "13a6683be4bac3bd",
+      "expected_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1259,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "620e9f1613619e20",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1634,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "9d9a6380db9e488e",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.94,
+      "latency_ms": 1379,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "0615dbe96242e49b",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1231,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "c08abc12b328b181",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1202,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "41019ef23f6d776f",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1373,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "24ca34ea9e9a3097",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.94,
+      "latency_ms": 1292,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "57b3278f7324f8a3",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1263,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "4d2984f15edefef6",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1932,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "cdc6beab741e2996",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1420,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "1720e0f92a5caf40",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1407,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "dc0121423dcdd720",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1252,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "c16cc2807db92f6d",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.94,
+      "latency_ms": 1250,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "0d8420dfe8607f70",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1411,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "82519d8448f38b7f",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.94,
+      "latency_ms": 1246,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "196ea1b3d96a91ee",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1892,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "4d995eb06f57fbc4",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1295,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "fc4ce2a26b5f02c0",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1470,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "337e145e4e057c1d",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1293,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "91c7c769eae3000b",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1291,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "166a062f74e4e41d",
+      "expected_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1454,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "438ae53a1201ceba",
+      "expected_intents": [
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1383,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "7cccde328d6d4729",
+      "expected_intents": [
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1500,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "00dd124902e200c4",
+      "expected_intents": [
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1321,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "9a9e321b485feb28",
+      "expected_intents": [
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1309,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "3201a3af910ee693",
+      "expected_intents": [
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1633,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "e5ee641d9f30d8fa",
+      "expected_intents": [
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1500,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "7c74632a5e95b896",
+      "expected_intents": [
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1335,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "48befe9bba7a8797",
+      "expected_intents": [
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1303,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "96bb08d6f4506556",
+      "expected_intents": [
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1241,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "320a0f19a7d606a1",
+      "expected_intents": [
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1286,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "d90ce30cfc482c54",
+      "expected_intents": [
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1597,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "33b840d2fa5396b0",
+      "expected_intents": [
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1345,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "6219ac13190b7cbe",
+      "expected_intents": [
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1562,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "b060122ed6298052",
+      "expected_intents": [
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1295,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "a8029da9171a6d75",
+      "expected_intents": [
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1336,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "69c85efbdc01bffd",
+      "expected_intents": [
+        "criar_cartao"
+      ],
+      "actual_intents": [
+        "criar_cartao"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1523,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "7abaf9b76ee897f6",
+      "expected_intents": [
+        "criar_cartao"
+      ],
+      "actual_intents": [
+        "criar_cartao"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1450,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "08456180cd5e47cf",
+      "expected_intents": [
+        "criar_cartao"
+      ],
+      "actual_intents": [
+        "criar_cartao"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1240,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "1732bd223f5499ff",
+      "expected_intents": [
+        "criar_cartao"
+      ],
+      "actual_intents": [
+        "criar_cartao"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1309,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "6af8ec27db904f86",
+      "expected_intents": [
+        "criar_cartao"
+      ],
+      "actual_intents": [
+        "criar_cartao"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1424,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "57caa089811b7769",
+      "expected_intents": [
+        "criar_cartao"
+      ],
+      "actual_intents": [
+        "criar_cartao"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1314,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "10d0e104e6c8aa2c",
+      "expected_intents": [
+        "criar_cartao"
+      ],
+      "actual_intents": [
+        "criar_cartao"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1422,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "7cfd6d22db07954d",
+      "expected_intents": [
+        "criar_cartao"
+      ],
+      "actual_intents": [
+        "criar_cartao"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1142,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "7c0a285be688d4af",
+      "expected_intents": [
+        "criar_cartao"
+      ],
+      "actual_intents": [
+        "criar_cartao"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1278,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "d90c980e10420a58",
+      "expected_intents": [
+        "criar_cartao"
+      ],
+      "actual_intents": [
+        "criar_cartao"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1717,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "cd8b008da7825883",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1387,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "1614ad0aab8ed9aa",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1380,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "95fbe819caa192de",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1969,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "7ca6c3bcb3a9392f",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "listar_atrasadas"
+      ],
+      "actual_confidence": 0.94,
+      "latency_ms": 1304,
+      "cost_eur": 0,
+      "correct": false,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "38840aad46aa4e4e",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1366,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "fe3db6ccdd2c8e3b",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1255,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "52c4182bc05ce3db",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1333,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "10e061ccc85e63b5",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1313,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "11cffd2228d6e5ee",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1133,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "0ccf8235cad5df4f",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1223,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "a36ead91517ee33f",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1206,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "f9d152ffe9f49d15",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "listar_tarefas"
+      ],
+      "actual_confidence": 0.85,
+      "latency_ms": 1459,
+      "cost_eur": 0,
+      "correct": false,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "5213ed093572aafe",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1268,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "2d5873b0880fcd3d",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1216,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "9a175dff41822f96",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "unknown"
+      ],
+      "actual_confidence": 0.85,
+      "latency_ms": 1260,
+      "cost_eur": 0,
+      "correct": false,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "6ca5a482a71ed056",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "listar_tarefas"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1266,
+      "cost_eur": 0,
+      "correct": false,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "a6168dd6b9cefaae",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1197,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "93b092d85d5cce98",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1151,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "9ec07e77b2641305",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1322,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "af84a902957ab693",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1702,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "f652e439035f4911",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "listar_tarefas"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1545,
+      "cost_eur": 0,
+      "correct": false,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "fe720ea70f7bcbc9",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.85,
+      "latency_ms": 1206,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "5adf3594c2c41fd2",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1383,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "3c24ba119d09b779",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1214,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "c6e83a810d862238",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1236,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "498f4e59fe8b18da",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 3479,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "23e9d52788aabf91",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1810,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "f2d3cb43d45601e2",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "listar_tarefas"
+      ],
+      "actual_confidence": 0.85,
+      "latency_ms": 1188,
+      "cost_eur": 0,
+      "correct": false,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "0439c82269b20642",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1437,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "ca5daac514d728b1",
+      "expected_intents": [
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1266,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "97b8866ececfa2d5",
+      "expected_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_confidence": 0.97,
+      "latency_ms": 1412,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "806e47411f364c40",
+      "expected_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_intents": [
+        "unknown"
+      ],
+      "actual_confidence": 0.85,
+      "latency_ms": 1121,
+      "cost_eur": 0,
+      "correct": false,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "8f757c306e7a0e7c",
+      "expected_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_confidence": 0.96,
+      "latency_ms": 1737,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "e25d4665ce414a18",
+      "expected_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_intents": [
+        "delete_finance_variable"
+      ],
+      "actual_confidence": 0.93,
+      "latency_ms": 1376,
+      "cost_eur": 0,
+      "correct": false,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "da37e611b107a965",
+      "expected_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_confidence": 0.96,
+      "latency_ms": 1309,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "0a8842e79440fdbf",
+      "expected_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1264,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "f0e3b2da95c8c3d7",
+      "expected_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1337,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "3ffa0b05c38f4e68",
+      "expected_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1235,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "db752fda27e32568",
+      "expected_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_confidence": 0.97,
+      "latency_ms": 1182,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "079aa8a1346e8c9c",
+      "expected_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_intents": [
+        "cancelar_ultima"
+      ],
+      "actual_confidence": 0.95,
+      "latency_ms": 1228,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "40a05164b3014584",
+      "expected_intents": [
+        "criar_tarefa",
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_tarefa",
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1461,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "1317ce3673084890",
+      "expected_intents": [
+        "criar_tarefa",
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_tarefa",
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1610,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "6368245221053930",
+      "expected_intents": [
+        "criar_tarefa",
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_tarefa",
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1697,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "f64eb3fbdce18340",
+      "expected_intents": [
+        "criar_financa_variavel",
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente",
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1768,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "56528448a734383c",
+      "expected_intents": [
+        "criar_financa_recorrente",
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente",
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1980,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "85257e0321543406",
+      "expected_intents": [
+        "criar_parcelada",
+        "criar_cartao"
+      ],
+      "actual_intents": [
+        "criar_parcelada",
+        "criar_cartao"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1677,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "068c4dc5f1402891",
+      "expected_intents": [
+        "criar_tarefa",
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "criar_tarefa",
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.9,
+      "latency_ms": 1624,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "1d10501f0294200c",
+      "expected_intents": [
+        "criar_financa_variavel",
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel",
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1641,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "d9ff6b72885418da",
+      "expected_intents": [
+        "criar_parcelada",
+        "criar_cartao"
+      ],
+      "actual_intents": [
+        "criar_parcelada",
+        "criar_cartao"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1663,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "aa76e12106ff8ef5",
+      "expected_intents": [
+        "criar_financa_recorrente",
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente",
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.91,
+      "latency_ms": 1680,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "4dc27195b969b42c",
+      "expected_intents": [
+        "criar_tarefa",
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_tarefa",
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1837,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "f2031bbfc304974e",
+      "expected_intents": [
+        "criar_financa_variavel",
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel",
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1813,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "9354038ed4df656e",
+      "expected_intents": [
+        "criar_cartao",
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "criar_cartao",
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.9,
+      "latency_ms": 3058,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "0669f67c63226d73",
+      "expected_intents": [
+        "criar_financa_variavel",
+        "criar_tarefa"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel",
+        "criar_tarefa"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1706,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "7dbd0fe4e9fb94d2",
+      "expected_intents": [
+        "criar_parcelada",
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_parcelada",
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.91,
+      "latency_ms": 1777,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "247ea30f62beb88d",
+      "expected_intents": [
+        "criar_financa_variavel",
+        "criar_tarefa",
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel",
+        "criar_tarefa",
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.91,
+      "latency_ms": 1783,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "1c858779d25724a0",
+      "expected_intents": [
+        "criar_financa_recorrente",
+        "criar_financa_variavel",
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "criar_financa_recorrente",
+        "criar_financa_variavel",
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.91,
+      "latency_ms": 2217,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "cf718d4966556adc",
+      "expected_intents": [
+        "criar_tarefa",
+        "criar_cartao"
+      ],
+      "actual_intents": [
+        "criar_tarefa",
+        "criar_cartao"
+      ],
+      "actual_confidence": 0.9,
+      "latency_ms": 1647,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "87e8b8c057ff6e16",
+      "expected_intents": [
+        "criar_financa_variavel",
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel",
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1601,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "4f6df5306db04b12",
+      "expected_intents": [
+        "criar_tarefa",
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_tarefa",
+        "criar_parcelada"
+      ],
+      "actual_confidence": 0.91,
+      "latency_ms": 1629,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "86b0ea7960f84ba8",
+      "expected_intents": [
+        "criar_tarefa",
+        "consultar_dados"
+      ],
+      "actual_intents": [
+        "criar_tarefa",
+        "consultar_dados"
+      ],
+      "actual_confidence": 0.91,
+      "latency_ms": 2129,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "c6ac9a235c42b6c2",
+      "expected_intents": [
+        "criar_financa_variavel",
+        "criar_financa_recorrente"
+      ],
+      "actual_intents": [
+        "criar_financa_variavel",
+        "criar_financa_recorrente"
+      ],
+      "actual_confidence": 0.94,
+      "latency_ms": 1769,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "a1b4bfd08d84b559",
+      "expected_intents": [
+        "criar_financa_variavel",
+        "criar_parcelada"
+      ],
+      "actual_intents": [
+        "criar_parcelada",
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.9,
+      "latency_ms": 1744,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "6e49fc4dff80e24f",
+      "expected_intents": [
+        "criar_cartao",
+        "criar_cartao"
+      ],
+      "actual_intents": [
+        "criar_cartao",
+        "criar_cartao"
+      ],
+      "actual_confidence": 0.9,
+      "latency_ms": 1549,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "785046264f783f5b",
+      "expected_intents": [
+        "criar_tarefa",
+        "criar_financa_variavel"
+      ],
+      "actual_intents": [
+        "criar_tarefa",
+        "criar_financa_variavel"
+      ],
+      "actual_confidence": 0.92,
+      "latency_ms": 1644,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "92bbd80d2fc9700e",
+      "expected_intents": [
+        "unknown"
+      ],
+      "actual_intents": [
+        "unknown"
+      ],
+      "actual_confidence": 1,
+      "latency_ms": 1218,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "84d57155dbf9d631",
+      "expected_intents": [
+        "unknown"
+      ],
+      "actual_intents": [
+        "unknown"
+      ],
+      "actual_confidence": 1,
+      "latency_ms": 1232,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "b03895513c9bfd69",
+      "expected_intents": [
+        "unknown"
+      ],
+      "actual_intents": [
+        "unknown"
+      ],
+      "actual_confidence": 1,
+      "latency_ms": 1227,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "db4b4c4fcde1ffca",
+      "expected_intents": [
+        "unknown"
+      ],
+      "actual_intents": [
+        "unknown"
+      ],
+      "actual_confidence": 1,
+      "latency_ms": 1168,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "60a8fe3ee6dd7c5e",
+      "expected_intents": [
+        "unknown"
+      ],
+      "actual_intents": [
+        "unknown"
+      ],
+      "actual_confidence": 1,
+      "latency_ms": 1262,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "1650ddafa937b89f",
+      "expected_intents": [
+        "unknown"
+      ],
+      "actual_intents": [
+        "unknown"
+      ],
+      "actual_confidence": 1,
+      "latency_ms": 1244,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "ad79fac0cbb903f9",
+      "expected_intents": [
+        "unknown"
+      ],
+      "actual_intents": [
+        "unknown"
+      ],
+      "actual_confidence": 1,
+      "latency_ms": 1209,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "a2a84d2dc7e03d80",
+      "expected_intents": [
+        "unknown"
+      ],
+      "actual_intents": [
+        "unknown"
+      ],
+      "actual_confidence": 1,
+      "latency_ms": 1412,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "73182f14635ab38c",
+      "expected_intents": [
+        "unknown"
+      ],
+      "actual_intents": [
+        "unknown"
+      ],
+      "actual_confidence": 0.85,
+      "latency_ms": 1353,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    },
+    {
+      "prompt_hash": "699a97b65fb8fa3c",
+      "expected_intents": [
+        "unknown"
+      ],
+      "actual_intents": [
+        "unknown"
+      ],
+      "actual_confidence": 1,
+      "latency_ms": 1047,
+      "cost_eur": 0,
+      "correct": true,
+      "needs_confirmation": false
+    }
+  ]
+}
