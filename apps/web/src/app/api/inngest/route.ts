@@ -21,6 +21,7 @@ import { serve } from 'inngest/next';
 
 import { inngest } from '@/lib/inngest/client';
 import { cleanupExpiredReverseOps } from '@/lib/inngest/functions/cleanup-expired-reverse-ops';
+import { expireTrials } from '@/lib/inngest/functions/expire-trials';
 import { gdprPurge } from '@/lib/inngest/functions/gdpr-purge';
 import { generateFinanceRecurrences } from '@/lib/inngest/functions/generate-finance-recurrences';
 import { generateRecurringTasks } from '@/lib/inngest/functions/generate-recurring-tasks';
@@ -32,5 +33,6 @@ export const { GET, POST, PUT } = serve({
     generateRecurringTasks,
     generateFinanceRecurrences,
     gdprPurge,
+    expireTrials,
   ],
 });
