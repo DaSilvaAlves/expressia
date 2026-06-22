@@ -1,0 +1,89 @@
+id: mj-handoff-jarvis-prd-v11-aprovado-migrar-terminal-20260623
+from_agent: "orchestrator (/sdc) + @devops Gage"
+to_agent: "any"
+created: "2026-06-23T00:00:00Z"
+status: pending
+consumed: false
+
+project: "meu-jarvis (Expressia → Jarvis)"
+project_prefix: "mj"
+priority: "high"
+type: "terminal-migration"
+
+summary: >
+  PRD Jarvis Fase 1 (Brief Diário Proactivo no Telegram) ESCRITO, VALIDADO e
+  COMMITADO em main. O @pm escreveu docs/prd-jarvis.md (ancorado em
+  docs/jarvis-north-star.md + codebase real); validado @architect CONCERNS 8/10
+  + @po GO 8,5/10, fixes aplicados → v1.1. O @sm criou a epic
+  (docs/epics/epic-jarvis-fase1-brief-telegram.md, 4 stories J-1..J-4) e draftou
+  a Story J-1 (docs/stories/active/J-1.telegram-bot-echo-seguro.story.md, ainda
+  Status: Draft). O @devops commitou docs+handoffs direto a main (decisão Eurico:
+  são docs only, sem código). PRÓXIMA ACÇÃO: continuar noutro terminal com
+  contexto fresco e arrancar o ciclo de desenvolvimento da Story J-1.
+
+context:
+  branch: "main"
+  origin_main_antes: "27ea806"
+  commit_deste_payload: "docs(prd): PRD Jarvis Fase 1 (Brief Diário no Telegram) v1.1 aprovado @architect/@po"
+  working_tree: >
+    Após este commit, ficam untracked (NÃO incluídos neste payload, por escolha do
+    Eurico — só foi pedido o lote do PRD/handoffs):
+    docs/epics/epic-jarvis-fase1-brief-telegram.md e
+    docs/stories/active/J-1.telegram-bot-echo-seguro.story.md. Estão em disco,
+    não se perdem na mesma máquina/repo; commitar quando o @devops fizer o
+    próximo payload (p.ex. ao fechar J-1).
+
+  documentos_LER_PRIMEIRO:
+    - "docs/jarvis-north-star.md — visão v2 (estrela polar, estratégia pessoal→SaaS, reaproveita-vs-novo, roadmap). Fonte de verdade da DIRECÇÃO."
+    - "docs/prd-jarvis.md — PRD Fase 1 v1.1 APROVADO. 11 FR + 9 NFR + ACs, arquitectura (bot Telegram webhook+envio proactivo, Google Calendar OAuth, job Inngest morning-brief, ligação ao motor classificar→planear→executar+undo). Fonte de verdade do ÂMBITO da Fase 1."
+    - "docs/epics/epic-jarvis-fase1-brief-telegram.md — épico com 4 stories (J-1 echo seguro → J-2 chat_id+motor → J-3 Calendar OAuth → J-4 morning-brief) e sequenciamento espinha-primeiro."
+    - "docs/stories/active/J-1.telegram-bot-echo-seguro.story.md — story PRÓXIMA, Status: Draft."
+    - "docs/qa/prd-jarvis-po-review-20260622.md — review @po (GO 8,5/10)."
+
+  estado_da_aprovacao:
+    - "PRD v1.1: @architect CONCERNS 8/10 + @po GO 8,5/10, fixes aplicados."
+    - "Divergências flagged no PRD (Apêndice A) — manter à vista no build: cron real é Inngest nativo (TZ=Europe/Lisbon, tratar DST) e NÃO /api/cron/daily Vercel; classificador ainda sem intents de calendário/email (acção agenda/email = v1.1); /api/visao/briefing já é stub que antecipa esta arquitectura."
+
+  proximo_passo_J1_resumo:
+    - "J-1 = bot Telegram echo seguro. PROVA A TUBAGEM sem tocar no motor e sem DB."
+    - "POST /api/telegram/webhook: 401 se secret token errado (timingSafeEqual); allowlist por TELEGRAM_ALLOWED_CHAT_ID (env var, não tabela); echo via fetch nativo a sendMessage; zero migrations, zero schema, RLS gate passa por não haver tabela household_id nova."
+    - "Identidade via tabela telegram_link só em J-2. googleapis só em J-3."
+
+  decisoes_em_vigor:
+    - "Billing/Stripe CONGELADO — não tocar subscriptions/stripe_*/payment_events."
+    - "SEC-8 em HOLD — não alterar withHousehold nem db-shim.ts sem aprovação explícita."
+    - "Família REMOVIDA (single-user); household_id/RLS/tenancy INTACTA — não reintroduzir família, não remover household_id."
+    - "Push/PR/merge EXCLUSIVO do @devops, só com ordem explícita do Eurico."
+    - "PT-PT europeu exclusivo em tudo."
+
+  setup_externo_necessario_no_BUILD_de_J1_nao_agora:
+    - "[EURICO] Criar bot no Telegram via @BotFather → TELEGRAM_BOT_TOKEN."
+    - "[EURICO] Fornecer o seu chat_id do Telegram → TELEGRAM_ALLOWED_CHAT_ID."
+    - "[EURICO] Definir TELEGRAM_WEBHOOK_SECRET e registar o webhook (setWebhook) — guia passo a passo na altura."
+    - "NOTA: nada disto bloqueia draftar/validar/implementar J-1 localmente — só o teste E2E em prod. O agente guia o Eurico (não é técnico de infra)."
+
+next_action: >
+  No terminal novo: ler docs/jarvis-north-star.md + docs/prd-jarvis.md + a epic +
+  a Story J-1 + CLAUDE.md + este handoff. Depois arrancar o Story Development
+  Cycle da Story J-1 (echo seguro): @po *validate-story-draft → @dev *develop →
+  @qa *qa-gate → @devops *push (só com ordem explícita do Eurico). Manter a
+  disciplina da espinha (PRD §10): provar a tubagem do canal antes de tocar no
+  motor. NÃO draftar billing nem SEC-8. Manter household_id/RLS. Confirmar
+  TELEGRAM_* com o Eurico só na fase de teste E2E.
+
+notes: |
+  - Estilo do Eurico: NÃO é técnico de infra; satura com excesso de opções/perguntas.
+    Conduzir com defaults sensatos, corrige directo quando errado, 1 passo de cada vez
+    em config externa, confirmar nomes/URLs antes de gravar.
+  - Memórias relevantes: jarvis-vision-pivot, jarvis-prd-fase1, benchmark-classifier-95pct,
+    refocus-core-before-billing, family-feature-removed, user-style.
+  - Handoff anterior (consumido): mj-handoff-jarvis-prd-fase1-telegram-brief-20260622
+    (arquivado) — o @pm escreveu o PRD a partir dele.
+
+related:
+  - docs/jarvis-north-star.md
+  - docs/prd-jarvis.md
+  - docs/epics/epic-jarvis-fase1-brief-telegram.md
+  - docs/stories/active/J-1.telegram-bot-echo-seguro.story.md
+  - docs/qa/prd-jarvis-po-review-20260622.md
+  - docs/handoffs/archive/mj-handoff-jarvis-prd-fase1-telegram-brief-20260622.yaml

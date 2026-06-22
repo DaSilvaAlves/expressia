@@ -1,0 +1,106 @@
+id: mj-handoff-jarvis-prd-fase1-telegram-brief-20260622
+from_agent: "orchestrator (/sdc — sessão de pivot de visão)"
+to_agent: "aiox-pm"
+created: "2026-06-22T00:00:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-06-22T23:20:00Z"
+consumed_by: "orchestrator (/sdc) — aiox-pm escreveu docs/prd-jarvis.md (PRD Jarvis Fase 1 = Brief Diário no Telegram). 4 pontos [A CONFIRMAR] levados ao Eurico na mesma sessão."
+
+project: "meu-jarvis (Expressia → Jarvis)"
+project_prefix: "mj"
+priority: "high"
+type: "prd-rewrite-vision-pivot"
+
+summary: >
+  PIVOT DE PRODUTO + MIGRAÇÃO DE TERMINAL. O Eurico viu a app real (dashboard
+  tarefas/finanças com chat lateral) e decidiu que está longe do que imaginou:
+  REFAZER o PRD (não rever). Nova visão: "Jarvis" = assistente de vida
+  conversacional, proactivo, que o conhece (agenda, hábitos, diário; trata
+  email, calendário, lembretes, pesquisa, decisões). A CONVERSA é o produto;
+  tarefas e finanças são 2 de N capacidades. Estratégia: PESSOAL agora (Jarvis
+  do Eurico, 1 utilizador) → SaaS depois. Espinha v1 = BRIEF DIÁRIO PROACTIVO.
+  Canal v1 = TELEGRAM (bot; sem web app na v1). A visão completa está ancorada
+  em docs/jarvis-north-star.md (LER PRIMEIRO). PRÓXIMA ACÇÃO: @pm escreve o PRD
+  novo, Fase 1 (brief diário no Telegram). Eurico autorizou avançar; pediu para
+  continuar noutro terminal com contexto fresco.
+
+context:
+  branch: "main"
+  origin_main: "27ea806"
+  working_tree: "limpo excepto docs/jarvis-north-star.md (NOVO, untracked — está em disco; commitar quando o @devops fizer o payload do PRD; não se perde numa sessão na mesma máquina/repo)"
+
+  documento_ancora_LER_PRIMEIRO:
+    - "docs/jarvis-north-star.md — visão v2 completa: estrela polar, estratégia pessoal→SaaS, o que se reaproveita vs novo, v1 (brief diário no Telegram), roadmap de capacidades, restrições. É a fonte de verdade da DIRECÇÃO."
+
+  decisoes_do_eurico_21_06:
+    - "REFAZER o PRD (não rever) — é outro produto (assistente de vida, não app de produtividade)."
+    - "PESSOAL agora, SaaS depois — v1 optimiza para o Eurico (1 utilizador); SEM onboarding/billing/multi-tenant na v1. Infra household_id/RLS/EU fica INTACTA por baixo (porta p/ SaaS futuro)."
+    - "Espinha v1 = BRIEF DIÁRIO PROACTIVO — de manhã o Jarvis fala primeiro: bom-dia inteligente juntando agenda+tarefas+finanças (email em v1.1), e o Eurico responde em conversa para agir."
+    - "Canal = TELEGRAM (bot). Sem web app na v1. Proactividade grátis (o bot envia msg quando quer); conversa nativa; identidade = chat_id do Eurico (single-user, sem login/UI web). Voz = v2.x."
+    - "Integrações v1 (default, Eurico pode corrigir): Calendar+Tarefas+Finanças no primeiro brief; Gmail (ler/resumir o que pede resposta) em v1.1 imediato."
+
+  o_que_se_reaproveita_NAO_deitar_fora:
+    - "Motor cognitivo classificar→planear→executar com tool-calling tipado, transacção atómica e undo 30s. CLASSIFICADOR PROVADO A 95% (benchmark real 21/06, 190/200, p95 2014ms — OKR O2 KR2 cumprido). Passa a ser a CAMADA DE ACÇÕES do Jarvis."
+    - "Tarefas e Finanças deixam de ser 'os módulos' e tornam-se 2 de N capacidades orquestradas pelo assistente."
+    - "Auth, dados na UE, RLS, observabilidade (OTel/Sentry/Grafana), jobs Inngest (cron) — fundação sólida e reutilizável."
+    - "Web app Next.js passa a SECUNDÁRIA (host do backend / futura superfície SaaS) — não é a casa do produto na v1."
+
+  o_que_e_novo_o_coracao_da_visao:
+    - "Bot do Telegram: webhook (recebe msgs do Eurico) + envio proactivo via Bot API. Allowlist = chat_id do Eurico."
+    - "Integração Google Calendar (ler eventos de hoje) via OAuth — trabalho novo mas trilhado."
+    - "Integração Gmail (v1.1) — OAuth; ler/resumir/escrever email."
+    - "Job proactivo (Inngest cron de manhã) que compõe o brief e o envia ao Telegram."
+    - "Síntese conversacional: o LLM compõe o brief em PT-PT natural (não uma lista de widgets)."
+    - "Memória/conhecimento do utilizador (hábitos, diário) — cresce na v2; v1 já guarda contexto básico."
+    - "Proactividade como princípio — o Jarvis inicia, não só reage."
+
+  estado_real_do_produto_levantamento_21_06:
+    - "Levantamento honesto (architect) concluiu: o motor FUNCIONA (~75-80% do MVP antigo), o que faltava era 'embalagem/prova/polish', não core. O gap CRÍTICO (provar o classificador) foi fechado nesta sessão (95%)."
+    - "22 páginas reais, ~40 endpoints, RLS 104 policies, GDPR export/delete, dark mode, auth/email E2E em expressia.pt. Tudo isto é fundação a reaproveitar, não a refazer."
+
+  decisoes_em_vigor:
+    - "Billing/Stripe CONGELADO (agora também por ser SaaS-depois) — não draftar billing."
+    - "SEC-8 em HOLD."
+    - "Família REMOVIDA (single-user); household_id/RLS/tenancy INTACTA — não reintroduzir família, não remover household_id."
+    - "Push/PR/merge EXCLUSIVO do @devops, só com ordem explícita do Eurico."
+    - "PT-PT exclusivo em tudo."
+
+  setup_externo_necessario_no_BUILD_nao_agora:
+    - "[EURICO] Criar bot no Telegram via @BotFather → copiar o token do bot."
+    - "[EURICO] Fornecer o seu chat_id do Telegram (allowlist single-user)."
+    - "[EURICO] Consentir OAuth Google (Calendar na v1; Gmail na v1.1)."
+    - "NOTA: nada disto bloqueia escrever o PRD — só a implementação. O agente guia o Eurico passo a passo na altura (Eurico não é técnico de infra)."
+
+next_action: >
+  No terminal novo: ler docs/jarvis-north-star.md + este handoff + CLAUDE.md.
+  Depois @pm escreve o PRD NOVO, Fase 1 = "Brief Diário Proactivo no Telegram".
+  O PRD deve definir, ancorado no codebase real e na north-star: (1) a experiência
+  da v1 (day-in-the-life no Telegram); (2) arquitectura — bot Telegram (webhook +
+  envio proactivo), integração Google Calendar (OAuth), job Inngest do brief
+  (cron de manhã), ligação ao motor de acções existente (classificar→planear→
+  executar+undo); (3) o que se reaproveita vs novo (mapeado na north-star §3);
+  (4) FRs/NFRs da Fase 1 + critérios de "feito"/ACs; (5) roadmap das fases
+  seguintes (v1.1 Email, v2 memória/pesquisa/decisões, v2.x voz, v3 SaaS).
+  Confirmar com o Eurico a ordem das integrações (default: Calendar+Tarefas+
+  Finanças primeiro, Email v1.1) antes de fechar o âmbito da Fase 1. NÃO draftar
+  billing nem SEC-8. Manter household_id/RLS. Push só @devops.
+
+notes: |
+  - Estilo do Eurico: NÃO é técnico de infra; satura com excesso de opções/perguntas.
+    Conduzir com defaults sensatos, corrige directo quando errado, 1 passo de cada vez
+    em config externa, confirmar nomes/URLs antes de gravar. Nesta sessão cortou a
+    complexidade do web app/push/voz com "fala o meio de início é Telegram" — seguir
+    essa pragmática (profundidade na espinha antes de largura).
+  - Memórias relevantes: jarvis-vision-pivot, benchmark-classifier-95pct,
+    refocus-core-before-billing, family-feature-removed, user-style.
+  - Documentos do PARADIGMA ANTIGO (tratar como histórico, não direcção): docs/prd.md
+    (v1.1 SaaS família-first), docs/project-brief.md. O PRD novo pode viver em
+    docs/prd-jarvis.md (ou versionar o prd.md como v2) — decisão do @pm.
+
+related:
+  - docs/jarvis-north-star.md
+  - docs/prd.md
+  - docs/project-brief.md
+  - docs/architecture.md
+  - packages/db-test/docs/qa/benchmark-results-2026-06-21T08-51-59Z.json
