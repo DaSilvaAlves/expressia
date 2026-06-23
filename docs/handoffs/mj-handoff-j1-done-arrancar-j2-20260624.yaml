@@ -1,0 +1,75 @@
+id: mj-handoff-j1-done-arrancar-j2-20260624
+from_agent: "@devops Gage"
+to_agent: "any"
+created: "2026-06-24T00:30:00Z"
+status: pending
+consumed: false
+
+project: "meu-jarvis (Expressia → Jarvis)"
+project_prefix: "mj"
+priority: "high"
+type: "story-cycle-next"
+
+summary: >
+  Story J-1 (bot Telegram echo seguro) FECHADA 100% e provada E2E live em
+  produção — o canal Telegram do Jarvis está vivo. Ciclo SDC completo correu no
+  terminal: @po GO 9,0 → @dev 5/5 gates → @architect PASS 9,6. Código em main
+  (4f68b98) + bookkeeping da Tarefa 7 (2937b63). O Eurico configurou o setup
+  externo (bot @jarvis_eurico_bot, 3 env vars TELEGRAM_* na Vercel, setWebhook)
+  e confirmou o echo em expressia.pt. PRÓXIMA ACÇÃO: arrancar a Story J-2
+  (chat_id → household + acção via motor) — o "coração" da Fase 1.
+
+context:
+  branch: "main"
+  origin_main: "2937b63"
+  working_tree: "limpo (2 commits J-1 + bookkeeping pushed)"
+
+  estado_do_canal_telegram_PROVADO:
+    - "Bot: @jarvis_eurico_bot (\"Jarvis do Eurico\"), criado via @BotFather."
+    - "Eurico chat_id = 5647753194 (allowlist single-user)."
+    - "Webhook: https://expressia.pt/api/telegram/webhook (setWebhook OK com secret_token)."
+    - "3 env vars na Vercel (Production+Preview, Sensitive): TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_CHAT_ID, TELEGRAM_WEBHOOK_SECRET. Segredos só na Vercel, nunca em git."
+    - "Provado live: secret ausente/errado → 401; chat_id ≠ Eurico → 200 silencioso; mensagem do Eurico → Echo: {texto}."
+
+  ficheiros_J1_em_main:
+    - "apps/web/src/app/api/telegram/webhook/route.ts (handler POST)"
+    - "apps/web/src/app/api/telegram/webhook/__tests__/route.test.ts (9 testes)"
+    - "apps/web/src/lib/telegram/{client,verify,types}.ts"
+    - ".env.example (secção Telegram)"
+    - "docs/stories/completed/J-1.telegram-bot-echo-seguro.story.md (Status: Done)"
+
+  proxima_story_J2_resumo:
+    - "J-2 = chat_id → {userId, householdId} via tabela telegram_link; liga o Telegram ao MOTOR (classificar→planear→executar+undo). O bot deixa de ecoar e passa a AGIR (criar/editar tarefas e finanças por chat)."
+    - "Cria migração com telegram_link + 4 RLS policies (NFR-J6 / check:rls bloqueia se faltar)."
+    - "Extrai runAgentForHousehold do route handler existente (desacoplamento PRD §4.6) para reutilizar no webhook."
+    - "Fluxos A/B/C do PRD §3.2. Reaproveita o classificador provado a 95% (benchmark 21/06)."
+    - "Ref: docs/prd-jarvis.md, docs/epics/epic-jarvis-fase1-brief-telegram.md (tabela de stories J-1..J-4)."
+
+  decisoes_em_vigor:
+    - "Billing/Stripe CONGELADO; SEC-8 HOLD; família removida (household_id/RLS intactos)."
+    - "PT-PT europeu exclusivo; dados UE (Vercel fra1, Supabase eu-central-1, Inngest EU)."
+    - "Push/PR/merge EXCLUSIVO do @devops, só com ordem explícita do Eurico."
+    - "Qualquer tabela nova com household_id obriga a 4 RLS policies ou check:rls parte o build."
+
+next_action: >
+  Arrancar o Story Development Cycle da Story J-2 (chat_id → household + acção via
+  motor). Sugestão: /sdc para draftar (@sm) → validar (@po) → implementar (@dev,
+  cria telegram_link + RLS + liga runAgentForHousehold ao webhook) → gate
+  (@architect/@qa) → push (@devops, só com ordem do Eurico). Ler primeiro:
+  docs/prd-jarvis.md §3.2/§4.6 + epic + memória telegram-bot-live. Testar J-2 E2E
+  reutiliza o canal já configurado (mesmo bot/chat_id/secret). NÃO draftar billing
+  nem SEC-8. Manter household_id/RLS.
+
+notes: |
+  - Estilo do Eurico: não é técnico de infra; conduzir 1 passo de cada vez em config
+    externa, defaults sensatos, confirmar antes de gravar. Provou-se eficaz na config
+    do Telegram (J-1 Tarefa 7).
+  - Memórias relevantes: telegram-bot-live, jarvis-prd-fase1, benchmark-classifier-95pct,
+    jarvis-vision-pivot, family-feature-removed, user-style.
+  - Predecessor consumido: mj-handoff-jarvis-prd-v11-aprovado-migrar-terminal-20260623 (arquivado).
+
+related:
+  - docs/prd-jarvis.md
+  - docs/epics/epic-jarvis-fase1-brief-telegram.md
+  - docs/stories/completed/J-1.telegram-bot-echo-seguro.story.md
+  - docs/jarvis-north-star.md
