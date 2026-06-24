@@ -1,0 +1,70 @@
+from_agent: "devops/claude (sessão Jarvis Fase 1)"
+to_agent: "any"
+created: "2026-06-24T18:30:00Z"
+status: pending
+consumed: false
+
+project: "meu-jarvis (Expressia)"
+summary: >
+  MIGRAÇÃO DE TERMINAL — Jarvis Fase 1 avançou muito numa sessão: J-2 fechada EM
+  PROD + E2E live provado (Telegram cria tarefas via motor), o motor Planner/Executor
+  foi MIGRADO de Anthropic para OpenAI gpt-4o-mini (Anthropic sem créditos), e J-4
+  (brief diário no Telegram, SEM agenda) foi implementada (6/6 gates), pushada e em
+  prod (migration 0028 + RLS aplicadas, deploy Vercel live). FALTA SÓ o E2E do brief
+  J-4 (Tarefa 7.3): invocar o job Inngest 'generate-daily-brief' no Inngest Cloud OU
+  esperar o cron das 07:30 Europe/Lisbon, e confirmar a recepção no Telegram. Depois,
+  fechar J-4 (active→completed) e arrancar J-3 (Google Calendar OAuth) + um follow-up
+  que injecta a agenda neste mesmo brief. main = e4114c8, working tree limpo.
+
+context:
+  story_id: "J-4 (brief diário Telegram, âmbito sem agenda)"
+  story_path: "docs/stories/active/J-4.brief-diario-telegram.story.md"
+  epic_path: "docs/epics/epic-jarvis-fase1-brief-telegram.md"
+  branch: "main"
+  head_commit: "e4114c8"
+  current_task: "Validar E2E do brief diário J-4 e depois fechar J-4 + arrancar J-3."
+
+  decisions_made:
+    - "Eurico: motor consolidado em OpenAI gpt-4o-mini (Planner/Executor já não usa Anthropic; Anthropic mantido no código como opção reversível via getProvider preferredProvider:'anthropic')."
+    - "Eurico: arrancar J-4 (brief) ANTES de J-3 (Calendar) — entregar a espinha do brief mais cedo, sem depender do setup OAuth Google. Agenda entra no brief num follow-up após J-3."
+    - "J-4 cron Inngest TZ=Europe/Lisbon 30 7 * * * (Inngest v3 suporta prefixo TZ — resolve DST)."
+    - "J-4 tenancy: identidade via telegram_link (getServiceDb, SEC-10), dados+cache via withHousehold (RLS viva, SEC-8.1)."
+    - "Síntese do brief tem fallback determinístico — nunca fica por enviar por falha do LLM."
+
+  work_completed_this_session:
+    - "J-2 pushada (commits 122b706+1b1568d), migration 0027 aplicada em prod, seed telegram_link inserido (chat_id 5647753194 -> household 2dedb1ec / user df5b403f), E2E live PROVADO (tarefa 'Pagar a renda' criada). Story em completed/."
+    - "Motor migrado para OpenAI gpt-4o-mini (commit 74d9265): planner.ts construtor + this.model público LlmModel; route handlers gravam planner.model em agent_runs.executor_model. 6/6 gates."
+    - "J-4 implementada (commit 17a2d68): migration 0028_daily_briefing_cache + schema briefing.ts + RLS na 0001 (DO-block); apps/web/src/lib/brief/{synthesize,build-brief}.ts; lib/inngest/functions/generate-daily-brief.ts registado em /api/inngest/route.ts. 12 testes novos. 6/6 gates verde (web 1303/1303, db-test 205/205)."
+    - "Prod J-4: 0028 aplicada + DO-block RLS da daily_briefing_cache aplicado manualmente (gotcha conhecido — a 0001 é skip pelo runner); deploy Vercel ● Ready."
+
+  files_modified:
+    - "packages/db/migrations/0028_daily_briefing_cache.sql (novo)"
+    - "packages/db/migrations/0001_rls_policies.sql (+DO-block daily_briefing_cache)"
+    - "packages/db/src/schema/briefing.ts (novo) + index.ts"
+    - "apps/web/src/lib/brief/synthesize.ts + build-brief.ts (+__tests__)"
+    - "apps/web/src/lib/inngest/functions/generate-daily-brief.ts (novo) + app/api/inngest/route.ts"
+    - "packages/planner-executor/src/planner.ts + executor.ts (troca OpenAI, sessão anterior)"
+
+  blockers:
+    - "E2E do brief J-4 NÃO pode ser disparado pelo agente: /api/inngest em prod devolve 401 (valida assinatura), e o TELEGRAM_BOT_TOKEN só existe na Vercel (não local) — sem smoke local de envio. Precisa de [EURICO] invocar no Inngest Cloud OU esperar o cron 07:30."
+
+  gotchas_to_remember:
+    - "Policies novas adicionadas à 0001 (pattern D-J2.1) NÃO chegam a prod via db:migrate (runner faz [skip] de ficheiro já registado) — aplicar o DO-block manualmente contra DIRECT_URL pós-migrate e verificar relrowsecurity/pg_policies. Já feito para telegram_link (J-2) e daily_briefing_cache (J-4)."
+    - "Idempotência do brief: 1 por (household_id, briefing_date). Re-teste no mesmo dia exige apagar a linha de daily_briefing_cache do dia."
+
+next_action: >
+  [EURICO] invocar 'generate-daily-brief' no Inngest Cloud (app.inngest.com → app Expressia →
+  Functions → Invoke, payload {}) ou esperar o cron das 07:30 Europe/Lisbon, e confirmar o brief no
+  Telegram. Se OK: mover J-4 active→completed e marcar Tarefa 7.3 ✅; depois arrancar J-3 (Google
+  Calendar OAuth readonly + cifragem de tokens) e um follow-up que injecta a agenda neste brief.
+
+notes: |
+  Restrições globais activas: Billing CONGELADO (sem Stripe). SEC-8 HOLD (não tocar
+  withHousehold/db-shim/client.ts). Família removida (household_id/RLS intactos — não
+  reintroduzir). PT-PT europeu. Push só @devops com ordem do Eurico.
+
+  Estado do produto: o Jarvis age via Telegram (J-1 canal, J-2 motor) e o brief diário
+  está pronto a disparar. Motor 100% OpenAI gpt-4o-mini (OPENAI_API_KEY já provada em prod).
+
+  Há um handoff Pending ANTIGO (2026-06-21, 'terminal-migration-post-2.14-6.4', Epic 6 sem
+  Stripe) que ficou stale com o pivot para Jarvis Fase 1 — candidato a revisão humana/@aiox-master.
