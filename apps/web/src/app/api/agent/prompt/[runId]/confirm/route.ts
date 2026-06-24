@@ -6,21 +6,18 @@
  * Planner+Executor com a `classification` JSONB persistida (evita re-chamar
  * Classifier — economiza tokens GPT-4o-mini + latência).
  *
+ * Story J-2 (AC10): a lógica de confirmação é extraída para a função exportada
+ * `executeConfirm({ runId, householdId, userId })`, chamável directamente sem
+ * HTTP (o webhook do Telegram chama-a no callback `confirm:{runId}`). Este route
+ * handler passa a ser um wrapper fino: resolve auth + household e delega.
+ *
  * Validações:
- *   - SEC-1-F3: pertença do utilizador autenticado ao `run.household_id`
- *     verificada app-enforced (a RLS está inerte em runtime — `getDb()` liga
- *     como role bypassrls). Sem este filtro, um membro do household B com um
- *     `runId` do household A executaria mutações reais do household A.
+ *   - SEC-1-F3: pertença do utilizador ao `run.household_id` verificada
+ *     app-enforced (RLS inerte em runtime — `getDb()` liga como bypassrls).
  *   - status == 'pending_preview'
  *   - now() < confirm_expires_at
  *
- * Erros:
- *   - 401 AUTH_REQUIRED
- *   - 404 RUN_NOT_FOUND (cross-household ou inexistente — 404 não revela existência)
- *   - 409 CONFIRM_EXPIRED (TTL passou)
- *   - 409 CONFIRM_INVALID_STATE (status != pending_preview)
- *
- * Trace: Story 2.6 AC6 + D20, FR4, Architecture §4.4.
+ * Trace: Story 2.6 AC6 + D20 + Story J-2 AC10, FR4, Architecture §4.4.
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -74,8 +71,273 @@ interface PendingPreviewRow extends Record<string, unknown> {
   readonly trace_id: string | null;
 }
 
+/**
+ * Resultado discriminado de `executeConfirm`. O caso de sucesso (`ok: true`)
+ * embute o `AgentResult` `mode: 'executed'` (Story J-2 AC10 — formato camelCase
+ * idêntico ao de `runAgentForHousehold`). Os erros são comunicados via `reason`
+ * (sem `throw`) para o caller mapear (route handler → HTTP; webhook → mensagem).
+ */
+export type ConfirmResult =
+  | {
+      ok: true;
+      runId: string;
+      summary: string;
+      results: AtomicOutcome;
+      undoExpiresAt: string;
+    }
+  | {
+      ok: false;
+      runId: string;
+      reason:
+        | 'not_found'
+        | 'invalid_state'
+        | 'expired'
+        | 'plan_error'
+        | 'tool_error'
+        | 'internal_error';
+      errorCode: string;
+      message: string;
+      failedToolName?: string;
+    };
+
+/**
+ * Executa a confirmação de uma run em `pending_preview` — chamável directamente.
+ *
+ * Story J-2 AC10 — usada pelo route handler abaixo E pelo webhook do Telegram
+ * (callback `confirm:{runId}`), sem duplicar lógica nem fazer `fetch` interno.
+ *
+ * A auth da execução vem da RUN PERSISTIDA (`run.user_id`/`run.household_id`),
+ * NUNCA da identidade do request — o `householdId` passado é apenas o filtro de
+ * pertença (SEC-1-F3: cross-household → not_found).
+ */
+export async function executeConfirm(params: {
+  runId: string;
+  householdId: string;
+  userId: string;
+}): Promise<ConfirmResult> {
+  const { runId, householdId } = params;
+  const log = childLogger({ route: ROUTE_TEMPLATE, run_id: runId });
+
+  const db = getDb();
+
+  // Lookup run em pending_preview — filtro household_id app-enforced (SEC-1-F3).
+  const rows = await db.execute<PendingPreviewRow>(sql`
+    select id, household_id, user_id, status, confirm_expires_at,
+           intents_detected, trace_id
+    from agent_runs
+    where id = ${runId}::uuid
+      and household_id = ${householdId}::uuid
+    limit 1
+  `);
+
+  if (rows.length === 0) {
+    return {
+      ok: false,
+      runId,
+      reason: 'not_found',
+      errorCode: 'RUN_NOT_FOUND',
+      message: 'Run não encontrado.',
+    };
+  }
+
+  const run = rows[0]!;
+
+  // Validar estado.
+  if (run.status !== 'pending_preview') {
+    return {
+      ok: false,
+      runId,
+      reason: 'invalid_state',
+      errorCode: 'CONFIRM_INVALID_STATE',
+      message: `Esta acção já não está à espera de confirmação (estado actual: ${run.status}).`,
+    };
+  }
+
+  // Validar TTL.
+  const expiresAt = run.confirm_expires_at ? new Date(run.confirm_expires_at) : null;
+  if (!expiresAt || expiresAt.getTime() < Date.now()) {
+    return {
+      ok: false,
+      runId,
+      reason: 'expired',
+      errorCode: 'CONFIRM_EXPIRED',
+      message: 'A janela de confirmação expirou (5 minutos). Faz novo pedido.',
+    };
+  }
+
+  // Reconstituir classification do JSONB persistido.
+  let classification: ClassificationResult;
+  try {
+    const intentsRaw = run.intents_detected as Array<{
+      intent: string;
+      confidence: number;
+      raw_span?: string;
+    }>;
+    const minConfidence =
+      Array.isArray(intentsRaw) && intentsRaw.length > 0
+        ? Math.min(...intentsRaw.map((i) => Number(i.confidence ?? 0)))
+        : 0;
+    const reconstituted: ClassificationResult = {
+      intents: intentsRaw.map((i) => ({
+        intent: i.intent as ClassificationResult['intents'][number]['intent'],
+        confidence: Number(i.confidence ?? 0),
+        raw_span: i.raw_span ?? '',
+      })),
+      language: 'pt-PT',
+      needs_confirmation: minConfidence < 0.7,
+      overall_confidence: minConfidence,
+    };
+    classification = ClassificationSchema.parse(reconstituted);
+  } catch (err) {
+    log.error({ err }, 'Falha a reconstituir classification');
+    captureException(err instanceof Error ? err : new Error(String(err)), {
+      ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }),
+    });
+    return {
+      ok: false,
+      runId,
+      reason: 'internal_error',
+      errorCode: 'INTERNAL_ERROR',
+      message: 'Não foi possível reconstituir o plano de execução.',
+    };
+  }
+
+  // Re-executar Planner + Executor.
+  let plan: PlanResult;
+  let outcome: AtomicOutcome;
+  try {
+    const planner = new Planner();
+    plan = await planner.plan({
+      classification,
+      householdId: run.household_id,
+      userId: run.user_id,
+      traceId: run.trace_id ?? `confirm-${Date.now()}`,
+      runId,
+    });
+    await updateAfterPlanner(
+      runId,
+      {
+        toolCalls: plan.toolCalls,
+        executorModel: CLAUDE_HAIKU_MODEL_ENUM,
+        tokensInput: plan.tokensInput,
+        tokensOutput: plan.tokensOutput,
+        costEur: plan.costEur,
+      },
+      db,
+    );
+
+    // SEC-8: tx de escrita aberta via withHousehold. A auth vem da RUN PERSISTIDA
+    // (run.user_id/run.household_id) — o MESMO par passado a executor.execute.
+    const executor = new Executor({
+      txRunner: (fn) => withHousehold({ userId: run.user_id, householdId: run.household_id }, fn),
+    });
+    outcome = await executor.execute({
+      plan,
+      householdId: run.household_id,
+      userId: run.user_id,
+      traceId: run.trace_id ?? `confirm-${Date.now()}`,
+      runId,
+    });
+  } catch (err) {
+    const failUpdate = (errorCode: string, errorMessage: string): Promise<void> =>
+      updateAfterExecutor(
+        runId,
+        { status: 'failed', latencyMs: 0, responseSummary: null, errorCode, errorMessage },
+        db,
+      );
+
+    if (err instanceof ToolPlanGateError) {
+      await failUpdate('TOOL_PLAN_GATE_ERROR', err.message);
+      captureException(err, { ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }) });
+      return { ok: false, runId, reason: 'plan_error', errorCode: 'TOOL_PLAN_GATE_ERROR', message: err.message };
+    }
+    if (err instanceof ExecutorValidationError) {
+      await failUpdate('EXECUTOR_VALIDATION_ERROR', err.message);
+      return { ok: false, runId, reason: 'plan_error', errorCode: 'EXECUTOR_VALIDATION_ERROR', message: err.message };
+    }
+    if (err instanceof PlannerError) {
+      await failUpdate('PLANNER_ERROR', err.message);
+      captureException(err, { ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }) });
+      return { ok: false, runId, reason: 'plan_error', errorCode: 'PLANNER_ERROR', message: err.message };
+    }
+    if (err instanceof ToolError) {
+      await failUpdate('TOOL_EXECUTION_ERROR', err.message);
+      captureException(err, { ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }) });
+      return { ok: false, runId, reason: 'tool_error', errorCode: 'TOOL_EXECUTION_ERROR', message: err.message };
+    }
+
+    log.error({ err }, 'Confirm pipeline crashed');
+    captureException(err instanceof Error ? err : new Error(String(err)), {
+      ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }),
+    });
+    await failUpdate('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown');
+    return {
+      ok: false,
+      runId,
+      reason: 'internal_error',
+      errorCode: 'INTERNAL_ERROR',
+      message: 'Erro ao executar pipeline confirmado.',
+    };
+  }
+
+  if (outcome.success === false) {
+    const failure = outcome;
+    await updateAfterExecutor(
+      runId,
+      {
+        status: 'failed',
+        latencyMs: 0,
+        responseSummary: null,
+        errorCode: failure.error?.constructor?.name ?? 'EXECUTION_FAILED',
+        errorMessage: failure.error?.message ?? 'Execução falhou',
+      },
+      db,
+    );
+    return {
+      ok: false,
+      runId,
+      reason: 'tool_error',
+      errorCode: 'TOOL_EXECUTION_ERROR',
+      message: failure.error?.message ?? 'Execução falhou — operação revertida.',
+      failedToolName: failure.failedToolName,
+    };
+  }
+
+  const result = outcome as AtomicResult;
+  const summary = buildConfirmSummary(result);
+  await updateAfterExecutor(
+    runId,
+    {
+      status: 'success',
+      latencyMs: 0,
+      responseSummary: summary,
+      errorCode: null,
+      errorMessage: null,
+    },
+    db,
+  );
+
+  try {
+    await incrementQuota(run.household_id);
+  } catch (qerr) {
+    log.warn({ err: qerr }, 'incrementQuota falhou (não-fatal)');
+  }
+
+  // W2: confirmação executa tools (tarefas/finanças) — invalida as vistas.
+  revalidateTaskViews();
+
+  const undoExpiresAt = new Date(Date.now() + 30 * 1000);
+  return {
+    ok: true,
+    runId,
+    summary,
+    results: outcome,
+    undoExpiresAt: undoExpiresAt.toISOString(),
+  };
+}
+
 export async function POST(
-  req: NextRequest,
+  _req: NextRequest,
   ctx: { params: Promise<{ runId: string }> },
 ): Promise<NextResponse> {
   const { runId } = await ctx.params;
@@ -84,8 +346,6 @@ export async function POST(
     'POST /api/agent/prompt/[runId]/confirm',
     { method: 'POST', route: ROUTE_TEMPLATE },
     async (span): Promise<NextResponse> => {
-      const log = childLogger({ route: ROUTE_TEMPLATE, run_id: runId });
-
       // Auth
       const supabase = await createServerSupabaseClient();
       const {
@@ -96,244 +356,67 @@ export async function POST(
         return apiError('AUTH_REQUIRED', 'Sessão inválida.', 401);
       }
 
-      // SEC-1-F3: resolver o household do utilizador autenticado para isolar a
-      // run por household app-enforced (RLS inerte em runtime). Sem household
-      // activo → 404 (não revela se o run existe noutro household).
+      // SEC-1-F3: resolver o household do utilizador autenticado.
       const userHouseholdId = await resolveHouseholdId(user.id);
       if (!userHouseholdId) {
         annotateAgentPromptSpan(span, { status_code: 404 });
         return apiError('RUN_NOT_FOUND', 'Run não encontrado.', 404, { run_id: runId });
       }
 
-      const db = getDb();
-
-      // Lookup run em pending_preview — filtro household_id app-enforced
-      // (SEC-1-F3): só o household dono do run o encontra; cross-household → 404.
-      const rows = await db.execute<PendingPreviewRow>(sql`
-        select id, household_id, user_id, status, confirm_expires_at,
-               intents_detected, trace_id
-        from agent_runs
-        where id = ${runId}::uuid
-          and household_id = ${userHouseholdId}::uuid
-        limit 1
-      `);
-
-      if (rows.length === 0) {
-        annotateAgentPromptSpan(span, { status_code: 404 });
-        return apiError('RUN_NOT_FOUND', 'Run não encontrado.', 404, { run_id: runId });
-      }
-
-      const run = rows[0]!;
-      annotateAgentPromptSpan(span, { household_id: run.household_id });
-
-      // Validar estado
-      if (run.status !== 'pending_preview') {
-        annotateAgentPromptSpan(span, { status_code: 409 });
-        return apiError(
-          'CONFIRM_INVALID_STATE',
-          `Run não está em estado de confirmação (status actual: ${run.status}).`,
-          409,
-          { run_id: runId, status: run.status },
-        );
-      }
-
-      // Validar TTL
-      const expiresAt = run.confirm_expires_at ? new Date(run.confirm_expires_at) : null;
-      if (!expiresAt || expiresAt.getTime() < Date.now()) {
-        annotateAgentPromptSpan(span, { status_code: 409 });
-        return apiError(
-          'CONFIRM_EXPIRED',
-          'Janela de confirmação expirou (5 minutos). Faz novo prompt.',
-          409,
-          { run_id: runId, expires_at: expiresAt?.toISOString() ?? null },
-        );
-      }
-
-      // Reconstituir classification do JSONB persistido
-      let classification: ClassificationResult;
-      try {
-        // intents_detected guarda apenas o array de intents — reconstituir a
-        // ClassificationResult full com os defaults.
-        const intentsRaw = run.intents_detected as Array<{
-          intent: string;
-          confidence: number;
-          raw_span?: string;
-        }>;
-        const minConfidence =
-          Array.isArray(intentsRaw) && intentsRaw.length > 0
-            ? Math.min(...intentsRaw.map((i) => Number(i.confidence ?? 0)))
-            : 0;
-        const reconstituted: ClassificationResult = {
-          intents: intentsRaw.map((i) => ({
-            intent: i.intent as ClassificationResult['intents'][number]['intent'],
-            confidence: Number(i.confidence ?? 0),
-            raw_span: i.raw_span ?? '',
-          })),
-          language: 'pt-PT',
-          needs_confirmation: minConfidence < 0.7,
-          overall_confidence: minConfidence,
-        };
-        classification = ClassificationSchema.parse(reconstituted);
-      } catch (err) {
-        log.error({ err }, 'Falha a reconstituir classification');
-        captureException(err instanceof Error ? err : new Error(String(err)), {
-          ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }),
-        });
-        annotateAgentPromptSpan(span, { status_code: 500 });
-        return apiError(
-          'INTERNAL_ERROR',
-          'Não foi possível reconstituir o plano de execução.',
-          500,
-          { run_id: runId },
-        );
-      }
-
-      // Re-executar Planner + Executor
-      let plan: PlanResult;
-      let outcome: AtomicOutcome;
-      try {
-        const planner = new Planner();
-        plan = await planner.plan({
-          classification,
-          householdId: run.household_id,
-          userId: run.user_id,
-          traceId: run.trace_id ?? `confirm-${Date.now()}`,
-          runId,
-        });
-        await updateAfterPlanner(
-          runId,
-          {
-            toolCalls: plan.toolCalls,
-            // Story 2.12: enum short-form gravado na coluna agent_runs.executor_model.
-            executorModel: CLAUDE_HAIKU_MODEL_ENUM,
-            tokensInput: plan.tokensInput,
-            tokensOutput: plan.tokensOutput,
-            costEur: plan.costEur,
-          },
-          db,
-        );
-
-        // SEC-8 (ADR-003 Fase 4 Fatia D): tx de escrita aberta via withHousehold
-        // (role authenticated + claims → RLS viva, 2.ª rede). A auth vem da RUN
-        // PERSISTIDA (run.user_id/run.household_id) — o MESMO par já passado a
-        // executor.execute abaixo, NUNCA a identidade do request. Um membro
-        // diferente do household a confirmar continua a passar
-        // is_household_member(run.household_id). withHousehold via db-shim
-        // (REQ-INLINE-1). App-enforced (1.ª rede) mantém-se.
-        const executor = new Executor({
-          txRunner: (fn) => withHousehold({ userId: run.user_id, householdId: run.household_id }, fn),
-        });
-        outcome = await executor.execute({
-          plan,
-          householdId: run.household_id,
-          userId: run.user_id,
-          traceId: run.trace_id ?? `confirm-${Date.now()}`,
-          runId,
-        });
-      } catch (err) {
-        const failUpdate = (errorCode: string, errorMessage: string): Promise<void> =>
-          updateAfterExecutor(
-            runId,
-            { status: 'failed', latencyMs: 0, responseSummary: null, errorCode, errorMessage },
-            db,
-          );
-
-        if (err instanceof ToolPlanGateError) {
-          await failUpdate('TOOL_PLAN_GATE_ERROR', err.message);
-          captureException(err, { ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }) });
-          annotateAgentPromptSpan(span, { status_code: 400 });
-          return apiError('TOOL_PLAN_GATE_ERROR', err.message, 400, { run_id: runId });
-        }
-        if (err instanceof ExecutorValidationError) {
-          await failUpdate('EXECUTOR_VALIDATION_ERROR', err.message);
-          annotateAgentPromptSpan(span, { status_code: 400 });
-          return apiError('EXECUTOR_VALIDATION_ERROR', err.message, 400, { run_id: runId });
-        }
-        if (err instanceof PlannerError) {
-          await failUpdate('PLANNER_ERROR', err.message);
-          captureException(err, { ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }) });
-          annotateAgentPromptSpan(span, { status_code: 400 });
-          return apiError('PLANNER_ERROR', err.message, 400, { run_id: runId });
-        }
-        if (err instanceof ToolError) {
-          await failUpdate('TOOL_EXECUTION_ERROR', err.message);
-          captureException(err, { ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }) });
-          annotateAgentPromptSpan(span, { status_code: 500 });
-          return apiError('TOOL_EXECUTION_ERROR', err.message, 500, { run_id: runId });
-        }
-
-        log.error({ err }, 'Confirm pipeline crashed');
-        captureException(err instanceof Error ? err : new Error(String(err)), {
-          ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }),
-        });
-        await failUpdate('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown');
-        annotateAgentPromptSpan(span, { status_code: 500 });
-        return apiError('INTERNAL_ERROR', 'Erro ao executar pipeline confirmado.', 500, { run_id: runId });
-      }
-
-      if (outcome.success === false) {
-        const failure = outcome;
-        await updateAfterExecutor(
-          runId,
-          {
-            status: 'failed',
-            latencyMs: 0,
-            responseSummary: null,
-            errorCode: failure.error?.constructor?.name ?? 'EXECUTION_FAILED',
-            errorMessage: failure.error?.message ?? 'Execução falhou',
-          },
-          db,
-        );
-        annotateAgentPromptSpan(span, { mode: 'executed', status_code: 500 });
-        return apiError(
-          'TOOL_EXECUTION_ERROR',
-          failure.error?.message ?? 'Execução falhou — operação revertida.',
-          500,
-          { run_id: runId, failed_tool: failure.failedToolName },
-        );
-      }
-
-      const result = outcome as AtomicResult;
-      const summary = buildConfirmSummary(result);
-      await updateAfterExecutor(
+      const result = await executeConfirm({
         runId,
-        {
-          status: 'success',
-          latencyMs: 0,
-          responseSummary: summary,
-          errorCode: null,
-          errorMessage: null,
-        },
-        db,
-      );
-
-      try {
-        // Story 2.9 D50 — incrementQuota usa getServiceDb() internamente.
-        await incrementQuota(run.household_id);
-      } catch (qerr) {
-        log.warn({ err: qerr }, 'incrementQuota falhou (não-fatal)');
-      }
-
-      annotateAgentPromptSpan(span, {
-        mode: 'executed',
-        tool_count: plan.toolCalls.length,
-        status_code: 200,
+        householdId: userHouseholdId,
+        userId: user.id,
       });
 
-      // W2: confirmação executa tools (tarefas/finanças) — invalida as vistas
-      // dependentes para a Visão não ficar stale após confirmar via chat.
-      revalidateTaskViews();
+      if (result.ok) {
+        annotateAgentPromptSpan(span, { mode: 'executed', status_code: 200 });
+        const responseBody = {
+          mode: 'executed' as const,
+          run_id: runId,
+          results: result.results,
+          summary: result.summary,
+          undo_url: `/api/agent/prompt/${runId}/undo`,
+          undo_expires_at: result.undoExpiresAt,
+        };
+        return NextResponse.json(redactEndpointOutput(responseBody));
+      }
 
-      const undoExpiresAt = new Date(Date.now() + 30 * 1000);
-      const responseBody = {
-        mode: 'executed' as const,
-        run_id: runId,
-        results: outcome,
-        summary,
-        undo_url: `/api/agent/prompt/${runId}/undo`,
-        undo_expires_at: undoExpiresAt.toISOString(),
-      };
-      return NextResponse.json(redactEndpointOutput(responseBody));
+      // Mapear `reason` → HTTP status + error code histórico (regressão zero).
+      switch (result.reason) {
+        case 'not_found':
+          annotateAgentPromptSpan(span, { status_code: 404 });
+          return apiError('RUN_NOT_FOUND', 'Run não encontrado.', 404, { run_id: runId });
+        case 'invalid_state':
+          annotateAgentPromptSpan(span, { status_code: 409 });
+          return apiError(
+            'CONFIRM_INVALID_STATE',
+            `Run não está em estado de confirmação.`,
+            409,
+            { run_id: runId },
+          );
+        case 'expired':
+          annotateAgentPromptSpan(span, { status_code: 409 });
+          return apiError(
+            'CONFIRM_EXPIRED',
+            'Janela de confirmação expirou (5 minutos). Faz novo prompt.',
+            409,
+            { run_id: runId },
+          );
+        case 'plan_error':
+          annotateAgentPromptSpan(span, { status_code: 400 });
+          return apiError(result.errorCode, result.message, 400, { run_id: runId });
+        case 'tool_error':
+          annotateAgentPromptSpan(span, { mode: 'executed', status_code: 500 });
+          return apiError('TOOL_EXECUTION_ERROR', result.message, 500, {
+            run_id: runId,
+            failed_tool: result.failedToolName,
+          });
+        case 'internal_error':
+        default:
+          annotateAgentPromptSpan(span, { status_code: 500 });
+          return apiError('INTERNAL_ERROR', result.message, 500, { run_id: runId });
+      }
     },
   );
 }

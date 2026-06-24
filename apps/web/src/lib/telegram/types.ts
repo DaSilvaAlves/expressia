@@ -17,6 +17,23 @@ export interface TelegramChat {
   type: string;
 }
 
+/**
+ * Botão inline da Bot API (Story J-2). `callback_data` é o payload devolvido no
+ * `callback_query.data` quando o utilizador carrega no botão (≤ 64 bytes pela
+ * Bot API). J-2 usa formato `acção:{runId}` (ex.: `undo:<uuid>`).
+ */
+export interface InlineKeyboardButton {
+  text: string;
+  callback_data?: string;
+}
+
+/**
+ * Teclado inline da Bot API — matriz de linhas de botões (`reply_markup`).
+ */
+export interface InlineKeyboardMarkup {
+  inline_keyboard: InlineKeyboardButton[][];
+}
+
 export interface TelegramMessage {
   message_id: number;
   chat: TelegramChat;

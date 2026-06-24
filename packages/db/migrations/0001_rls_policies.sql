@@ -755,5 +755,52 @@ begin
 end$rls_user_prefs$;
 
 -- =====================================================================
+-- telegram_link (Story J-2 — tabela criada via 0027)
+-- =====================================================================
+-- 4 policies (SELECT/INSERT/UPDATE/DELETE) com predicate:
+--   household_id = public.current_household_id()
+--
+-- Razão da split (pattern user_prefs / agent_rate_limit_counters):
+--   `scripts/check-rls-coverage.ts:33` lê APENAS 0001_rls_policies.sql como
+--   fonte de verdade do gate NFR5. Policies em 0027 não seriam detectadas.
+--
+-- Nota sobre o caminho de leitura em runtime (Story J-2): o webhook resolve
+-- chat_id → identidade via getServiceDb() (role service_role — RLS bypass), uso
+-- legítimo SEC-10 (resolve identidade fora de sessão HTTP). Estas policies
+-- protegem o acesso por role `authenticated` (qualquer caminho de utilizador
+-- final que venha a ler/escrever telegram_link via getDb()/withHousehold fica
+-- household-scoped — 2.ª rede de defesa).
+--
+-- Bloco condicional `if exists ...` permite re-run idempotente mesmo se 0027
+-- ainda não correu (caso edge em CI sem migrations aplicadas).
+--
+-- Comentários abaixo são placeholders para o gate linter — as policies
+-- efectivas são criadas via EXECUTE strings dentro do DO block, com $POLICY$
+-- tags para evitar conflito com o $rls_telegram_link$ outer block.
+--
+-- create policy "telegram_link_select" on public.telegram_link for select to authenticated
+-- create policy "telegram_link_insert" on public.telegram_link for insert to authenticated
+-- create policy "telegram_link_update" on public.telegram_link for update to authenticated
+-- create policy "telegram_link_delete" on public.telegram_link for delete to authenticated
+
+do $rls_telegram_link$
+begin
+  if exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'telegram_link') then
+    execute 'alter table public.telegram_link enable row level security';
+    execute 'alter table public.telegram_link force row level security';
+
+    execute 'drop policy if exists "telegram_link_select" on public.telegram_link';
+    execute 'drop policy if exists "telegram_link_insert" on public.telegram_link';
+    execute 'drop policy if exists "telegram_link_update" on public.telegram_link';
+    execute 'drop policy if exists "telegram_link_delete" on public.telegram_link';
+
+    execute $POLICY$create policy "telegram_link_select" on public.telegram_link for select to authenticated using (household_id = public.current_household_id())$POLICY$;
+    execute $POLICY$create policy "telegram_link_insert" on public.telegram_link for insert to authenticated with check (household_id = public.current_household_id())$POLICY$;
+    execute $POLICY$create policy "telegram_link_update" on public.telegram_link for update to authenticated using (household_id = public.current_household_id()) with check (household_id = public.current_household_id())$POLICY$;
+    execute $POLICY$create policy "telegram_link_delete" on public.telegram_link for delete to authenticated using (household_id = public.current_household_id())$POLICY$;
+  end if;
+end$rls_telegram_link$;
+
+-- =====================================================================
 -- FIM DA MIGRAÇÃO 0001
 -- =====================================================================

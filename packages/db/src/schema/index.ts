@@ -16,3 +16,4 @@ export * from './tasks';
 export * from './finance';
 export * from './audit';
 export * from './prefs';
+export * from './telegram';

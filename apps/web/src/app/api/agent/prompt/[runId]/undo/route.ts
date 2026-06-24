@@ -6,29 +6,26 @@
  * executed_at IS NULL` (PO_FIX — coluna real é `executed_at`, não
  * `reverted_at`; ver db-schema.md §4.4 invariantes).
  *
+ * Story J-2 (AC9): a lógica de undo é extraída para a função exportada
+ * `executeUndo({ runId, householdId, userId })`, chamável directamente sem HTTP
+ * (o webhook do Telegram chama-a no callback `undo:{runId}`). Este route handler
+ * passa a ser um wrapper fino: resolve auth + household e delega em `executeUndo`.
+ *
  * Aplica transacção inversa interpretando `reverse_op` JSONB:
  *   - `delete_row` → DELETE com WHERE id
  *   - `restore_row` → UPDATE com snapshot
+ *   - `reinsert_row` → INSERT (undo de hard delete)
  *   - `composite` → ops aninhadas
  *
- * Marca `agent_reverse_ops.executed_at = now()` (row-level marca op aplicada)
- * + `agent_runs.status = 'reverted'` + `agent_runs.reverted_at = now()`
- * (run-level) via `getServiceDb()` (NFR9 — única excepção justificada,
- * análoga a GDPR purge — trigger imutabilidade bloqueia mutação terminal
- * em authenticated).
+ * Marca `agent_reverse_ops.executed_at = now()` + `agent_runs.status = 'reverted'`
+ * + `agent_runs.reverted_at = now()` via `getServiceDb()` (NFR9 — única excepção
+ * justificada; trigger imutabilidade bloqueia mutação terminal em authenticated).
  *
- * Segurança (SEC-1-F3): pertença do utilizador autenticado ao
- * `run.household_id` verificada app-enforced (RLS inerte em runtime —
- * `getDb()` liga como role bypassrls). Cross-household → 404.
+ * Segurança (SEC-1-F3): pertença do utilizador ao `run.household_id` verificada
+ * app-enforced (RLS inerte em runtime — `getDb()` liga como role bypassrls).
+ * Cross-household → 404.
  *
- * Erros:
- *   - 401 AUTH_REQUIRED
- *   - 404 RUN_NOT_FOUND (cross-household ou inexistente — 404 não revela existência)
- *   - 409 UNDO_INVALID_STATE (run não está em success)
- *   - 409 UNDO_EXPIRED (TTL passou)
- *   - 409 UNDO_ALREADY_REVERTED (run já em reverted ou ops já executadas)
- *
- * Trace: Story 2.6 AC7 + D21, FR6, db-schema.md §4.4 invariantes.
+ * Trace: Story 2.6 AC7 + D21 + Story J-2 AC9, FR6, db-schema.md §4.4 invariantes.
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -75,6 +72,186 @@ type ReverseOp =
   | { readonly kind: 'reinsert_row'; readonly table: string; readonly id: string; readonly snapshot: Record<string, unknown> }
   | { readonly kind: 'composite'; readonly ops: ReadonlyArray<ReverseOp> };
 
+/**
+ * Resultado discriminado de `executeUndo` — distingue o estado para o caller
+ * (route handler → HTTP status; webhook Telegram → mensagem PT-PT). `ok: true`
+ * só quando o undo aplicou efectivamente as reverse ops.
+ */
+export type UndoResult =
+  | { ok: true; runId: string; opsCount: number; message: string }
+  | {
+      ok: false;
+      runId: string;
+      reason:
+        | 'not_found'
+        | 'already_reverted'
+        | 'invalid_state'
+        | 'expired'
+        | 'internal_error';
+      message: string;
+    };
+
+/**
+ * Executa o undo de uma run — chamável directamente (sem HTTP).
+ *
+ * Story J-2 AC9 — usada pelo route handler abaixo E pelo webhook do Telegram
+ * (callback `undo:{runId}`), sem duplicar lógica nem fazer `fetch` HTTP interno.
+ *
+ * A pertença ao household é verificada pelo caller (resolve `householdId` do
+ * utilizador autenticado/`telegram_link`) e re-confirmada aqui no filtro
+ * `household_id` da query (SEC-1-F3: cross-household → `not_found`).
+ */
+export async function executeUndo(params: {
+  runId: string;
+  householdId: string;
+  userId: string;
+}): Promise<UndoResult> {
+  const { runId, householdId, userId } = params;
+  const log = childLogger({ route: ROUTE_TEMPLATE, run_id: runId });
+
+  const db = getDb();
+
+  // Lookup run — filtro household_id app-enforced (SEC-1-F3): só o household
+  // dono do run o encontra; cross-household → not_found.
+  const runRows = await db.execute<AgentRunRow>(sql`
+    select id, household_id, status
+    from agent_runs
+    where id = ${runId}::uuid
+      and household_id = ${householdId}::uuid
+    limit 1
+  `);
+
+  if (runRows.length === 0) {
+    return { ok: false, runId, reason: 'not_found', message: 'Run não encontrado.' };
+  }
+
+  const run = runRows[0]!;
+
+  // Validar estado terminal `success`.
+  if (run.status === 'reverted') {
+    return {
+      ok: false,
+      runId,
+      reason: 'already_reverted',
+      message: 'Esta acção já foi revertida anteriormente.',
+    };
+  }
+  if (run.status !== 'success') {
+    return {
+      ok: false,
+      runId,
+      reason: 'invalid_state',
+      message: `Apenas acções concluídas com sucesso podem ser revertidas (estado actual: ${run.status}).`,
+    };
+  }
+
+  // Lookup reverse_ops com TTL activo + não-executadas.
+  const opRows = await db.execute<ReverseOpRow>(sql`
+    select id, reverse_op, expires_at, executed_at
+    from agent_reverse_ops
+    where agent_run_id = ${runId}::uuid
+      and household_id = ${run.household_id}::uuid
+      and expires_at > now()
+      and executed_at is null
+  `);
+
+  if (opRows.length === 0) {
+    // Verificar se já foram executadas (vs expiradas).
+    const allOps = await db.execute<{ executed_at: string | null }>(sql`
+      select executed_at
+      from agent_reverse_ops
+      where agent_run_id = ${runId}::uuid
+        and household_id = ${run.household_id}::uuid
+    `);
+    const hasExecuted = allOps.some((o) => o.executed_at !== null);
+    if (hasExecuted) {
+      return {
+        ok: false,
+        runId,
+        reason: 'already_reverted',
+        message: 'Esta acção já foi revertida.',
+      };
+    }
+    return {
+      ok: false,
+      runId,
+      reason: 'expired',
+      message: 'Cancelar já não é possível (expirou).',
+    };
+  }
+
+  // Aplicar reverse ops via getServiceDb() (NFR9 análoga GDPR purge): trigger
+  // imutabilidade bloqueia mutação de terminal `success` para role authenticated;
+  // service_role bypassa.
+  const serviceDb = getServiceDb();
+  try {
+    for (const op of opRows) {
+      const parsed = op.reverse_op as ReverseOp;
+      await applyReverseOp(parsed, serviceDb);
+      await serviceDb.execute(sql`
+        update agent_reverse_ops
+        set executed_at = now()
+        where id = ${op.id}::uuid
+      `);
+    }
+
+    // Marcar run como reverted (terminal mutation via service_role).
+    await serviceDb.execute(sql`
+      update agent_runs
+      set status = 'reverted',
+          reverted_at = now()
+      where id = ${runId}::uuid
+    `);
+  } catch (err) {
+    log.error({ err }, 'Falha a aplicar reverse op');
+    captureException(err instanceof Error ? err : new Error(String(err)), {
+      ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }),
+    });
+    return {
+      ok: false,
+      runId,
+      reason: 'internal_error',
+      message: 'Falha ao reverter operações. As operações originais permanecem.',
+    };
+  }
+
+  // Story 2.8 AC5 — audit_log INSERT (não-fatal se falhar). Usa serviceDb (já em
+  // scope) por consistência com as restantes ops da função.
+  try {
+    await serviceDb.execute(sql`
+      insert into audit_log (household_id, user_id, action, entity_table, entity_id, before_state, after_state, trace_id)
+      values (
+        ${run.household_id}::uuid,
+        ${userId}::uuid,
+        'agent_run_reverted',
+        'agent_runs',
+        ${runId}::uuid,
+        ${JSON.stringify({ status: 'success', ops_count: opRows.length })}::jsonb,
+        ${JSON.stringify({ status: 'reverted', reverted_at: new Date().toISOString() })}::jsonb,
+        ${null}
+      )
+    `);
+  } catch (auditErr) {
+    log.warn({ err: auditErr }, 'audit_log insert falhou (não-fatal)');
+    captureException(
+      auditErr instanceof Error ? auditErr : new Error(String(auditErr)),
+      { ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }) },
+    );
+  }
+
+  // W2: o undo reverte mutações (tarefas/finanças) — invalida as vistas.
+  revalidateTaskViews();
+
+  log.info({ run_id: runId, ops_reverted: opRows.length }, 'Run revertido com sucesso');
+
+  return {
+    ok: true,
+    runId,
+    opsCount: opRows.length,
+    message: 'Operação revertida.',
+  };
+}
+
 export async function POST(
   _req: NextRequest,
   ctx: { params: Promise<{ runId: string }> },
@@ -85,8 +262,6 @@ export async function POST(
     'POST /api/agent/prompt/[runId]/undo',
     { method: 'POST', route: ROUTE_TEMPLATE },
     async (span): Promise<NextResponse> => {
-      const log = childLogger({ route: ROUTE_TEMPLATE, run_id: runId });
-
       // Auth
       const supabase = await createServerSupabaseClient();
       const {
@@ -97,170 +272,52 @@ export async function POST(
         return apiError('AUTH_REQUIRED', 'Sessão inválida.', 401);
       }
 
-      // SEC-1-F3: resolver o household do utilizador autenticado para isolar a
-      // run por household app-enforced (RLS inerte em runtime). Sem household
-      // activo → 404 (não revela se o run existe noutro household).
+      // SEC-1-F3: resolver o household do utilizador autenticado.
       const userHouseholdId = await resolveHouseholdId(user.id);
       if (!userHouseholdId) {
         annotateAgentPromptSpan(span, { status_code: 404 });
         return apiError('RUN_NOT_FOUND', 'Run não encontrado.', 404, { run_id: runId });
       }
 
-      const db = getDb();
-
-      // Lookup run — filtro household_id app-enforced (SEC-1-F3): só o household
-      // dono do run o encontra; cross-household → 404. Sem este filtro, um membro
-      // do household B reverteria mutações reais do household A via service_role.
-      const runRows = await db.execute<AgentRunRow>(sql`
-        select id, household_id, status
-        from agent_runs
-        where id = ${runId}::uuid
-          and household_id = ${userHouseholdId}::uuid
-        limit 1
-      `);
-
-      if (runRows.length === 0) {
-        annotateAgentPromptSpan(span, { status_code: 404 });
-        return apiError('RUN_NOT_FOUND', 'Run não encontrado.', 404, { run_id: runId });
-      }
-
-      const run = runRows[0]!;
-      annotateAgentPromptSpan(span, { household_id: run.household_id });
-
-      // Validar estado terminal `success` (não pode ser revertido se já reverted/failed)
-      if (run.status === 'reverted') {
-        annotateAgentPromptSpan(span, { status_code: 409 });
-        return apiError('UNDO_ALREADY_REVERTED', 'Run já foi revertido anteriormente.', 409, {
-          run_id: runId,
-        });
-      }
-      if (run.status !== 'success') {
-        annotateAgentPromptSpan(span, { status_code: 409 });
-        return apiError(
-          'UNDO_INVALID_STATE',
-          `Apenas runs em sucesso podem ser revertidas (estado actual: ${run.status}).`,
-          409,
-          { run_id: runId, status: run.status },
-        );
-      }
-
-      // Lookup reverse_ops com TTL activo + não-executadas
-      const opRows = await db.execute<ReverseOpRow>(sql`
-        select id, reverse_op, expires_at, executed_at
-        from agent_reverse_ops
-        where agent_run_id = ${runId}::uuid
-          and household_id = ${run.household_id}::uuid
-          and expires_at > now()
-          and executed_at is null
-      `);
-
-      if (opRows.length === 0) {
-        // Verificar se já foram executadas (vs expiradas)
-        const allOps = await db.execute<{ executed_at: string | null }>(sql`
-          select executed_at
-          from agent_reverse_ops
-          where agent_run_id = ${runId}::uuid
-            and household_id = ${run.household_id}::uuid
-        `);
-        const hasExecuted = allOps.some((o) => o.executed_at !== null);
-        if (hasExecuted) {
-          annotateAgentPromptSpan(span, { status_code: 409 });
-          return apiError('UNDO_ALREADY_REVERTED', 'Operações já foram revertidas.', 409, {
-            run_id: runId,
-          });
-        }
-        annotateAgentPromptSpan(span, { status_code: 409 });
-        return apiError(
-          'UNDO_EXPIRED',
-          'Janela de undo expirou (30 segundos). A operação não pode mais ser revertida.',
-          409,
-          { run_id: runId },
-        );
-      }
-
-      // Aplicar reverse ops via getServiceDb() (NFR9 análoga GDPR purge):
-      // trigger imutabilidade bloqueia mutação de terminal `success` para
-      // role authenticated; service_role bypassa.
-      const serviceDb = getServiceDb();
-      try {
-        for (const op of opRows) {
-          const parsed = op.reverse_op as ReverseOp;
-          await applyReverseOp(parsed, serviceDb);
-          await serviceDb.execute(sql`
-            update agent_reverse_ops
-            set executed_at = now()
-            where id = ${op.id}::uuid
-          `);
-        }
-
-        // Marcar run como reverted (terminal mutation via service_role)
-        await serviceDb.execute(sql`
-          update agent_runs
-          set status = 'reverted',
-              reverted_at = now()
-          where id = ${runId}::uuid
-        `);
-      } catch (err) {
-        log.error({ err }, 'Falha a aplicar reverse op');
-        captureException(err instanceof Error ? err : new Error(String(err)), {
-          ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }),
-        });
-        annotateAgentPromptSpan(span, { status_code: 500 });
-        return apiError(
-          'INTERNAL_ERROR',
-          'Falha ao reverter operações. As operações originais permanecem.',
-          500,
-          { run_id: runId },
-        );
-      }
-
-      // Story 2.8 AC5 — audit_log INSERT (não-fatal se falhar).
-      //
-      // [DEV-DECISION] PO_FIX_INLINE 1: `getDb()` (authenticated) é correcto
-      // per RLS real (policy `audit_log_insert_member` em
-      // `packages/db/migrations/0001_rls_policies.sql:569-573` PERMITE INSERT
-      // a authenticated members; apenas UPDATE/DELETE são revogados :576-584).
-      // Esta implementação usa `serviceDb` (já em scope) defensivamente para
-      // consistência com as restantes ops da função (UPDATE agent_runs +
-      // UPDATE agent_reverse_ops via serviceDb). Diferença é conceitual, não
-      // comportamental — ambos atingem o mesmo INSERT. @architect ratifica
-      // no gate (CONCERNS-ACCEPTABLE — handoff po→dev concern 2).
-      try {
-        const traceId = span.spanContext().traceId ?? null;
-        await serviceDb.execute(sql`
-          insert into audit_log (household_id, user_id, action, entity_table, entity_id, before_state, after_state, trace_id)
-          values (
-            ${run.household_id}::uuid,
-            ${user.id}::uuid,
-            'agent_run_reverted',
-            'agent_runs',
-            ${runId}::uuid,
-            ${JSON.stringify({ status: 'success', ops_count: opRows.length })}::jsonb,
-            ${JSON.stringify({ status: 'reverted', reverted_at: new Date().toISOString() })}::jsonb,
-            ${traceId}
-          )
-        `);
-      } catch (auditErr) {
-        // Não-fatal: o undo já ocorreu com sucesso, mas registamos warn + Sentry.
-        log.warn({ err: auditErr }, 'audit_log insert falhou (não-fatal)');
-        captureException(
-          auditErr instanceof Error ? auditErr : new Error(String(auditErr)),
-          { ...sentrySafeContext({ route: ROUTE_TEMPLATE, householdId: run.household_id, runId }) },
-        );
-      }
-
-      // W2: o undo reverte mutações (tarefas/finanças) — invalida as vistas
-      // dependentes para a Visão reflectir o estado revertido.
-      revalidateTaskViews();
-
-      annotateAgentPromptSpan(span, { status_code: 200 });
-      log.info({ run_id: runId, ops_reverted: opRows.length }, 'Run revertido com sucesso');
-
-      return NextResponse.json({
-        reverted: true,
-        run_id: runId,
-        ops_count: opRows.length,
+      const result = await executeUndo({
+        runId,
+        householdId: userHouseholdId,
+        userId: user.id,
       });
+
+      if (result.ok) {
+        annotateAgentPromptSpan(span, { status_code: 200 });
+        return NextResponse.json({
+          reverted: true,
+          run_id: runId,
+          ops_count: result.opsCount,
+        });
+      }
+
+      // Mapear o `reason` para o HTTP status + error code histórico (regressão zero).
+      switch (result.reason) {
+        case 'not_found':
+          annotateAgentPromptSpan(span, { status_code: 404 });
+          return apiError('RUN_NOT_FOUND', 'Run não encontrado.', 404, { run_id: runId });
+        case 'already_reverted':
+          annotateAgentPromptSpan(span, { status_code: 409 });
+          return apiError('UNDO_ALREADY_REVERTED', result.message, 409, { run_id: runId });
+        case 'invalid_state':
+          annotateAgentPromptSpan(span, { status_code: 409 });
+          return apiError('UNDO_INVALID_STATE', result.message, 409, { run_id: runId });
+        case 'expired':
+          annotateAgentPromptSpan(span, { status_code: 409 });
+          return apiError(
+            'UNDO_EXPIRED',
+            'Janela de undo expirou (30 segundos). A operação não pode mais ser revertida.',
+            409,
+            { run_id: runId },
+          );
+        case 'internal_error':
+        default:
+          annotateAgentPromptSpan(span, { status_code: 500 });
+          return apiError('INTERNAL_ERROR', result.message, 500, { run_id: runId });
+      }
     },
   );
 }
@@ -277,13 +334,6 @@ export async function POST(
  *   - `composite` → recursivamente cada op
  *
  * Tabelas alvo são whitelisted para evitar SQL injection via `table` field.
- *
- * Story 4.10 — Task T11: whitelist actualizada com `cards` (criado por
- * `create_card` tool) e `_noop` (sentinela inerte para read-only — pattern
- * Story 3.8 R1b reusado pelas tools `listar_tarefas`/`listar_atrasadas`/
- * `query_finance_summary`). Removidos `card_accounts`/`card_transactions` —
- * tabelas que NÃO existem no schema real (`packages/db/src/schema/finance.ts`
- * tem apenas `cards`).
  */
 const ALLOWED_REVERSE_TABLES = new Set([
   'tasks',
@@ -295,11 +345,6 @@ const ALLOWED_REVERSE_TABLES = new Set([
 
 /**
  * Tabela sentinela inerte (Story 3.8 R1b v1.1 + Story 4.10 D-4.10.3).
- *
- * Tools read-only persistem uma row em `agent_reverse_ops` com
- * `reverse_op.table = '_noop'` para satisfazer `ReverseOpDeleteRowSchema` sem
- * permitir undo real. Aqui no endpoint, simplesmente saltamos a aplicação
- * (sem erro nem efeito — `executed_at` ainda é marcado para impedir replay).
  */
 const NOOP_SENTINEL_TABLE = '_noop';
 
@@ -315,8 +360,6 @@ async function applyReverseOp(
   }
 
   // Sentinela `_noop` — read-only tools (Story 3.8 R1b / Story 4.10 D-4.10.3).
-  // No-op silencioso: a row continua marcada `executed_at = now()` pelo caller
-  // (linha 170-174) para impedir replay.
   if (op.table === NOOP_SENTINEL_TABLE) {
     return;
   }
@@ -326,17 +369,12 @@ async function applyReverseOp(
   }
 
   if (op.kind === 'delete_row') {
-    // sql.identifier não está exposto pelo Drizzle de forma estável — usar
-    // raw template com whitelist para safety.
     await db.execute(sql.raw(`delete from ${op.table} where id = '${op.id}'`));
     return;
   }
 
   if (op.kind === 'reinsert_row') {
-    // Story 2.14 FIX-1 — undo de hard delete: re-inserir a row eliminada com o
-    // `id` original. As keys do snapshot são usadas LITERALMENTE como nomes de
-    // coluna (PO-FIX-1: snapshot DEVE vir em snake_case). O `id` original é
-    // incluído explicitamente para restaurar a identidade da row.
+    // Story 2.14 FIX-1 — undo de hard delete: re-inserir a row com o `id` original.
     const snapshot = op.snapshot ?? {};
     const allFields: Record<string, unknown> = { id: op.id, ...snapshot };
     const cols = Object.keys(allFields).join(', ');
@@ -348,8 +386,6 @@ async function applyReverseOp(
         if (typeof value === 'number' || typeof value === 'boolean') {
           return String(value);
         }
-        // Strings — escape simples (snapshot vem do executeAtomic da Story 2.3
-        // que valida tipos).
         const safe = String(value).replace(/'/g, "''");
         return `'${safe}'`;
       })
@@ -374,8 +410,6 @@ async function applyReverseOp(
         if (typeof value === 'number' || typeof value === 'boolean') {
           return `${k} = ${value}`;
         }
-        // Strings — escape simples (snapshot vem do executeAtomic da Story 2.3
-        // que valida tipos).
         const safe = String(value).replace(/'/g, "''");
         return `${k} = '${safe}'`;
       })
