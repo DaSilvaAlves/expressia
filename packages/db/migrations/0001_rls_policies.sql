@@ -802,5 +802,39 @@ begin
 end$rls_telegram_link$;
 
 -- =====================================================================
+-- daily_briefing_cache (Story J-4 — tabela criada via 0028)
+-- =====================================================================
+-- 4 policies (SELECT/INSERT/UPDATE/DELETE) com predicate:
+--   household_id = public.current_household_id()
+--
+-- Tabela de idempotência do brief diário. Escrita/lida pelo job Inngest via
+-- withHousehold (role authenticated, RLS viva — lição SEC-8.1). Estas policies
+-- garantem household-scoping. Bloco condicional `if exists` permite re-run
+-- idempotente mesmo se a 0028 ainda não tiver corrido.
+--
+-- create policy "daily_briefing_cache_select" on public.daily_briefing_cache for select to authenticated
+-- create policy "daily_briefing_cache_insert" on public.daily_briefing_cache for insert to authenticated
+-- create policy "daily_briefing_cache_update" on public.daily_briefing_cache for update to authenticated
+-- create policy "daily_briefing_cache_delete" on public.daily_briefing_cache for delete to authenticated
+
+do $rls_daily_briefing_cache$
+begin
+  if exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'daily_briefing_cache') then
+    execute 'alter table public.daily_briefing_cache enable row level security';
+    execute 'alter table public.daily_briefing_cache force row level security';
+
+    execute 'drop policy if exists "daily_briefing_cache_select" on public.daily_briefing_cache';
+    execute 'drop policy if exists "daily_briefing_cache_insert" on public.daily_briefing_cache';
+    execute 'drop policy if exists "daily_briefing_cache_update" on public.daily_briefing_cache';
+    execute 'drop policy if exists "daily_briefing_cache_delete" on public.daily_briefing_cache';
+
+    execute $POLICY$create policy "daily_briefing_cache_select" on public.daily_briefing_cache for select to authenticated using (household_id = public.current_household_id())$POLICY$;
+    execute $POLICY$create policy "daily_briefing_cache_insert" on public.daily_briefing_cache for insert to authenticated with check (household_id = public.current_household_id())$POLICY$;
+    execute $POLICY$create policy "daily_briefing_cache_update" on public.daily_briefing_cache for update to authenticated using (household_id = public.current_household_id()) with check (household_id = public.current_household_id())$POLICY$;
+    execute $POLICY$create policy "daily_briefing_cache_delete" on public.daily_briefing_cache for delete to authenticated using (household_id = public.current_household_id())$POLICY$;
+  end if;
+end$rls_daily_briefing_cache$;
+
+-- =====================================================================
 -- FIM DA MIGRAÇÃO 0001
 -- =====================================================================
