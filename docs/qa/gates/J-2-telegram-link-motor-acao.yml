@@ -1,0 +1,73 @@
+schema: 1
+story: 'J-2'
+story_title: 'chat_id → household + acção via motor'
+gate: PASS
+status_reason: 'Os 13 AC estão cumpridos e re-verificados contra o código real; os 5 quality gates passam de forma independente (test 1291/1291); SEC-8 HOLD respeitado (db-shim/client.ts/withHousehold intactos); regressão zero no contrato HTTP. As 6 DEV-DECISIONS são legítimas. Desconto preventivo 0,4 por Tarefa 7 (deploy+seed+E2E live) diferida e por 1 caso de borda LOW não testado.'
+reviewer: 'Aria (Architect)'
+updated: '2026-06-24T01:45:00Z'
+score: 9.6
+confidence: high
+
+gates_reexecuted:
+  lint: 'PASS — ✔ No ESLint warnings or errors (10/10 tasks, --max-warnings=0)'
+  typecheck: 'PASS — 10/10 tasks, FULL TURBO'
+  test_web: 'PASS — 1291/1291 testes, 156 ficheiros (confirmado independentemente; webhook 14, run-agent 5, undo 16, confirm 8, route 25 sem regressão)'
+  build: 'PASS — exit 0, 10/10 tasks; /api/telegram/webhook + /api/agent/prompt(+undo/confirm) todos ƒ Dynamic (correcto p/ node:crypto + getServiceDb)'
+  check_rls: 'PASS — 28 tabelas com household_id, 128 policies, telegram_link coberta (SELECT/INSERT/UPDATE/DELETE), exit 0'
+
+acceptance_criteria:
+  - { id: AC1, status: PASS, note: 'telegram_link com colunas/FKs/UNIQUE chat_id conforme spec; migration 0027 criada (aplicação em prod = Tarefa 7).' }
+  - { id: AC2, status: PASS, note: '4 RLS policies em 0001 via DO-block (D-J2.1); check:rls exit 0, sem regressão das 28 tabelas.' }
+  - { id: AC3, status: PASS, note: 'UNIQUE em chat_id no DDL + Drizzle .unique(); seed SQL documentado no Dev Notes (config de arranque, não código de prod).' }
+  - { id: AC4, status: PASS, note: 'runAgentForHousehold executa o pipeline completo sem getUser()/resolveHouseholdId(); spy getUser provado nunca-chamado em 4 testes.' }
+  - { id: AC5, status: PASS, note: 'route.ts é wrapper fino; contrato snake_case integral preservado (run_id/plan_summary/confirmation_url/undo_url/undo_expires_at/results); taxonomia de erros idêntica; 25/25 testes route sem alteração.' }
+  - { id: AC6, status: PASS, note: 'resolveIdentity via telegram_link+getServiceDb; chat_id desconhecido → 200 silencioso (testado found/not-found).' }
+  - { id: AC7, status: PASS, note: 'executed → "Feito. ..." + botão (Cancelar) callback_data=undo:{runId}; testado o callback_data exacto.' }
+  - { id: AC8, status: PASS, note: 'preview → pergunta + botões sim(confirm:{runId})/não(cancel:{runId}); testado.' }
+  - { id: AC9, status: PASS, note: 'callback undo:{runId} → executeUndo (reutilizado, sem HTTP interno); expirado → "Cancelar já não é possível (expirou)." via UndoResult.reason=expired.' }
+  - { id: AC10, status: PASS, note: 'callback confirm:{runId} → executeConfirm reutilizado; cancel → "Ok, não fiz nada.".' }
+  - { id: AC11, status: PASS, note: 'sendChatAction(typing) antes do motor; ordem provada empiricamente (chatAction < motor).' }
+  - { id: AC12, status: PASS, note: 'Logs só com update_id + hashForCorrelation(user_id) + status; teste assere texto secreto e "IBAN" ausentes dos logs.' }
+  - { id: AC13, status: PASS, note: 'Os 5 gates verdes, re-executados independentemente.' }
+
+dev_decisions_review:
+  - { id: D-J2.1, verdict: LEGITIMA, note: 'Policies em 0001 (não 0027) porque check-rls-coverage.ts:33 lê só 0001; pattern idêntico a user_prefs verificado lado-a-lado; predicate household_id=current_household_id() + enable/force RLS + with check no update (mais completo que o template da story).' }
+  - { id: D-J2.2, verdict: LEGITIMA, note: 'AgentRunOutcome superset vs AgentResult público; fronteira limpa (lib nunca devolve NextResponse); switch exaustivo sem default.' }
+  - { id: D-J2.3, verdict: LEGITIMA, note: 'UndoResult discriminado; route mapeia reasons para os MESMOS error codes/status (regressão zero).' }
+  - { id: D-J2.4, verdict: LEGITIMA, note: 'ConfirmResult discriminado embute AgentResult executed; auth da execução vem da RUN PERSISTIDA (run.user_id/run.household_id), não do request — SEC-1-F3 preservado.' }
+  - { id: D-J2.5, verdict: LEGITIMA, note: 'Audit failed movido para o pipeline = GANHO de observabilidade (consistente p/ qualquer caller), não perda. updateAfterExecutor(failed) antes do re-throw.' }
+  - { id: D-J2.6, verdict: ACEITAVEL, note: 'trace_id→null no audit_log do undo: perda real mas limitada a 1 registo; correlação alternativa via runId (entity_id) + agent_runs mantém trace_id da run original. Ver OBS-J2-1.' }
+
+top_issues:
+  - id: 'OBS-J2-1'
+    severity: low
+    finding: 'D-J2.6 — o audit_log do undo grava trace_id=null (executeUndo deixou de ter span OTel). Perde-se a correlação por trace neste registo específico.'
+    suggested_action: 'Aceitável para J-2. Opção futura: o caller (route/webhook) gera/propaga um traceId leve a executeUndo para repor a correlação sem reintroduzir acoplamento ao span HTTP.'
+  - id: 'REL-J2-1'
+    severity: low
+    finding: 'handleCallbackQuery não envolve executeUndo/executeConfirm em try/catch. Um runId malformado faria o cast ::uuid lançar PostgresError não-capturado → 500 → potencial reentrega do update pelo Telegram. Caso teórico: callback_data é sempre gerado pelos botões do próprio bot (UUID válido) e o canal exige identidade em telegram_link (só o Eurico).'
+    suggested_action: 'Aceitável para J-2. Hardening futuro: validar runId como UUID em parseCallbackData (devolver null se inválido) ou envolver os callbacks num try/catch que responde 200 + mensagem neutra (paridade com handleTextMessage).'
+  - id: 'TEST-J2-1'
+    severity: low
+    finding: 'Tarefa 7 (migration 0027 em prod + seed telegram_link + E2E live ao @jarvis_eurico_bot) não executada — é setup externo [EURICO]+@devops. O caminho de produção withHousehold (directiva SEC-8.1) só é validado nesse passo; os testes Vitest mockam db-shim.'
+    suggested_action: 'Bloqueante para "ir a prod" mas NÃO para o gate de código. @devops aplica 0027 via DIRECT_URL, insere o seed (confirmar user_id+household_id no Dashboard) e valida E2E live antes de fechar a story.'
+
+evidence:
+  files_audited:
+    - 'packages/db/migrations/0027_telegram_link.sql'
+    - 'packages/db/migrations/0001_rls_policies.sql (DO-block telegram_link, linhas 786-802)'
+    - 'packages/db/src/schema/telegram.ts'
+    - 'apps/web/src/lib/agent/run-agent.ts'
+    - 'apps/web/src/app/api/agent/prompt/route.ts'
+    - 'apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts'
+    - 'apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts'
+    - 'apps/web/src/app/api/telegram/webhook/route.ts'
+    - 'apps/web/src/lib/telegram/client.ts'
+    - 'apps/web/src/lib/telegram/types.ts'
+    - 'apps/web/src/lib/agent/__tests__/run-agent.test.ts'
+    - 'apps/web/src/app/api/telegram/webhook/__tests__/route.test.ts'
+  sec8_hold: 'RESPEITADO — db-shim.ts, packages/db/src/client.ts e a assinatura/implementação de withHousehold NÃO modificados (git status não os lista; último commit a tocar db-shim foi SEC-8.1 d49f4db, nenhum commit J-2).'
+  service_db_scope: 'getServiceDb usado uma única vez no webhook (resolveIdentity, linha 129) só para telegram_link; dados de domínio passam por runAgentForHousehold→withHousehold (RLS viva). Uso legítimo SEC-10.'
+  code_quality: 'Zero any, zero imports relativos ../ (NFR19), zero PT-BR nas mensagens.'
+
+waiver: { active: false }

@@ -2,8 +2,10 @@ id: mj-handoff-j1-done-arrancar-j2-20260624
 from_agent: "@devops Gage"
 to_agent: "any"
 created: "2026-06-24T00:30:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-24T00:00:00Z"
+consumed_by: "/sdc (SM→PO→DEV→@architect) — Story J-2 draftada, validada, implementada e gate PASS 9,6/10"
 
 project: "meu-jarvis (Expressia → Jarvis)"
 project_prefix: "mj"
