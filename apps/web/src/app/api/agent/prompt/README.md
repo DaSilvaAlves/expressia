@@ -117,7 +117,7 @@ curl ... -H "Idempotency-Key: $(uuidgen)" -d '{"prompt":"..."}'
 ## Integração com pipeline
 
 ```
-Classifier (GPT-4o-mini, 2.4) → Planner (Claude Sonnet, 2.5) → Executor (executeAtomic, 2.3)
+Classifier (GPT-4o-mini, 2.4) → Planner (GPT-4o-mini, 2.5; Anthropic via factory) → Executor (executeAtomic, 2.3)
                                                               ↓
                                                           agent_runs (audit FR3)
                                                           agent_reverse_ops (undo FR6)

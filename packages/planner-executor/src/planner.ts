@@ -1,9 +1,14 @@
 /**
  * `Planner` — Estágio 2 do pipeline AI multi-intent.
  *
- * Trace: Story 2.5 AC4 + AC5 + Architecture §4.3 (Planner — Sonnet com tool
- *        calling, prompt cache ephemeral) + FR3 (multi-intent até 5) + NFR1
- *        (latência) + NFR12 (PII).
+ * Trace: Story 2.5 AC4 + AC5 + Architecture §4.3 (Planner — tool calling) +
+ *        FR3 (multi-intent até 5) + NFR1 (latência) + NFR12 (PII).
+ *
+ * Provider de produção: OpenAI `gpt-4o-mini` (decisão de 24/06/2026 — a conta
+ * Anthropic de produção ficou sem créditos). A arquitectura mantém-se
+ * multi-provider: o Anthropic continua suportado via factory `getProvider`
+ * (basta voltar a passar `preferredProvider: 'anthropic'` no construtor), pelo
+ * que esta troca é totalmente reversível sem tocar no resto do pipeline.
  *
  * Fluxo de `plan(input)`:
  *   1. Validar `PlannerInputSchema.parse(input)` → `PlannerValidationError`.
@@ -12,10 +17,11 @@
  *      - `system`: PLANNER_SYSTEM_PROMPT (cacheable)
  *      - `messages`: [{role:'user', content: serialize classification}]
  *      - `tools`: toolRegistry.getAnthropicToolDefinitions()
- *      - `cacheControl`: 'ephemeral' (D11 default — Architecture §4.3)
+ *      - `cacheControl`: 'ephemeral' (D11 default — só efectivo no Anthropic; o
+ *        OpenAIProvider ignora-o silenciosamente, sem equivalente no MVP)
  *      - `temperature`: 0.2 (mais conservador que classifier 0)
  *      - `maxTokens`: 1024
- *   4. Invocar `provider.complete(input)` via getProvider Anthropic.
+ *   4. Invocar `provider.complete(input)` via getProvider OpenAI.
  *   5. Validar tool names contra registry → `PlannerToolNotFoundError`.
  *   6. Mapear toolCalls + intent via TOOL_TO_INTENT_MAP (D6).
  *   7. Construir `PlanResult` com cost/tokens/cacheHit propagados.
@@ -23,12 +29,16 @@
  *   9. Retry 1× temperature=0 para `PlannerOutputError`.
  *
  * Mockability: opts.client permite injectar `AnthropicClientLike` (re-exposto
- * por D9-anthropic na Task 2). Em produção `getProvider({preferredProvider:
- * 'anthropic'})` resolve via factory da 2.2.
+ * por D9-anthropic na Task 2). Em modo de teste é usado o `AnthropicProvider`
+ * com `clientOverride` — a lógica do Planner é agnóstica ao provider porque
+ * consome o `ProviderCompleteOutput` normalizado. Em produção
+ * `getProvider({preferredProvider:'openai', model:'gpt-4o-mini'})` resolve via
+ * factory da 2.2.
  */
 import {
   AnthropicProvider,
   CLAUDE_HAIKU_MODEL_ENUM,
+  OPENAI_GPT4O_MINI_DEFAULT,
   ProviderError,
   type AnthropicClientLike,
   type AnthropicModel,
@@ -66,7 +76,7 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Default `maxTokens` para a chamada Anthropic — 1024 tokens é suficiente
+ * Default `maxTokens` para a chamada ao LLM — 1024 tokens é suficiente
  * para 10 tool calls × ~80 tokens/call + reasoning curto.
  */
 export const DEFAULT_PLANNER_MAX_TOKENS = 1024;
@@ -87,7 +97,7 @@ export const DEFAULT_PLANNER_TIMEOUT_MS = 15_000;
  * Opções do constructor `Planner`.
  *
  * `client` permite injecção em testes — em produção é resolvido via
- * `getProvider({preferredProvider:'anthropic'})` no constructor.
+ * `getProvider({preferredProvider:'openai', model:'gpt-4o-mini'})` no constructor.
  *
  * `registry` permite injecção em testes — em produção usa singleton
  * `toolRegistry` da 2.3.
@@ -103,7 +113,10 @@ export interface PlannerOpts {
    * `null` desliga cache (apenas para testes/debug).
    */
   readonly cacheControl?: 'ephemeral' | null;
-  /** Override do model — default `claude-haiku-4-5` (Story 2.12). */
+  /**
+   * Override do model — default `gpt-4o-mini` (provider de produção OpenAI,
+   * decisão de 24/06/2026). Aceita também modelos Anthropic como override.
+   */
   readonly model?: LlmModel;
 }
 
@@ -117,9 +130,14 @@ export class Planner {
   private readonly maxTokens: number;
   private readonly temperature: number;
   private readonly cacheControl: 'ephemeral' | null;
-  // O Planner usa sempre um provider Anthropic — `model` é um `AnthropicModel`
-  // (exclui o classifier OpenAI `gpt-4o-mini`).
-  private readonly model: AnthropicModel;
+  /**
+   * Modelo efectivamente usado pelo Executor, gravado na coluna enum
+   * `agent_runs.executor_model` (via route handlers, AC5). Default de produção:
+   * `gpt-4o-mini` (provider OpenAI). Aceita também modelos Anthropic como
+   * override. Exposto publicamente para os route handlers registarem o modelo
+   * realmente usado em vez de assumirem um valor fixo.
+   */
+  public readonly model: LlmModel;
 
   constructor(opts: PlannerOpts = {}) {
     this.maxTokens = opts.maxTokens ?? DEFAULT_PLANNER_MAX_TOKENS;
@@ -127,33 +145,37 @@ export class Planner {
     // CacheControl: aceitar `null` explícito (override desliga) e `undefined`/missing → default 'ephemeral'.
     // `??` trata null como nullish, então usar comparação explícita.
     this.cacheControl = opts.cacheControl === undefined ? 'ephemeral' : opts.cacheControl;
-    // Story 2.12: default do Executor passou de Sonnet → Haiku 4.5 (short-form
-    // do enum, alias válido da API Anthropic). O override `opts.model` continua
-    // a aceitar Sonnet/Opus. Sem esta mudança, a coluna agent_runs.executor_model
-    // (escrita como 'claude-haiku-4-5' pelos route handlers, AC5) ficaria
-    // incoerente com o modelo realmente usado.
-    // `gpt-4o-mini` (classifier OpenAI) não é um executor Anthropic válido —
-    // se passado por engano, cai no default Haiku.
-    this.model =
-      opts.model === undefined || opts.model === 'gpt-4o-mini'
-        ? CLAUDE_HAIKU_MODEL_ENUM
-        : opts.model;
+    // Provider de produção passou a OpenAI `gpt-4o-mini` (24/06/2026 — créditos
+    // Anthropic esgotados). O default do model reflecte agora `gpt-4o-mini`,
+    // para que a coluna agent_runs.executor_model registe o modelo realmente
+    // usado. O override `opts.model` continua a aceitar modelos Anthropic
+    // (Sonnet/Opus/Haiku), mantendo a reversibilidade.
+    this.model = opts.model ?? OPENAI_GPT4O_MINI_DEFAULT;
     this.registry = opts.registry ?? toolRegistry;
 
     if (opts.client !== undefined) {
-      // Modo de teste: client mocked — usa AnthropicProvider directamente
-      // com clientOverride (Story 2.2 AC3 disponibiliza este hook).
+      // Modo de teste: client mocked — usa AnthropicProvider directamente com
+      // clientOverride (Story 2.2 AC3). A lógica validada (parsing de toolCalls,
+      // retry, validação de tool names) é agnóstica ao provider porque corre
+      // sobre o `ProviderCompleteOutput` normalizado. O `AnthropicProvider` só
+      // aceita `AnthropicModel`, por isso quando `this.model` é `gpt-4o-mini`
+      // (default de produção) damos um modelo Anthropic válido ao mock — não
+      // afecta a telemetria do Planner, que reporta sempre `this.model`.
+      const mockModel: AnthropicModel =
+        this.model === 'gpt-4o-mini' ? CLAUDE_HAIKU_MODEL_ENUM : this.model;
       this.provider = new AnthropicProvider({
         clientOverride: opts.client,
-        model: this.model,
+        model: mockModel,
         disableCircuitBreaker: true,
       });
     } else {
       // Modo de produção: factory canónica da 2.2 com cache de instâncias.
       // Lazy import para evitar resolver providers em testes mocked.
+      // O Anthropic continua suportado: trocar `preferredProvider` para
+      // 'anthropic' (e o model para um AnthropicModel) reverte a decisão.
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { getProvider } = require('@meu-jarvis/agent') as { getProvider: typeof import('@meu-jarvis/agent').getProvider };
-      this.provider = getProvider({ preferredProvider: 'anthropic', model: this.model });
+      this.provider = getProvider({ preferredProvider: 'openai', model: this.model });
     }
   }
 
@@ -164,9 +186,9 @@ export class Planner {
    * @returns PlanResult com toolCalls + métricas.
    * @throws {PlannerValidationError} input estruturalmente inválido
    * @throws {PlannerLLMError} provider rate limit / timeout / network / etc.
-   * @throws {PlannerToolNotFoundError} Sonnet alucinou tool name fora do registry
-   * @throws {PlannerOutputError} output Sonnet não passa schema (após retry 1×)
-   * @throws {PlannerEmptyPlanError} Sonnet retornou [] mas intents != [unknown]
+   * @throws {PlannerToolNotFoundError} o LLM alucinou tool name fora do registry
+   * @throws {PlannerOutputError} output do LLM não passa schema (após retry 1×)
+   * @throws {PlannerEmptyPlanError} o LLM retornou [] mas intents != [unknown]
    */
   async plan(input: PlannerInput): Promise<PlanResult> {
     return withPlannerSpan(async (span) => {
@@ -356,7 +378,7 @@ export class Planner {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Serializa uma `ClassificationResult` para texto PT-PT que o Sonnet recebe
+ * Serializa uma `ClassificationResult` para texto PT-PT que o LLM recebe
  * como user message. Inclui apenas `intent`, `confidence`, e `raw_span` —
  * mas `raw_span` foi já validado pela 2.4 como sub-string do prompt original
  * do utilizador, sem PII adicional além do que o utilizador escolheu enviar.

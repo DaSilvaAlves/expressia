@@ -22,7 +22,6 @@
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { CLAUDE_HAIKU_MODEL_ENUM } from '@meu-jarvis/agent';
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import {
   ClassificationSchema,
@@ -218,7 +217,8 @@ export async function executeConfirm(params: {
       runId,
       {
         toolCalls: plan.toolCalls,
-        executorModel: CLAUDE_HAIKU_MODEL_ENUM,
+        // Modelo realmente usado pelo Planner/Executor (produção: gpt-4o-mini).
+        executorModel: planner.model,
         tokensInput: plan.tokensInput,
         tokensOutput: plan.tokensOutput,
         costEur: plan.costEur,

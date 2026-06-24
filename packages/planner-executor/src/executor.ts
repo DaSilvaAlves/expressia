@@ -1,7 +1,7 @@
 /**
  * `Executor` — Estágio 3 do pipeline AI multi-intent.
  *
- * Trace: Story 2.5 AC6 + AC7 + AC8 + Architecture §4.3 (Executor — Sonnet+Tools)
+ * Trace: Story 2.5 AC6 + AC7 + AC8 + Architecture §4.3 (Executor — LLM+Tools)
  *        + §4.1 (BEGIN tx → loop → COMMIT) + §4.5 (agent_reverse_ops) + FR2
  *        (atomicidade) + FR6 (undo 30s) + NFR5 (RLS).
  *

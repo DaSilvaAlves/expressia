@@ -38,7 +38,7 @@ import {
   type AtomicResult,
   type PlanResult,
 } from '@meu-jarvis/planner-executor';
-import { CLAUDE_HAIKU_MODEL_ENUM, type OpenAIClientLike } from '@meu-jarvis/agent';
+import { type OpenAIClientLike } from '@meu-jarvis/agent';
 
 import { revalidateTaskViews } from '@/lib/api-helpers/revalidate';
 import {
@@ -386,7 +386,8 @@ export async function runAgentForHousehold(
       runId,
       {
         toolCalls: plan.toolCalls,
-        executorModel: CLAUDE_HAIKU_MODEL_ENUM,
+        // Modelo realmente usado pelo Planner/Executor (produção: gpt-4o-mini).
+        executorModel: planner.model,
         tokensInput: plan.tokensInput,
         tokensOutput: plan.tokensOutput,
         costEur: plan.costEur,

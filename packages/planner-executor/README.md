@@ -1,8 +1,10 @@
 # `@meu-jarvis/planner-executor`
 
-**Estágio 2+3 do pipeline AI multi-intent** — Planner (Anthropic Sonnet com tool calling) + Executor (thin wrapper sobre `executeAtomic` da Story 2.3).
+**Estágio 2+3 do pipeline AI multi-intent** — Planner (OpenAI `gpt-4o-mini` com tool calling; Anthropic continua suportado via factory) + Executor (thin wrapper sobre `executeAtomic` da Story 2.3).
 
-Trace: Story 2.5 + Architecture §4.1 (pipeline 3 estágios) + §4.3 (Planner+Executor — Sonnet) + §4.5 (`agent_reverse_ops`) + PRD FR2 (atomicidade), FR4 (preview hooks), FR6 (undo 30s).
+> **Provider de produção (24/06/2026):** OpenAI `gpt-4o-mini`. A troca de Anthropic → OpenAI foi feita porque a conta Anthropic de produção ficou sem créditos. A arquitectura mantém-se multi-provider e a troca é reversível: basta voltar a passar `preferredProvider: 'anthropic'` (e um `model` Anthropic) ao construtor do Planner.
+
+Trace: Story 2.5 + Architecture §4.1 (pipeline 3 estágios) + §4.3 (Planner+Executor) + §4.5 (`agent_reverse_ops`) + PRD FR2 (atomicidade), FR4 (preview hooks), FR6 (undo 30s).
 
 ---
 
@@ -31,7 +33,7 @@ POST /api/agent/prompt (Story 2.6)
 import { Planner, type PlannerInput } from '@meu-jarvis/planner-executor';
 
 const planner = new Planner();
-// Em produção: getProvider({preferredProvider:'anthropic'}) é resolvido automaticamente
+// Em produção: getProvider({preferredProvider:'openai', model:'gpt-4o-mini'}) é resolvido automaticamente
 
 const result = await planner.plan({
   classification,           // de @meu-jarvis/classifier
@@ -39,13 +41,13 @@ const result = await planner.plan({
 });
 
 // result.toolCalls: [{ toolName, input, intent, rawCallId }]
-// result.cacheHit: bool — true se Anthropic prompt cache hit (~90% saving)
+// result.cacheHit: bool — true se houve prompt cache hit (~90% saving; só no Anthropic, OpenAI devolve sempre false)
 // result.costEur, tokensInput, tokensOutput, latencyMs
 ```
 
 **Defaults:**
-- `model`: `'claude-haiku-4-5'` (`CLAUDE_HAIKU_MODEL_ENUM` — Story 2.12; Sonnet/Opus continuam válidos via override)
-- `cacheControl`: `'ephemeral'` (D11 — Architecture §4.3 ~90% cost saving)
+- `model`: `'gpt-4o-mini'` (`OPENAI_GPT4O_MINI_DEFAULT` — provider de produção desde 24/06/2026; modelos Anthropic Haiku/Sonnet/Opus continuam válidos via override)
+- `cacheControl`: `'ephemeral'` (D11 — Architecture §4.3 ~90% cost saving; só efectivo no Anthropic, ignorado pelo OpenAI)
 - `temperature`: `0.2`
 - `maxTokens`: `1024`
 
@@ -132,7 +134,7 @@ Story 2.5 documenta 9 decisões @sm validadas por @po (GO 9.4/10) e por @archite
 - Architect gate: independente
 - Push `@devops`: independente
 
-Em runtime production (Vercel), o `AnthropicProvider` lança `MissingApiKeyError` no constructor se `ANTHROPIC_API_KEY` ausente — comportamento da 2.2.
+Em runtime production (Vercel), o provider de produção é o `OpenAIProvider`, que lança `MissingApiKeyError` no constructor se `OPENAI_API_KEY` ausente. A mesma key já é usada pelo Classifier, pelo que está configurada. Se a decisão for revertida para Anthropic, o `AnthropicProvider` exige `ANTHROPIC_API_KEY` — comportamento da 2.2.
 
 ---
 

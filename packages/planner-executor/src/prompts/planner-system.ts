@@ -40,9 +40,11 @@
  *   - 4 exemplos few-shot de tool calling para as novas tools.
  *
  * Posicionamento: este prompt vai como `system` field em
- * `ProviderCompleteInputSchema` da 2.2; o `AnthropicProvider` aplica
- * `cache_control: { type: 'ephemeral' }` automaticamente quando
- * `cacheControl: 'ephemeral'` (default desta story — D11).
+ * `ProviderCompleteInputSchema` da 2.2. O provider de produção é o OpenAI
+ * `gpt-4o-mini` (24/06/2026), que envia o prompt como mensagem `system` normal;
+ * o `cacheControl: 'ephemeral'` é ignorado (sem equivalente no MVP). Quando o
+ * provider é Anthropic, este aplica `cache_control: { type: 'ephemeral' }`
+ * automaticamente (default desta story — D11).
  *
  * Bump de versão: alterar o conteúdo do prompt requer:
  *   1. Actualizar `PLANNER_SYSTEM_PROMPT_VERSION` (`'v2'` → `'v3'`).
@@ -60,9 +62,11 @@ export const PLANNER_SYSTEM_PROMPT_VERSION = 'v6' as const;
 
 /**
  * System prompt PT-PT do Planner — instruction-tuned para tool calling
- * Anthropic Sonnet com 11 intents canónicas + 10 exemplos few-shot.
+ * (provider de produção OpenAI `gpt-4o-mini`; igualmente compatível com
+ * Anthropic) com 11 intents canónicas + 10 exemplos few-shot.
  *
- * Posicionado no INÍCIO de messages (prefix-based caching Anthropic).
+ * Posicionado no INÍCIO de messages (prefix-based caching no Anthropic; no
+ * OpenAI é apenas a mensagem `system`).
  *
  * Nota de naming convention: as tools de Tarefas usam nomes PT
  * (`criar_tarefa`, `completar_tarefa`, `listar_tarefas`, `listar_atrasadas` —
@@ -70,7 +74,7 @@ export const PLANNER_SYSTEM_PROMPT_VERSION = 'v6' as const;
  * (`create_finance_variable`, `create_finance_recurrence`, `create_card`,
  * `create_installment`, `query_finance_summary` — Story 4.10 D-4.10.1 / Epic §5
  * literal). Aceite como tech-debt LOW (FUP-4.10.A). O LLM resolve via o
- * \`tools\` array do payload (tool_use SDK Anthropic).
+ * \`tools\` array do payload (function/tool calling — Anthropic ou OpenAI).
  */
 export const PLANNER_SYSTEM_PROMPT = `És o Planner do cérebro AI da Expressia, um assistente pessoal família-first em PT-PT (português europeu).
 
