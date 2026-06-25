@@ -14,11 +14,32 @@
  */
 import { getProvider } from '@meu-jarvis/agent';
 
+import type { CalendarEvent } from '@/lib/google/calendar';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Estado da agenda (Google Calendar) no brief — tipo discriminado para
+ * distinguir três casos com tratamento diferente (decisão de design crítica
+ * para não poluir o brief com notas de agenda antes de o OAuth estar ligado):
+ *
+ *   - `connected`   — token OAuth presente e leitura OK; `events` pode ser `[]`
+ *                     (sem compromissos hoje → linha "Sem eventos no calendário
+ *                     hoje").
+ *   - `unavailable` — token presente mas o refresh ou a leitura falharam →
+ *                     nota discreta ao utilizador ("não foi possível ler hoje").
+ *   - `not_connected` — sem token OAuth (caso normal até J-3 entrar em prod) →
+ *                     OMITIR a secção da agenda por completo, SEM nota.
+ */
+export type CalendarSection =
+  | { readonly status: 'connected'; readonly events: readonly CalendarEvent[] }
+  | { readonly status: 'unavailable' }
+  | { readonly status: 'not_connected' };
+
 export interface BriefData {
+  readonly calendar: CalendarSection;
   readonly tasksTodayCount: number;
   readonly tasksTodayTitles: readonly string[];
   readonly tasksOverdueCount: number;
@@ -48,6 +69,63 @@ export function formatEur(cents: number): string {
   return EUR_FORMAT.format(cents / 100);
 }
 
+/** Fuso horário do mercado PT-PT (CON — Portugal continental). */
+const TZ = 'Europe/Lisbon';
+
+const TIME_FORMAT = new Intl.DateTimeFormat('pt-PT', {
+  timeZone: TZ,
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
+/** Hora local (Europe/Lisbon) de um evento, formato 24h PT-PT ("HH:MM"). */
+function formatEventTime(start: Date): string {
+  return TIME_FORMAT.format(start);
+}
+
+/**
+ * Detecta eventos all-day: a Google Calendar API entrega-os como `date`
+ * (sem hora), que `calendar.ts` converte para a meia-noite wall-clock de Lisbon.
+ * Heurística: começa exactamente às 00:00 em Lisbon. Suficiente para a copy do
+ * brief (distinguir "(todo o dia)" de uma hora concreta).
+ */
+function isAllDayEvent(start: Date): boolean {
+  const parts = TIME_FORMAT.formatToParts(start);
+  const hour = parts.find((p) => p.type === 'hour')?.value;
+  const minute = parts.find((p) => p.type === 'minute')?.value;
+  return hour === '00' && minute === '00';
+}
+
+/** Linha PT-PT de um evento: "09:30 Reunião" ou "(todo o dia) Aniversário". */
+function formatEventLine(event: CalendarEvent): string {
+  const prefix = isAllDayEvent(event.start) ? '(todo o dia)' : formatEventTime(event.start);
+  return `${prefix} ${event.summary}`;
+}
+
+/**
+ * Constrói as linhas da secção de agenda partilhadas por `serializeBriefData` e
+ * `buildFallbackBrief`. Devolve `[]` para `not_connected` (secção omitida).
+ */
+function calendarLines(calendar: CalendarSection): string[] {
+  switch (calendar.status) {
+    case 'not_connected':
+      return [];
+    case 'unavailable':
+      return ['Agenda: não foi possível ler hoje.'];
+    case 'connected': {
+      if (calendar.events.length === 0) {
+        return ['Sem eventos no calendário hoje.'];
+      }
+      const lines = ['Agenda de hoje:'];
+      for (const event of calendar.events) {
+        lines.push(`- ${formatEventLine(event)}`);
+      }
+      return lines;
+    }
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Prompt
 // ─────────────────────────────────────────────────────────────────────────────
@@ -56,14 +134,24 @@ const BRIEF_SYSTEM_PROMPT = `És o Jarvis, o assistente pessoal do Eurico. Escre
 
 Regras:
 - Começa com uma saudação breve de bom dia.
-- Resume, por esta ordem: tarefas de hoje, tarefas atrasadas (se houver), e o estado das finanças do mês.
+- Resume, por esta ordem: agenda de hoje, tarefas de hoje, tarefas atrasadas (se houver), e o estado das finanças do mês.
+- Se a secção da agenda não constar nos dados, não menciones a agenda de todo.
 - Sê conciso: no máximo ~6 linhas. Não repitas listas longas — menciona o essencial.
-- Usa apenas os dados fornecidos. NUNCA inventes tarefas, valores ou compromissos.
+- Usa apenas os dados fornecidos. NUNCA inventes eventos, tarefas, valores ou compromissos.
 - Tom directo e útil, sem floreados. No máximo um emoji.
 - Valores monetários no formato fornecido (euros com vírgula decimal).`;
 
 function serializeBriefData(data: BriefData): string {
   const lines: string[] = [];
+
+  // Agenda primeiro (ordem do PRD: agenda → tarefas → finanças). Omitida por
+  // completo quando `not_connected` (sem token OAuth).
+  const calendar = calendarLines(data.calendar);
+  if (calendar.length > 0) {
+    lines.push(...calendar);
+    lines.push('');
+  }
+
   lines.push(`Tarefas de hoje (${data.tasksTodayCount}):`);
   if (data.tasksTodayTitles.length > 0) {
     for (const t of data.tasksTodayTitles) lines.push(`- ${t}`);
@@ -96,6 +184,12 @@ function serializeBriefData(data: BriefData): string {
  */
 export function buildFallbackBrief(data: BriefData): string {
   const parts: string[] = ['Bom dia! Aqui está o teu resumo de hoje.'];
+
+  // Agenda primeiro (omitida quando `not_connected`).
+  const calendar = calendarLines(data.calendar);
+  if (calendar.length > 0) {
+    parts.push(calendar.join('\n'));
+  }
 
   if (data.tasksTodayCount === 0) {
     parts.push('Não tens tarefas marcadas para hoje.');

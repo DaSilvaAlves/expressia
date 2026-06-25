@@ -6,7 +6,10 @@
  * tarefas (hoje + atrasadas) e as finanças do mês, com síntese LLM PT-PT
  * (gpt-4o-mini) e fallback determinístico.
  *
- * NÃO inclui Google Calendar (agenda) — entra após J-3.
+ * Inclui a agenda do Google Calendar de hoje (follow-up de J-3): quando o
+ * utilizador tem o OAuth ligado, o brief abre com os eventos do dia (ordem do
+ * PRD: agenda → tarefas → finanças). A agenda degrada graciosamente — nunca
+ * derruba o brief.
  *
  * Implementação:
  *   - Trigger: `{ cron: 'TZ=Europe/Lisbon 30 7 * * *' }` — Inngest v3 suporta o
@@ -118,8 +121,9 @@ export const generateDailyBrief = inngest.createFunction(
                   return { status: 'skipped' as const };
                 }
 
-                // (2b) Agregar + sintetizar.
-                const brief = await buildBriefForHousehold(db, r.household_id, runId);
+                // (2b) Agregar + sintetizar. `r.user_id` resolve a agenda do
+                // Google Calendar (token por household+user) sob RLS.
+                const brief = await buildBriefForHousehold(db, r.household_id, r.user_id, runId);
 
                 // (2c) Enviar ao Telegram. Falha aqui é não-fatal: lançamos para
                 // o catch externo NÃO gravar o cache (permite re-tentativa).
@@ -139,6 +143,7 @@ export const generateDailyBrief = inngest.createFunction(
                   usedFallback: brief.usedFallback,
                   tasksTodayCount: brief.tasksTodayCount,
                   tasksOverdueCount: brief.tasksOverdueCount,
+                  calendarEventCount: brief.calendarEventCount,
                 };
               },
             );
@@ -155,6 +160,9 @@ export const generateDailyBrief = inngest.createFunction(
                   briefing_date: briefingDate,
                   tasks_today: outcome.tasksTodayCount,
                   tasks_overdue: outcome.tasksOverdueCount,
+                  // Só a contagem agregada de eventos — NUNCA títulos nem
+                  // localização (constraint J-3 AC9 / privacidade).
+                  calendar_events: outcome.calendarEventCount,
                   fallback: outcome.usedFallback,
                 },
                 'Brief enviado',
