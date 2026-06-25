@@ -1,6 +1,6 @@
 # Epic Jarvis Fase 1 — Brief Diário Proactivo no Telegram
 
-**Status:** In Progress — J-1 próxima story
+**Status:** In Progress — J-1 e J-2 Done (em prod, E2E live provado 24/06/2026); J-3 próxima
 **Owner:** @pm (Morgan) / @sm (River)
 **Criado:** 23/06/2026
 **PRD de referência:** `docs/prd-jarvis.md` v1.1 (aprovado 22/06/2026 — @architect CONCERNS 8/10 + @po GO 8,5/10)
@@ -22,7 +22,7 @@ A Fase 1 está concluída quando o Eurico é acordado pelo Jarvis todos os dias 
 | ID | Título | Status | Depende de |
 |----|--------|--------|------------|
 | **J-1** | Bot Telegram echo seguro | **Done** | — |
-| **J-2** | `chat_id` → household + acção via motor | **Done** (gate @architect PASS 9,6 — código; aguarda push + deploy 0027/seed/E2E) | J-1 |
+| **J-2** | `chat_id` → household + acção via motor | **Done** (em prod, E2E live provado 24/06; motor migrado p/ OpenAI gpt-4o-mini) | J-1 |
 | J-3 | Google Calendar OAuth readonly + cifragem de tokens | A draftar | J-1 |
 | J-4 | Job Inngest `morning-brief` + síntese conversacional LLM | A draftar | J-2, J-3 |
 

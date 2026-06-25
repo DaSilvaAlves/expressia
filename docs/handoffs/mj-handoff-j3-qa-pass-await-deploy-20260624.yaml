@@ -1,0 +1,89 @@
+from_agent: "orchestrator (/sdc — ciclo J-3)"
+to_agent: "any"
+created: "2026-06-24T19:30:00Z"
+status: pending
+consumed: false
+
+project: "meu-jarvis (Expressia)"
+summary: >
+  Ciclo /sdc completo da Story J-3 (Google Calendar OAuth readonly + cifragem
+  AES-256-GCM) — @sm (Draft, 10 ACs) → @po (GO 9,0/10, zero MUST-FIX) → @dev
+  (Tarefas 1-6, 6/6 gates verde) → @qa (gate PASS, zero issues, segurança auditada
+  ficheiro a ficheiro). Código gate-aprovado no working tree, NÃO commitado/pushado
+  (push é exclusivo do @devops, com ordem do Eurico). FALTA a Tarefa 7: deploy da
+  migration 0029, aplicação MANUAL dos 2 DO-blocks RLS da 0001 em prod (gotcha do
+  runner), criar projecto OAuth no Google Cloud Console, configurar 3 env vars na
+  Vercel, e o fluxo OAuth one-shot do Eurico. J-3 fecha como Done só após a Tarefa 7
+  + E2E OAuth provados — padrão idêntico a J-4.
+
+context:
+  story_id: "J-3 (Google Calendar OAuth readonly + cifragem de tokens)"
+  story_path: "docs/stories/active/J-3.google-calendar-oauth.story.md"
+  qa_gate_path: "docs/qa/gates/J-3-google-calendar-oauth.yml"
+  epic_path: "docs/epics/epic-jarvis-fase1-brief-telegram.md"
+  branch: "main"
+  head_commit: "7619833 (working tree com J-3 por commitar)"
+  current_task: "Tarefa 7 — deploy 0029 + DO-blocks manuais + setup OAuth Google + Vercel Env + E2E one-shot."
+
+  decisions_made:
+    - "@dev escolheu `fetch` nativo em vez de `googleapis` (zero dependência pesada, alinhado com J-1/J-2, menor cold-start serverless). Documentado no Dev Agent Record da story."
+    - "Cifragem AES-256-GCM via node:crypto (sem dep externa): IV aleatório 96 bits por cifração, authTag 128 bits verificado, chave OAUTH_TOKEN_ENCRYPTION_KEY de 32 bytes. Alternativa pgcrypto/Vault rejeitada (blast-radius)."
+    - "Tabelas novas: google_oauth_tokens (token cifrado por household+user) + jarvis_facts (key-value por household). Migration 0029."
+    - "Callback importa withHousehold de @/lib/agent/db-shim (REQ-INLINE-1, não @meu-jarvis/db) — Should-Fix do @po aplicado. Chave lida com .trim() (nice-to-have @po aplicado)."
+    - "Scope OAuth calendar.readonly apenas; access_type=offline + prompt=consent. Injecção dos eventos no brief de J-4 é follow-up posterior, NÃO faz parte de J-3."
+
+  work_completed_this_session:
+    - "Story J-3 criada (@sm): 10 ACs testáveis, 7 tarefas, padrões de migration/RLS/cifragem prontos a copiar."
+    - "@po GO 9,0/10, validação independente byte-a-byte (migration 0029 livre, set_updated_at() canónico, gotcha RLS documentado). Zero MUST-FIX."
+    - "@dev Tarefas 1-6: migration 0029 + 2 DO-blocks RLS na 0001 + schema google-oauth.ts; token-cipher.ts (AES-256-GCM, 11 testes); oauth.ts + calendar.ts (17 testes); route /api/google/callback + helper /api/google/auth-url; .env.example (raiz + apps/web). 28 testes novos."
+    - "Quality gate 6/6 verde (re-corrido pelo @qa, não inflacionado): lint OK, typecheck OK, web 1331/1331 (+28), build OK, check:rls 31 tabelas/152 policies, db-test 205/205 (0029 em Postgres real)."
+    - "@qa PASS: AES-GCM correcto, refresh_token nunca em claro/logs, RLS force nas 2 tabelas, callback com sessão obrigatória, SEC-8 HOLD confirmado por git diff. Zero issues de qualquer severidade."
+    - "FOLLOW-UP agenda-no-brief IMPLEMENTADO (mesmo working tree, por cima de J-3, não commitado): o brief diário de J-4 passa a incluir a agenda do Google Calendar de hoje (ordem agenda→tarefas→finanças). Tipo discriminado CalendarSection ('connected'|'unavailable'|'not_connected') — sem token (estado normal até J-3 em prod) omite a secção SEM nota; token+falha → nota discreta; ligado → lista HH:MM. resolveCalendarSection NUNCA lança (brief nunca cai pela agenda). +15 testes (synthesize 8→17, build-brief 4→10). Gates verde (web 1346/1346, check:rls 31). @qa PASS independente (privacidade AC9 confirmada — títulos/localização nunca em logs; SEC-8 HOLD intacto; J-3 só consumido). Ficheiros: build-brief.ts, synthesize.ts, generate-daily-brief.ts (+ testes). NÃO funciona em runtime até J-3 estar em prod com OAuth ligado (até lá devolve not_connected e o brief é igual ao de hoje)."
+
+  files_modified:
+    - "packages/db/migrations/0029_google_oauth_jarvis_facts.sql (novo)"
+    - "packages/db/migrations/0001_rls_policies.sql (+2 DO-blocks: google_oauth_tokens + jarvis_facts)"
+    - "packages/db/src/schema/google-oauth.ts (novo) + index.ts"
+    - "apps/web/src/lib/crypto/token-cipher.ts (novo) + __tests__/token-cipher.test.ts"
+    - "apps/web/src/lib/google/oauth.ts + calendar.ts (novos) + __tests__/{oauth,calendar}.test.ts"
+    - "apps/web/src/app/api/google/callback/route.ts + auth-url/route.ts (novos)"
+    - ".env.example (raiz) + apps/web/.env.example (novo)"
+    - "docs/qa/gates/J-3-google-calendar-oauth.yml (novo)"
+    - "FOLLOW-UP agenda-no-brief: apps/web/src/lib/brief/{synthesize,build-brief}.ts + inngest/functions/generate-daily-brief.ts (+ __tests__/{synthesize,build-brief}.test.ts) — modificados; Change Log de J-3 e J-4 com nota do follow-up."
+
+  blockers:
+    - "Tarefa 7 é 100% precondição externa do Eurico/@devops — o agente não a pode executar (login Google Cloud, segredos OAuth, Vercel Env). Idêntico a J-4."
+    - "GOTCHA CRÍTICO: os 2 DO-blocks adicionados à 0001 NÃO chegam a prod via db:migrate (runner faz [skip] de ficheiro já registado) — aplicar manualmente contra DIRECT_URL pós-migrate e verificar relrowsecurity=true/force=true/4 policies por tabela (8 no total)."
+
+  gotchas_to_remember:
+    - "Migration 0029 aplica via db:migrate (DIRECT_URL, porta 5432). As policies da 0001 são manuais (ver acima)."
+    - "OAUTH_TOKEN_ENCRYPTION_KEY: 32 bytes; gerar com `node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"`. Só em Vercel Env (UE), nunca em git."
+    - "Authorized redirect URI no Google Cloud: https://expressia.pt/api/google/callback (+ preview vercel.app se necessário)."
+
+next_action: >
+  [@devops + EURICO] executar a Tarefa 7 da story J-3 (ordem na story §Tasks 7.1-7.7):
+  (1) [@devops, com ordem do Eurico] commit + push do working tree J-3 + deploy Vercel;
+  (2) [@devops] aplicar migration 0029 em prod (db:migrate, DIRECT_URL) + aplicar MANUALMENTE
+  os 2 DO-blocks RLS da 0001 via Supabase SQL Editor (verificar 8 policies);
+  (3) [EURICO+@devops] criar projecto OAuth no Google Cloud Console (activar Calendar API,
+  credenciais Web app, redirect URI /api/google/callback);
+  (4) [@devops] configurar GOOGLE_OAUTH_CLIENT_ID/SECRET + OAUTH_TOKEN_ENCRYPTION_KEY na Vercel Env;
+  (5) [EURICO] fluxo OAuth one-shot via /api/google/auth-url → consentir → confirmar linha cifrada
+  em google_oauth_tokens. Depois: mover J-3 active→completed, marcar Tarefa 7, e arrancar o
+  FOLLOW-UP que injecta os eventos de hoje (getCalendarEventsToday) no brief de J-4.
+
+notes: |
+  Restrições globais activas: Billing CONGELADO (sem Stripe). SEC-8 HOLD (não tocar
+  withHousehold/db-shim/client.ts — confirmado intacto por git diff). Família removida
+  (household_id/RLS intactos — não reintroduzir). PT-PT europeu. Push só @devops com ordem
+  do Eurico.
+
+  Ciclo /sdc corrido SEM --push (por design) — por isso o código não foi commitado.
+  Quando o Eurico der ordem, o @devops faz o push e a Tarefa 7.
+
+  Handoff IRMÃO ainda pending: mj-handoff-j4-brief-em-prod-falta-e2e-20260624 (J-4 em prod,
+  falta só o E2E do brief — invocar generate-daily-brief no Inngest Cloud ou esperar cron 07:30).
+  O follow-up "agenda no brief" depende de J-3 estar em prod E do E2E de J-4.
+
+  Handoff Pending ANTIGO (2026-06-21, terminal-migration-post-2.14-6.4, Epic 6 sem Stripe)
+  continua stale com o pivot Jarvis — candidato a revisão humana/@aiox-master.
