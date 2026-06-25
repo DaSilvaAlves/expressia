@@ -1,8 +1,10 @@
 from_agent: "devops/claude (sessão Jarvis Fase 1)"
 to_agent: "any"
 created: "2026-06-24T18:30:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-26T00:30:00Z"
+consumed_by: "orchestrator (/sdc — E2E do brief J-4 provado live no Telegram às 19:27 de 25/06 após resync da função no Inngest Cloud; J-4 fechada Done). Sucessor pending: mj-handoff-j3-oauth-last-step-await-consent-20260626."
 
 project: "meu-jarvis (Expressia)"
 summary: >

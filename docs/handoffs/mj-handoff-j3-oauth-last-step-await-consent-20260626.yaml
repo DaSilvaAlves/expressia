@@ -1,0 +1,75 @@
+from_agent: "orchestrator (/sdc — sessão Jarvis Fase 1, guia de setup externo)"
+to_agent: "any"
+created: "2026-06-26T00:30:00Z"
+status: pending
+consumed: false
+
+project: "meu-jarvis (Expressia)"
+summary: >
+  MIGRAÇÃO DE TERMINAL — Jarvis Fase 1 quase fechada. J-4 (brief diário) está
+  DONE e E2E LIVE PROVADO (brief recebido no Telegram às 19:27 de 25/06 após
+  resync da função no Inngest Cloud). J-3 (Google Calendar OAuth): o setup
+  externo avançou — Google Cloud OAuth criado (7.3) + as 3 env vars na Vercel
+  + redeploy Ready (7.4). FALTA APENAS UM PASSO: o fluxo OAuth one-shot [EURICO]
+  (7.6) — autenticar em expressia.pt, abrir /api/google/auth-url, consentir com
+  a conta Google, e confirmar a linha cifrada em google_oauth_tokens. Depois
+  disso a agenda real entra no brief (7.7) e J-3 fecha como Done. O próximo
+  agente deve GUIAR o Eurico nesse único passo, devagar (não é técnico de infra).
+
+context:
+  story_id: "J-3 (Google Calendar OAuth readonly + cifragem) — falta só Tarefa 7.6/7.7"
+  story_path: "docs/stories/active/J-3.google-calendar-oauth.story.md"
+  qa_gate_path: "docs/qa/gates/J-3-google-calendar-oauth.yml"
+  epic_path: "docs/epics/epic-jarvis-fase1-brief-telegram.md"
+  branch: "main"
+  head_commit: "df790b9 (+ bookkeeping desta sessão por cima)"
+  current_task: "J-3 Tarefa 7.6 — fluxo OAuth one-shot (guiar o Eurico)."
+
+  decisions_made:
+    - "J-4 fechada como Done (E2E live provado). Causa-raiz do brief não chegar às 07:30: a função generate-daily-brief NÃO estava sincronizada no Inngest Cloud (Functions listava 3/6). Resolvido com resync manual da app expressia-web (Apps -> Resync). LIÇÃO: funções Inngest novas exigem resync manual no Inngest Cloud — não é automático no deploy Vercel."
+    - "J-3 setup externo: projecto Google Cloud `expressia-jarvis`, Calendar API activada, consent screen External + test user euricojsalves@gmail.com, cliente OAuth 'Expressia Jarvis Web' (Web app) com redirect https://expressia.pt/api/google/callback. Client ID 538283073540-…"
+    - "3 env vars na Vercel (Production, Sensitive): GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, OAUTH_TOKEN_ENCRYPTION_KEY (hex 32B gerada localmente). Redeploy de produção feito e Ready. SITE_URL=https://expressia.pt já existia."
+
+  work_completed_this_session:
+    - "J-4 E2E live PROVADO (brief no Telegram 19:27 25/06: tarefas+finanças, sem agenda=not_connected). Resync da app no Inngest Cloud (6 funções, cron TZ=Europe/Lisbon 30 7 * * * visível). Story J-4 active->completed, Status Done, Tarefa 7 completa."
+    - "J-3 Tarefas 7.3 (Google Cloud) + 7.4 (Vercel Env + redeploy) marcadas done com evidência. Story J-3 fica em active/ até 7.6/7.7."
+    - "Bookkeeping: handoffs j4-brief-em-prod-falta-e2e (E2E feito) e j3-deploy-db-done-await-oauth (Google Cloud+Vercel feitos) consumidos+arquivados; INDEX actualizado."
+
+  blockers:
+    - "O passo restante é 100% [EURICO] num browser autenticado: abrir /api/google/auth-url em expressia.pt e dar consentimento com a conta Google. O agente não o pode fazer (sessão Supabase + conta Google do Eurico)."
+
+  next_steps_eurico:
+    - "7.6 OAUTH ONE-SHOT: (a) abrir https://expressia.pt e FAZER LOGIN (sessão Supabase activa — senão o passo seguinte devolve 401). (b) no mesmo browser abrir https://expressia.pt/api/google/auth-url — devolve JSON {\"url\":\"https://accounts.google.com/...\"}. (c) copiar esse url e abri-lo. (d) escolher a conta Google euricojsalves@gmail.com; se aparecer 'O Google não verificou esta app' clicar em 'Avançado' -> 'Aceder a expressia (não seguro)' — NORMAL para utilizador de teste. (e) consentir o acesso de leitura ao calendário. (f) o callback grava o token cifrado e redirecciona para https://expressia.pt/visao?google_connected=true. Se redireccionar para /visao?google_error=true, ver gotchas."
+    - "7.6 VERIFICAR: deve existir 1 linha em google_oauth_tokens (household do Eurico) com encrypted_refresh_token não-nulo. Query (DIRECT_URL / Supabase SQL): SELECT household_id, google_email, length(encrypted_refresh_token)>0 AS tem_token FROM google_oauth_tokens;"
+    - "7.7 VALIDAR AGENDA NO BRIEF: re-disparar generate-daily-brief no Inngest Cloud (Functions -> Generate daily brief -> Invoke, payload {}). Idempotência: 1 brief por (household, dia) — se já houve brief hoje, apagar primeiro a linha do dia: DELETE FROM daily_briefing_cache WHERE briefing_date = current_date; A secção 'Agenda de hoje' passa a aparecer no topo do brief (ou 'Sem eventos no calendário hoje' se a agenda estiver vazia)."
+    - "DEPOIS: mover J-3 active->completed, Status Done, Tarefa 7 completa; actualizar INDEX (J-3 consumido). Fase 1 do Jarvis fica 4/4 Done."
+
+  gotchas_to_remember:
+    - "redirect_uri deriva de SITE_URL (apps/web/src/lib/google/oauth.ts getRedirectUri). SITE_URL=https://expressia.pt em prod => o redirect URI no Google TEM de ser exactamente https://expressia.pt/api/google/callback (sem barra final). Já está assim."
+    - "Sem refresh_token o código lança GoogleOAuthError (exchangeCodeForTokens) — já força access_type=offline + prompt=consent. Se o Google não devolver refresh_token (re-consentimento), revogar o acesso em https://myaccount.google.com/permissions e repetir o one-shot."
+    - "Tabelas google_oauth_tokens/jarvis_facts JÁ têm RLS force em prod (migration 0029 + DO-blocks aplicados manualmente) — não re-aplicar."
+    - "OAUTH_TOKEN_ENCRYPTION_KEY: se alguma vez mudar, os tokens cifrados ficam ilegíveis (decryptToken lança). Não rodar a chave sem re-fazer o one-shot."
+    - "Idempotência do brief: apagar a linha de daily_briefing_cache do dia para re-testar no mesmo dia."
+
+next_action: >
+  [PRÓXIMO AGENTE] guiar o [EURICO], devagar e num passo só, pelo fluxo OAuth one-shot
+  (7.6): login em expressia.pt -> abrir /api/google/auth-url -> consentir com a conta
+  Google -> confirmar redirect /visao?google_connected=true e a linha cifrada em
+  google_oauth_tokens. Depois validar a agenda no brief (7.7, re-invoke generate-daily-brief
+  apagando o cache do dia) e fechar J-3 active->completed (Fase 1 = 4/4 Done).
+
+notes: |
+  Restrições globais activas: Billing CONGELADO (sem Stripe). SEC-8 HOLD (não tocar
+  withHousehold/db-shim/client.ts). Família removida (household_id/RLS intactos). PT-PT
+  europeu. Push só @devops com ordem do Eurico.
+
+  Estado do produto: Jarvis age via Telegram (J-1 canal, J-2 motor OpenAI gpt-4o-mini),
+  brief diário (J-4) DONE e a disparar às 07:30 Europe/Lisbon, integração Calendar (J-3)
+  em prod a nível de código+DB+credenciais — falta só o consentimento OAuth do Eurico
+  para a agenda real fluir para o brief.
+
+  Follow-up cosmético não-bloqueante (J-4): o brief fecha com "Tenha um bom dia" (tratamento
+  formal) vs tratamento por "tu" no resto — afinar BRIEF_SYSTEM_PROMPT em apps/web/src/lib/brief/synthesize.ts.
+
+  Predecessores consumidos nesta sessão: mj-handoff-j4-brief-em-prod-falta-e2e-20260624
+  (E2E provado) e mj-handoff-j3-deploy-db-done-await-oauth-20260625 (Google Cloud + Vercel feitos).

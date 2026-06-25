@@ -1,8 +1,10 @@
 from_agent: "orchestrator (/sdc + deploy DB — sessão Jarvis Fase 1)"
 to_agent: "any"
 created: "2026-06-25T00:30:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-26T00:30:00Z"
+consumed_by: "orchestrator (/sdc — guiou o Eurico nos passos 7.3 (Google Cloud OAuth) e 7.4 (Vercel Env + redeploy Ready). Resta só o OAuth one-shot 7.6, migrado para o sucessor pending mj-handoff-j3-oauth-last-step-await-consent-20260626)."
 
 project: "meu-jarvis (Expressia)"
 summary: >
