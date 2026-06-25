@@ -1,0 +1,48 @@
+schema: 1
+story: 'J-3'
+gate: PASS
+status_reason: 'OAuth Google Calendar readonly + cifragem AES-256-GCM implementados com segurança correcta; 6/6 quality gates verde re-corridos independentemente; RLS 31 tabelas e SEC-8 HOLD respeitado. Tarefa 7 (deploy/setup externo) é precondição [EURICO]/@devops, não falha.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-06-24T21:25:00Z'
+
+quality_gates_reverified:
+  lint: 'PASS — No ESLint warnings or errors (--max-warnings=0)'
+  typecheck: 'PASS — 10/10 turbo, tsc strict sem erros'
+  web_test: 'PASS — 161 ficheiros / 1331 testes (token-cipher 11 + calendar 8 + oauth 9 = +28)'
+  check_rls: 'PASS — 31 tabelas, 152 policies; google_oauth_tokens + jarvis_facts cobertas (SELECT/INSERT/UPDATE/DELETE)'
+  db_test: 'PASS — 38 ficheiros / 205 testes em Postgres real (Testcontainers); migration 0029 aplica sem erros'
+  build: 'PASS — 10/10 turbo, next build sem erros'
+
+security_review:
+  aes_256_gcm:
+    verdict: PASS
+    notes: 'IV aleatório de 96 bits (randomBytes(12)) por cifração, nunca reutilizado. authTag de 128 bits verificado na decifração (createDecipheriv + setAuthTag). Chave validada estritamente para 32 bytes (TokenCipherError caso contrário). Testes exercitam crypto real (não mockado): roundtrip, IV não-determinístico, integridade GCM (authTag + ciphertext adulterados lançam), Unicode PT-PT, hex+base64.'
+  refresh_token_handling:
+    verdict: PASS
+    notes: 'refresh_token decifrado vive apenas em variável local de refreshAccessToken, descartado ao sair do escopo, nunca devolvido nem logado. Na DB só ciphertext+IV+authTag. access_token_hint guarda só os últimos 6 chars. Logs usam hashForCorrelation(user.id) (sha256) — user.id nunca em claro; conteúdo de eventos nunca logado em calendar.ts.'
+  rls:
+    verdict: PASS
+    notes: 'Ambas as tabelas: enable + FORCE row level security, 4 policies cada com predicate household_id = public.current_household_id() (DO-block condicional pattern D-J2.1). Cross-household bloqueado pelo Postgres.'
+  callback_route:
+    verdict: PASS
+    notes: 'Sessão obrigatória (supabase.auth.getUser → 401 sem auth). withHousehold importado de @/lib/agent/db-shim (REQ-INLINE-1, NÃO @meu-jarvis/db). 2.ª rede RLS viva (upsert dentro de withHousehold). Erros via apiError (sem stack trace, sem PII) ou redirect /visao?google_error=true sem detalhes internos.'
+  secrets:
+    verdict: PASS
+    notes: '.env.example (raiz + apps/web) só com placeholders vazios. Nenhum valor real commitado. Instrução de geração da chave documentada.'
+  sec8_hold:
+    verdict: PASS
+    notes: 'git diff confirma db-shim.ts e client.ts NÃO alterados. withHousehold apenas consumido, nunca modificado.'
+  no_any:
+    verdict: PASS
+    notes: 'Sem any nos ficheiros novos — usa unknown + type guards (isTokenResponse, parseBound). PT-PT em comentários/erros.'
+
+top_issues: []
+waiver: { active: false }
+
+precondition_external:
+  task_7_pending: true
+  notes: 'Tarefa 7 (aplicar 0029 em prod, aplicar manualmente os 2 DO-blocks da 0001 via Supabase SQL Editor — gotcha runner skip, criar projecto Google Cloud + OAuth, configurar Vercel Env, completar fluxo OAuth one-shot, validar getCalendarEventsToday) é precondição externa [EURICO]/@devops, intencionalmente fora do scope desta sessão (igual a J-4). NÃO conta como falha de gate.'
+
+handoff:
+  next_agent: '@devops'
+  next_command: '*push (+ aplicar manualmente DO-blocks 0001 em prod — gotcha obrigatório Tarefa 7.2)'

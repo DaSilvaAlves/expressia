@@ -836,5 +836,73 @@ begin
 end$rls_daily_briefing_cache$;
 
 -- =====================================================================
+-- google_oauth_tokens (Story J-3 — tabela criada via 0029)
+-- =====================================================================
+-- 4 policies (SELECT/INSERT/UPDATE/DELETE) com predicate:
+--   household_id = public.current_household_id()
+--
+-- Tabela de tokens OAuth Google (refresh_token cifrado). Escrita pela route
+-- /api/google/callback via withHousehold (role authenticated, RLS viva — lição
+-- SEC-8.1) e lida pelo refresh do brief (J-4 follow-up) também sob withHousehold.
+-- Estas policies garantem household-scoping. Bloco condicional `if exists`
+-- permite re-run idempotente mesmo se a 0029 ainda não tiver corrido.
+--
+-- create policy "google_oauth_tokens_select" on public.google_oauth_tokens for select to authenticated
+-- create policy "google_oauth_tokens_insert" on public.google_oauth_tokens for insert to authenticated
+-- create policy "google_oauth_tokens_update" on public.google_oauth_tokens for update to authenticated
+-- create policy "google_oauth_tokens_delete" on public.google_oauth_tokens for delete to authenticated
+
+do $rls_google_oauth_tokens$
+begin
+  if exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'google_oauth_tokens') then
+    execute 'alter table public.google_oauth_tokens enable row level security';
+    execute 'alter table public.google_oauth_tokens force row level security';
+
+    execute 'drop policy if exists "google_oauth_tokens_select" on public.google_oauth_tokens';
+    execute 'drop policy if exists "google_oauth_tokens_insert" on public.google_oauth_tokens';
+    execute 'drop policy if exists "google_oauth_tokens_update" on public.google_oauth_tokens';
+    execute 'drop policy if exists "google_oauth_tokens_delete" on public.google_oauth_tokens';
+
+    execute $POLICY$create policy "google_oauth_tokens_select" on public.google_oauth_tokens for select to authenticated using (household_id = public.current_household_id())$POLICY$;
+    execute $POLICY$create policy "google_oauth_tokens_insert" on public.google_oauth_tokens for insert to authenticated with check (household_id = public.current_household_id())$POLICY$;
+    execute $POLICY$create policy "google_oauth_tokens_update" on public.google_oauth_tokens for update to authenticated using (household_id = public.current_household_id()) with check (household_id = public.current_household_id())$POLICY$;
+    execute $POLICY$create policy "google_oauth_tokens_delete" on public.google_oauth_tokens for delete to authenticated using (household_id = public.current_household_id())$POLICY$;
+  end if;
+end$rls_google_oauth_tokens$;
+
+-- =====================================================================
+-- jarvis_facts (Story J-3 — tabela criada via 0029)
+-- =====================================================================
+-- 4 policies (SELECT/INSERT/UPDATE/DELETE) com predicate:
+--   household_id = public.current_household_id()
+--
+-- Factos key-value por household (user_name, timezone, brief_tone). Bloco
+-- condicional `if exists` permite re-run idempotente mesmo se a 0029 ainda não
+-- tiver corrido.
+--
+-- create policy "jarvis_facts_select" on public.jarvis_facts for select to authenticated
+-- create policy "jarvis_facts_insert" on public.jarvis_facts for insert to authenticated
+-- create policy "jarvis_facts_update" on public.jarvis_facts for update to authenticated
+-- create policy "jarvis_facts_delete" on public.jarvis_facts for delete to authenticated
+
+do $rls_jarvis_facts$
+begin
+  if exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'jarvis_facts') then
+    execute 'alter table public.jarvis_facts enable row level security';
+    execute 'alter table public.jarvis_facts force row level security';
+
+    execute 'drop policy if exists "jarvis_facts_select" on public.jarvis_facts';
+    execute 'drop policy if exists "jarvis_facts_insert" on public.jarvis_facts';
+    execute 'drop policy if exists "jarvis_facts_update" on public.jarvis_facts';
+    execute 'drop policy if exists "jarvis_facts_delete" on public.jarvis_facts';
+
+    execute $POLICY$create policy "jarvis_facts_select" on public.jarvis_facts for select to authenticated using (household_id = public.current_household_id())$POLICY$;
+    execute $POLICY$create policy "jarvis_facts_insert" on public.jarvis_facts for insert to authenticated with check (household_id = public.current_household_id())$POLICY$;
+    execute $POLICY$create policy "jarvis_facts_update" on public.jarvis_facts for update to authenticated using (household_id = public.current_household_id()) with check (household_id = public.current_household_id())$POLICY$;
+    execute $POLICY$create policy "jarvis_facts_delete" on public.jarvis_facts for delete to authenticated using (household_id = public.current_household_id())$POLICY$;
+  end if;
+end$rls_jarvis_facts$;
+
+-- =====================================================================
 -- FIM DA MIGRAÇÃO 0001
 -- =====================================================================

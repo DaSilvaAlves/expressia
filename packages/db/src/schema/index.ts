@@ -18,3 +18,4 @@ export * from './audit';
 export * from './prefs';
 export * from './telegram';
 export * from './briefing';
+export * from './google-oauth';
