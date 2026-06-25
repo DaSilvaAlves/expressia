@@ -1,0 +1,75 @@
+from_agent: "orchestrator (/sdc + deploy DB — sessão Jarvis Fase 1)"
+to_agent: "any"
+created: "2026-06-25T00:30:00Z"
+status: pending
+consumed: false
+
+project: "meu-jarvis (Expressia)"
+summary: >
+  MIGRAÇÃO DE TERMINAL — Story J-3 (Google Calendar OAuth + cifragem AES-256-GCM)
+  e o follow-up "agenda no brief" estão EM PROD (código pushado, main 5dc1b81) e o
+  DEPLOY DB está COMPLETO E VERIFICADO: migration 0029 aplicada (google_oauth_tokens
+  + jarvis_facts) e os 2 DO-blocks RLS aplicados manualmente (8 policies, force RLS
+  confirmado em prod). FALTA APENAS o setup OAuth externo, que é 100% [EURICO] (login
+  em consolas): (1) criar projecto OAuth no Google Cloud Console; (2) configurar 3 env
+  vars na Vercel; (3) fluxo OAuth one-shot. Depois disso a agenda real entra
+  automaticamente no brief diário. Até lá o brief degrada para 'not_connected' (envia
+  tarefas+finanças igual a hoje, sem secção de agenda). O próximo agente deve GUIAR o
+  Eurico nestes 3 passos, devagar, um de cada vez (Eurico não é técnico de infra).
+
+context:
+  story_id: "J-3 (Google Calendar OAuth readonly + cifragem de tokens) + follow-up agenda-no-brief"
+  story_path: "docs/stories/active/J-3.google-calendar-oauth.story.md"
+  qa_gate_path: "docs/qa/gates/J-3-google-calendar-oauth.yml"
+  epic_path: "docs/epics/epic-jarvis-fase1-brief-telegram.md"
+  branch: "main"
+  head_commit: "5dc1b81 (+ bookkeeping desta migração por cima)"
+  current_task: "Tarefa 7.3/7.4/7.6 — setup OAuth Google externo (guiar o Eurico)."
+
+  decisions_made:
+    - "Código J-3 + follow-up pushado em 3 commits atómicos: 64ffc42 (J-3 OAuth+cifragem), 757c77b (follow-up agenda no brief), 5dc1b81 (bookkeeping). Push fast-forward para main, 6/6 gates pre-push verde (incl. db-test com 0029 em Postgres real)."
+    - "Deploy DB feito a partir do terminal local via DIRECT_URL (pooler eu-west-1:5432): db:migrate aplicou só a 0029 (0000-0028 [skip]); DO-blocks RLS aplicados à parte (a 0001 é [skip] pelo runner — gotcha conhecido)."
+    - "@dev escolheu fetch nativo (sem googleapis). Cifragem AES-256-GCM via node:crypto."
+
+  work_completed_this_session:
+    - "Ciclo /sdc completo da J-3 (@sm Draft 10 ACs → @po GO 9,0 → @dev Tarefas 1-6 → @qa PASS) + follow-up agenda-no-brief (@dev → @qa PASS). Ambos QA PASS, zero issues."
+    - "Push para main (5dc1b81). Código vivo em prod (deploy Vercel automático)."
+    - "DEPLOY DB COMPLETO E VERIFICADO EM PROD: 0029 aplicada (google_oauth_tokens + jarvis_facts criadas); 8 RLS policies aplicadas (4 por tabela, SELECT/INSERT/UPDATE/DELETE) com relrowsecurity=true E force=true verificados via query a pg_class/pg_policies."
+    - "Story J-3 Tarefa 7: 7.1 (migrate) ✅, 7.2 (RLS manual) ✅, 7.5 (push) ✅ — marcados com evidência. 7.3/7.4/7.6/7.7 pendentes [EURICO]."
+
+  blockers:
+    - "Os passos restantes são 100% [EURICO] em consolas externas — o agente NÃO os pode executar (login Google Cloud, Vercel Dashboard, consentimento OAuth com a conta Google do Eurico)."
+
+  next_steps_eurico:
+    - "7.3 GOOGLE CLOUD CONSOLE: criar/usar projecto → activar 'Google Calendar API' → APIs & Services → Credentials → Create credentials → OAuth client ID → tipo 'Web application' → em Authorized redirect URIs adicionar EXACTAMENTE 'https://expressia.pt/api/google/callback'. Guardar o Client ID e Client Secret. (Se o OAuth consent screen pedir configuração: External, scope .../auth/calendar.readonly, adicionar o email do Eurico como Test user — evita verificação Google para uso pessoal.)"
+    - "7.4 VERCEL ENV (Production, projecto Expressia, região fra1/UE): GOOGLE_OAUTH_CLIENT_ID = <client id>; GOOGLE_OAUTH_CLIENT_SECRET = <client secret>; OAUTH_TOKEN_ENCRYPTION_KEY = chave de 32 bytes em hex — gerar com: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\". Após gravar as 3 vars, fazer Redeploy (ou aguardar o próximo deploy) para o runtime as ver. NUNCA commitar estes valores."
+    - "7.6 OAUTH ONE-SHOT: estar autenticado em expressia.pt (sessão Supabase) → abrir https://expressia.pt/api/google/auth-url (devolve {url}) → abrir o url → consentir com a conta Google → o callback grava em google_oauth_tokens e redirecciona para /visao?google_connected=true. Verificar a linha cifrada: SELECT household_id, google_email, length(encrypted_refresh_token)>0 FROM google_oauth_tokens (deve haver 1 linha, encrypted_refresh_token não-nulo)."
+    - "7.7 VALIDAR: na próxima execução do brief (cron 07:30 Lisboa ou invocação manual de generate-daily-brief no Inngest Cloud), a secção de agenda passa a aparecer. Idempotência: re-teste no mesmo dia exige apagar a linha de daily_briefing_cache do dia."
+
+  gotchas_to_remember:
+    - "redirect_uri deriva de SITE_URL no código (apps/web/src/lib/google/oauth.ts getRedirectUri). SITE_URL já = https://expressia.pt em prod (SEC-9). Por isso o redirect URI no Google TEM de ser exactamente https://expressia.pt/api/google/callback."
+    - "Sem prompt=consent/access_type=offline não há refresh_token — o código já força ambos; mas o consentimento tem de ser feito de novo se o Google não devolver refresh_token (revogar acesso em myaccount.google.com e repetir)."
+    - "Tabelas google_oauth_tokens/jarvis_facts JÁ têm RLS force em prod (feito nesta sessão) — não re-aplicar."
+
+next_action: >
+  [PRÓXIMO AGENTE] guiar o [EURICO], devagar e um passo de cada vez, pelos passos 7.3 →
+  7.4 → 7.6 da story J-3 (Google Cloud Console → Vercel Env → OAuth one-shot). Podes gerar
+  a OAUTH_TOKEN_ENCRYPTION_KEY para ele (randomBytes(32) hex) mas é ele que a cola na Vercel.
+  Após o one-shot e a linha cifrada confirmada em google_oauth_tokens: mover J-3 active→completed,
+  marcar Tarefa 7 completa, e validar a agenda no próximo brief. EM PARALELO continua pendente o
+  E2E do brief J-4 (handoff irmão mj-handoff-j4-brief-em-prod-falta-e2e-20260624): invocar
+  generate-daily-brief no Inngest Cloud ou esperar o cron 07:30.
+
+notes: |
+  Restrições globais activas: Billing CONGELADO (sem Stripe). SEC-8 HOLD (não tocar
+  withHousehold/db-shim/client.ts). Família removida (household_id/RLS intactos). PT-PT
+  europeu. Push só @devops com ordem do Eurico.
+
+  Estado do produto: o Jarvis age via Telegram (J-1 canal, J-2 motor OpenAI gpt-4o-mini),
+  o brief diário (J-4) está em prod, e a integração Google Calendar (J-3) + injecção no
+  brief estão em prod a nível de código e DB — só falta o consentimento OAuth do Eurico
+  para a agenda real fluir.
+
+  Handoff irmão pending: mj-handoff-j4-brief-em-prod-falta-e2e-20260624 (E2E do brief J-4).
+  Predecessor desta migração: mj-handoff-j3-qa-pass-await-deploy-20260624 (consumido/arquivado
+  nesta sessão — o deploy DB que ele descrevia foi executado e verificado).

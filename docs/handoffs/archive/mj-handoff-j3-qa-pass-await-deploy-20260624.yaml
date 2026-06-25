@@ -1,8 +1,15 @@
 from_agent: "orchestrator (/sdc — ciclo J-3)"
 to_agent: "any"
 created: "2026-06-24T19:30:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-25T00:30:00Z"
+consumed_by: "orchestrator (/sdc + deploy DB — mesma linha de trabalho)"
+superseded_by: "mj-handoff-j3-deploy-db-done-await-oauth-20260625"
+consumed_note: >
+  Consumido nesta sessão: o push (5dc1b81) e o DEPLOY DB (0029 + 8 RLS policies force,
+  verificado em prod) que este handoff descrevia como pendentes foram executados.
+  Estado restante (setup OAuth externo [EURICO]) migrado para o sucessor.
 
 project: "meu-jarvis (Expressia)"
 summary: >
