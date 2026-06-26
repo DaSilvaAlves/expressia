@@ -1,0 +1,79 @@
+from_agent: "orchestrator (/sdc — sessão Jarvis Fase 1, guia de setup externo + diagnóstico)"
+to_agent: "any"
+created: "2026-06-26T01:30:00Z"
+status: pending
+consumed: false
+
+project: "meu-jarvis (Expressia)"
+summary: >
+  MIGRAÇÃO DE TERMINAL — Jarvis Fase 1: J-4 (brief diário) DONE e E2E live provado.
+  J-3 (Google Calendar OAuth) está a 1 reconciliação de fechar. O setup externo
+  TODO foi feito e o fluxo OAuth one-shot FOI COMPLETADO COM SUCESSO (redirect
+  /visao?google_connected=true, refresh_token cifrado gravado em
+  google_oauth_tokens). PORÉM o token ficou no HOUSEHOLD ERRADO: o callback grava
+  no household da sessão Supabase do BROWSER (resolveHouseholdId = 1.º
+  household_member do user logado), que está VAZIO (/visao mostrou "Ainda não há
+  nada para mostrar"), enquanto o brief lê o token do household ligado ao TELEGRAM
+  (telegram_link, household 2dedb1ec / user df5b403f — o que tem as tarefas reais).
+  Households diferentes => o brief vê 'not_connected' e OMITE a agenda. O OAuth e
+  o código funcionam — falta só pôr o token no household certo. Decisão do Eurico
+  (26/06 01:14): documentar e RESOLVER NUMA PRÓXIMA SESSÃO com a DB à frente (não
+  adivinhar em produção de madrugada).
+
+context:
+  story_id: "J-3 (Google Calendar OAuth) — falta reconciliar household do token (7.6/7.7)"
+  story_path: "docs/stories/active/J-3.google-calendar-oauth.story.md"
+  epic_path: "docs/epics/epic-jarvis-fase1-brief-telegram.md"
+  branch: "main"
+  head_commit: "01aaa07 (+ bookkeeping desta sessão por cima)"
+  current_task: "Reconciliar o household do token google_oauth_tokens com o do telegram_link, depois validar a agenda no brief."
+
+  evidencia_do_mismatch:
+    - "/visao no browser (onde o OAuth foi completado) = 'Ainda não há nada para mostrar' (ZERO tarefas) -> household da sessão browser está VAZIO."
+    - "Brief no Telegram (26/06 01:14) = 5 tarefas atrasadas reais (comprar leite, reuniões incl. 16h, notário em Tavira, pagar renda) + finanças -> household do telegram_link tem os dados."
+    - "Brief sem QUALQUER linha de agenda (nem 'Agenda de hoje', nem 'Sem eventos', nem 'não foi possível ler') => CalendarSection = not_connected => resolveCalendarSection não encontrou linha em google_oauth_tokens para (household, user) do telegram_link."
+    - "Logo: o token existe (gravado com sucesso) mas num household diferente do que o brief consulta. O Eurico tem >=2 contas/households no Expressia."
+
+  como_o_codigo_funciona:
+    - "GRAVA (apps/web/src/app/api/google/callback/route.ts): user.id = sessão Supabase do browser; householdId = resolveHouseholdId(user.id) = 1.º household_members do user logado. Upsert por (household_id, user_id)."
+    - "LÊ (apps/web/src/lib/brief/build-brief.ts resolveCalendarSection): select ... from google_oauth_tokens where household_id = <do telegram_link> and user_id = <do telegram_link>. Sem linha -> not_connected."
+    - "telegram_link (seed J-2): chat_id 5647753194 -> household 2dedb1ec / user df5b403f."
+
+  decisions_made:
+    - "Eurico (26/06 01:14): documentar e resolver depois, com a DB à frente — não fazer correções às cegas em prod de madrugada."
+    - "J-4 fechada Done na sessão anterior (E2E live provado 25/06 19:27 + 26/06 01:14). Cron 07:30 Europe/Lisbon activo. NOTA: o invoke manual de 26/06 01:14 gravou daily_briefing_cache do dia -> o cron das 07:30 de 26/06 NÃO reenvia (idempotência); apagar a linha do dia se quiser o das 07:30."
+    - "OAuth consent: no ecrã o Google listou só 'Endereço de email'. Por o brief dar not_connected (e não unavailable), não foi possível confirmar se o scope calendar.readonly foi concedido — só se saberá depois de o token estar no household certo e a leitura correr. Se aparecer 'não foi possível ler hoje', re-consentir (revogar em myaccount.google.com/permissions + repetir)."
+
+  blockers:
+    - "Resolução exige ver IDs reais na DB de prod (qual household tem o token, qual o do telegram_link, e que emails Supabase correspondem). auth.users NÃO é joinável via getDb (gotcha) — emails veem-se no Supabase Dashboard -> Authentication -> Users."
+
+  plano_de_resolucao:
+    - "PASSO 0 (diagnóstico, Supabase SQL Editor / DIRECT_URL): (a) SELECT household_id, user_id, google_email, length(encrypted_refresh_token)>0 AS tem_token FROM public.google_oauth_tokens; (b) SELECT chat_id, household_id, user_id FROM public.telegram_link; (c) comparar: o household/user de (a) [browser] vs (b) [telegram]. (d) Supabase Dashboard -> Authentication -> Users: identificar o email de cada user_id."
+    - "OPÇÃO A (LIMPA, recomendada): no browser, LOGOUT do Expressia e LOGIN com a conta cujo /visao mostra as 5 tarefas (= household 2dedb1ec). Depois repetir o OAuth one-shot (login expressia.pt -> /api/google/auth-url -> consentir). O callback passa a gravar no household 2dedb1ec. NB: o url de /api/google/auth-url vem em JSON {\"url\":\"...\"} — copiar SEM os 2 chars finais \"} (senão Google dá 'invalid include_granted_scopes')."
+    - "OPÇÃO B (SQL pragmático): mover a linha existente para o household/user do telegram_link: UPDATE public.google_oauth_tokens SET household_id='2dedb1ec…'::uuid, user_id='df5b403f…'::uuid WHERE household_id='<household_browser>'::uuid; — atenção à UNIQUE(household_id,user_id) (apagar/!conflito) e correr via getServiceDb/DIRECT_URL (RLS). O refresh_token Google está atado à CONTA GOOGLE (euricojsalves@gmail.com, agenda certa), não ao household — mover a linha é seguro nesse aspecto."
+    - "PASSO FINAL (7.7 validar): re-invoke generate-daily-brief no Inngest Cloud (payload {}); ANTES, DELETE FROM public.daily_briefing_cache WHERE briefing_date = current_date; (idempotência). Confirmar no Telegram a secção de agenda ('Agenda de hoje:' / 'Sem eventos no calendário hoje'). Se 'não foi possível ler hoje' -> scope calendar em falta, re-consentir."
+
+  causa_raiz_a_considerar:
+    - "O Eurico ter >=2 contas/households no Expressia é a causa-raiz. Vale a pena, numa sessão de produto, decidir se há contas duplicadas a consolidar (qual é a 'principal') — para o brief, o /visao e o OAuth caírem sempre no mesmo household. Caso contrário o mismatch repete-se."
+
+next_action: >
+  [PRÓXIMO AGENTE] numa sessão com acesso à DB: correr o PASSO 0 (diagnóstico) para
+  obter os household_id/user_id reais do token (browser) e do telegram_link, decidir
+  entre OPÇÃO A (relogin + repetir OAuth — limpa) ou OPÇÃO B (UPDATE SQL da linha),
+  e depois validar a agenda no brief (re-invoke após apagar daily_briefing_cache do
+  dia). Fechar J-3 active->completed quando a agenda aparecer (Fase 1 = 4/4 Done).
+
+notes: |
+  Restrições globais activas: Billing CONGELADO (sem Stripe). SEC-8 HOLD (não tocar
+  withHousehold/db-shim/client.ts). Família removida (household_id/RLS intactos). PT-PT
+  europeu. Push só @devops com ordem do Eurico.
+
+  Estado da Fase 1: J-1 ✅ · J-2 ✅ · J-4 ✅ Done. J-3: código + DB + credenciais Vercel +
+  OAuth one-shot TODOS feitos; falta só o token no household certo (reconciliação de dados).
+  Fase 1 ~= 3,75/4.
+
+  Follow-up cosmético J-4 (não-bloqueante): o brief fecha com "Tenha um bom dia" (formal)
+  vs tratamento por "tu" no resto — afinar BRIEF_SYSTEM_PROMPT em apps/web/src/lib/brief/synthesize.ts.
+
+  Substitui o handoff mj-handoff-j3-oauth-last-step-await-consent-20260626 (o one-shot foi
+  feito; o que resta mudou de 'fazer consentimento' para 'reconciliar household do token').
