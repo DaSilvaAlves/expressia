@@ -1,0 +1,130 @@
+from_agent: "orchestrator (/sdc — ciclo completo dev→qa da Story J-5)"
+to_agent: "devops"
+created: "2026-06-26T03:30:00Z"
+status: pending
+consumed: false
+
+project: "meu-jarvis (Expressia)"
+summary: >
+  Ciclo /sdc da Story J-5 (Calendar ESCRITA — intents + tools: criar e reagendar
+  eventos no Google Calendar via Telegram) COMPLETO e gate-aprovado. @dev implementou
+  Tarefas 1-8 em YOLO; @qa (Quinn) deu gate PASS (10/10 ACs testáveis), re-correndo
+  9/9 gates de forma independente — todos verde. Código no working tree de `main`,
+  NÃO pushado, NÃO em prod. Story movida active->completed. Primeira capacidade de
+  ESCRITA EXTERNA do Jarvis (abre a v1.1). Restam só passos de runtime [@devops+EURICO]:
+  deploy da migration 0030 + push Vercel + re-consentimento OAuth com o scope novo
+  `calendar.events` + E2E live ao bot. ATENÇÃO CRÍTICA (lição J-3): o re-consent OAuth
+  TEM de ser feito logado na conta principal euricojsalves@gmail.com (household
+  2dedb1ec), senão o token volta para o household errado.
+
+context:
+  story_id: "J-5 (Calendar escrita — intents + tools)"
+  story_path: "docs/stories/completed/J-5.calendar-escrita-intents-tools.story.md"
+  epic_path: "docs/epics/epic-jarvis-v1.1-calendar-escrita-gmail.md"
+  gate_file: "docs/qa/gates/J-5-calendar-escrita-intents-tools.yml"
+  branch: "main"
+  head_commit: "556dee6 (working tree tem o código J-5 por cima, não commitado)"
+  current_task: "Tarefa 9 — deploy migration 0030 + push Vercel + re-consent OAuth calendar.events + E2E live."
+
+  o_que_foi_entregue:
+    - "Migration 0030_agent_intent_calendar.sql: +2 valores no enum agent_intent (criar_evento_calendario, reagendar_evento_calendario) via ALTER TYPE ADD VALUE IF NOT EXISTS. Aplicada em Postgres real (db-test 205/205)."
+    - "INTENT_VALUES 15->17 (classifier/schemas.ts); prompt classifier v3->v4 (+2 intents, +4 few-shots, regra reagendar_evento_calendario forca needs_confirmation:true); hash snapshot SHA-256 actualizado."
+    - "OAUTH_SCOPES: calendar.readonly -> calendar.events em apps/web/src/lib/google/oauth.ts (1 linha)."
+    - "TOOL_DOMAIN_VALUES +'calendar' (4->5 dominios); novo kind ReverseOpExternalCallSchema 'external_call' no ReverseOpPayloadSchema (discriminatedUnion 5 kinds)."
+    - "Guard multi-intent AC14 (isMixedCalendarPlan em run-agent.ts): intents calendar misturados com outro dominio -> preview needs_confirmation a pedir separacao; nenhuma tool corre (evita evento orfao por rollback Postgres de tool irma)."
+    - "Tools create-calendar-event.ts + update-calendar-event.ts + calendar-api.ts + index.ts em apps/web/src/lib/agent/tools/calendar/ (NAO em packages/tools — direccao de dependencia: precisam de @/lib/google/oauth + token-cipher que vivem em apps/web)."
+    - "executeUndo extendido para external_call/google_calendar (delete_event/restore_event); tipo local ReverseOp em undo/route.ts extendido (senao caia em 'Kind desconhecido')."
+    - "Side-effect import das calendar tools em run-agent.ts E em confirm/route.ts (decisao @dev: reagendar confirma sempre -> executa no route de confirm, que instancia Executor sem importar run-agent; sem isto dava ToolNotFoundError)."
+    - "Sync TOOL_TO_INTENT_MAP em planner-executor (senao contract.test.ts quebra — mesma licao da Story 2.14)."
+
+  ficheiros:
+    criados_8:
+      - "packages/db/migrations/0030_agent_intent_calendar.sql"
+      - "apps/web/src/lib/agent/tools/calendar/calendar-api.ts"
+      - "apps/web/src/lib/agent/tools/calendar/create-calendar-event.ts"
+      - "apps/web/src/lib/agent/tools/calendar/update-calendar-event.ts"
+      - "apps/web/src/lib/agent/tools/calendar/index.ts"
+      - "apps/web/src/lib/agent/tools/calendar/__tests__/create-calendar-event.test.ts"
+      - "apps/web/src/lib/agent/tools/calendar/__tests__/update-calendar-event.test.ts"
+      - "apps/web/src/lib/agent/tools/calendar/__tests__/registration.test.ts"
+    modificados_17:
+      - "packages/db/src/schema/agent.ts"
+      - "packages/classifier/src/schemas.ts"
+      - "packages/classifier/src/prompts/classifier-system.ts"
+      - "packages/classifier/src/__tests__/schemas.test.ts"
+      - "packages/classifier/src/__tests__/prompts.test.ts"
+      - "packages/tools/src/contracts.ts"
+      - "packages/tools/src/index.ts"
+      - "packages/tools/src/__tests__/contracts.test.ts"
+      - "packages/planner-executor/src/schemas.ts"
+      - "packages/planner-executor/src/__tests__/contract.test.ts"
+      - "apps/web/src/lib/google/oauth.ts"
+      - "apps/web/src/lib/google/__tests__/oauth.test.ts"
+      - "apps/web/src/lib/agent/run-agent.ts"
+      - "apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts"
+      - "apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts"
+      - "apps/web/src/lib/agent/__tests__/run-agent.test.ts"
+      - "apps/web/src/app/api/agent/prompt/__tests__/undo.test.ts"
+    docs:
+      - "docs/stories/completed/J-5.calendar-escrita-intents-tools.story.md (active->completed; Status Done)"
+      - "docs/qa/gates/J-5-calendar-escrita-intents-tools.yml (gate file novo)"
+      - "docs/epics/epic-jarvis-v1.1-calendar-escrita-gmail.md (epic pai, ainda untracked)"
+
+  gates_verdes_re_corridos_por_qa:
+    - "pnpm lint -> exit 0 (No ESLint warnings or errors)"
+    - "pnpm typecheck -> exit 0"
+    - "pnpm --filter @meu-jarvis/web test -> 1364/1364 (baseline J-4 1346 +18)"
+    - "pnpm --filter @meu-jarvis/classifier test -> 82/82"
+    - "pnpm --filter @meu-jarvis/tools test -> 440/440"
+    - "pnpm --filter @meu-jarvis/planner-executor test -> 74/74"
+    - "pnpm build -> exit 0"
+    - "pnpm check:rls -> exit 0 (schema multi-tenant inalterado; google_oauth_tokens ja coberta)"
+    - "pnpm --filter @meu-jarvis/db-test test -> 205/205 (Docker UP, migration 0030 em Postgres real)"
+
+  concerns_low_advisory_nao_bloqueantes:
+    - "REL-001 tree-shaking: registration.test.ts prova registo em Vitest (sem tree-shaking); o registo runtime em prod (turbopack) so fica 100% provado no E2E live (Tarefa 9.5). Se o motor responder 'tool nao encontrada' no reagendar/criar, o side-effect import foi eliminado — investigar."
+    - "REL-002 atomicidade residual aceite v1.1: HTTP-success ao Calendar + Postgres-fail depois = evento orfao no Calendar sem registo local. Improvavel; mitigado por undo 30s + apagar manual."
+    - "REQ-001 reagendar usa o 1.o resultado (maxResults=5) em vez de erro em ambiguidade; o preview mostra o `query`, nao o titulo resolvido. Mitigado por needs_confirmation (sempre true em reagendar) + undo."
+
+  decisions_made:
+    - "Ciclo /sdc sem --push: pipeline parou em Done; push e Tarefa 9 ficam para @devops com ordem do Eurico."
+    - "Gate feito por @qa (aiox-qa, Quinn) — PASS 10/10 ACs testaveis. AC13 (E2E live) deferido [EURICO]+@devops, nao e deficiencia de codigo."
+    - "SEC-8 HOLD respeitado: withHousehold/db-shim.ts/client.ts NAO tocados (git status confirma)."
+
+  restricoes_globais:
+    - "Billing CONGELADO (sem Stripe). SEC-8 HOLD. Familia removida (household_id/RLS intactos). PT-PT europeu. Push/PR so @devops com ordem explicita do Eurico."
+
+next_action: >
+  [@devops, com ordem do Eurico] Executar a Tarefa 9 da story:
+  (9.1) pnpm --filter @meu-jarvis/db db:migrate em prod aplica 0030 (ALTER TYPE
+  idempotente; gotcha conhecido: se a 0030 ja estiver registada no runner, o ADD VALUE
+  pode precisar de DO-block manual — verificar enum com SELECT em pg_enum).
+  (9.2) push + deploy Vercel do codigo (scope calendar.events + tools novas).
+  (9.3) [EURICO] re-consentimento OAuth: LOGOUT do Expressia e LOGIN com a conta
+  PRINCIPAL euricojsalves@gmail.com (household 2dedb1ec) ANTES de abrir
+  /api/google/auth-url — CRITICO (licao J-3: o callback grava no household da sessao
+  do browser; conta errada => token no household errado de novo). Consentir os scopes
+  calendar.events openid email. O upsert por (household_id, user_id) substitui o token
+  readonly actual pelo de escrita.
+  (9.4) [@devops] SELECT google_email, household_id FROM google_oauth_tokens confirma
+  household_id = 2dedb1ec (= o do telegram_link).
+  (9.5) E2E live: enviar ao @jarvis_eurico_bot "marca reuniao de teste amanha as 10h"
+  -> motor cria evento real no Google Calendar do Eurico + botao (Cancelar) -> evento
+  visivel na conta Google -> (Cancelar) remove o evento. Provar tambem o reagendar.
+
+notes: |
+  Estado Jarvis: Fase 1 (J-1..J-4) = 4/4 Done. J-5 abre a v1.1 (Calendar escrita) —
+  codigo Done + gate PASS, falta so o runtime (deploy + OAuth re-consent + E2E live).
+  Proximas no epic v1.1: J-6/J-7 (Gmail), fora de ambito de J-5.
+
+  GOTCHA enum em prod (migration 0001 skip / 0026): o runner db:migrate faz skip de
+  ficheiros ja registados; se a 0030 nao chegar a prod por esse motivo, aplicar os 2
+  ALTER TYPE ... ADD VALUE IF NOT EXISTS manualmente via DIRECT_URL. Confirmar com
+  SELECT enumlabel FROM pg_enum WHERE enumtypid = 'public.agent_intent'::regtype.
+
+  Follow-up cosmetico herdado de J-4 (nao-bloqueante): brief fecha com "Tenha um bom
+  dia" (formal) vs tratamento por "tu" — afinar BRIEF_SYSTEM_PROMPT em
+  apps/web/src/lib/brief/synthesize.ts.
+
+  Bookkeeping nao pushado (push so @devops). O epic v1.1 e a story J-5 (agora em
+  completed/) ainda estao untracked no git — entram no commit do @devops.

@@ -1,8 +1,22 @@
 from_agent: "orchestrator (/sdc — sessão Jarvis Fase 1, guia de setup externo + diagnóstico)"
 to_agent: "any"
 created: "2026-06-26T01:30:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-26T01:50:00Z"
+consumed_by: "orchestrator (/sdc — reconciliação de household + E2E)"
+resolution: >
+  OPÇÃO B executada com a DB à frente. Diagnóstico confirmou o mismatch: token em
+  household c5ab92a6 / user 254ebbd2 (conta Supabase euricojsalves+teste1@gmail.com,
+  vazia) vs telegram_link/brief em 2dedb1ec / df5b403f (conta principal
+  euricojsalves@gmail.com, 12 tarefas). google_email do token = euricojsalves@gmail.com
+  (conta Google certa). UNIQUE check = 0 no destino. Movido via UPDATE (transacção,
+  DIRECT_URL/role postgres) para (2dedb1ec, df5b403f) + DELETE daily_briefing_cache do
+  dia. Re-invoke generate-daily-brief no Inngest Cloud => brief passou de not_connected
+  (agenda omitida) para "Hoje não há eventos na agenda" => token lido + scope
+  calendar.readonly concedido + agenda vazia hoje. J-3 fechada Done (active->completed).
+  Fase 1 = 4/4 (J-1·J-2·J-3·J-4). Causa-raiz a vigiar: Eurico tem >=2 contas/households
+  (principal + teste1) — fazer OAuth sempre logado na conta principal, senão repete.
 
 project: "meu-jarvis (Expressia)"
 summary: >
