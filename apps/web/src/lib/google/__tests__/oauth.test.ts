@@ -42,9 +42,11 @@ describe('oauth', () => {
   });
 
   describe('buildGoogleAuthUrl', () => {
-    it('inclui scope readonly + openid email, offline e prompt=consent', () => {
+    it('inclui scope calendar.events (escrita) + openid email, offline e prompt=consent (Story J-5)', () => {
       const url = buildGoogleAuthUrl();
-      expect(url).toContain('scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.readonly');
+      expect(url).toContain('scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.events');
+      // Story J-5: o scope deixou de ser readonly — passou a permitir escrita.
+      expect(url).not.toContain('calendar.readonly');
       expect(url).toContain('openid');
       expect(url).toContain('email');
       expect(url).toContain('access_type=offline');

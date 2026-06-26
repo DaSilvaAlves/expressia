@@ -1,0 +1,109 @@
+schema: 1
+story: 'J-5'
+slug: 'calendar-escrita-intents-tools'
+title: 'Calendar escrita — intents + tools (marcar e reagendar via Telegram)'
+gate: PASS
+status_reason: 'As 13 ACs testáveis (1-12, 14) estão implementadas e cobertas; os 9 quality gates correm verde em re-execução independente. AC13 (E2E live) é precondição externa deferida [EURICO]+@devops, não deficiência de código.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-06-26T19:05:00Z'
+
+# Re-execução independente dos gates (lane de revisão — NÃO autor)
+gates_verified:
+  - command: 'pnpm lint'
+    result: 'PASS — No ESLint warnings or errors (exit 0)'
+  - command: 'pnpm typecheck'
+    result: 'PASS — 10/10 (exit 0)'
+  - command: 'pnpm --filter @meu-jarvis/web test'
+    result: 'PASS — 1364/1364 (164 ficheiros)'
+  - command: 'pnpm --filter @meu-jarvis/classifier test'
+    result: 'PASS — 82/82'
+  - command: 'pnpm --filter @meu-jarvis/tools test'
+    result: 'PASS — 440/440'
+  - command: 'pnpm --filter @meu-jarvis/planner-executor test'
+    result: 'PASS — 74/74'
+  - command: 'pnpm build'
+    result: 'PASS — exit 0 (turbo cache válido; source hashes inalterados)'
+  - command: 'pnpm check:rls'
+    result: 'PASS — exit 0 (schema multi-tenant inalterado)'
+  - command: 'pnpm --filter @meu-jarvis/db-test test'
+    result: 'PASS — 205/205 (Docker UP; migration 0030 aplica em Postgres real)'
+
+# Trace de requisitos AC → evidência
+requirements_traceability:
+  - ac: 1
+    status: PASS
+    evidence: 'migrations/0030_agent_intent_calendar.sql (ALTER TYPE ADD VALUE IF NOT EXISTS ×2); agent.ts agentIntentEnum +2 valores; db-test 205/205 aplica em Postgres real.'
+  - ac: 2
+    status: PASS
+    evidence: 'INTENT_VALUES 17 valores; schemas.test.ts sanity-check (lê agent.ts via regex) verde — classifier 82/82.'
+  - ac: 3
+    status: PASS
+    evidence: 'classifier-system.ts v3→v4 (17 intents, +4 few-shots, regra needs_confirmation para reagendar); prompts.test.ts snapshot SHA-256 verde.'
+  - ac: 4
+    status: PASS
+    evidence: "oauth.ts OAUTH_SCOPES = 'https://www.googleapis.com/auth/calendar.events openid email'; refreshAccessToken/buildGoogleAuthUrl intactos."
+  - ac: 5
+    status: PASS
+    evidence: "TOOL_DOMAIN_VALUES = [tasks, finance, query, system, calendar]; contracts.test.ts atualizado (440/440)."
+  - ac: 6
+    status: PASS
+    evidence: 'create-calendar-event.ts — ToolDefinition criar_evento_calendario, domain calendar; preview PT-PT; execute via ctx.db (RLS) + refreshAccessToken + POST; reverse delete_event; end omitido → +1h.'
+  - ac: 7
+    status: PASS
+    evidence: 'update-calendar-event.ts — reagendar_evento_calendario; GET maxResults=5 orderBy=startTime; guarda originalStart/End; PATCH; 0 resultados → erro PT-PT; reverse restore_event.'
+  - ac: 8
+    status: PASS
+    evidence: 'ReverseOpExternalCallSchema no discriminatedUnion (5 kinds); delete_row/restore_row/reinsert_row/composite preservados; serialize/deserialize cobertos por round-trips em contracts.test.ts.'
+  - ac: 9
+    status: PASS
+    evidence: 'undo/route.ts: tipo local ReverseOp extendido com ReverseOpExternalCall (L75-89); external_call tratado no loop de executeUndo (applyExternalCallUndo); applyReverseOp lança defensivamente se receber external_call; getServiceDb() inline por (household_id,user_id); 404→not_found; transporte→external_error; janela 30s + audit preservados.'
+  - ac: 10
+    status: PASS
+    evidence: 'index.ts side-effect register; import side-effect em run-agent.ts (L31) E confirm/route.ts (L52); registration.test.ts (anti tree-shaking) verde.'
+  - ac: 11
+    status: PASS
+    evidence: 'create-calendar-event.test.ts (6), update-calendar-event.test.ts (7), undo.test.ts external_call (delete_event ok / restore_event ok / 404 not_found). Todos os cenários obrigatórios da secção Testing presentes.'
+  - ac: 12
+    status: PASS
+    evidence: '9 gates verde (ver gates_verified); sem any nos ficheiros calendar; imports @/ / @meu-jarvis/*.'
+  - ac: 13
+    status: DEFERRED
+    evidence: 'E2E live (deploy 0030 + re-consent OAuth calendar.events na conta euricojsalves@gmail.com + criar/cancelar evento real) — precondição externa [EURICO]+@devops (Tarefa 9). NÃO é deficiência de código.'
+  - ac: 14
+    status: PASS
+    evidence: 'run-agent.ts §6b isMixedCalendarPlan (após classificação, antes do Planner): plano misto calendar+outro domínio → preview PT-PT a pedir separação, nenhuma tool executa; 2 testes (misto→preview; calendar puro→executed).'
+
+# Auditoria de riscos críticos
+security_audit:
+  sec8_hold: 'PASS — withHousehold/db-shim.ts/client.ts NÃO tocados (git status confirma; nenhum aparece no working tree).'
+  atomicity_guard: 'PASS — exceção HTTP-em-execute documentada; guard AC14 impede eventos órfãos por rollback de tool irmã.'
+  undo_external_call: 'PASS — tipo local extendido (não cai em "Kind desconhecido"); cobre delete_event, restore_event e 404.'
+  token_handling: 'PASS — execute() usa ctx.db (RLS authenticated); undo usa getServiceDb() inline por (household_id,user_id) — legítimo SEC-10 (undo fora de sessão HTTP). refresh_token decifrado nunca persistido/logado.'
+  pt_pt: 'PASS — copy/erros/preview em PT-PT europeu.'
+  no_any: 'PASS — sem any nos ficheiros calendar; typecheck verde.'
+  intent_db_sync: 'PASS — INTENT_VALUES ↔ agentIntentEnum sincronizados (schemas.test.ts).'
+
+top_issues:
+  - id: 'REL-001'
+    severity: low
+    finding: 'Tree-shaking residual: registration.test.ts prova o registo das tools em Vitest (sem tree-shaking), mas não prova definitivamente que o turbopack de produção preserva o side-effect import em run-agent.ts/confirm/route.ts em runtime. Build passou mas não exercita o registo runtime.'
+    suggested_action: 'Verificar registo runtime durante o E2E live (Tarefa 9.5): se o motor responder "tool não encontrada" ao "marca reunião", o side-effect foi eliminado — mitigar com referência explícita às tools ou allowlist sideEffects.'
+  - id: 'REL-002'
+    severity: low
+    finding: 'Atomicidade residual aceite (Dev Notes): se a chamada HTTP ao Calendar tiver sucesso mas o passo Postgres seguinte (persistir reverse_op) falhar, o evento fica órfão sem registo local.'
+    suggested_action: 'Aceitável para v1.1 (baixa frequência + undo 30s). Monitorizar em produção; reavaliar two-phase execution se a frequência subir.'
+  - id: 'REQ-001'
+    severity: low
+    finding: 'Resolução de evento em reagendar usa o 1.º resultado (maxResults=5, orderBy=startTime) em vez de erro em ambiguidade ">5 candidatos" como a AC7 literalmente sugere; o preview mostra o query do utilizador, não o título do evento resolvido.'
+    suggested_action: 'Mitigado por needs_confirmation obrigatório + undo 30s (single-user). Considerar mostrar o título do evento resolvido no preview em iteração futura para reduzir risco de reagendar o evento errado.'
+
+waiver: { active: false }
+
+# Notas
+notes: |
+  Story exemplarmente documentada (Dev Agent Record completo, decisões autónomas D-J5.1..6 registadas).
+  Lane de revisão independente: os 9 gates foram RE-EXECUTADOS por @qa (não confiança cega no relatório @dev)
+  e batem exactamente com os números reportados. As 3 issues são todas LOW/advisory — nenhuma bloqueia.
+  CodeRabbit: Disabled em core-config.yaml (revisão manual) — conforme story.
+  Recomendação: PASS → prosseguir para Tarefa 9 (deploy 0030 + re-consent OAuth + E2E live) com @devops/[EURICO].
+  As 3 notas LOW devem ser observadas durante o E2E (em especial REL-001 tree-shaking).

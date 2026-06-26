@@ -11,13 +11,14 @@
  *   - 409 UNDO_EXPIRED (TTL passou em todas as ops)
  *   - 200 sucesso (executa reverse ops + marca executed_at + reverted_at)
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   getUserMock: vi.fn(),
   fromMock: vi.fn(),
   dbExecuteMock: vi.fn(),
   serviceDbExecuteMock: vi.fn(),
+  refreshAccessTokenMock: vi.fn(),
 }));
 
 vi.mock('@meu-jarvis/auth/server', () => ({
@@ -32,7 +33,12 @@ vi.mock('@/lib/agent/db-shim', () => ({
   getServiceDb: () => ({ execute: mocks.serviceDbExecuteMock }),
 }));
 
-import { POST } from '@/app/api/agent/prompt/[runId]/undo/route';
+// Story J-5 — undo de Calendar usa refreshAccessToken de @/lib/google/oauth.
+vi.mock('@/lib/google/oauth', () => ({
+  refreshAccessToken: mocks.refreshAccessTokenMock,
+}));
+
+import { POST, executeUndo } from '@/app/api/agent/prompt/[runId]/undo/route';
 
 const TEST_USER_ID = '00000000-0000-0000-0000-000000000001';
 const TEST_HOUSEHOLD_ID = '00000000-0000-0000-0000-0000000000a1';
@@ -470,6 +476,113 @@ describe('POST /api/agent/prompt/[runId]/undo', () => {
     expect(body.ops_count).toBe(1);
     // Confirmar que houve tentativa de INSERT no audit_log antes do erro.
     expect(serviceCallCount).toBeGreaterThanOrEqual(3); // reverse op + UPDATE run + INSERT audit (throw)
+  });
+});
+
+describe('executeUndo — external_call Calendar (Story J-5 AC9)', () => {
+  const fetchMock = vi.fn();
+  const future = new Date(Date.now() + 30 * 1000).toISOString();
+
+  function setupExternalCall(operation: 'delete_event' | 'restore_event'): void {
+    let dbCall = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      dbCall++;
+      if (dbCall === 1) {
+        return [{ id: RUN_ID, household_id: TEST_HOUSEHOLD_ID, status: 'success' }];
+      }
+      if (dbCall === 2) {
+        return [
+          {
+            id: 'rop-cal',
+            reverse_op:
+              operation === 'delete_event'
+                ? { kind: 'external_call', provider: 'google_calendar', operation, eventId: 'evt_1' }
+                : {
+                    kind: 'external_call',
+                    provider: 'google_calendar',
+                    operation,
+                    eventId: 'evt_1',
+                    originalStart: '2026-06-27T10:00:00+01:00',
+                    originalEnd: '2026-06-27T11:00:00+01:00',
+                  },
+            expires_at: future,
+            executed_at: null,
+          },
+        ];
+      }
+      return [];
+    });
+    // serviceDb: SELECT token → row; restantes (updates/audit) → [].
+    mocks.serviceDbExecuteMock.mockImplementation(async (q: unknown) => {
+      const flat = JSON.stringify(q ?? {});
+      if (/google_oauth_tokens/i.test(flat)) {
+        return [{ encrypted_refresh_token: 'enc', token_iv: 'iv', token_auth_tag: 'tag' }];
+      }
+      return [];
+    });
+    mocks.refreshAccessTokenMock.mockResolvedValue({ accessToken: 'at', expiry: new Date() });
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('delete_event → DELETE Calendar API → ok', async () => {
+    setupExternalCall('delete_event');
+    fetchMock.mockResolvedValue({ ok: true, status: 204 } as Response);
+
+    const result = await executeUndo({
+      runId: RUN_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      userId: TEST_USER_ID,
+    });
+
+    expect(result.ok).toBe(true);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toMatch(/\/calendars\/primary\/events\/evt_1/);
+    expect((init as RequestInit).method).toBe('DELETE');
+  });
+
+  it('restore_event → PATCH Calendar API com originalStart/End → ok', async () => {
+    setupExternalCall('restore_event');
+    fetchMock.mockResolvedValue({ ok: true, status: 200 } as Response);
+
+    const result = await executeUndo({
+      runId: RUN_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      userId: TEST_USER_ID,
+    });
+
+    expect(result.ok).toBe(true);
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect((init as RequestInit).method).toBe('PATCH');
+    const body = JSON.parse((init as RequestInit).body as string) as {
+      start: { dateTime: string };
+      end: { dateTime: string };
+    };
+    expect(body.start.dateTime).toBe('2026-06-27T10:00:00+01:00');
+    expect(body.end.dateTime).toBe('2026-06-27T11:00:00+01:00');
+  });
+
+  it('delete_event → 404 → { ok: false, reason: "not_found" }', async () => {
+    setupExternalCall('delete_event');
+    fetchMock.mockResolvedValue({ ok: false, status: 404 } as Response);
+
+    const result = await executeUndo({
+      runId: RUN_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      userId: TEST_USER_ID,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe('not_found');
+    }
   });
 });
 

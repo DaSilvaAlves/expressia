@@ -57,6 +57,30 @@ describe('ReverseOpPayload — round-trip serialização', () => {
     expect(round).toEqual(op);
   });
 
+  it('round-trip variante external_call delete_event (Story J-5)', () => {
+    const op: ReverseOpPayload = {
+      kind: 'external_call',
+      provider: 'google_calendar',
+      operation: 'delete_event',
+      eventId: 'evt_abc123',
+    };
+    const round = deserializeReverseOp(serializeReverseOp(op));
+    expect(round).toEqual(op);
+  });
+
+  it('round-trip variante external_call restore_event com horários originais (Story J-5)', () => {
+    const op: ReverseOpPayload = {
+      kind: 'external_call',
+      provider: 'google_calendar',
+      operation: 'restore_event',
+      eventId: 'evt_xyz789',
+      originalStart: '2026-06-27T10:00:00+01:00',
+      originalEnd: '2026-06-27T11:00:00+01:00',
+    };
+    const round = deserializeReverseOp(serializeReverseOp(op));
+    expect(round).toEqual(op);
+  });
+
   it('round-trip composite aninhado (1 nível) — guard per-level passa', () => {
     const op: ReverseOpPayload = {
       kind: 'composite',
@@ -138,14 +162,15 @@ describe('deserializeReverseOp — input inválido', () => {
 });
 
 describe('Enums — coerência runtime', () => {
-  it('TOOL_DOMAIN_VALUES tem exactamente 4 entries', () => {
-    expect(TOOL_DOMAIN_VALUES.length).toBe(4);
-    expect([...TOOL_DOMAIN_VALUES]).toEqual(['tasks', 'finance', 'query', 'system']);
+  it('TOOL_DOMAIN_VALUES tem exactamente 5 entries (Story J-5 +calendar)', () => {
+    expect(TOOL_DOMAIN_VALUES.length).toBe(5);
+    expect([...TOOL_DOMAIN_VALUES]).toEqual(['tasks', 'finance', 'query', 'system', 'calendar']);
   });
 
-  it('ToolDomainSchema aceita os 4 valores e rejeita outros', () => {
+  it('ToolDomainSchema aceita os 5 valores e rejeita outros', () => {
     expect(() => ToolDomainSchema.parse('tasks')).not.toThrow();
     expect(() => ToolDomainSchema.parse('finance')).not.toThrow();
+    expect(() => ToolDomainSchema.parse('calendar')).not.toThrow();
     expect(() => ToolDomainSchema.parse('invalid')).toThrow();
   });
 

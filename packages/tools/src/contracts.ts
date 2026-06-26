@@ -28,8 +28,13 @@ import { ToolValidationError } from './errors';
  *                              criar_cartao, criar_parcelada, ...)
  *   - `query`     — Story 2.8 (consultar_dados, consultar_balanco, ...)
  *   - `system`    — operações transversais (cancelar_ultima — FR6, ...)
+ *   - `calendar`  — Story J-5 (criar_evento_calendario, reagendar_evento_calendario;
+ *                              escrita no Google Calendar via API externa). As
+ *                              calendar tools vivem em `apps/web` (direcção de
+ *                              dependência — precisam de `@/lib/google/oauth`), NÃO
+ *                              em `packages/tools`. Só o domínio é registado aqui.
  */
-export const TOOL_DOMAIN_VALUES = ['tasks', 'finance', 'query', 'system'] as const;
+export const TOOL_DOMAIN_VALUES = ['tasks', 'finance', 'query', 'system', 'calendar'] as const;
 
 /**
  * Schema Zod aceitando qualquer dos domínios de tools suportados.
@@ -226,6 +231,30 @@ export const ReverseOpReinsertRowSchema = z.object({
 });
 
 /**
+ * Variante `external_call` — usada quando a tool fez uma chamada de escrita a um
+ * sistema EXTERNO ao Postgres (Story J-5: Google Calendar). Como a API externa
+ * não participa na transacção Postgres, o undo não pode ser um simples SQL — é
+ * uma nova chamada à API externa que desfaz a anterior.
+ *
+ * - `delete_event` — desfaz um `criar_evento_calendario` (DELETE do evento criado).
+ * - `restore_event` — desfaz um `reagendar_evento_calendario` (PATCH de volta aos
+ *   horários `originalStart`/`originalEnd`).
+ *
+ * O motor de undo (`executeUndo` em `undo/route.ts`) reconhece `provider` +
+ * `operation` e chama a Google Calendar API com o `accessToken` obtido em runtime.
+ *
+ * Trace: Story J-5 AC8.
+ */
+export const ReverseOpExternalCallSchema = z.object({
+  kind: z.literal('external_call'),
+  provider: z.literal('google_calendar'),
+  operation: z.union([z.literal('delete_event'), z.literal('restore_event')]),
+  eventId: z.string().min(1),
+  originalStart: z.string().optional(), // ISO-8601; para restore_event
+  originalEnd: z.string().optional(), // ISO-8601; para restore_event
+});
+
+/**
  * Variante `composite` — lista de outras `ReverseOpPayload` (potencialmente
  * recursivas).
  *
@@ -238,6 +267,7 @@ export type ReverseOpPayload =
   | z.infer<typeof ReverseOpDeleteRowSchema>
   | z.infer<typeof ReverseOpRestoreRowSchema>
   | z.infer<typeof ReverseOpReinsertRowSchema> // NOVO — Story 2.14 FIX-1
+  | z.infer<typeof ReverseOpExternalCallSchema> // NOVO — Story J-5 (Calendar)
   | { readonly kind: 'composite'; readonly ops: ReverseOpPayload[] };
 
 export const ReverseOpPayloadSchema: z.ZodType<ReverseOpPayload> = z.lazy(() =>
@@ -245,6 +275,7 @@ export const ReverseOpPayloadSchema: z.ZodType<ReverseOpPayload> = z.lazy(() =>
     ReverseOpDeleteRowSchema,
     ReverseOpRestoreRowSchema,
     ReverseOpReinsertRowSchema, // NOVO — Story 2.14 FIX-1
+    ReverseOpExternalCallSchema, // NOVO — Story J-5 (Calendar)
     z.object({
       kind: z.literal('composite'),
       ops: z.array(ReverseOpPayloadSchema).max(COMPOSITE_REVERSE_OP_MAX_OPS),

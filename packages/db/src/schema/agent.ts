@@ -63,6 +63,10 @@ export const agentIntentEnum = pgEnum('agent_intent', [
   'eliminar_tarefa',
   'update_finance_variable',
   'delete_finance_variable',
+  // Story J-5 — tools Calendar escrita (migration 0030). Sync com
+  // `packages/classifier/src/schemas.ts` INTENT_VALUES (sanity-check Article IV).
+  'criar_evento_calendario',
+  'reagendar_evento_calendario',
 ]);
 
 export const llmModelEnum = pgEnum('llm_model', [

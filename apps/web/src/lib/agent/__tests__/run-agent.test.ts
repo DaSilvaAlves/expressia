@@ -208,7 +208,73 @@ describe('runAgentForHousehold — propagação de erros', () => {
 
     expect(mocks.getUserMock).not.toHaveBeenCalled();
   });
+});
 
+describe('runAgentForHousehold — guard multi-intent Calendar (Story J-5 AC14)', () => {
+  it('AC14 — intents mistos (calendar + tarefa) → preview sem executar tools', async () => {
+    mocks.classifyMock.mockResolvedValue({
+      intents: [
+        { intent: 'criar_evento_calendario', confidence: 0.9, raw_span: 'marca reunião sexta' },
+        { intent: 'criar_tarefa', confidence: 0.9, raw_span: 'e regista a renda' },
+      ],
+      language: 'pt-PT',
+      needs_confirmation: false,
+      overall_confidence: 0.9,
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'marca reunião E regista a renda',
+    });
+
+    expect(outcome.status).toBe('preview');
+    if (outcome.status === 'preview') {
+      expect(outcome.planSummary.join(' ')).toMatch(/calend[áa]rio/i);
+    }
+    // Nenhuma tool executada — Planner/Executor nem chegam a correr.
+    expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('AC14 — apenas calendar puro (sem mix) → prossegue para o Planner', async () => {
+    mocks.classifyMock.mockResolvedValue({
+      intents: [
+        { intent: 'criar_evento_calendario', confidence: 0.9, raw_span: 'marca reunião sexta' },
+      ],
+      language: 'pt-PT',
+      needs_confirmation: false,
+      overall_confidence: 0.9,
+    });
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [
+        { toolName: 'criar_evento_calendario', input: {}, intent: 'criar_evento_calendario' },
+      ],
+      planReasoning: null,
+      latencyMs: 0,
+      tokensInput: 0,
+      tokensOutput: 0,
+      costEur: 0,
+      cacheHit: false,
+    });
+    mocks.executorExecuteMock.mockResolvedValue({
+      success: true,
+      results: [{ toolName: 'criar_evento_calendario', output: { eventId: 'evt' }, reverseOpId: 'rop' }],
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'marca reunião sexta às 15h',
+    });
+
+    expect(outcome.status).toBe('executed');
+    // O guard NÃO bloqueia pedidos de calendar puros.
+    expect(mocks.plannerPlanMock).toHaveBeenCalled();
+  });
+});
+
+describe('runAgentForHousehold — rollback', () => {
   it('AC5 — rollback graceful (executor success:false) lança AtomicExecutionError', async () => {
     mocks.classifyMock.mockResolvedValue({
       intents: [{ intent: 'criar_tarefa', confidence: 0.85, raw_span: '' }],

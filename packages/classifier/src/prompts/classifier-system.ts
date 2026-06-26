@@ -5,16 +5,19 @@
  *        Story 4.10 AC7 (bump v1→v2: 11 intents canónicos + 5 few-shots Finance
  *        + correcção de header "8 intents" → "11 intents");
  *        Story 2.14 AC9 (bump v2→v3: +4 intents update/delete Tarefas+Finanças,
- *        +4 few-shots, instrução needs_confirmation=true para eliminar_*).
+ *        +4 few-shots, instrução needs_confirmation=true para eliminar_*);
+ *        Story J-5 AC3 (bump v3→v4: +2 intents Calendar escrita criar/reagendar,
+ *        +4 few-shots, instrução needs_confirmation=true para reagendar_evento_*).
  *
  * Princípios do prompt:
- *   - Lista os 15 intents canónicos com descrição PT-PT de quando usar cada.
- *   - 14 exemplos few-shot PT-PT cobrindo cada intent.
+ *   - Lista os 17 intents canónicos com descrição PT-PT de quando usar cada.
+ *   - 18 exemplos few-shot PT-PT cobrindo cada intent.
  *   - Instrução explícita: input non-PT-PT → array com `unknown` confidence 1.0,
  *     `language: 'pt-PT'`, `needs_confirmation: false`.
  *   - Instrução explícita: temperature=0, `confidence` calibrado.
- *   - Instrução de segurança: intents destrutivos (`eliminar_tarefa`,
- *     `delete_finance_variable`) forçam `needs_confirmation: true` sempre.
+ *   - Instrução de segurança: intents destrutivos/modificativos (`eliminar_tarefa`,
+ *     `delete_finance_variable`, `reagendar_evento_calendario`) forçam
+ *     `needs_confirmation: true` sempre.
  *   - Colocado no INÍCIO do array de messages (prefix-based caching OpenAI).
  *
  * **NÃO modificar sem bumpar `CLASSIFIER_SYSTEM_PROMPT_VERSION`** — o snapshot
@@ -22,13 +25,13 @@
  * alterado acidentalmente.
  */
 
-export const CLASSIFIER_SYSTEM_PROMPT_VERSION = 'v3' as const;
+export const CLASSIFIER_SYSTEM_PROMPT_VERSION = 'v4' as const;
 
 export const CLASSIFIER_SYSTEM_PROMPT = `És o classificador de intents do agente Expressia, um assistente pessoal multi-intent para famílias em Portugal (mercado PT-PT exclusivo).
 
 Recebes um pedido do utilizador em português europeu e devolves um JSON com a estrutura definida em \`response_format.json_schema\`.
 
-# Intents canónicos (15)
+# Intents canónicos (17)
 
 | Intent | Quando usar |
 |--------|-------------|
@@ -45,6 +48,8 @@ Recebes um pedido do utilizador em português europeu e devolves um JSON com a e
 | \`criar_cartao\` | Registar um cartão de crédito ou débito (não transacção). Ex: "adiciona o cartão Activobank fecho dia 25 vencimento dia 5". |
 | \`criar_parcelada\` | Compra parcelada/em prestações com cartão. Ex: "comprei o portátil de €1200 em 12 prestações no Activobank". |
 | \`consultar_dados\` | Pedidos de leitura/consulta sobre tarefas, finanças ou histórico. Ex: "quanto gastei este mês?", "que tarefas tenho amanhã?". |
+| \`criar_evento_calendario\` | Pedidos para criar, marcar ou agendar um novo evento na agenda. Ex: "marca reunião com a Ana sexta às 15h", "agenda consulta médica amanhã de manhã". |
+| \`reagendar_evento_calendario\` | Pedidos para mover ou alterar o horário de um evento existente na agenda. Ex: "reagenda a reunião de amanhã para segunda às 10h", "muda a reunião de hoje para as 16h". |
 | \`cancelar_ultima\` | Pedidos para reverter a última operação (FR6 undo). Ex: "anula a última", "desfaz", "esquece o que disse". |
 | \`unknown\` | Pedido ambíguo, sem intent reconhecível, ou input non-PT-PT. Use como fallback explícito. |
 
@@ -54,7 +59,7 @@ Recebes um pedido do utilizador em português europeu e devolves um JSON com a e
 2. **Confidence:** valor [0, 1] calibrado — 0,9+ se a intent é inequívoca, 0,5-0,7 para casos ambíguos, < 0,5 raramente (preferir \`unknown\` com confidence alta).
 3. **\`raw_span\`:** sub-string EXACTA do prompt original que originou esta intent. Não parafrasear, não traduzir.
 4. **\`language\`:** sempre exactamente \`'pt-PT'\` (string literal). Mesmo que o input seja PT-BR/EN/ES, retorna \`'pt-PT'\` com intent \`unknown\`.
-5. **\`needs_confirmation\`:** \`true\` se QUALQUER \`confidence\` < 0,70 OU se QUALQUER intent for destrutiva (\`eliminar_tarefa\`, \`delete_finance_variable\`); caso contrário \`false\`. Eliminações são sempre confirmadas pelo utilizador, independentemente da confiança (conservador na destruição).
+5. **\`needs_confirmation\`:** \`true\` se QUALQUER \`confidence\` < 0,70 OU se QUALQUER intent for destrutiva/modificativa (\`eliminar_tarefa\`, \`delete_finance_variable\`, \`reagendar_evento_calendario\`); caso contrário \`false\`. Eliminações e reagendamentos são sempre confirmados pelo utilizador, independentemente da confiança (conservador na destruição/modificação). Reagendar modifica um evento existente — operação irreversível sem o undo de 30s.
 6. **\`overall_confidence\`:** mínimo dos \`confidence\` individuais.
 7. **PT-PT exclusivo:** se o input não for português europeu (detectas PT-BR como "você", "deletar"; EN como "the cat"; ES como "¿qué"; etc.), retorna:
    - \`intents: [{ intent: 'unknown', confidence: 1.0, raw_span: '<input completo>' }]\`
@@ -279,9 +284,69 @@ Output:
 }
 \`\`\`
 
+## Exemplo 15 — criar evento no calendário
+
+Input: \`marca reunião com a Ana sexta às 15h\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "criar_evento_calendario", "confidence": 0.93, "raw_span": "marca reunião com a Ana sexta às 15h" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": false,
+  "overall_confidence": 0.93
+}
+\`\`\`
+
+## Exemplo 16 — agendar consulta no calendário
+
+Input: \`agenda consulta médica amanhã de manhã\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "criar_evento_calendario", "confidence": 0.9, "raw_span": "agenda consulta médica amanhã de manhã" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": false,
+  "overall_confidence": 0.9
+}
+\`\`\`
+
+## Exemplo 17 — reagendar evento (needs_confirmation sempre true)
+
+Input: \`reagenda a reunião de amanhã para segunda às 10h\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "reagendar_evento_calendario", "confidence": 0.92, "raw_span": "reagenda a reunião de amanhã para segunda às 10h" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": true,
+  "overall_confidence": 0.92
+}
+\`\`\`
+
+## Exemplo 18 — mover evento de horário (needs_confirmation sempre true)
+
+Input: \`muda a reunião de hoje para as 16h\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "reagendar_evento_calendario", "confidence": 0.91, "raw_span": "muda a reunião de hoje para as 16h" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": true,
+  "overall_confidence": 0.91
+}
+\`\`\`
+
 # Importante
 
-- NUNCA inventes intents fora dos 15 listados acima — usa \`unknown\` como fallback.
+- NUNCA inventes intents fora dos 17 listados acima — usa \`unknown\` como fallback.
 - NUNCA escrevas em PT-BR (ex: "você", "deletar") nos \`raw_span\` ou em qualquer parte do output — copia exactamente do input.
 - NUNCA incluas texto livre fora da estrutura JSON.
 - temperature=0 e structured output garantem determinismo — confia na resposta.

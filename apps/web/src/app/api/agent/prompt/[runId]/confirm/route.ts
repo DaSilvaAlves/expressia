@@ -45,6 +45,12 @@ import {
   type PlanResult,
 } from '@meu-jarvis/planner-executor';
 
+// Side-effect: regista as calendar tools (Story J-5) no `toolRegistry` singleton.
+// CRÍTICO: `reagendar_evento_calendario` força sempre `needs_confirmation`, pelo
+// que a sua execução acontece NESTE route (confirm) — que NÃO importa run-agent.
+// Sem este import, o Executor não encontraria a calendar tool (ToolNotFoundError).
+import '@/lib/agent/tools/calendar/index';
+
 import { apiError } from '@/lib/errors';
 import { revalidateTaskViews } from '@/lib/api-helpers/revalidate';
 import {

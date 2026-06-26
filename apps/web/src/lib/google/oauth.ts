@@ -34,12 +34,19 @@ export class GoogleOAuthError extends Error {
 }
 
 /**
- * Scopes pedidos no consentimento. `calendar.readonly` (leitura da agenda, v1) +
- * `openid email` para obter o email da conta Google (referência informativa em
- * `google_oauth_tokens.google_email`). Sem `openid email`, o `userinfo` endpoint
- * não devolveria o email.
+ * Scopes pedidos no consentimento. `calendar.events` (Story J-5 — leitura E
+ * escrita de eventos do calendário; superset de `calendar.readonly` para
+ * eventos do calendário primário) + `openid email` para obter o email da conta
+ * Google (referência informativa em `google_oauth_tokens.google_email`). Sem
+ * `openid email`, o `userinfo` endpoint não devolveria o email.
+ *
+ * Story J-5 AC4: actualizado de `calendar.readonly` → `calendar.events`. A
+ * leitura do brief diário (J-4 `getCalendarEventsToday`) continua a funcionar
+ * com o novo token (scope mais permissivo, não restritivo). Exige
+ * re-consentimento one-shot do Eurico (Tarefa 9 — Google obriga nova
+ * autorização quando os scopes aumentam).
  */
-const OAUTH_SCOPES = 'https://www.googleapis.com/auth/calendar.readonly openid email';
+const OAUTH_SCOPES = 'https://www.googleapis.com/auth/calendar.events openid email';
 const GOOGLE_AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_ENDPOINT = 'https://www.googleapis.com/oauth2/v3/userinfo';

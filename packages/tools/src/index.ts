@@ -38,6 +38,7 @@ export {
   ReverseOpDeleteRowSchema,
   ReverseOpRestoreRowSchema,
   ReverseOpReinsertRowSchema,
+  ReverseOpExternalCallSchema,
   COMPOSITE_REVERSE_OP_MAX_OPS,
   serializeReverseOp,
   deserializeReverseOp,

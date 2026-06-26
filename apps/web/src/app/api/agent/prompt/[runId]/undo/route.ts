@@ -41,6 +41,7 @@ import {
 import { apiError } from '@/lib/errors';
 import { revalidateTaskViews } from '@/lib/api-helpers/revalidate';
 import { sentrySafeContext } from '@/lib/agent/redaction';
+import { refreshAccessToken } from '@/lib/google/oauth';
 import {
   withAgentPromptSpan,
   annotateAgentPromptSpan,
@@ -65,12 +66,32 @@ interface ReverseOpRow extends Record<string, unknown> {
  * Reverse op tipos suportados — espelho de `@meu-jarvis/tools` `ReverseOpKind`
  * (Story 2.3). Mantemos cópia minimal local porque a interpretação é simples
  * e evita dep extra.
+ *
+ * **Story J-5 (CRÍTICO — Tarefa 7.3.0):** o kind `external_call` foi adicionado
+ * a este tipo local. Espelha `ReverseOpExternalCallSchema` de `@meu-jarvis/tools`.
+ * Sem este passo, `applyReverseOp`/o loop de undo cairiam no branch
+ * "Kind desconhecido" e nunca tratariam o undo de Calendar.
  */
+type ReverseOpExternalCall = {
+  readonly kind: 'external_call';
+  readonly provider: 'google_calendar';
+  readonly operation: 'delete_event' | 'restore_event';
+  readonly eventId: string;
+  readonly originalStart?: string;
+  readonly originalEnd?: string;
+};
+
 type ReverseOp =
   | { readonly kind: 'delete_row'; readonly table: string; readonly id: string }
   | { readonly kind: 'restore_row'; readonly table: string; readonly id: string; readonly snapshot: Record<string, unknown> }
   | { readonly kind: 'reinsert_row'; readonly table: string; readonly id: string; readonly snapshot: Record<string, unknown> }
+  | ReverseOpExternalCall
   | { readonly kind: 'composite'; readonly ops: ReadonlyArray<ReverseOp> };
+
+/** Endpoint base de eventos do calendário primário (Story J-5). */
+const CALENDAR_EVENTS_ENDPOINT =
+  'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+const CALENDAR_TZ = 'Europe/Lisbon';
 
 /**
  * Resultado discriminado de `executeUndo` — distingue o estado para o caller
@@ -87,7 +108,8 @@ export type UndoResult =
         | 'already_reverted'
         | 'invalid_state'
         | 'expired'
-        | 'internal_error';
+        | 'internal_error'
+        | 'external_error'; // Story J-5 — falha da Calendar API no undo
       message: string;
     };
 
@@ -187,7 +209,33 @@ export async function executeUndo(params: {
   try {
     for (const op of opRows) {
       const parsed = op.reverse_op as ReverseOp;
-      await applyReverseOp(parsed, serviceDb);
+
+      // Story J-5 — undo de Calendar (external_call): a reversão é uma nova
+      // chamada à Google Calendar API (não SQL). Lê o token inline via
+      // service_role (undo corre fora de sessão HTTP — legítimo, SEC-10).
+      if (parsed.kind === 'external_call') {
+        const ext = await applyExternalCallUndo(parsed, serviceDb, { householdId, userId });
+        if (!ext.ok) {
+          // Evento já apagado (404) ou falha da API → undo não concluído; o run
+          // permanece em `success` (não marca reverted). Mensagens PT-PT.
+          log.warn(
+            { run_id: runId, reason: ext.reason },
+            'Undo de Calendar não concluído (external_call)',
+          );
+          return {
+            ok: false,
+            runId,
+            reason: ext.reason,
+            message:
+              ext.reason === 'not_found'
+                ? 'O evento já não existe no Google Calendar.'
+                : 'Não foi possível reverter a alteração no Google Calendar.',
+          };
+        }
+      } else {
+        await applyReverseOp(parsed, serviceDb);
+      }
+
       await serviceDb.execute(sql`
         update agent_reverse_ops
         set executed_at = now()
@@ -359,6 +407,14 @@ async function applyReverseOp(
     return;
   }
 
+  // Story J-5 — `external_call` (Calendar) é tratado no loop de `executeUndo`
+  // (precisa de token OAuth + HTTP, não de SQL). Nunca deve chegar aqui — só
+  // chegaria se estivesse aninhado num `composite`, caso não suportado nesta
+  // story (as calendar tools produzem reverse ops top-level).
+  if (op.kind === 'external_call') {
+    throw new Error('Reverse op external_call deve ser tratado fora de applyReverseOp.');
+  }
+
   // Sentinela `_noop` — read-only tools (Story 3.8 R1b / Story 4.10 D-4.10.3).
   if (op.table === NOOP_SENTINEL_TABLE) {
     return;
@@ -420,4 +476,89 @@ async function applyReverseOp(
 
   // Defensive: never-reached
   throw new Error(`Reverse op kind desconhecido.`);
+}
+
+/** Row mínima de `google_oauth_tokens` necessária para o refresh (Story J-5). */
+interface GoogleTokenRow {
+  readonly encrypted_refresh_token: string;
+  readonly token_iv: string;
+  readonly token_auth_tag: string;
+}
+
+function isGoogleTokenRow(value: unknown): value is GoogleTokenRow {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const r = value as Record<string, unknown>;
+  return (
+    typeof r.encrypted_refresh_token === 'string' &&
+    typeof r.token_iv === 'string' &&
+    typeof r.token_auth_tag === 'string'
+  );
+}
+
+/**
+ * Aplica o undo de uma reverse op `external_call` (Google Calendar) — Story J-5.
+ *
+ *   - `delete_event` → DELETE do evento criado (404 = já apagado → `not_found`).
+ *   - `restore_event` → PATCH de volta aos horários originais.
+ *
+ * Lê `google_oauth_tokens` inline via `service_role` (SEC-10 — undo corre fora de
+ * sessão HTTP, sem JWT). `householdId`/`userId` vêm de `params` (scope de
+ * `executeUndo`). NÃO usa helper inexistente — query inline por (household, user).
+ */
+async function applyExternalCallUndo(
+  op: ReverseOpExternalCall,
+  serviceDb: ReturnType<typeof getServiceDb>,
+  ctx: { householdId: string; userId: string },
+): Promise<{ ok: true } | { ok: false; reason: 'not_found' | 'external_error' }> {
+  const rows = (await serviceDb.execute(sql`
+    select encrypted_refresh_token, token_iv, token_auth_tag
+    from public.google_oauth_tokens
+    where household_id = ${ctx.householdId}::uuid and user_id = ${ctx.userId}::uuid
+    limit 1
+  `)) as ReadonlyArray<unknown>;
+
+  const row = rows[0];
+  if (!isGoogleTokenRow(row)) {
+    return { ok: false, reason: 'not_found' };
+  }
+
+  let accessToken: string;
+  try {
+    ({ accessToken } = await refreshAccessToken(
+      row.encrypted_refresh_token,
+      row.token_iv,
+      row.token_auth_tag,
+    ));
+  } catch {
+    return { ok: false, reason: 'external_error' };
+  }
+
+  const url = `${CALENDAR_EVENTS_ENDPOINT}/${encodeURIComponent(op.eventId)}`;
+
+  if (op.operation === 'delete_event') {
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (res.status === 404) {
+      return { ok: false, reason: 'not_found' };
+    }
+    return res.ok ? { ok: true } : { ok: false, reason: 'external_error' };
+  }
+
+  // restore_event — PATCH de volta aos horários originais.
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      start: { dateTime: op.originalStart, timeZone: CALENDAR_TZ },
+      end: { dateTime: op.originalEnd, timeZone: CALENDAR_TZ },
+    }),
+  });
+  return res.ok ? { ok: true } : { ok: false, reason: 'external_error' };
 }

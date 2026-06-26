@@ -175,10 +175,10 @@ export type ExecutorInput = z.infer<typeof ExecutorInputSchema>;
  * (3) tools são single source of truth da Story 2.3 e não mudam entre runs;
  * (4) tool name fora do MAP → fallback `'unknown'` (graceful degradation).
  *
- * **Cobertura obrigatória:** as 15 intents do `IntentSchema` (Story 2.4 AC2
+ * **Cobertura obrigatória:** as 17 intents do `IntentSchema` (Story 2.4 AC2
  * baseline 8 + Story 3.8 tools cérebro Tarefas +3 + Story 2.14 tools
- * UPDATE/DELETE +4) têm pelo menos 1 tool name mapeado. Validável em
- * `__tests__/contract.test.ts`.
+ * UPDATE/DELETE +4 + Story J-5 tools Calendar +2) têm pelo menos 1 tool name
+ * mapeado. Validável em `__tests__/contract.test.ts`.
  *
  * Nomenclatura tools snake_case lowercase (alinhada com Architecture §4.3
  * `create_task`, `query_finance_summary`, etc.).
@@ -221,6 +221,11 @@ export const TOOL_TO_INTENT_MAP: Record<string, Intent> = {
   eliminar_tarefa: 'eliminar_tarefa',
   update_finance_variable: 'update_finance_variable',
   delete_finance_variable: 'delete_finance_variable',
+  // Story J-5 — tools Calendar escrita (tool name === intent name PT-PT).
+  // As calendar tools vivem em `apps/web/src/lib/agent/tools/calendar/` (direcção
+  // de dependência), mas o mapping tool→intent é estático e vive aqui.
+  criar_evento_calendario: 'criar_evento_calendario',
+  reagendar_evento_calendario: 'reagendar_evento_calendario',
 };
 
 /**

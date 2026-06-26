@@ -25,6 +25,11 @@
  */
 import { sql } from 'drizzle-orm';
 
+// Side-effect: regista as calendar tools (Story J-5) no `toolRegistry` singleton
+// ANTES de qualquer invocação do Planner/Executor. Forma side-effect sem
+// desestruturar (resiste melhor a tree-shaking; ver registration.test.ts).
+import '@/lib/agent/tools/calendar/index';
+
 import { Classifier, type ClassificationResult } from '@meu-jarvis/classifier';
 import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { buildCacheKey, getCacheClient, CACHE_TTL_SECONDS } from '@/lib/agent/cache';
@@ -55,6 +60,34 @@ import { hashPrompt } from '@/lib/agent/redaction';
 import type { IdempotentRunSnapshot } from '@/lib/agent/idempotency';
 
 const ROUTE = '/api/agent/prompt';
+
+/**
+ * Story J-5 AC14 — intents do domínio Calendar. Escritas no Google Calendar não
+ * participam em transacções Postgres: se uma tool irmã (tarefa/finança) falhar, o
+ * rollback Postgres NÃO desfaz o evento já criado → evento órfão irrecuperável.
+ * Por isso intents de Calendar não correm misturadas com outros domínios.
+ */
+const CALENDAR_INTENTS: ReadonlySet<string> = new Set([
+  'criar_evento_calendario',
+  'reagendar_evento_calendario',
+]);
+
+/**
+ * Story J-5 AC14 — detecta um plano misto "Calendar + outro domínio".
+ *
+ * `true` quando existe ≥1 intent de Calendar E ≥1 intent de outro domínio
+ * (tasks/finance/query — `unknown` é ignorado, não conta como domínio concreto).
+ */
+function isMixedCalendarPlan(intents: ReadonlyArray<{ intent: string }>): boolean {
+  const hasCalendar = intents.some((i) => CALENDAR_INTENTS.has(i.intent));
+  if (!hasCalendar) {
+    return false;
+  }
+  const hasOtherDomain = intents.some(
+    (i) => !CALENDAR_INTENTS.has(i.intent) && i.intent !== 'unknown',
+  );
+  return hasOtherDomain;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos públicos
@@ -291,6 +324,31 @@ export async function runAgentForHousehold(
       );
       throw attachRunId(err, runId);
     }
+  }
+
+  // ─── 6b. Guard multi-intent Calendar (Story J-5 AC14) ─────────────
+  // Se o plano mistura Calendar com outro domínio, NÃO executamos nada: a Google
+  // Calendar API não participa na transacção Postgres (evento órfão se uma tool
+  // irmã falhar). Devolvemos um preview a pedir ao utilizador que separe os
+  // pedidos. Nenhuma tool é executada (Planner/Executor nem chegam a correr).
+  if (isMixedCalendarPlan(classification.intents)) {
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5min D20
+    await updatePreviewState(runId, expiresAt, db);
+
+    log.info(
+      { run_id: runId, mode: 'preview', reason: 'mixed_calendar_plan' },
+      'Preview mode — plano misto Calendar+outro domínio, a pedir separação',
+    );
+
+    return {
+      status: 'preview',
+      runId,
+      planSummary: [
+        'Não consigo tratar o calendário e outra coisa ao mesmo tempo. Começas pelo evento ou pela tarefa/finança?',
+      ],
+      confidence: classification.overall_confidence,
+      expiresAt: expiresAt.toISOString(),
+    };
   }
 
   // ─── 7. Branch FR4 — preview vs executed ──────────────────────────
