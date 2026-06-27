@@ -1,0 +1,87 @@
+from_agent: "orchestrator (/sdc — J-5 Calendar escrita fechada + E2E live + 2 bug-fixes)"
+to_agent: "any"
+created: "2026-06-27T03:30:00Z"
+status: pending
+consumed: false
+
+project: "meu-jarvis (Expressia)"
+summary: >
+  MIGRAÇÃO DE TERMINAL — Story J-5 (Calendar escrita) 100% DONE e provada E2E live
+  em prod (criar + reagendar + undo via Telegram). Próximo passo: arrancar a Story
+  J-6 (Gmail readonly) do epic Jarvis v1.1, num terminal fresco, via /sdc. J-6 NÃO
+  está draftada — o ciclo arranca em @sm (draft) → @po → @dev → @qa. `origin/main` =
+  `3409b28`, working tree limpo. Fase 1 (J-1..J-4) Done; v1.1: J-5 Done, J-6 próxima,
+  J-7 (Gmail send) depende de J-6.
+
+context:
+  epic_path: "docs/epics/epic-jarvis-v1.1-calendar-escrita-gmail.md"
+  prd_ref: "docs/prd-jarvis.md v1.1 §9 (roadmap v1.1)"
+  branch: "main"
+  head_commit: "3409b28"
+  next_story: "J-6 — Gmail readonly (brief com resumo de email + leitura a pedido)"
+
+  ambito_j6_do_epic:
+    - "J-6 = Gmail READONLY. Scope OAuth gmail.readonly. Depende de J-5 Done (✅)."
+    - "Entrega esperada (confirmar/refinar no @sm draft contra PRD §9): o Eurico recebe no brief diário um resumo dos emails que pedem resposta; e pode pedir ao Jarvis que LEIA emails a pedido (via Telegram). NÃO inclui envio — isso é J-7 (Gmail send, gmail.send)."
+    - "Disciplina da espinha: J-6 (readonly) antes de J-7 (send). Gmail é mais sensível que Calendar — readonly primeiro."
+
+  padrao_estabelecido_em_j5_a_reutilizar:
+    - "Tools externas vivem em apps/web/src/lib/agent/tools/<dominio>/ (NÃO em packages/tools) por direcção de dependência (precisam de @/lib/google/oauth + token-cipher). Registo via side-effect import em run-agent.ts E confirm/route.ts (a confirmação executa no route de confirm). Teste anti-tree-shaking (registration.test.ts) obrigatório."
+    - "Novo intent(s) → migration ALTER TYPE agent_intent ADD VALUE IF NOT EXISTS (padrão 0030) + sync agentIntentEnum (schema/agent.ts) + INTENT_VALUES (classifier/schemas.ts) + TOOL_TO_INTENT_MAP (planner-executor) + prompt classifier (bump versão + few-shots + snapshot hash) + prompt planner se precisar de orientação de parâmetros (bump versão + snapshot)."
+    - "Novo ToolDomain 'email' em TOOL_DOMAIN_VALUES (packages/tools/contracts.ts) + sanity-check."
+    - "Para AÇÕES com efeito externo (J-7 send), seguir o padrão ReverseOp kind 'external_call' + executeUndo (extender o tipo LOCAL ReverseOp em undo/route.ts, senão cai em 'Kind desconhecido'). J-6 readonly provavelmente não precisa de undo (leitura)."
+    - "Guard multi-intent (isMixedCalendarPlan em run-agent.ts) impede misturar domínio externo com tasks/finance numa só transacção — considerar análogo se J-6/J-7 tiver tools com efeito."
+
+  base_construida_reutilizavel:
+    - "apps/web/src/lib/google/oauth.ts — buildGoogleAuthUrl/exchangeCodeForTokens/refreshAccessToken (reutilizar; adicionar gmail.readonly aos OAUTH_SCOPES)."
+    - "apps/web/src/lib/crypto/token-cipher.ts — AES-256-GCM (reutilizar sem tocar)."
+    - "packages/db/src/schema/google-oauth.ts — tabela google_oauth_tokens (mesma; o re-consent faz upsert por (household_id, user_id))."
+    - "apps/web/src/lib/agent/tools/calendar/calendar-api.ts — TEMPLATE para um gmail-api.ts (getXAccessToken via ctx.db RLS + type guards sobre a resposta da API)."
+
+  oauth_critico_licao_j3_e_j5:
+    - "J-6 amplia os scopes (adiciona gmail.readonly) → NOVO re-consentimento OAuth one-shot [EURICO]. O Google não adiciona scopes a tokens existentes sem nova autorização."
+    - "CRÍTICO: o re-consent TEM de ser feito LOGADO na conta principal euricojsalves@gmail.com (household 2dedb1ec / user df5b403f — o mesmo do telegram_link). Senão o token vai para o household errado (lição J-3) e o brief/motor não o lê."
+    - "Verificação pós-OAuth (padrão J-5 9.4): SELECT google_email, household_id FROM google_oauth_tokens → household_id deve ser 2dedb1ec, uma única linha."
+    - "Ao copiar o URL de /api/google/auth-url (devolve JSON {\"url\":\"...\"}), copiar SÓ o link de dentro das aspas, sem o \"} final (gotcha J-3)."
+
+  gotchas_tecnicos_de_j5_a_lembrar:
+    - "Datetime/timezone (se J-6/J-7 mexer em horas, ex: agendar envio): Google APIs ignoram timeZone quando dateTime tem offset — enviar wall-clock naïve + timeZone Europe/Lisbon. Helpers em calendar-api.ts (stripToLisbonNaive/addMsToLisbonNaive)."
+    - "Migration enum: o runner db:migrate faz skip de ficheiros já registados; uma migration NOVA aplica normalmente (0030 aplicou). Se um ALTER a ficheiro já registado não chegar a prod, aplicar manual via DIRECT_URL. Confirmar enum com SELECT enumlabel FROM pg_enum WHERE enumtypid='public.agent_intent'::regtype."
+
+  restricoes_globais:
+    - "PT-PT europeu exclusivo. Dados UE (Vercel fra1, Supabase eu-central-1)."
+    - "Billing CONGELADO (sem subscriptions/stripe_*). SEC-8 HOLD (não tocar withHousehold/db-shim/client.ts). Família removida (household_id/RLS intactos)."
+    - "Tabela nova com household_id obriga 4 RLS policies senão check:rls parte o build (NFR5). Gmail readonly pode não precisar de tabela nova (ou cache de resumos — decidir no draft)."
+    - "Push/PR só @devops com ordem explícita do Eurico. Quality gates pre-merge: lint/typecheck/test/build/check:rls."
+
+  estado_da_arvore:
+    - "origin/main = 3409b28 (J-5 done + 2 fixes + bookkeeping). Working tree limpo."
+    - "Commits relevantes J-5: ae0c8f5 (código J-5) · bc9a951 (fix timezone) · 7987bdf (fix reagendar dia) · 3409b28 (bookkeeping)."
+    - "Bot Telegram @jarvis_eurico_bot vivo; chat_id 5647753194 → household 2dedb1ec / user df5b403f. Cron brief 07:30 Europe/Lisbon activo."
+
+next_action: >
+  [PRÓXIMO AGENTE / novo terminal] Correr /sdc para arrancar a Story J-6 (Gmail
+  readonly). O ciclo começa em @sm (draft contra o epic v1.1 + PRD §9), depois @po →
+  @dev → @qa. Reaproveitar o padrão J-5 (tools externas em apps/web, oauth.ts +
+  token-cipher + google_oauth_tokens, gmail-api.ts moldado no calendar-api.ts). J-6
+  amplia os OAuth scopes (gmail.readonly) → planear o re-consentimento one-shot
+  [EURICO] na conta principal euricojsalves@gmail.com (household 2dedb1ec). Só depois
+  de J-6 Done arrancar J-7 (Gmail send). Push só @devops com ordem do Eurico.
+
+notes: |
+  Fonte de verdade do âmbito: docs/epics/epic-jarvis-v1.1-calendar-escrita-gmail.md +
+  docs/prd-jarvis.md §9. A v1.1 entra Gmail logo a seguir a Calendar; J-6 readonly,
+  J-7 send (mais sensível, scope gmail.send separado).
+
+  Lições de J-5 que pouparam horas e devem guiar J-6/J-7:
+  - OAuth re-consent SEMPRE na conta principal (household 2dedb1ec) — verificar na DB
+    depois (1 só linha em google_oauth_tokens, household certo).
+  - Tools externas: registo por side-effect import em run-agent.ts E confirm/route.ts;
+    teste anti-tree-shaking obrigatório.
+  - Bugs só aparecem no E2E live — planear o teste real ao bot como parte do "Done"
+    (criar/ler/responder consoante a story), não só os unit tests.
+
+  Follow-up cosmético herdado de J-4 (não-bloqueante): o brief diário fecha com "Tenha
+  um bom dia" (formal) vs tratamento por "tu" no resto — afinar BRIEF_SYSTEM_PROMPT em
+  apps/web/src/lib/brief/synthesize.ts. Bom candidato a incluir quando se mexer no
+  brief para o resumo de email (J-6).

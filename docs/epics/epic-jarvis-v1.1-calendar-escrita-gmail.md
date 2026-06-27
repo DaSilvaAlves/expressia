@@ -1,6 +1,6 @@
 # Epic Jarvis v1.1 — Calendar Escrita + Gmail
 
-**Status:** In Progress — J-5 a draftar
+**Status:** In Progress — J-5 Done (live em prod 27/06/2026); J-6 (Gmail readonly) a arrancar
 **Owner:** @pm (Morgan) / @sm (River)
 **Criado:** 26/06/2026
 **PRD de referência:** `docs/prd-jarvis.md` v1.1, §9 (roadmap v1.1)
@@ -24,8 +24,8 @@ A disciplina da espinha mantém-se: Calendar antes de Gmail (Calendar write é m
 
 | ID | Título | Status | Depende de |
 |----|--------|--------|------------|
-| **J-5** | Calendar escrita — intents + tools (marcar e reagendar eventos via Telegram) | Draft | J-3 Done (OAuth readonly; scope a actualizar para write) |
-| J-6 | Gmail readonly — brief com resumo de email + leitura a pedido | A draftar | J-5 Done |
+| **J-5** | Calendar escrita — intents + tools (marcar e reagendar eventos via Telegram) | **Done (E2E live em prod 27/06)** | J-3 Done (OAuth readonly; scope a actualizar para write) |
+| J-6 | Gmail readonly — brief com resumo de email + leitura a pedido | A draftar (próxima) | J-5 Done ✅ |
 | J-7 | Gmail send — responder/compor email a partir do Telegram | A draftar | J-6 Done |
 
 *Nota: IDs de story seguem a série J-* estabelecida na Fase 1 (J-1..J-4). A v1.1 começa em J-5.*
