@@ -1,8 +1,24 @@
 from_agent: "orchestrator (/sdc — ciclo completo dev→qa da Story J-5)"
 to_agent: "devops"
 created: "2026-06-26T03:30:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-27T03:00:00Z"
+consumed_by: "orchestrator (/sdc — deploy + OAuth + E2E live + 2 bug-fixes)"
+resolution: >
+  Tarefa 9 COMPLETA e J-5 provada E2E live em prod (27/06). Executado: (9.1) db:migrate
+  aplicou 0030 em prod (enum agent_intent = 17 valores, verificado via SELECT pg_enum);
+  (9.2) deploy Vercel Ready (commit fb7c072, 11s após o push); (9.3) re-consent OAuth
+  calendar.events feito na conta PRINCIPAL euricojsalves@gmail.com — token verificado na
+  DB: household_id=2dedb1ec / user_id=df5b403f, match exacto com telegram_link, uma única
+  linha (lição J-3 respeitada, sem duplicado no household errado); (9.4/9.5) E2E live ao
+  @jarvis_eurico_bot provado: criar evento + reagendar + undo 30s. DOIS bugs descobertos
+  no E2E e CORRIGIDOS+deployados na mesma sessão: (a) timezone +1h (fix bc9a951 — dateTime
+  com Z + timeZone Lisbon → instante UTC; corrigido para dateTime naïve + timeZone; Planner
+  v6→v7); (b) reagendar saltava para hoje com "só hora" (fix 7987bdf — contrato newTime+
+  newDate?; sem dia a tool mantém o dia do evento; Planner v7→v8). main = 7987bdf. Story
+  J-5 100% Done + live. Fase Jarvis v1.1 (Calendar escrita) primeira capacidade de escrita
+  externa: VIVA em prod.
 
 project: "meu-jarvis (Expressia)"
 summary: >
