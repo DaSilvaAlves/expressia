@@ -31,7 +31,6 @@ import {
   getCalendarAccessToken,
   isGoogleCalendarItem,
   boundToIso,
-  stripToLisbonNaive,
   addMsToLisbonNaive,
   durationMsBetween,
   type GoogleCalendarItem,
@@ -46,17 +45,24 @@ const DEFAULT_DURATION_MS = 60 * 60 * 1000;
 // Schemas
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Schema permissivo: aceita wall-clock LOCAL naïve (o formato do Planner v7) E,
-// por robustez, strings com 'Z'/offset. Normalizado para naïve Lisboa no execute.
-const CALENDAR_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
-const calendarDateTime = z
-  .string()
-  .regex(CALENDAR_DATETIME_RE, 'Horário inválido — esperava ISO YYYY-MM-DDTHH:MM:SS.');
+// Contrato v8 (bug-fix "dia errado" — Story J-5): separa HORA (sempre) de DIA
+// (opcional). O Planner não conhece o dia do evento (só é descoberto no execute,
+// via searchEvent), pelo que um `newStart` datetime completo herdava a regra
+// "hora sem dia → hoje" e movia o evento para HOJE. Recebendo só `newTime`, a
+// tool aplica a nova hora ao DIA do evento encontrado; `newDate` só é enviado
+// quando o utilizador menciona um dia explícito.
+const NEW_TIME_RE = /^\d{2}:\d{2}$/;
+const NEW_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const ReagendarEventoCalendarioInputSchema = z.object({
   query: z.string().min(1),
-  newStart: calendarDateTime,
-  newEnd: calendarDateTime.optional(),
+  newTime: z
+    .string()
+    .regex(NEW_TIME_RE, 'Hora inválida — esperava o formato HH:MM 24h (ex: 15:00).'),
+  newDate: z
+    .string()
+    .regex(NEW_DATE_RE, 'Data inválida — esperava o formato YYYY-MM-DD (ex: 2026-06-30).')
+    .optional(),
 });
 
 export type ReagendarEventoCalendarioInput = z.infer<
@@ -143,20 +149,24 @@ export const reagendarEventoCalendario: ToolDefinition<
   name: TOOL_NAME,
   domain: 'calendar',
   description:
-    'Usa esta tool quando o utilizador quer mover ou alterar o horário de um evento existente na agenda do Google Calendar. Recebe uma descrição do evento (query), um novo horário de início (ISO-8601) e, opcionalmente, um novo horário de fim. Se o fim for omitido, mantém a duração original.',
+    'Usa esta tool quando o utilizador quer mover ou alterar o horário de um evento existente na agenda do Google Calendar. Recebe uma descrição do evento (query) e a nova HORA (newTime, formato HH:MM 24h, ex: 15:00). Inclui newDate (formato YYYY-MM-DD) APENAS se o utilizador mencionar um dia explícito ("para segunda", "amanhã", "dia 30"); se omitido, a tool mantém o dia original do evento. A duração original é sempre preservada.',
   inputSchema: ReagendarEventoCalendarioInputSchema,
   outputSchema: ReagendarEventoCalendarioOutputSchema,
   estimatedTokens: 140,
 
   preview(input) {
-    // `newStart` pode ser naïve; interpretá-lo como hora de Lisboa antes de formatar.
-    const newStartNaive = stripToLisbonNaive(input.newStart, TOOL_NAME);
-    const quando = formatInTimeZone(
-      fromZonedTime(newStartNaive, CALENDAR_TZ),
-      CALENDAR_TZ,
-      "dd/MM/yyyy 'às' HH:mm",
-    );
-    return `Vou reagendar '${input.query}' para ${quando}.`;
+    // O dia do evento só é conhecido no execute (depois do searchEvent). Se o
+    // utilizador deu um dia explícito (`newDate`), mostramos dia + hora; senão,
+    // mostramos apenas a hora — sem inventar um dia que ainda não foi resolvido.
+    if (input.newDate) {
+      const quando = formatInTimeZone(
+        fromZonedTime(`${input.newDate}T${input.newTime}:00`, CALENDAR_TZ),
+        CALENDAR_TZ,
+        "dd/MM/yyyy 'às' HH:mm",
+      );
+      return `Vou reagendar '${input.query}' para ${quando}.`;
+    }
+    return `Vou reagendar '${input.query}' para as ${input.newTime}.`;
   },
 
   async execute(input, ctx: ToolExecutionContext): Promise<ReagendarEventoCalendarioOutput> {
@@ -181,20 +191,22 @@ export const reagendarEventoCalendario: ToolDefinition<
       );
     }
 
-    // Normaliza o novo início para wall-clock LOCAL de Lisboa (sem 'Z'/offset).
-    const newStartNaive = stripToLisbonNaive(input.newStart, TOOL_NAME);
+    // Determina o DIA base: se o utilizador deu um dia explícito (`newDate`),
+    // usa-o; senão, mantém o dia do evento encontrado (extraído do `originalStart`
+    // REAL da Google, com offset, no fuso de Lisboa). Isto corrige o bug em que
+    // "muda para as 15h" movia o evento para HOJE em vez do dia do próprio evento.
+    const baseDay = input.newDate ?? formatInTimeZone(new Date(originalStart), CALENDAR_TZ, 'yyyy-MM-dd');
 
-    // Se `newEnd` omitido, preserva a duração original. `originalStart`/
-    // `originalEnd` vêm da Google COM offset correcto → `durationMsBetween` fiável.
-    let newEndNaive: string;
-    if (input.newEnd) {
-      newEndNaive = stripToLisbonNaive(input.newEnd, TOOL_NAME);
-    } else {
-      const durationMs = durationMsBetween(originalStart, originalEnd);
-      const safeDuration =
-        Number.isFinite(durationMs) && durationMs > 0 ? durationMs : DEFAULT_DURATION_MS;
-      newEndNaive = addMsToLisbonNaive(newStartNaive, safeDuration);
-    }
+    // Wall-clock LOCAL de Lisboa naïve (sem 'Z'/offset) — a Google resolve o
+    // instante via `timeZone: 'Europe/Lisbon'` (DST-safe).
+    const newStartNaive = `${baseDay}T${input.newTime}:00`;
+
+    // Preserva SEMPRE a duração original. `originalStart`/`originalEnd` vêm da
+    // Google COM offset correcto → `durationMsBetween` fiável.
+    const durationMs = durationMsBetween(originalStart, originalEnd);
+    const safeDuration =
+      Number.isFinite(durationMs) && durationMs > 0 ? durationMs : DEFAULT_DURATION_MS;
+    const newEndNaive = addMsToLisbonNaive(newStartNaive, safeDuration);
 
     let res: Response;
     try {

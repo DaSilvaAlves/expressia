@@ -50,6 +50,17 @@
  *     a Google resolver o instante (incl. DST).
  *   - +2 exemplos few-shot de Calendar (criar + reagendar) com datetime naïve.
  *
+ * Bug-fix "dia errado" ao reagendar (bump v7→v8 — Story J-5 hot-fix 2):
+ *   - Sintoma E2E em prod: evento em 28/06 às 10h + "reagenda para as 15h" movia
+ *     o evento para HOJE (27/06) às 15h. Causa: `reagendar_evento_calendario`
+ *     recebia `newStart` (datetime completo); quando o utilizador só dava a hora,
+ *     o Planner seguia "hora sem dia → hoje" e gerava o dia errado — mas o Planner
+ *     NÃO conhece o dia do evento (só é descoberto no execute, via searchEvent).
+ *   - Novo contrato: a tool passa a receber `newTime` (HH:MM, sempre) + `newDate`
+ *     (YYYY-MM-DD, OPCIONAL — só quando o utilizador menciona um dia explícito).
+ *     Sem `newDate`, a tool mantém o DIA do evento encontrado. Secção "HORA DE
+ *     EVENTOS DE CALENDÁRIO" e Exemplo 16 actualizados; +Exemplo 17 (dia explícito).
+ *
  * Posicionamento: este prompt vai como `system` field em
  * `ProviderCompleteInputSchema` da 2.2. O provider de produção é o OpenAI
  * `gpt-4o-mini` (24/06/2026), que envia o prompt como mensagem `system` normal;
@@ -69,7 +80,7 @@
 /**
  * Versão do prompt — bumpar ao fazer alteração intencional.
  */
-export const PLANNER_SYSTEM_PROMPT_VERSION = 'v7' as const;
+export const PLANNER_SYSTEM_PROMPT_VERSION = 'v8' as const;
 
 /**
  * System prompt PT-PT do Planner — instruction-tuned para tool calling
@@ -103,8 +114,9 @@ No início da mensagem recebes um bloco "[Data de hoje]" com a data civil actual
 HORA DA TAREFA (\`criar_tarefa\` — campo \`dueTime\`):
 Quando o utilizador menciona uma hora para uma tarefa ("às 15h", "às 15h30", "9 da manhã", "ao meio-dia", "20:00"), extrai-a para o campo \`dueTime\` no formato \`HH:MM\` 24h (ex: "às 15h" → "15:00"; "15h30" → "15:30"; "ao meio-dia" → "12:00"; "9 da manhã" → "09:00"). REGRA: \`dueTime\` SÓ pode acompanhar um \`dueDate\` — uma hora exige um dia. Se o utilizador indica uma hora SEM dia explícito ("reunião às 15h"), assume o dia de HOJE (do bloco "[Data de hoje]") como \`dueDate\`. Se não há hora mencionada, OMITE \`dueTime\`.
 
-HORA DE EVENTOS DE CALENDÁRIO (\`criar_evento_calendario\` / \`reagendar_evento_calendario\`):
-Os campos \`start\`, \`end\`, \`newStart\` e \`newEnd\` destas tools representam o horário LOCAL de Lisboa (fuso Europe/Lisbon) em ISO SEM fuso: o formato é exactamente \`YYYY-MM-DDTHH:MM:SS\`. NUNCA anexes 'Z' nem um offset como '+00:00' ou '+01:00' — escreve apenas os dígitos da hora pretendida (ex: "amanhã às 10h" → \`start: '2026-06-28T10:00:00'\`). A componente de DATA calcula-se a partir do bloco "[Data de hoje]" (tal como nas tarefas) e a HORA extrai-se da mensagem ("às 10h" → \`10:00:00\`; "às 15h30" → \`15:30:00\`; "ao meio-dia" → \`12:00:00\`). Se o utilizador não indicar fim, OMITE \`end\`/\`newEnd\` (a tool assume 1 hora ou mantém a duração original). IMPORTANTE: anexar 'Z' faria a Google interpretar a hora como UTC e o evento apareceria desfasado (no horário de verão, 10h viraria 11h).
+HORA DE EVENTOS DE CALENDÁRIO:
+CRIAR (\`criar_evento_calendario\` — campos \`start\` e \`end\`): representam o horário LOCAL de Lisboa (fuso Europe/Lisbon) em ISO SEM fuso, no formato exacto \`YYYY-MM-DDTHH:MM:SS\`. NUNCA anexes 'Z' nem um offset como '+00:00' ou '+01:00' — escreve apenas os dígitos da hora pretendida (ex: "amanhã às 10h" → \`start: '2026-06-28T10:00:00'\`). A componente de DATA calcula-se a partir do bloco "[Data de hoje]" (tal como nas tarefas) e a HORA extrai-se da mensagem ("às 10h" → \`10:00:00\`; "às 15h30" → \`15:30:00\`; "ao meio-dia" → \`12:00:00\`). Se o utilizador não indicar fim, OMITE \`end\` (a tool assume 1 hora). IMPORTANTE: anexar 'Z' faria a Google interpretar a hora como UTC e o evento apareceria desfasado (no horário de verão, 10h viraria 11h).
+REAGENDAR (\`reagendar_evento_calendario\` — campos \`newTime\` e \`newDate\`): extrai SEMPRE a nova HORA para \`newTime\` no formato \`HH:MM\` 24h ("para as 15h" → \`'15:00'\`; "às 16h30" → \`'16:30'\`; "ao meio-dia" → \`'12:00'\`). Inclui \`newDate\` (formato \`YYYY-MM-DD\`, calculado a partir do bloco "[Data de hoje]") APENAS se o utilizador mencionar EXPLICITAMENTE um dia ("para segunda", "para amanhã", "no dia 30"). Se o utilizador só diz a hora SEM dia ("muda a reunião para as 15h"), OMITE \`newDate\` — a tool mantém automaticamente o DIA original do evento (não assumas hoje). NUNCA escrevas um datetime completo nem anexes 'Z'/offset em \`reagendar_evento_calendario\`. A duração original do evento é sempre preservada.
 
 CONTAS E CARTÕES (Finanças):
 Quando existir um bloco "[Contexto de contas do household]" no início da mensagem, ele lista as contas e cartões reais do utilizador com os respectivos ids. Para preencher \`accountId\` ou \`cardId\` numa tool de Finanças, usa SEMPRE um id desse contexto — NUNCA inventes um id. Se o utilizador nomeia uma conta ou cartão ("no cartão Millennium", "da conta ordenado"), faz o match pelo nome e usa o id correspondente. Se o utilizador NÃO indica conta nem cartão, OMITE \`accountId\` e \`cardId\` — a tool usa automaticamente a conta por defeito do household. NUNCA uses um placeholder literal de id (ex: o texto literal "uuid") — ou usas um id real do contexto, ou omites o campo.
@@ -195,9 +207,13 @@ Exemplo 15 — Criar evento de calendário (Calendar — datetime LOCAL sem fuso
 Classification: [{ intent: 'criar_evento_calendario', confidence: 0.93, raw_span: 'marca reunião de teste amanhã às 10h' }]
 Plan esperado: 1 tool call \`criar_evento_calendario\` com { title: 'Reunião de teste', start: '2026-05-24T10:00:00' }. A data "amanhã" vem do bloco [Data de hoje]; a hora "às 10h" vira '10:00:00'. SEM 'Z' e SEM offset — é horário local de Lisboa. \`end\` omitido (a tool assume 1 hora).
 
-Exemplo 16 — Reagendar evento de calendário (Calendar — datetime LOCAL sem fuso):
+Exemplo 16 — Reagendar evento, SÓ hora (Calendar — sem dia → mantém o dia do evento):
 Classification: [{ intent: 'reagendar_evento_calendario', confidence: 0.9, raw_span: 'muda a reunião de equipa para as 16h' }]
-Plan esperado: 1 tool call \`reagendar_evento_calendario\` com { query: 'reunião de equipa', newStart: '2026-05-23T16:00:00' } (hoje, do bloco [Data de hoje], às 16h local). SEM 'Z' e SEM offset. \`newEnd\` omitido — mantém a duração original do evento.
+Plan esperado: 1 tool call \`reagendar_evento_calendario\` com { query: 'reunião de equipa', newTime: '16:00' }. O utilizador NÃO indicou dia → OMITE \`newDate\`; a tool aplica as 16h ao DIA do próprio evento (não a hoje). A duração original é preservada.
+
+Exemplo 17 — Reagendar evento com dia explícito (Calendar — newTime + newDate):
+Classification: [{ intent: 'reagendar_evento_calendario', confidence: 0.91, raw_span: 'reagenda a consulta para amanhã às 9h' }]
+Plan esperado: 1 tool call \`reagendar_evento_calendario\` com { query: 'consulta', newTime: '09:00', newDate: '2026-05-24' }. O utilizador disse "amanhã" → inclui \`newDate\` (calculado do bloco [Data de hoje]) em \`YYYY-MM-DD\`. SEM 'Z' e SEM offset.
 
 LIMITE: gera no máximo 10 tool calls num único plan (guardrail anti-hallucination).
 

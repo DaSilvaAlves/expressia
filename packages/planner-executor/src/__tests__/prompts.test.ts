@@ -19,8 +19,8 @@ import {
 } from '@/prompts/planner-system';
 
 describe('PLANNER_SYSTEM_PROMPT', () => {
-  it('versão é v7 (bug-fix timezone Calendar — Story J-5 hot-fix)', () => {
-    expect(PLANNER_SYSTEM_PROMPT_VERSION).toBe('v7');
+  it('versão é v8 (bug-fix "dia errado" ao reagendar — Story J-5 hot-fix 2)', () => {
+    expect(PLANNER_SYSTEM_PROMPT_VERSION).toBe('v8');
   });
 
   it('v7: instrui datetime LOCAL sem fuso para as calendar tools (bug "10h→11h")', () => {
@@ -31,6 +31,17 @@ describe('PLANNER_SYSTEM_PROMPT', () => {
     expect(PLANNER_SYSTEM_PROMPT).toMatch(/NUNCA anexes 'Z'/);
     // Exemplo few-shot com datetime naïve (sem 'Z' nem offset).
     expect(PLANNER_SYSTEM_PROMPT).toContain("start: '2026-05-24T10:00:00'");
+  });
+
+  it('v8: reagendar usa newTime (sempre) + newDate (opcional, só com dia explícito)', () => {
+    expect(PLANNER_SYSTEM_PROMPT).toContain('newTime');
+    expect(PLANNER_SYSTEM_PROMPT).toContain('newDate');
+    // Exemplo sem dia → só newTime, mantém o dia do evento.
+    expect(PLANNER_SYSTEM_PROMPT).toContain("newTime: '16:00'");
+    // Exemplo com dia explícito → newTime + newDate.
+    expect(PLANNER_SYSTEM_PROMPT).toMatch(/newTime: '09:00', newDate: '2026-05-24'/);
+    // O contrato antigo (newStart datetime completo) já não é instruído.
+    expect(PLANNER_SYSTEM_PROMPT).not.toMatch(/newStart: '2026-05-23T16:00:00'/);
   });
 
   it('v6: inclui as 4 intents/tools update/delete (Story 2.14)', () => {
