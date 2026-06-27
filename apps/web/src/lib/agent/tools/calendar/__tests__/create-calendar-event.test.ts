@@ -118,6 +118,43 @@ describe('criar_evento_calendario', () => {
     expect((init as RequestInit).headers).toMatchObject({
       Authorization: 'Bearer mock-access-token',
     });
+
+    // Bug-fix timezone: o body enviado à Google tem `dateTime` wall-clock LOCAL
+    // (sem 'Z' nem offset) + `timeZone: 'Europe/Lisbon'`. Input '+01:00' → naïve.
+    const body = JSON.parse((init as RequestInit).body as string) as {
+      start: { dateTime: string; timeZone: string };
+      end: { dateTime: string; timeZone: string };
+    };
+    expect(body.start.dateTime).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
+    expect(body.start.dateTime).toBe('2026-06-27T15:00:00');
+    expect(body.start.timeZone).toBe('Europe/Lisbon');
+    expect(body.end.dateTime).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
+    expect(body.end.timeZone).toBe('Europe/Lisbon');
+  });
+
+  it('ANTI-REGRESSÃO (bug do Eurico): start com sufixo Z → body sem offset, 10h NÃO 11h', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fetchResponse({
+        id: 'evt_z',
+        summary: 'Reunião de teste',
+        start: { dateTime: '2026-06-28T10:00:00+01:00' },
+        end: { dateTime: '2026-06-28T11:00:00+01:00' },
+      }),
+    );
+
+    // O gpt-4o-mini escrevia a hora literal com 'Z' (UTC). Antes do fix, a Google
+    // usava o instante 10:00Z → 11:00 Lisboa (horário de verão). Agora strippamos.
+    await criarEventoCalendario.execute(
+      { title: 'Reunião de teste', start: '2026-06-28T10:00:00Z' },
+      makeCtx([TOKEN_ROW]),
+    );
+
+    const body = JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string) as {
+      start: { dateTime: string; timeZone: string };
+    };
+    expect(body.start.dateTime).toBe('2026-06-28T10:00:00'); // 10h, não 11h
+    expect(body.start.dateTime).not.toMatch(/Z|[+-]\d{2}:\d{2}$/);
+    expect(body.start.timeZone).toBe('Europe/Lisbon');
   });
 
   it('sem token OAuth em DB → lança erro PT-PT e NÃO chama a Calendar API', async () => {
@@ -154,13 +191,13 @@ describe('criar_evento_calendario', () => {
     ).rejects.toThrow();
   });
 
-  it('end omitido → assume 1 hora após start no body do POST', async () => {
+  it('end omitido (DST-safe) → end = start +1h em wall-clock naïve de Lisboa', async () => {
     fetchMock.mockResolvedValueOnce(
       fetchResponse({
         id: 'evt_9',
         summary: 'X',
-        start: { dateTime: '2026-06-27T15:00:00.000Z' },
-        end: { dateTime: '2026-06-27T16:00:00.000Z' },
+        start: { dateTime: '2026-06-27T15:00:00+01:00' },
+        end: { dateTime: '2026-06-27T16:00:00+01:00' },
       }),
     );
     await criarEventoCalendario.execute(
@@ -171,7 +208,8 @@ describe('criar_evento_calendario', () => {
       start: { dateTime: string };
       end: { dateTime: string };
     };
-    const durationMs = Date.parse(body.end.dateTime) - Date.parse(body.start.dateTime);
-    expect(durationMs).toBe(60 * 60 * 1000);
+    // Ambos naïve (sem 'Z'/offset); 15:00 local → 16:00 local.
+    expect(body.start.dateTime).toBe('2026-06-27T15:00:00');
+    expect(body.end.dateTime).toBe('2026-06-27T16:00:00');
   });
 });

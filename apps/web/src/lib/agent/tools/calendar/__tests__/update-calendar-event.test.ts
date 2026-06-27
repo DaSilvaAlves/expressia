@@ -114,15 +114,43 @@ describe('reagendar_evento_calendario', () => {
 
     expect(out.eventId).toBe('evt_1');
     expect(out.title).toBe('Reunião de equipa');
+    // originalStart/End são os valores REAIS da Google (com offset) — usados no undo.
     expect(out.originalStart).toBe('2026-06-27T10:00:00+01:00');
     expect(out.originalEnd).toBe('2026-06-27T11:00:00+01:00');
-    expect(out.newStart).toBe('2026-06-29T10:00:00+01:00');
-    // newEnd = newStart + duração original (1h).
-    const durationMs = Date.parse(out.newEnd) - Date.parse(out.newStart);
-    expect(durationMs).toBe(60 * 60 * 1000);
+    // newStart/newEnd reflectem o wall-clock naïve enviado à Google.
+    expect(out.newStart).toBe('2026-06-29T10:00:00');
+    expect(out.newEnd).toBe('2026-06-29T11:00:00');
 
-    // A 2ª chamada é o PATCH.
-    expect((fetchMock.mock.calls[1]![1] as RequestInit).method).toBe('PATCH');
+    // A 2ª chamada é o PATCH; body com `dateTime` naïve + timeZone Lisboa.
+    const patchInit = fetchMock.mock.calls[1]![1] as RequestInit;
+    expect(patchInit.method).toBe('PATCH');
+    const body = JSON.parse(patchInit.body as string) as {
+      start: { dateTime: string; timeZone: string };
+      end: { dateTime: string; timeZone: string };
+    };
+    expect(body.start.dateTime).toBe('2026-06-29T10:00:00');
+    expect(body.start.dateTime).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
+    expect(body.start.timeZone).toBe('Europe/Lisbon');
+    expect(body.end.dateTime).toBe('2026-06-29T11:00:00');
+    expect(body.end.timeZone).toBe('Europe/Lisbon');
+  });
+
+  it('ANTI-REGRESSÃO: newStart com sufixo Z → PATCH body sem offset, 16h NÃO 17h', async () => {
+    fetchMock
+      .mockResolvedValueOnce(fetchResponse({ items: [EVENT_ITEM] })) // GET search
+      .mockResolvedValueOnce(fetchResponse({ id: 'evt_1' })); // PATCH
+
+    await reagendarEventoCalendario.execute(
+      { query: 'reunião', newStart: '2026-06-29T16:00:00Z' },
+      makeCtx([TOKEN_ROW]),
+    );
+
+    const body = JSON.parse((fetchMock.mock.calls[1]![1] as RequestInit).body as string) as {
+      start: { dateTime: string; timeZone: string };
+    };
+    expect(body.start.dateTime).toBe('2026-06-29T16:00:00'); // 16h, não 17h
+    expect(body.start.dateTime).not.toMatch(/Z|[+-]\d{2}:\d{2}$/);
+    expect(body.start.timeZone).toBe('Europe/Lisbon');
   });
 
   it('0 eventos encontrados → lança erro PT-PT', async () => {

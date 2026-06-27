@@ -19,8 +19,18 @@ import {
 } from '@/prompts/planner-system';
 
 describe('PLANNER_SYSTEM_PROMPT', () => {
-  it('versão é v6 (Story 2.14 — tools update/delete)', () => {
-    expect(PLANNER_SYSTEM_PROMPT_VERSION).toBe('v6');
+  it('versão é v7 (bug-fix timezone Calendar — Story J-5 hot-fix)', () => {
+    expect(PLANNER_SYSTEM_PROMPT_VERSION).toBe('v7');
+  });
+
+  it('v7: instrui datetime LOCAL sem fuso para as calendar tools (bug "10h→11h")', () => {
+    expect(PLANNER_SYSTEM_PROMPT).toMatch(/HORA DE EVENTOS DE CALENDÁRIO/);
+    expect(PLANNER_SYSTEM_PROMPT).toContain('criar_evento_calendario');
+    expect(PLANNER_SYSTEM_PROMPT).toContain('reagendar_evento_calendario');
+    // Proíbe explicitamente o sufixo 'Z'/offset que causava o desvio em prod.
+    expect(PLANNER_SYSTEM_PROMPT).toMatch(/NUNCA anexes 'Z'/);
+    // Exemplo few-shot com datetime naïve (sem 'Z' nem offset).
+    expect(PLANNER_SYSTEM_PROMPT).toContain("start: '2026-05-24T10:00:00'");
   });
 
   it('v6: inclui as 4 intents/tools update/delete (Story 2.14)', () => {

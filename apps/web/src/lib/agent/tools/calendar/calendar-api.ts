@@ -9,6 +9,7 @@
  *
  * Trace: Story J-5 AC6/AC7, Dev Notes "Padrão de obtenção do accessToken".
  */
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { sql } from 'drizzle-orm';
 
 import { ToolExecutionError, type ToolExecutionContext } from '@meu-jarvis/tools';
@@ -108,4 +109,66 @@ export function boundToIso(bound: GoogleEventBound | undefined): string | null {
 /** Type guard mínimo de um item de evento da Calendar API. */
 export function isGoogleCalendarItem(value: unknown): value is GoogleCalendarItem {
   return typeof value === 'object' && value !== null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Datetime helpers (bug-fix timezone J-5 — "10h virava 11h")
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Padrão recomendado pela Google Calendar API para criar/reagendar eventos:
+// enviar `dateTime` SEM offset (wall-clock local) + `timeZone: 'Europe/Lisbon'`,
+// deixando a Google resolver o INSTANTE (incl. DST). Se o `dateTime` trouxer
+// offset (`Z`/`+00:00`/`+01:00`), a Google usa esse instante e o `timeZone` só
+// afecta o display → `10:00Z` aparece como 11:00 em Lisboa (horário de verão).
+
+/**
+ * Captura `YYYY-MM-DDTHH:MM` (segundos opcionais) no INÍCIO de uma string ISO,
+ * descartando o sufixo de fuso (`Z`/offset) e qualquer fracção de segundo.
+ */
+const NAIVE_PREFIX_RE = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(:\d{2})?/;
+
+/**
+ * Normaliza um ISO (com OU sem offset) para wall-clock local de Lisboa naïve
+ * (`YYYY-MM-DDTHH:MM:SS`, sem 'Z' nem offset). Os segundos são forçados a `:00`
+ * quando ausentes.
+ *
+ * **Assunção documentada:** o LLM escreve a hora LOCAL pretendida (os dígitos da
+ * hora) e erra apenas no sufixo (anexa um 'Z'/offset indevido). Descartar o
+ * sufixo preserva a intenção do utilizador — `10:00Z` e `10:00+01:00` ambos
+ * passam a representar as 10:00 de Lisboa.
+ *
+ * @throws {ToolExecutionError} PT-PT se a string não casar com o formato ISO.
+ */
+export function stripToLisbonNaive(iso: string, toolName: string): string {
+  const match = NAIVE_PREFIX_RE.exec(iso);
+  if (!match) {
+    throw new ToolExecutionError(
+      toolName,
+      new Error(`Horário inválido '${iso}': esperava o formato ISO YYYY-MM-DDTHH:MM:SS.`),
+    );
+  }
+  const seconds = match[2] ?? ':00';
+  return `${match[1]}${seconds}`;
+}
+
+/**
+ * Soma `ms` milissegundos a um instante wall-clock local de Lisboa de forma
+ * DST-safe e devolve novamente wall-clock naïve (`YYYY-MM-DDTHH:MM:SS`).
+ *
+ * `fromZonedTime` converte o naïve→instante UTC interpretando-o como hora de
+ * Lisboa; somamos os `ms` ao instante e formatamos de volta no mesmo fuso.
+ */
+export function addMsToLisbonNaive(naive: string, ms: number): string {
+  const instant = fromZonedTime(naive, CALENDAR_TZ).getTime() + ms;
+  return formatInTimeZone(instant, CALENDAR_TZ, "yyyy-MM-dd'T'HH:mm:ss");
+}
+
+/**
+ * Duração em ms entre dois ISO COM offset correcto (ex: os valores REAIS
+ * devolvidos pela Google). NÃO usar sobre strings naïve — `Date.parse` destas é
+ * ambíguo. Devolve `NaN` se algum valor for inválido (o chamador trata o
+ * fallback).
+ */
+export function durationMsBetween(startIso: string, endIso: string): number {
+  return Date.parse(endIso) - Date.parse(startIso);
 }

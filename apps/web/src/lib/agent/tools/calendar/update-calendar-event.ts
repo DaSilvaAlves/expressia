@@ -15,7 +15,7 @@
  *
  * Trace: Story J-5 AC7 + AC10, PRD-Jarvis §9.
  */
-import { formatInTimeZone } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { z } from 'zod';
 
 import {
@@ -31,19 +31,32 @@ import {
   getCalendarAccessToken,
   isGoogleCalendarItem,
   boundToIso,
+  stripToLisbonNaive,
+  addMsToLisbonNaive,
+  durationMsBetween,
   type GoogleCalendarItem,
 } from './calendar-api';
 
 const TOOL_NAME = 'reagendar_evento_calendario';
 
+/** Duração padrão (1h) quando a original não é determinável. */
+const DEFAULT_DURATION_MS = 60 * 60 * 1000;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Schemas
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Schema permissivo: aceita wall-clock LOCAL naïve (o formato do Planner v7) E,
+// por robustez, strings com 'Z'/offset. Normalizado para naïve Lisboa no execute.
+const CALENDAR_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
+const calendarDateTime = z
+  .string()
+  .regex(CALENDAR_DATETIME_RE, 'Horário inválido — esperava ISO YYYY-MM-DDTHH:MM:SS.');
+
 const ReagendarEventoCalendarioInputSchema = z.object({
   query: z.string().min(1),
-  newStart: z.string().datetime({ offset: true }),
-  newEnd: z.string().datetime({ offset: true }).optional(),
+  newStart: calendarDateTime,
+  newEnd: calendarDateTime.optional(),
 });
 
 export type ReagendarEventoCalendarioInput = z.infer<
@@ -136,7 +149,13 @@ export const reagendarEventoCalendario: ToolDefinition<
   estimatedTokens: 140,
 
   preview(input) {
-    const quando = formatInTimeZone(new Date(input.newStart), CALENDAR_TZ, "dd/MM/yyyy 'às' HH:mm");
+    // `newStart` pode ser naïve; interpretá-lo como hora de Lisboa antes de formatar.
+    const newStartNaive = stripToLisbonNaive(input.newStart, TOOL_NAME);
+    const quando = formatInTimeZone(
+      fromZonedTime(newStartNaive, CALENDAR_TZ),
+      CALENDAR_TZ,
+      "dd/MM/yyyy 'às' HH:mm",
+    );
     return `Vou reagendar '${input.query}' para ${quando}.`;
   },
 
@@ -162,13 +181,19 @@ export const reagendarEventoCalendario: ToolDefinition<
       );
     }
 
-    // Se `newEnd` omitido, preserva a duração original.
-    let newEnd = input.newEnd;
-    if (!newEnd) {
-      const durationMs = Date.parse(originalEnd) - Date.parse(originalStart);
-      const newStartMs = Date.parse(input.newStart);
-      const safeDuration = Number.isFinite(durationMs) && durationMs > 0 ? durationMs : 60 * 60 * 1000;
-      newEnd = new Date((Number.isNaN(newStartMs) ? Date.now() : newStartMs) + safeDuration).toISOString();
+    // Normaliza o novo início para wall-clock LOCAL de Lisboa (sem 'Z'/offset).
+    const newStartNaive = stripToLisbonNaive(input.newStart, TOOL_NAME);
+
+    // Se `newEnd` omitido, preserva a duração original. `originalStart`/
+    // `originalEnd` vêm da Google COM offset correcto → `durationMsBetween` fiável.
+    let newEndNaive: string;
+    if (input.newEnd) {
+      newEndNaive = stripToLisbonNaive(input.newEnd, TOOL_NAME);
+    } else {
+      const durationMs = durationMsBetween(originalStart, originalEnd);
+      const safeDuration =
+        Number.isFinite(durationMs) && durationMs > 0 ? durationMs : DEFAULT_DURATION_MS;
+      newEndNaive = addMsToLisbonNaive(newStartNaive, safeDuration);
     }
 
     let res: Response;
@@ -180,8 +205,8 @@ export const reagendarEventoCalendario: ToolDefinition<
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          start: { dateTime: input.newStart, timeZone: CALENDAR_TZ },
-          end: { dateTime: newEnd, timeZone: CALENDAR_TZ },
+          start: { dateTime: newStartNaive, timeZone: CALENDAR_TZ },
+          end: { dateTime: newEndNaive, timeZone: CALENDAR_TZ },
         }),
       });
     } catch (err) {
@@ -203,10 +228,12 @@ export const reagendarEventoCalendario: ToolDefinition<
     return {
       eventId: event.id,
       title: typeof event.summary === 'string' ? event.summary : input.query,
+      // `originalStart`/`originalEnd` REAIS da Google (com offset) — usados pelo
+      // reverse_op (restore_event). `newStart`/`newEnd` reflectem o naïve enviado.
       originalStart,
       originalEnd,
-      newStart: input.newStart,
-      newEnd,
+      newStart: newStartNaive,
+      newEnd: newEndNaive,
     };
   },
 

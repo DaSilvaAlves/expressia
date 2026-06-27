@@ -39,6 +39,17 @@
  *     `eliminar_tarefa`, `update_finance_variable`, `delete_finance_variable`).
  *   - 4 exemplos few-shot de tool calling para as novas tools.
  *
+ * Bug-fix timezone Calendar (bump v6→v7 — Story J-5 hot-fix):
+ *   - Sintoma E2E em prod: "amanhã às 10h" criava o evento às 11h (horário de
+ *     verão, UTC+1). O Planner não tinha nenhuma regra sobre o formato do
+ *     `start`/`end`/`newStart`/`newEnd` das calendar tools, pelo que o gpt-4o-mini
+ *     anexava 'Z' (`...T10:00:00Z`) → a Google interpretava como UTC.
+ *   - Adicionada a secção "HORA DE EVENTOS DE CALENDÁRIO": os datetimes destas
+ *     tools são wall-clock LOCAL de Lisboa em ISO SEM fuso (`YYYY-MM-DDTHH:MM:SS`,
+ *     nunca 'Z' nem offset). As tools enviam `timeZone: 'Europe/Lisbon'` e deixam
+ *     a Google resolver o instante (incl. DST).
+ *   - +2 exemplos few-shot de Calendar (criar + reagendar) com datetime naïve.
+ *
  * Posicionamento: este prompt vai como `system` field em
  * `ProviderCompleteInputSchema` da 2.2. O provider de produção é o OpenAI
  * `gpt-4o-mini` (24/06/2026), que envia o prompt como mensagem `system` normal;
@@ -58,7 +69,7 @@
 /**
  * Versão do prompt — bumpar ao fazer alteração intencional.
  */
-export const PLANNER_SYSTEM_PROMPT_VERSION = 'v6' as const;
+export const PLANNER_SYSTEM_PROMPT_VERSION = 'v7' as const;
 
 /**
  * System prompt PT-PT do Planner — instruction-tuned para tool calling
@@ -91,6 +102,9 @@ No início da mensagem recebes um bloco "[Data de hoje]" com a data civil actual
 
 HORA DA TAREFA (\`criar_tarefa\` — campo \`dueTime\`):
 Quando o utilizador menciona uma hora para uma tarefa ("às 15h", "às 15h30", "9 da manhã", "ao meio-dia", "20:00"), extrai-a para o campo \`dueTime\` no formato \`HH:MM\` 24h (ex: "às 15h" → "15:00"; "15h30" → "15:30"; "ao meio-dia" → "12:00"; "9 da manhã" → "09:00"). REGRA: \`dueTime\` SÓ pode acompanhar um \`dueDate\` — uma hora exige um dia. Se o utilizador indica uma hora SEM dia explícito ("reunião às 15h"), assume o dia de HOJE (do bloco "[Data de hoje]") como \`dueDate\`. Se não há hora mencionada, OMITE \`dueTime\`.
+
+HORA DE EVENTOS DE CALENDÁRIO (\`criar_evento_calendario\` / \`reagendar_evento_calendario\`):
+Os campos \`start\`, \`end\`, \`newStart\` e \`newEnd\` destas tools representam o horário LOCAL de Lisboa (fuso Europe/Lisbon) em ISO SEM fuso: o formato é exactamente \`YYYY-MM-DDTHH:MM:SS\`. NUNCA anexes 'Z' nem um offset como '+00:00' ou '+01:00' — escreve apenas os dígitos da hora pretendida (ex: "amanhã às 10h" → \`start: '2026-06-28T10:00:00'\`). A componente de DATA calcula-se a partir do bloco "[Data de hoje]" (tal como nas tarefas) e a HORA extrai-se da mensagem ("às 10h" → \`10:00:00\`; "às 15h30" → \`15:30:00\`; "ao meio-dia" → \`12:00:00\`). Se o utilizador não indicar fim, OMITE \`end\`/\`newEnd\` (a tool assume 1 hora ou mantém a duração original). IMPORTANTE: anexar 'Z' faria a Google interpretar a hora como UTC e o evento apareceria desfasado (no horário de verão, 10h viraria 11h).
 
 CONTAS E CARTÕES (Finanças):
 Quando existir um bloco "[Contexto de contas do household]" no início da mensagem, ele lista as contas e cartões reais do utilizador com os respectivos ids. Para preencher \`accountId\` ou \`cardId\` numa tool de Finanças, usa SEMPRE um id desse contexto — NUNCA inventes um id. Se o utilizador nomeia uma conta ou cartão ("no cartão Millennium", "da conta ordenado"), faz o match pelo nome e usa o id correspondente. Se o utilizador NÃO indica conta nem cartão, OMITE \`accountId\` e \`cardId\` — a tool usa automaticamente a conta por defeito do household. NUNCA uses um placeholder literal de id (ex: o texto literal "uuid") — ou usas um id real do contexto, ou omites o campo.
@@ -176,6 +190,14 @@ Plan esperado: 1 tool call \`update_finance_variable\` com { description: 'café
 Exemplo 14 — Eliminar transacção (Finance — destrutiva):
 Classification: [{ intent: 'delete_finance_variable', confidence: 0.93, raw_span: 'elimina a transacção do almoço de ontem' }]
 Plan esperado: 1 tool call \`delete_finance_variable\` com { description: 'almoço', transactionDate: '2026-05-22' } (a data de "ontem" calculada a partir do bloco [Data de hoje]). NÃO definas confirmed=true — a tool devolve needsConfirmation.
+
+Exemplo 15 — Criar evento de calendário (Calendar — datetime LOCAL sem fuso):
+Classification: [{ intent: 'criar_evento_calendario', confidence: 0.93, raw_span: 'marca reunião de teste amanhã às 10h' }]
+Plan esperado: 1 tool call \`criar_evento_calendario\` com { title: 'Reunião de teste', start: '2026-05-24T10:00:00' }. A data "amanhã" vem do bloco [Data de hoje]; a hora "às 10h" vira '10:00:00'. SEM 'Z' e SEM offset — é horário local de Lisboa. \`end\` omitido (a tool assume 1 hora).
+
+Exemplo 16 — Reagendar evento de calendário (Calendar — datetime LOCAL sem fuso):
+Classification: [{ intent: 'reagendar_evento_calendario', confidence: 0.9, raw_span: 'muda a reunião de equipa para as 16h' }]
+Plan esperado: 1 tool call \`reagendar_evento_calendario\` com { query: 'reunião de equipa', newStart: '2026-05-23T16:00:00' } (hoje, do bloco [Data de hoje], às 16h local). SEM 'Z' e SEM offset. \`newEnd\` omitido — mantém a duração original do evento.
 
 LIMITE: gera no máximo 10 tool calls num único plan (guardrail anti-hallucination).
 

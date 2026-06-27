@@ -15,7 +15,7 @@
  *
  * Trace: Story J-5 AC6 + AC10, PRD-Jarvis §9 (roadmap v1.1 Calendar escrita).
  */
-import { formatInTimeZone } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { z } from 'zod';
 
 import {
@@ -31,6 +31,8 @@ import {
   getCalendarAccessToken,
   isGoogleCalendarItem,
   boundToIso,
+  stripToLisbonNaive,
+  addMsToLisbonNaive,
 } from './calendar-api';
 
 const TOOL_NAME = 'criar_evento_calendario';
@@ -42,12 +44,19 @@ const DEFAULT_DURATION_MS = 60 * 60 * 1000;
 // Schemas
 // ─────────────────────────────────────────────────────────────────────────────
 
-// `.datetime({ offset: true })` aceita tanto `...Z` (UTC) como `...+01:00`
-// (offset Lisbon WET/WEST) — robusto para horários locais produzidos pelo Planner.
+// Schema permissivo: aceita wall-clock LOCAL naïve (`YYYY-MM-DDTHH:MM:SS`, o
+// formato que o Planner v7 produz) E, por robustez, strings com 'Z'/offset ou
+// fracção de segundo. O `execute`/`preview` normalizam tudo para naïve Lisboa via
+// `stripToLisbonNaive` antes de enviar à Google (ver calendar-api.ts).
+const CALENDAR_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
+const calendarDateTime = z
+  .string()
+  .regex(CALENDAR_DATETIME_RE, 'Horário inválido — esperava ISO YYYY-MM-DDTHH:MM:SS.');
+
 const CriarEventoCalendarioInputSchema = z.object({
   title: z.string().min(1),
-  start: z.string().datetime({ offset: true }),
-  end: z.string().datetime({ offset: true }).optional(),
+  start: calendarDateTime,
+  end: calendarDateTime.optional(),
   description: z.string().optional(),
 });
 
@@ -79,16 +88,26 @@ export const criarEventoCalendario: ToolDefinition<
   estimatedTokens: 120,
 
   preview(input) {
-    const quando = formatInTimeZone(new Date(input.start), CALENDAR_TZ, "dd/MM/yyyy 'às' HH:mm");
+    // `input.start` pode ser naïve (sem fuso); interpretá-lo como hora de Lisboa
+    // (não como TZ do servidor, que é UTC na Vercel) antes de formatar.
+    const startNaive = stripToLisbonNaive(input.start, TOOL_NAME);
+    const quando = formatInTimeZone(
+      fromZonedTime(startNaive, CALENDAR_TZ),
+      CALENDAR_TZ,
+      "dd/MM/yyyy 'às' HH:mm",
+    );
     return `Vou criar o evento '${input.title}' no dia ${quando}.`;
   },
 
   async execute(input, ctx: ToolExecutionContext): Promise<CriarEventoCalendarioOutput> {
     const accessToken = await getCalendarAccessToken(ctx, TOOL_NAME);
 
-    const startMs = Date.parse(input.start);
-    const endIso =
-      input.end ?? new Date((Number.isNaN(startMs) ? Date.now() : startMs) + DEFAULT_DURATION_MS).toISOString();
+    // Normaliza para wall-clock LOCAL de Lisboa (sem 'Z'/offset) — a Google
+    // resolve o instante via `timeZone` (incl. DST). Ver calendar-api.ts.
+    const startNaive = stripToLisbonNaive(input.start, TOOL_NAME);
+    const endNaive = input.end
+      ? stripToLisbonNaive(input.end, TOOL_NAME)
+      : addMsToLisbonNaive(startNaive, DEFAULT_DURATION_MS);
 
     let res: Response;
     try {
@@ -101,8 +120,8 @@ export const criarEventoCalendario: ToolDefinition<
         body: JSON.stringify({
           summary: input.title,
           ...(input.description ? { description: input.description } : {}),
-          start: { dateTime: input.start, timeZone: CALENDAR_TZ },
-          end: { dateTime: endIso, timeZone: CALENDAR_TZ },
+          start: { dateTime: startNaive, timeZone: CALENDAR_TZ },
+          end: { dateTime: endNaive, timeZone: CALENDAR_TZ },
         }),
       });
     } catch (err) {
@@ -132,8 +151,9 @@ export const criarEventoCalendario: ToolDefinition<
     return {
       eventId: data.id,
       title: typeof data.summary === 'string' ? data.summary : input.title,
-      start: boundToIso(data.start) ?? input.start,
-      end: boundToIso(data.end) ?? endIso,
+      // Os valores da Google vêm com offset correcto; fallback para o naïve enviado.
+      start: boundToIso(data.start) ?? startNaive,
+      end: boundToIso(data.end) ?? endNaive,
     };
   },
 
