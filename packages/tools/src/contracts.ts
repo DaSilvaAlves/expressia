@@ -33,8 +33,19 @@ import { ToolValidationError } from './errors';
  *                              calendar tools vivem em `apps/web` (direcção de
  *                              dependência — precisam de `@/lib/google/oauth`), NÃO
  *                              em `packages/tools`. Só o domínio é registado aqui.
+ *   - `email`     — Story J-6 (consultar_emails; leitura readonly da caixa de
+ *                              entrada do Gmail via API externa). Mesma direcção de
+ *                              dependência que `calendar` — a tool vive em `apps/web`
+ *                              (`@/lib/google/oauth`), só o domínio é registado aqui.
  */
-export const TOOL_DOMAIN_VALUES = ['tasks', 'finance', 'query', 'system', 'calendar'] as const;
+export const TOOL_DOMAIN_VALUES = [
+  'tasks',
+  'finance',
+  'query',
+  'system',
+  'calendar',
+  'email',
+] as const;
 
 /**
  * Schema Zod aceitando qualquer dos domínios de tools suportados.

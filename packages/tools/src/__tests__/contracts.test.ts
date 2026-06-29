@@ -162,15 +162,23 @@ describe('deserializeReverseOp — input inválido', () => {
 });
 
 describe('Enums — coerência runtime', () => {
-  it('TOOL_DOMAIN_VALUES tem exactamente 5 entries (Story J-5 +calendar)', () => {
-    expect(TOOL_DOMAIN_VALUES.length).toBe(5);
-    expect([...TOOL_DOMAIN_VALUES]).toEqual(['tasks', 'finance', 'query', 'system', 'calendar']);
+  it('TOOL_DOMAIN_VALUES tem exactamente 6 entries (Story J-6 +email)', () => {
+    expect(TOOL_DOMAIN_VALUES.length).toBe(6);
+    expect([...TOOL_DOMAIN_VALUES]).toEqual([
+      'tasks',
+      'finance',
+      'query',
+      'system',
+      'calendar',
+      'email',
+    ]);
   });
 
-  it('ToolDomainSchema aceita os 5 valores e rejeita outros', () => {
+  it('ToolDomainSchema aceita os 6 valores e rejeita outros', () => {
     expect(() => ToolDomainSchema.parse('tasks')).not.toThrow();
     expect(() => ToolDomainSchema.parse('finance')).not.toThrow();
     expect(() => ToolDomainSchema.parse('calendar')).not.toThrow();
+    expect(() => ToolDomainSchema.parse('email')).not.toThrow();
     expect(() => ToolDomainSchema.parse('invalid')).toThrow();
   });
 

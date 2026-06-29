@@ -23,6 +23,7 @@ import {
   type CalendarSection,
 } from '@/lib/brief/synthesize';
 import { getCalendarEventsToday } from '@/lib/google/calendar';
+import { getGmailSummaryForBrief, type GmailBriefItem } from '@/lib/google/gmail';
 import { refreshAccessToken } from '@/lib/google/oauth';
 import {
   getAccountsBalance,
@@ -43,6 +44,11 @@ export interface BriefResult {
    * log — só contagem, NUNCA títulos ou localização (constraint J-3 AC9).
    */
   readonly calendarEventCount: number | null;
+  /**
+   * Número de emails não lidos incluídos no brief (Story J-6). Seguro para log
+   * — só contagem, NUNCA subject/remetente/snippet (constraint privacidade J-6).
+   */
+  readonly emailCount: number;
 }
 
 /** Row de `google_oauth_tokens` necessária ao refresh (sem o token em claro). */
@@ -105,6 +111,50 @@ async function resolveCalendarSection(
 }
 
 /**
+ * Resolve a secção de email (emails não lidos do inbox) para `(household, user)`.
+ * NUNCA lança — qualquer falha (token, refresh, API) é mapeada para
+ * `{ emails: [], error }`, de modo a que o email jamais derrube o brief
+ * (degradação graciosa, mesmo padrão da agenda — Story J-6 AC10).
+ *
+ * Lê a linha de `google_oauth_tokens` via o `db` RLS-scoped (`withHousehold`),
+ * NUNCA via `getServiceDb()` (RLS obrigatória para dados de domínio — lição
+ * SEC-8.1). Os campos cifrados são passados a `getGmailSummaryForBrief`, que
+ * decifra inline e lê a Gmail API. Os emails são processados em memória e nunca
+ * persistidos (constraint privacidade J-6).
+ */
+async function resolveEmailSection(
+  db: DbShim,
+  householdId: string,
+  userId: string,
+): Promise<{ emails: GmailBriefItem[]; error?: string }> {
+  try {
+    const rows = await db.execute<GoogleOauthTokenRow>(sql`
+      select encrypted_refresh_token, token_iv, token_auth_tag
+      from public.google_oauth_tokens
+      where household_id = ${householdId}::uuid
+        and user_id = ${userId}::uuid
+      limit 1
+    `);
+
+    const token = rows[0];
+    if (!token) {
+      // Sem token OAuth (Gmail não ligado) → secção de email omitida, sem nota.
+      return { emails: [] };
+    }
+
+    return await getGmailSummaryForBrief({
+      encryptedRefreshToken: token.encrypted_refresh_token,
+      tokenIv: token.token_iv,
+      tokenAuthTag: token.token_auth_tag,
+    });
+  } catch (err) {
+    // Falha inesperada na leitura da DB — o email fica indisponível, mas o
+    // brief continua.
+    return { emails: [], error: err instanceof Error ? err.message : 'erro desconhecido' };
+  }
+}
+
+/**
  * Constrói o texto do brief para um household. O `db` deve vir de
  * `withHousehold` (role `authenticated`, RLS viva).
  */
@@ -116,12 +166,13 @@ export async function buildBriefForHousehold(
 ): Promise<BriefResult> {
   // Agregação em paralelo — todas as queries são read-only e household-scoped.
   // A agenda corre em paralelo e nunca lança (degradação graciosa interna).
-  const [today, overdue, finances, accounts, calendar] = await Promise.all([
+  const [today, overdue, finances, accounts, calendar, email] = await Promise.all([
     getTasksToday(db, householdId),
     getTasksOverdue(db, householdId),
     getFinancesMonth(db, householdId),
     getAccountsBalance(db, householdId),
     resolveCalendarSection(db, householdId, userId),
+    resolveEmailSection(db, householdId, userId),
   ]);
 
   const data: BriefData = {
@@ -134,6 +185,7 @@ export async function buildBriefForHousehold(
     financeExpenseCents: finances.expenseTotal,
     financeBalanceCents: finances.balance,
     accountsBalanceCents: accounts.totalBalanceCents,
+    emailSummary: email.emails,
   };
 
   const { text, usedFallback } = await synthesizeBriefText(data, {
@@ -147,5 +199,6 @@ export async function buildBriefForHousehold(
     tasksTodayCount: today.count,
     tasksOverdueCount: overdue.count,
     calendarEventCount: calendar.status === 'connected' ? calendar.events.length : null,
+    emailCount: email.emails.length,
   };
 }

@@ -7,11 +7,13 @@
  *        Story 2.14 AC9 (bump v2→v3: +4 intents update/delete Tarefas+Finanças,
  *        +4 few-shots, instrução needs_confirmation=true para eliminar_*);
  *        Story J-5 AC3 (bump v3→v4: +2 intents Calendar escrita criar/reagendar,
- *        +4 few-shots, instrução needs_confirmation=true para reagendar_evento_*).
+ *        +4 few-shots, instrução needs_confirmation=true para reagendar_evento_*);
+ *        Story J-6 AC3 (bump v4→v5: +1 intent Gmail readonly `consultar_emails`,
+ *        +2 few-shots, leitura sem confirmação — NÃO força needs_confirmation).
  *
  * Princípios do prompt:
- *   - Lista os 17 intents canónicos com descrição PT-PT de quando usar cada.
- *   - 18 exemplos few-shot PT-PT cobrindo cada intent.
+ *   - Lista os 18 intents canónicos com descrição PT-PT de quando usar cada.
+ *   - 20 exemplos few-shot PT-PT cobrindo cada intent.
  *   - Instrução explícita: input non-PT-PT → array com `unknown` confidence 1.0,
  *     `language: 'pt-PT'`, `needs_confirmation: false`.
  *   - Instrução explícita: temperature=0, `confidence` calibrado.
@@ -25,13 +27,13 @@
  * alterado acidentalmente.
  */
 
-export const CLASSIFIER_SYSTEM_PROMPT_VERSION = 'v4' as const;
+export const CLASSIFIER_SYSTEM_PROMPT_VERSION = 'v5' as const;
 
 export const CLASSIFIER_SYSTEM_PROMPT = `És o classificador de intents do agente Expressia, um assistente pessoal multi-intent para famílias em Portugal (mercado PT-PT exclusivo).
 
 Recebes um pedido do utilizador em português europeu e devolves um JSON com a estrutura definida em \`response_format.json_schema\`.
 
-# Intents canónicos (17)
+# Intents canónicos (18)
 
 | Intent | Quando usar |
 |--------|-------------|
@@ -50,6 +52,7 @@ Recebes um pedido do utilizador em português europeu e devolves um JSON com a e
 | \`consultar_dados\` | Pedidos de leitura/consulta sobre tarefas, finanças ou histórico. Ex: "quanto gastei este mês?", "que tarefas tenho amanhã?". |
 | \`criar_evento_calendario\` | Pedidos para criar, marcar ou agendar um novo evento na agenda. Ex: "marca reunião com a Ana sexta às 15h", "agenda consulta médica amanhã de manhã". |
 | \`reagendar_evento_calendario\` | Pedidos para mover ou alterar o horário de um evento existente na agenda. Ex: "reagenda a reunião de amanhã para segunda às 10h", "muda a reunião de hoje para as 16h". |
+| \`consultar_emails\` | Pedidos para ler, ver, procurar ou consultar emails da caixa de entrada do Gmail. Ex: "mostra os meus emails", "tenho email do Pedro?", "procura emails sobre a factura". |
 | \`cancelar_ultima\` | Pedidos para reverter a última operação (FR6 undo). Ex: "anula a última", "desfaz", "esquece o que disse". |
 | \`unknown\` | Pedido ambíguo, sem intent reconhecível, ou input non-PT-PT. Use como fallback explícito. |
 
@@ -344,9 +347,39 @@ Output:
 }
 \`\`\`
 
+## Exemplo 19 — consultar emails (leitura, sem confirmação)
+
+Input: \`mostra os meus emails\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "consultar_emails", "confidence": 0.94, "raw_span": "mostra os meus emails" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": false,
+  "overall_confidence": 0.94
+}
+\`\`\`
+
+## Exemplo 20 — procurar emails de alguém (leitura, sem confirmação)
+
+Input: \`tenho algum email do Pedro?\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "consultar_emails", "confidence": 0.9, "raw_span": "tenho algum email do Pedro?" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": false,
+  "overall_confidence": 0.9
+}
+\`\`\`
+
 # Importante
 
-- NUNCA inventes intents fora dos 17 listados acima — usa \`unknown\` como fallback.
+- NUNCA inventes intents fora dos 18 listados acima — usa \`unknown\` como fallback.
 - NUNCA escrevas em PT-BR (ex: "você", "deletar") nos \`raw_span\` ou em qualquer parte do output — copia exactamente do input.
 - NUNCA incluas texto livre fora da estrutura JSON.
 - temperature=0 e structured output garantem determinismo — confia na resposta.

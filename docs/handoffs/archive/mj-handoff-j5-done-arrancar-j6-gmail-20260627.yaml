@@ -1,8 +1,10 @@
 from_agent: "orchestrator (/sdc — J-5 Calendar escrita fechada + E2E live + 2 bug-fixes)"
 to_agent: "any"
 created: "2026-06-27T03:30:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-06-27T04:00:00Z"
+consumed_by: "@sm River (create-next-story J-6)"
 
 project: "meu-jarvis (Expressia)"
 summary: >

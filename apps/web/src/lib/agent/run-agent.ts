@@ -29,6 +29,8 @@ import { sql } from 'drizzle-orm';
 // ANTES de qualquer invocação do Planner/Executor. Forma side-effect sem
 // desestruturar (resiste melhor a tree-shaking; ver registration.test.ts).
 import '@/lib/agent/tools/calendar/index';
+// Side-effect: regista a gmail tool (Story J-6) no `toolRegistry` singleton.
+import '@/lib/agent/tools/gmail/index';
 
 import { Classifier, type ClassificationResult } from '@meu-jarvis/classifier';
 import { getDb, withHousehold } from '@/lib/agent/db-shim';

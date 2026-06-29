@@ -192,6 +192,59 @@ describe('serializeBriefData (via prompt do LLM) — agenda', () => {
   });
 });
 
+describe('serializeBriefData (via prompt do LLM) — email (Story J-6)', () => {
+  const opts = { traceId: 'trace-email', householdId: '00000000-0000-0000-0000-000000000003' };
+
+  async function capturePromptContent(data: BriefData): Promise<string> {
+    let captured = '';
+    const completeSpy = vi.fn(async (args: { messages: Array<{ content: string }> }) => {
+      captured = args.messages[0]?.content ?? '';
+      return { content: 'ok' };
+    });
+    vi.mocked(getProvider).mockReturnValue({
+      id: 'openai',
+      model: 'gpt-4o-mini',
+      complete: completeSpy as never,
+    } as never);
+    await synthesizeBriefText(data, opts);
+    return captured;
+  }
+
+  const EMAILS = [
+    {
+      subject: 'Reunião amanhã',
+      from: 'Pedro <pedro@example.com>',
+      receivedAt: 'Fri, 27 Jun 2026 10:30:00 +0000',
+      snippet: 'Confirmas a reunião?',
+    },
+    {
+      subject: 'Extrato disponível',
+      from: 'Banco <noreply@banco.pt>',
+      receivedAt: 'Fri, 27 Jun 2026 08:00:00 +0000',
+      snippet: 'O teu extrato de junho está pronto.',
+    },
+  ];
+
+  it('emailSummary preenchido → secção de email serializada no fim, após finanças', async () => {
+    const content = await capturePromptContent({ ...BASE_DATA, emailSummary: EMAILS });
+    expect(content).toContain('Emails não lidos (2):');
+    expect(content).toContain('Pedro <pedro@example.com>: Reunião amanhã');
+    expect(content).toContain('Banco <noreply@banco.pt>: Extrato disponível');
+    // Email surge depois das finanças (ordem: agenda → tarefas → finanças → email).
+    expect(content.indexOf('Finanças do mês')).toBeLessThan(content.indexOf('Emails não lidos'));
+  });
+
+  it('emailSummary vazio → secção de email omitida por completo', async () => {
+    const content = await capturePromptContent({ ...BASE_DATA, emailSummary: [] });
+    expect(content).not.toContain('Emails não lidos');
+  });
+
+  it('emailSummary ausente (undefined) → secção de email omitida por completo', async () => {
+    const content = await capturePromptContent(BASE_DATA);
+    expect(content).not.toContain('Emails não lidos');
+  });
+});
+
 describe('synthesizeBriefText', () => {
   const opts = { traceId: 'trace-1', householdId: '00000000-0000-0000-0000-000000000001' };
 

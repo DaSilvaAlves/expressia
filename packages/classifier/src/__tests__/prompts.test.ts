@@ -4,13 +4,14 @@
  * Trace: Story 2.4 AC4 + AC11 (prompts.test.ts mínimo 1 caso);
  *        Story 4.10 AC7 (bump v1→v2 + 11 intents);
  *        Story 2.14 AC9 (bump v2→v3 + 15 intents + 4 few-shots update/delete);
- *        Story J-5 AC3 (bump v3→v4 + 17 intents + 4 few-shots Calendar).
+ *        Story J-5 AC3 (bump v3→v4 + 17 intents + 4 few-shots Calendar);
+ *        Story J-6 AC3 (bump v4→v5 + 18 intents + 2 few-shots Gmail readonly).
  *
  * Estratégia:
  *   - Hash SHA-256 do conteúdo da constante `CLASSIFIER_SYSTEM_PROMPT`.
  *   - Qualquer mudança requer actualização intencional do hash + bump
  *     do `CLASSIFIER_SYSTEM_PROMPT_VERSION`.
- *   - Versão actual: `v4`.
+ *   - Versão actual: `v5`.
  */
 import { createHash } from 'node:crypto';
 
@@ -22,11 +23,11 @@ import {
 } from '@/prompts/classifier-system';
 
 describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
-  it('versão é "v4" (Story J-5 bump)', () => {
-    expect(CLASSIFIER_SYSTEM_PROMPT_VERSION).toBe('v4');
+  it('versão é "v5" (Story J-6 bump)', () => {
+    expect(CLASSIFIER_SYSTEM_PROMPT_VERSION).toBe('v5');
   });
 
-  it('contém os 17 intents canónicos por nome (Story J-5 — +2 Calendar)', () => {
+  it('contém os 18 intents canónicos por nome (Story J-6 — +1 Gmail)', () => {
     const intents = [
       'criar_tarefa',
       'completar_tarefa',
@@ -43,6 +44,7 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
       'consultar_dados',
       'criar_evento_calendario',
       'reagendar_evento_calendario',
+      'consultar_emails',
       'cancelar_ultima',
       'unknown',
     ];
@@ -51,9 +53,9 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
     }
   });
 
-  it('header anuncia 17 intents (Story J-5)', () => {
-    // Format real do header: `# Intents canónicos (17)`.
-    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/Intents can[óo]nicos \(17\)/);
+  it('header anuncia 18 intents (Story J-6)', () => {
+    // Format real do header: `# Intents canónicos (18)`.
+    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/Intents can[óo]nicos \(18\)/);
   });
 
   it('intents destrutivos/modificativos forçam needs_confirmation true (DP-2.14.B + J-5)', () => {
@@ -69,10 +71,10 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
     expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/portugu[êe]s europeu/i);
   });
 
-  it('inclui pelo menos 18 exemplos few-shot (Story J-5: 4 novos Calendar)', () => {
+  it('inclui pelo menos 20 exemplos few-shot (Story J-6: 2 novos Gmail)', () => {
     const matches = CLASSIFIER_SYSTEM_PROMPT.match(/## Exemplo \d/g);
     expect(matches).not.toBeNull();
-    expect(matches?.length ?? 0).toBeGreaterThanOrEqual(18);
+    expect(matches?.length ?? 0).toBeGreaterThanOrEqual(20);
   });
 
   it('inclui exemplo de input non-PT-PT → unknown (PT-PT exclusivo)', () => {
@@ -83,7 +85,7 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
   it('é estável — hash SHA-256 não muda sem alteração intencional', () => {
     const hash = createHash('sha256').update(CLASSIFIER_SYSTEM_PROMPT).digest('hex');
     expect(hash).toMatch(/^[a-f0-9]{64}$/);
-    // O prompt v4 tem ≈10KB (18 exemplos few-shot + 17 intents).
+    // O prompt v5 tem ≈11KB (20 exemplos few-shot + 18 intents).
     expect(CLASSIFIER_SYSTEM_PROMPT.length).toBeGreaterThan(3000);
     expect(CLASSIFIER_SYSTEM_PROMPT.length).toBeLessThan(15000);
   });

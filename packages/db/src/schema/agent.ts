@@ -67,6 +67,8 @@ export const agentIntentEnum = pgEnum('agent_intent', [
   // `packages/classifier/src/schemas.ts` INTENT_VALUES (sanity-check Article IV).
   'criar_evento_calendario',
   'reagendar_evento_calendario',
+  // Story J-6 — tool Gmail readonly. Sync com migration 0031.
+  'consultar_emails',
 ]);
 
 export const llmModelEnum = pgEnum('llm_model', [

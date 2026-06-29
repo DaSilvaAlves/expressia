@@ -5,6 +5,7 @@ import { buildBriefForHousehold } from '@/lib/brief/build-brief';
 
 import { synthesizeBriefText } from '@/lib/brief/synthesize';
 import { getCalendarEventsToday } from '@/lib/google/calendar';
+import { getGmailSummaryForBrief } from '@/lib/google/gmail';
 import { refreshAccessToken } from '@/lib/google/oauth';
 import {
   getAccountsBalance,
@@ -30,6 +31,10 @@ vi.mock('@/lib/google/oauth', () => ({
 
 vi.mock('@/lib/google/calendar', () => ({
   getCalendarEventsToday: vi.fn(),
+}));
+
+vi.mock('@/lib/google/gmail', () => ({
+  getGmailSummaryForBrief: vi.fn(),
 }));
 
 const HOUSEHOLD = '2dedb1ec-dc6f-4445-a5b4-b5f942755655';
@@ -67,6 +72,9 @@ beforeEach(() => {
     currency: 'EUR',
   });
   vi.mocked(synthesizeBriefText).mockResolvedValue({ text: 'BRIEF GERADO', usedFallback: false });
+  // Default: sem emails não lidos (Gmail não ligado ou inbox limpa). Os testes
+  // de email sobrepõem este mock conforme o cenário.
+  vi.mocked(getGmailSummaryForBrief).mockResolvedValue({ emails: [] });
 });
 
 afterEach(() => {
@@ -99,6 +107,7 @@ describe('buildBriefForHousehold', () => {
         financeExpenseCents: 80000,
         financeBalanceCents: 70000,
         accountsBalanceCents: 250000,
+        emailSummary: [],
       },
       { traceId: 'trace-1', householdId: HOUSEHOLD },
     );
@@ -112,6 +121,7 @@ describe('buildBriefForHousehold', () => {
       tasksTodayCount: 2,
       tasksOverdueCount: 1,
       calendarEventCount: null,
+      emailCount: 0,
     });
   });
 
@@ -209,5 +219,68 @@ describe('resolveCalendarSection (via buildBriefForHousehold)', () => {
     expect(result.text).toBe('BRIEF GERADO'); // brief continua
     const dataArg = vi.mocked(synthesizeBriefText).mock.calls[0]?.[0];
     expect(dataArg?.calendar).toEqual({ status: 'unavailable' });
+  });
+});
+
+describe('resolveEmailSection (via buildBriefForHousehold) — Story J-6', () => {
+  const tokenRow = {
+    encrypted_refresh_token: 'ciphertext',
+    token_iv: 'iv',
+    token_auth_tag: 'tag',
+  };
+  const EMAILS = [
+    {
+      subject: 'Reunião amanhã',
+      from: 'Pedro <pedro@example.com>',
+      receivedAt: 'Fri, 27 Jun 2026 10:30:00 +0000',
+      snippet: 'Confirmas a reunião?',
+    },
+    {
+      subject: 'Extrato disponível',
+      from: 'Banco <noreply@banco.pt>',
+      receivedAt: 'Fri, 27 Jun 2026 08:00:00 +0000',
+      snippet: 'O teu extrato de junho está pronto.',
+    },
+  ];
+
+  it('emails não lidos → emailSummary passado à síntese + emailCount na contagem', async () => {
+    const db = makeDb(async () => [tokenRow]);
+    vi.mocked(getGmailSummaryForBrief).mockResolvedValue({ emails: EMAILS });
+
+    const result = await buildBriefForHousehold(db, HOUSEHOLD, USER, 'trace-1');
+
+    expect(getGmailSummaryForBrief).toHaveBeenCalledWith({
+      encryptedRefreshToken: 'ciphertext',
+      tokenIv: 'iv',
+      tokenAuthTag: 'tag',
+    });
+    expect(result.emailCount).toBe(2);
+    const dataArg = vi.mocked(synthesizeBriefText).mock.calls[0]?.[0];
+    expect(dataArg?.emailSummary).toEqual(EMAILS);
+  });
+
+  it('sem token → email omitido (emailSummary [], getGmailSummaryForBrief não chamado)', async () => {
+    const db = makeDb(async () => []);
+    const result = await buildBriefForHousehold(db, HOUSEHOLD, USER, 'trace-1');
+
+    expect(getGmailSummaryForBrief).not.toHaveBeenCalled();
+    expect(result.emailCount).toBe(0);
+    const dataArg = vi.mocked(synthesizeBriefText).mock.calls[0]?.[0];
+    expect(dataArg?.emailSummary).toEqual([]);
+  });
+
+  it('erro do Gmail → emailSummary [] graciosamente, o brief continua', async () => {
+    const db = makeDb(async () => [tokenRow]);
+    vi.mocked(getGmailSummaryForBrief).mockResolvedValue({
+      emails: [],
+      error: 'Gmail API recusou listar emails (HTTP 401).',
+    });
+
+    const result = await buildBriefForHousehold(db, HOUSEHOLD, USER, 'trace-1');
+
+    expect(result.emailCount).toBe(0);
+    expect(result.text).toBe('BRIEF GERADO'); // brief nunca derruba por causa do email
+    const dataArg = vi.mocked(synthesizeBriefText).mock.calls[0]?.[0];
+    expect(dataArg?.emailSummary).toEqual([]);
   });
 });

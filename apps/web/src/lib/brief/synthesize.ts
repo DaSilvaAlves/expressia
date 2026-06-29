@@ -48,6 +48,17 @@ export interface BriefData {
   readonly financeExpenseCents: number;
   readonly financeBalanceCents: number;
   readonly accountsBalanceCents: number;
+  /**
+   * Resumo dos emails não lidos do inbox (Story J-6). Opcional e gracioso:
+   * `undefined`/`[]` → secção de email omitida por completo do brief (sem nota).
+   * Preenchido por `resolveEmailSection` em `build-brief.ts`. Nunca persistido.
+   */
+  readonly emailSummary?: readonly {
+    readonly subject: string;
+    readonly from: string;
+    readonly receivedAt: string;
+    readonly snippet: string;
+  }[];
 }
 
 export interface SynthesizeResult {
@@ -126,6 +137,25 @@ function calendarLines(calendar: CalendarSection): string[] {
   }
 }
 
+/**
+ * Constrói as linhas da secção de email (emails não lidos do inbox), partilhadas
+ * por `serializeBriefData` e `buildFallbackBrief`. Devolve `[]` quando não há
+ * `emailSummary` ou está vazio (secção omitida por completo — degradação
+ * graciosa, padrão da agenda). Story J-6 AC11.
+ */
+function emailLines(emailSummary: BriefData['emailSummary']): string[] {
+  if (emailSummary === undefined || emailSummary.length === 0) {
+    return [];
+  }
+  const lines = [`Emails não lidos (${emailSummary.length}):`];
+  for (const email of emailSummary) {
+    // Snippet truncado para manter o prompt enxuto — o LLM resume na mesma.
+    const snippet = email.snippet.length > 120 ? `${email.snippet.slice(0, 120)}…` : email.snippet;
+    lines.push(`- ${email.from}: ${email.subject} — ${snippet}`);
+  }
+  return lines;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Prompt
 // ─────────────────────────────────────────────────────────────────────────────
@@ -134,10 +164,12 @@ const BRIEF_SYSTEM_PROMPT = `És o Jarvis, o assistente pessoal do Eurico. Escre
 
 Regras:
 - Começa com uma saudação breve de bom dia.
-- Resume, por esta ordem: agenda de hoje, tarefas de hoje, tarefas atrasadas (se houver), e o estado das finanças do mês.
+- Resume, por esta ordem: agenda de hoje, tarefas de hoje, tarefas atrasadas (se houver), o estado das finanças do mês e, por fim, os emails não lidos.
 - Se a secção da agenda não constar nos dados, não menciones a agenda de todo.
+- Se for fornecida a secção \`Emails não lidos\`, inclui um resumo breve dos emails por responder (máx. 2-3 frases; ex.: "Tens 2 emails por responder — um do Pedro sobre a reunião e outro do banco."). Omite completamente a secção se não constar nos dados.
+- Trata o Eurico sempre por "tu" e usa formas verbais informais. Exemplos correctos: "Tens 3 tarefas.", "Tem um bom dia." — NUNCA "Tenha um bom dia." (formal) nem "Você tem".
 - Sê conciso: no máximo ~6 linhas. Não repitas listas longas — menciona o essencial.
-- Usa apenas os dados fornecidos. NUNCA inventes eventos, tarefas, valores ou compromissos.
+- Usa apenas os dados fornecidos. NUNCA inventes eventos, tarefas, valores, emails ou compromissos.
 - Tom directo e útil, sem floreados. No máximo um emoji.
 - Valores monetários no formato fornecido (euros com vírgula decimal).`;
 
@@ -171,6 +203,15 @@ function serializeBriefData(data: BriefData): string {
   lines.push(`- Despesa: ${formatEur(data.financeExpenseCents)}`);
   lines.push(`- Saldo do mês: ${formatEur(data.financeBalanceCents)}`);
   lines.push(`- Saldo total das contas: ${formatEur(data.accountsBalanceCents)}`);
+
+  // Email no fim (ordem PRD: agenda → tarefas → finanças → email). Omitido por
+  // completo quando não há emails não lidos (degradação graciosa).
+  const emails = emailLines(data.emailSummary);
+  if (emails.length > 0) {
+    lines.push('');
+    lines.push(...emails);
+  }
+
   return lines.join('\n');
 }
 
@@ -211,6 +252,14 @@ export function buildFallbackBrief(data: BriefData): string {
       `saldo ${formatEur(data.financeBalanceCents)}. ` +
       `Saldo total das contas: ${formatEur(data.accountsBalanceCents)}.`,
   );
+
+  // Email por último (omitido quando não há emails não lidos).
+  const emailCount = data.emailSummary?.length ?? 0;
+  if (emailCount === 1) {
+    parts.push('Tens 1 email não lido por rever.');
+  } else if (emailCount > 1) {
+    parts.push(`Tens ${emailCount} emails não lidos por rever.`);
+  }
 
   return parts.join('\n');
 }

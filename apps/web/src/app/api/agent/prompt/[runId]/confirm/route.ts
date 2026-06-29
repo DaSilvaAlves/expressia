@@ -50,6 +50,10 @@ import {
 // que a sua execução acontece NESTE route (confirm) — que NÃO importa run-agent.
 // Sem este import, o Executor não encontraria a calendar tool (ToolNotFoundError).
 import '@/lib/agent/tools/calendar/index';
+// Side-effect: regista a gmail tool (Story J-6). `consultar_emails` é read-only e
+// não força confirmação, mas mantemos o import por consistência com o padrão J-5
+// e para que J-7 (`enviar_email`, que forçará confirmação) não exija alteração aqui.
+import '@/lib/agent/tools/gmail/index';
 
 import { apiError } from '@/lib/errors';
 import { revalidateTaskViews } from '@/lib/api-helpers/revalidate';

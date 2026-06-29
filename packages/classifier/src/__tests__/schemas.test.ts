@@ -41,13 +41,13 @@ function extractAgentIntentEnumFromSource(): string[] {
 }
 
 describe('IntentSchema (AC2)', () => {
-  it('aceita os 17 valores canónicos', () => {
+  it('aceita os 18 valores canónicos', () => {
     for (const value of INTENT_VALUES) {
       expect(IntentSchema.safeParse(value).success).toBe(true);
     }
   });
 
-  it('rejeita valores fora dos 17 canónicos (Article IV)', () => {
+  it('rejeita valores fora dos 18 canónicos (Article IV)', () => {
     expect(IntentSchema.safeParse('inventado').success).toBe(false);
     expect(IntentSchema.safeParse('criar_evento').success).toBe(false);
     expect(IntentSchema.safeParse('').success).toBe(false);
@@ -58,14 +58,19 @@ describe('IntentSchema (AC2)', () => {
     expect(IntentSchema.safeParse('reagendar_evento_calendario').success).toBe(true);
   });
 
+  it('aceita o novo intent de Gmail readonly (Story J-6)', () => {
+    expect(IntentSchema.safeParse('consultar_emails').success).toBe(true);
+  });
+
   it('SANITY-CHECK Article IV — INTENT_VALUES bate EXACTAMENTE com enum DB agent_intent (lido directo do source)', () => {
     const dbValues = extractAgentIntentEnumFromSource().sort();
     const classifierValues = [...INTENT_VALUES].sort();
     expect(classifierValues).toEqual(dbValues);
     // 8 baseline (Story 2.1) + 3 Story 3.8 tools cérebro Tarefas (migration 0012)
     // + 4 Story 2.14 tools UPDATE/DELETE Tarefas e Finanças (migration 0026)
-    // + 2 Story J-5 tools Calendar escrita (migration 0030).
-    expect(dbValues.length).toBe(17);
+    // + 2 Story J-5 tools Calendar escrita (migration 0030)
+    // + 1 Story J-6 tool Gmail readonly (migration 0031).
+    expect(dbValues.length).toBe(18);
   });
 });
 
