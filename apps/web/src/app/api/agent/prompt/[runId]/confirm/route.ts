@@ -292,6 +292,13 @@ export async function executeConfirm(params: {
 
   if (outcome.success === false) {
     const failure = outcome;
+    // Observabilidade (hotfix J-6): aflorar a CAUSA real do erro. O
+    // `ToolExecutionError.message` só inclui o *nome* da causa ("Error"),
+    // descartando o detalhe (ex.: "A Gmail API recusou listar os emails (HTTP
+    // 403)."). Sem isto, o detalhe fica invisível na DB, nos logs e no bot.
+    const cause = (failure.error as { cause?: unknown } | undefined)?.cause;
+    const detail =
+      cause instanceof Error ? cause.message : (failure.error?.message ?? 'Execução falhou');
     await updateAfterExecutor(
       runId,
       {
@@ -299,7 +306,7 @@ export async function executeConfirm(params: {
         latencyMs: 0,
         responseSummary: null,
         errorCode: failure.error?.constructor?.name ?? 'EXECUTION_FAILED',
-        errorMessage: failure.error?.message ?? 'Execução falhou',
+        errorMessage: detail,
       },
       db,
     );
@@ -308,7 +315,7 @@ export async function executeConfirm(params: {
       runId,
       reason: 'tool_error',
       errorCode: 'TOOL_EXECUTION_ERROR',
-      message: failure.error?.message ?? 'Execução falhou — operação revertida.',
+      message: detail,
       failedToolName: failure.failedToolName,
     };
   }
