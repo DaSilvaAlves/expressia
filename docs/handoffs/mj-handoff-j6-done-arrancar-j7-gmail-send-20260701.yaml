@@ -1,0 +1,95 @@
+from_agent: "devops (Gage) — J-6 Gmail readonly fechada (bookkeeping) + follow-up cosmético em prod"
+to_agent: "@sm"
+created: "2026-07-01T04:10:00Z"
+status: pending
+consumed: false
+
+project: "meu-jarvis (Expressia)"
+summary: >
+  ARRANCAR STORY J-7 (Gmail send) — última story do epic Jarvis v1.1. A J-6 (Gmail
+  readonly) está 100% Done e em prod (brief com resumo de email + leitura a pedido,
+  E2E live provado 01/07), story fechada em completed/ e follow-up cosmético
+  (leituras saltam preview→confirm) já em main (182f760). J-7 NÃO está draftada — o
+  ciclo /sdc arranca em @sm (draft contra o epic v1.1 + PRD §9) → @po → @dev → @qa →
+  @devops (push só com ordem do Eurico). `origin/main` = `453ffc8`, working tree
+  limpo. Fase 1 (J-1..J-4) Done; v1.1: J-5 Done, J-6 Done, J-7 é a ÚLTIMA.
+
+context:
+  epic_path: "docs/epics/epic-jarvis-v1.1-calendar-escrita-gmail.md"
+  prd_ref: "docs/prd-jarvis.md v1.1 §9 (roadmap v1.1)"
+  branch: "main"
+  head_commit: "453ffc8"
+  next_story: "J-7 — Gmail send (responder/compor email a partir do Telegram)"
+
+  ambito_j7_do_epic:
+    - "J-7 = Gmail SEND. Scope OAuth gmail.send (SEPARADO e mais sensível que gmail.readonly da J-6). Depende de J-6 Done (✅)."
+    - "Entrega esperada (confirmar/refinar no @sm draft contra PRD §9): o Eurico pode pedir ao Jarvis, via Telegram, que RESPONDA a um email (reply na thread) ou COMPONHA/envie um email novo. J-6 já dá a leitura on-demand — J-7 acrescenta a acção de envio."
+    - "É a PRIMEIRA acção de email com efeito externo irreversível — tratar com o cuidado do padrão preview-then-confirm (envio NÃO deve ser silencioso; confirmar antes de enviar)."
+
+  padrao_estabelecido_a_reutilizar:
+    - "Tools externas vivem em apps/web/src/lib/agent/tools/<dominio>/ (NÃO em packages/tools) por direcção de dependência (precisam de @/lib/google/oauth + token-cipher). J-6 criou apps/web/src/lib/agent/tools/gmail/ + gmail-api.ts — MOLDE directo para o send."
+    - "Registo por side-effect import em run-agent.ts E confirm/route.ts (a confirmação executa no route de confirm). Teste anti-tree-shaking (registration.test.ts) obrigatório."
+    - "Novo intent → migration ALTER TYPE agent_intent ADD VALUE IF NOT EXISTS (padrão 0030) + sync agentIntentEnum (schema/agent.ts) + INTENT_VALUES (classifier/schemas.ts) + TOOL_TO_INTENT_MAP (planner-executor) + prompt classifier (bump versão + few-shots + snapshot hash) + prompt planner (bump + snapshot). Ver memória classifier INTENT_VALUES sync gap — sincronizar SEMPRE os 5 pontos senão hotfix."
+    - "Envio de email = acção com efeito externo → seguir padrão ReverseOp kind 'external_call' + executeUndo (extender o tipo LOCAL ReverseOp em undo/route.ts, senão cai em 'Kind desconhecido'). NOTA: um email enviado NÃO é revertível — decidir no draft se o undo é no-op informativo (\"não é possível 'des-enviar' um email\") ou se se aposta só no preview-then-confirm antes do envio. Recomendação: confirmação obrigatória antes de enviar, undo=no-op."
+    - "Guard multi-intent (isMixedCalendarPlan em run-agent.ts) impede misturar domínio externo com tasks/finance numa só transacção — J-6 estendeu isto para gmail; confirmar que send entra no mesmo guard."
+    - "READ-ONLY vs ESCRITA no preview: o follow-up de J-6 (182f760) fez as tools de LEITURA saltarem preview→confirm e não oferecerem undo. As tools de ESCRITA (como send) MANTÊM preview/confirm/undo — não confundir; ver READ_ONLY_INTENTS."
+
+  base_construida_reutilizavel:
+    - "apps/web/src/lib/google/oauth.ts — buildGoogleAuthUrl/exchangeCodeForTokens/refreshAccessToken (reutilizar; adicionar gmail.send aos OAUTH_SCOPES)."
+    - "apps/web/src/lib/crypto/token-cipher.ts — AES-256-GCM (reutilizar sem tocar)."
+    - "packages/db/src/schema/google-oauth.ts — tabela google_oauth_tokens (mesma; o re-consent faz upsert por (household_id, user_id))."
+    - "apps/web/src/lib/agent/tools/gmail/gmail-api.ts — construído na J-6 para LEITURA (getAccessToken via ctx.db RLS + type guards). Estender para send (users.messages.send com raw MIME base64url) ou moldar um send análogo."
+
+  oauth_critico_licao_j3_j5_j6:
+    - "J-7 amplia os scopes (adiciona gmail.send) → NOVO re-consentimento OAuth one-shot [EURICO]. O Google não adiciona scopes a tokens existentes sem nova autorização."
+    - "CRÍTICO: o re-consent TEM de ser feito LOGADO na conta principal euricojsalves@gmail.com (household 2dedb1ec / user df5b403f — o mesmo do telegram_link). Senão o token vai para o household errado (lição J-3) e o motor não o lê."
+    - "GCP (lição J-6): para um scope Gmail novo pode ser preciso (a) Enable Gmail API no projecto expressia-jarvis E (b) registar o scope gmail.send no OAuth consent screen ANTES do re-consent, senão o Google recusa. gmail.send é scope SENSÍVEL/restrito — pode exigir passo extra no consent screen."
+    - "Verificação pós-OAuth (padrão J-5 9.4): SELECT google_email, household_id FROM google_oauth_tokens → household_id deve ser 2dedb1ec, uma única linha."
+    - "Ao copiar o URL de /api/google/auth-url (devolve JSON {\"url\":\"...\"}), copiar SÓ o link de dentro das aspas (gotcha J-3)."
+
+  gotcha_j6_observabilidade:
+    - "Na J-6 o ToolExecutionError engolia cause.message (erro real da API Google escondido). Foi corrigido (4e2b1c4) para aflorar a causa real no confirm. Ao construir o send, garantir que um erro da API Gmail (ex.: scope em falta, quota) chega ao Telegram legível, não como 'erro genérico'."
+
+  restricoes_globais:
+    - "PT-PT europeu exclusivo. Dados UE (Vercel fra1, Supabase eu-central-1)."
+    - "Billing CONGELADO (sem subscriptions/stripe_*). SEC-8 HOLD (não tocar withHousehold/db-shim/client.ts). Família removida (household_id/RLS intactos)."
+    - "Tabela nova com household_id obriga 4 RLS policies senão check:rls parte o build (NFR5). Send provavelmente não precisa de tabela nova (acção stateless) — decidir no draft."
+    - "Push/PR só @devops com ordem explícita do Eurico. Quality gates pre-merge: lint/typecheck/test/build/check:rls."
+
+  estado_da_arvore:
+    - "origin/main = 453ffc8 (fecho J-6 bookkeeping). Working tree limpo."
+    - "Commits relevantes J-6: 98ab90a (feat Gmail readonly brief+leitura) · 4e2b1c4 (fix observabilidade erro de tool) · c194ace (mostrar resultados de tools de leitura no chat) · 63de0da/cdab3c7 (story Done + handoff) · 7f783fa/182f760 (follow-up cosmético leituras saltam preview) · 453ffc8 (fecho story)."
+    - "Bot Telegram @jarvis_eurico_bot vivo; chat_id 5647753194 → household 2dedb1ec / user df5b403f. Cron brief 07:30 Europe/Lisbon activo."
+
+next_action: >
+  [@sm River] Correr create-next-story para draftar a Story J-7 (Gmail send) contra o
+  epic v1.1 (docs/epics/epic-jarvis-v1.1-calendar-escrita-gmail.md) + PRD §9. Depois o
+  ciclo /sdc segue @po → @dev → @qa → @devops. Reaproveitar tudo o que J-5/J-6
+  construíram (tools externas em apps/web/src/lib/agent/tools/gmail/, oauth.ts +
+  token-cipher + google_oauth_tokens, gmail-api.ts moldado para send). J-7 amplia os
+  OAuth scopes (gmail.send, sensível) → planear no draft o re-consentimento one-shot
+  [EURICO] na conta principal euricojsalves@gmail.com (household 2dedb1ec) + eventual
+  Enable/consent-screen no GCP. DECISÃO DE DESIGN a fixar no draft: envio é
+  irreversível → confirmação obrigatória antes de enviar, undo=no-op informativo.
+  J-7 fecha o epic v1.1. Push só @devops com ordem do Eurico.
+
+notes: |
+  Fonte de verdade do âmbito: docs/epics/epic-jarvis-v1.1-calendar-escrita-gmail.md +
+  docs/prd-jarvis.md §9. J-7 é a ÚLTIMA story da v1.1 — ao fechá-la, o epic
+  Calendar-escrita+Gmail fica completo.
+
+  Lições acumuladas J-3/J-5/J-6 que devem guiar J-7:
+  - OAuth re-consent SEMPRE na conta principal (household 2dedb1ec) — verificar na DB
+    depois (1 só linha em google_oauth_tokens, household certo).
+  - Scope Gmail novo pode exigir Enable API + registo no consent screen no GCP ANTES
+    do consent (lição J-6). gmail.send é sensível — contar com passo extra.
+  - Tools externas: registo por side-effect import em run-agent.ts E confirm/route.ts;
+    teste anti-tree-shaking obrigatório.
+  - Bugs só aparecem no E2E live — planear o teste real ao bot (enviar um email de
+    verdade a partir do Telegram) como parte do "Done", não só unit tests.
+  - Diferença READ vs WRITE no preview/undo: leituras saltam preview e não têm undo
+    (182f760); ESCRITAS (send) mantêm preview→confirm→undo. Não regredir isto.
+
+  Follow-up cosmético herdado de J-4 (não-bloqueante, ainda por fazer): o brief diário
+  fecha com "Tenha um bom dia" (formal) vs tratamento por "tu" no resto — afinar
+  BRIEF_SYSTEM_PROMPT em apps/web/src/lib/brief/synthesize.ts.
