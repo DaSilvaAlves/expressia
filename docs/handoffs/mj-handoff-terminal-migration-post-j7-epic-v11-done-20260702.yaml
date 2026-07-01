@@ -1,0 +1,67 @@
+id: mj-handoff-terminal-migration-post-j7-epic-v11-done-20260702
+from_agent: devops (Gage)
+to_agent: any
+created: "2026-07-02T00:05:00Z"
+status: pending
+consumed: false
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: normal
+type: terminal-migration
+
+summary: >-
+  MIGRAÇÃO DE TERMINAL — Story J-7 (Gmail send) DONE e provada E2E LIVE em
+  produção; o epic v1.1 (Calendar escrita J-5 + Gmail leitura J-6 + Gmail envio
+  J-7) está FECHADO. `origin/main` = `a98afe3`, working tree limpo, nada
+  pendente de push. O Jarvis é agora um assistente de vida no Telegram que lê
+  agenda/tarefas/finanças/emails no brief diário, cria e reagenda eventos, cria
+  e edita tarefas/finanças, lê emails on-demand e ENVIA emails (compor via chat
+  com preview→confirm e sem undo enganador). Nada bloqueia. Continuar num
+  terminal fresco a decidir a próxima direção com o Eurico.
+
+context:
+  last_commits:
+    - "a98afe3 docs(story): fechar J-7 (Gmail send) — Done + E2E live, fecha epic v1.1"
+    - "24d9822 feat(agent): J-7 Gmail send (compose-only via Telegram) — preview==envio + undo honesto"
+  epic_v11_status: "FECHADO — J-5 (Calendar escrita) + J-6 (Gmail readonly) + J-7 (Gmail send) todos Done e live."
+  prod_state: >-
+    Migration 0032 aplicada em prod (enum agent_intent = 19 valores, enviar_email
+    confirmado). Deploy Vercel fra1 auto. Token OAuth único em google_oauth_tokens:
+    1 linha, conta principal euricojsalves@gmail.com, household
+    2dedb1ec-dc6f-4445-a5b4-b5f942755655, scopes acumulados calendar.events +
+    gmail.readonly + gmail.send. E2E ao @jarvis_eurico_bot PASS (enviar/cancelar/
+    guard multi-intent). chat_id Eurico 5647753194 → user df5b403f.
+  motor: "Planner/Executor em OpenAI gpt-4o-mini (Anthropic reversível, sem créditos)."
+
+next_action: >-
+  Terminal fresco: perguntar ao Eurico a próxima direção (não assumir). Opções
+  em aberto — (a) arrancar v1.2 do Jarvis (ex: reply a email em thread, que foi
+  descopado da J-7 para v2 por o contrato tool.preview ser síncrono sem I/O; ou
+  novas capacidades do assistente); (b) endurecer/observabilidade do que existe;
+  (c) retomar itens [EURICO] soft-launch antigos se relevante. Correr /sdc para
+  a story escolhida. Push/merge só @devops e só com ordem do Eurico.
+
+constraints:
+  - "Billing CONGELADO — não draftar stories de Stripe/pagamentos."
+  - "SEC-8 HOLD — withHousehold/db-shim/client.ts intactos."
+  - "Família removida — app single-user; household_id/RLS INTACTOS (não reintroduzir família, não remover household_id)."
+  - "OAuth Google sempre na CONTA PRINCIPAL euricojsalves@gmail.com (lição J-3/J-5/J-6/J-7 — token no household errado parte tudo)."
+  - "PT-PT em código/UI/erros. Imports absolutos @/. CodeRabbit Disabled em core-config → SKIP."
+
+notes: |
+  - Handoffs pending antigos [EURICO] soft-launch continuam abertos mas NÃO
+    bloqueiam o Jarvis (são do produto SaaS Expressia web, linha de trabalho
+    distinta): OBS-3 medição Lighthouse, 6.8 bucket exports Storage, go-live
+    residues. Não misturar com a linha Jarvis/Telegram salvo pedido do Eurico.
+  - GOTCHA re-consent Google (confirmado vivo na J-7): fluxo one-shot = abrir
+    `https://expressia.pt/api/google/auth-url` com sessão iniciada na conta
+    principal → copiar `url` do JSON devolvido → abrir → Permitir (pode surgir
+    "app não verificada" → Avançadas → continuar). Google só reemite
+    refresh_token com prompt=consent (já no código). Aumentar scopes exige novo
+    re-consent. Scopes SENSÍVEIS (gmail.*) exigem registo prévio no OAuth consent
+    screen do GCP antes do consent.
+  - Reply a email (thread) fica como candidato natural de v1.2 — ver Change Log
+    da story J-7 (v1.1-draft, [AUTO-DECISION]) para o porquê do descope.
+  - Memórias relevantes: jarvis-fase1-complete, jarvis-v11-calendar-escrita-live,
+    jarvis-j6-gmail-live, planner-switched-to-openai, project-meu-jarvis-j7-gmail-send-pushed.
