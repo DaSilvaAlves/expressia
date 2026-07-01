@@ -1,8 +1,10 @@
 from_agent: "devops (Gage) — J-6 Gmail readonly fechada (bookkeeping) + follow-up cosmético em prod"
 to_agent: "@sm"
 created: "2026-07-01T04:10:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-07-01T04:25:00Z"
+consumed_by: "@devops Gage (arranque do ciclo /sdc — draft J-7 criado, pendente @po)"
 
 project: "meu-jarvis (Expressia)"
 summary: >
