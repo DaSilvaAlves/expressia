@@ -218,6 +218,28 @@ describe('POST /api/telegram/webhook — tradução de resultados (AC7/AC8)', ()
     expect(sendCall!.reply_markup?.inline_keyboard[0]![0]!.text).toBe('(Cancelar)');
   });
 
+  it('J-6 follow-up — executed read-only → só os dados, SEM "Feito." nem botão (Cancelar)', async () => {
+    setupIdentityFound();
+    mocks.runAgentMock.mockResolvedValue({
+      status: 'executed',
+      kind: 'pipeline',
+      runId: RUN_ID,
+      summary: 'Tens 1 email:\n1. EDP — Fatura de junho',
+      results: { success: true, results: [] },
+      undoExpiresAt: new Date().toISOString(),
+      readOnly: true,
+    });
+
+    await POST(makeRequest({ secret: SECRET, body: textUpdate('mostra os meus emails') }) as never);
+
+    const sendCall = sentMessageCalls()[0];
+    expect(sendCall).toBeDefined();
+    expect(sendCall!.text).toBe('Tens 1 email:\n1. EDP — Fatura de junho');
+    expect(sendCall!.text).not.toContain('Feito');
+    // Sem teclado inline — reverter uma leitura não faz sentido.
+    expect(sendCall!.reply_markup).toBeUndefined();
+  });
+
   it('AC8 — preview → sendMessage com botões sim/não (confirm/cancel)', async () => {
     setupIdentityFound();
     mocks.runAgentMock.mockResolvedValue({

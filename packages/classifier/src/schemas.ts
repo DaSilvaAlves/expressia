@@ -76,6 +76,31 @@ export const IntentSchema = z.enum(INTENT_VALUES);
 export type Intent = z.infer<typeof IntentSchema>;
 
 /**
+ * Intents de LEITURA (read-only) — não têm side-effects nem `reverse_op` útil.
+ *
+ * Um pedido cujos intents sejam TODOS destes é seguro executar sem o fluxo
+ * preview→confirm (FR4): não há nada a "confirmar" nem a "reverter" numa
+ * consulta. O pipeline usa isto para (a) saltar o preview mesmo com
+ * `always_preview=true` e (b) não oferecer undo em leituras (evita o
+ * `Feito.`+`Cancelar` sem sentido no chat/Telegram — reverse é no-op → 410).
+ *
+ * `unknown` NÃO é read-only: é ambíguo e deve continuar a pedir clarificação.
+ *
+ * Trace: Story J-6 follow-up (leituras saltam preview→confirm).
+ */
+export const READ_ONLY_INTENTS: ReadonlySet<Intent> = new Set<Intent>([
+  'consultar_dados',
+  'listar_tarefas',
+  'listar_atrasadas',
+  'consultar_emails',
+]);
+
+/** `true` se `intent` for uma intent de leitura (sem side-effects). */
+export function isReadOnlyIntent(intent: string): boolean {
+  return READ_ONLY_INTENTS.has(intent as Intent);
+}
+
+/**
  * Resultado individual da classificação de uma intent dentro do prompt.
  *
  * - `confidence` ∈ [0, 1] — score calibrado pelo LLM via structured output.

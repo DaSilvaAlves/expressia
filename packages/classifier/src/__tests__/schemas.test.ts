@@ -24,6 +24,8 @@ import {
   ClassifiedIntentSchema,
   IntentSchema,
   INTENT_VALUES,
+  READ_ONLY_INTENTS,
+  isReadOnlyIntent,
 } from '@/schemas';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -60,6 +62,28 @@ describe('IntentSchema (AC2)', () => {
 
   it('aceita o novo intent de Gmail readonly (Story J-6)', () => {
     expect(IntentSchema.safeParse('consultar_emails').success).toBe(true);
+  });
+
+  it('READ_ONLY_INTENTS contém só as 4 intents de leitura (Story J-6 follow-up)', () => {
+    expect([...READ_ONLY_INTENTS].sort()).toEqual(
+      ['consultar_dados', 'consultar_emails', 'listar_atrasadas', 'listar_tarefas'].sort(),
+    );
+    // Todos os valores são intents canónicos válidos (Article IV).
+    for (const intent of READ_ONLY_INTENTS) {
+      expect(IntentSchema.safeParse(intent).success).toBe(true);
+    }
+  });
+
+  it('isReadOnlyIntent — leituras true, escritas/unknown false', () => {
+    expect(isReadOnlyIntent('consultar_emails')).toBe(true);
+    expect(isReadOnlyIntent('listar_tarefas')).toBe(true);
+    expect(isReadOnlyIntent('consultar_dados')).toBe(true);
+    // Escritas e `unknown` NÃO são read-only (não devem saltar preview→confirm).
+    expect(isReadOnlyIntent('criar_tarefa')).toBe(false);
+    expect(isReadOnlyIntent('eliminar_tarefa')).toBe(false);
+    expect(isReadOnlyIntent('criar_evento_calendario')).toBe(false);
+    expect(isReadOnlyIntent('unknown')).toBe(false);
+    expect(isReadOnlyIntent('inventado')).toBe(false);
   });
 
   it('SANITY-CHECK Article IV — INTENT_VALUES bate EXACTAMENTE com enum DB agent_intent (lido directo do source)', () => {

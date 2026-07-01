@@ -589,6 +589,108 @@ describe('POST /api/agent/prompt — Story 2.7 always_preview gate (FR4)', () =>
     expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
   });
 
+  it('J-6 follow-up — always_preview=true + consultar_dados (leitura) → direct_query, SEM preview', async () => {
+    let callIndex = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callIndex++;
+      switch (callIndex) {
+        case 1:
+          return [{ count: 1 }]; // rate limit
+        case 2:
+          return []; // quota
+        case 3:
+          return [{ id: 'run-uuid-test', created_at: new Date().toISOString() }];
+        case 4:
+          return [{ always_preview: true }]; // user_prefs — FORCE PREVIEW p/ escritas
+        case 5:
+          return [{ plan: 'familia' }]; // households.plan
+        case 6:
+          return []; // updateAfterClassifier
+        case 7:
+          return [{ count: 5 }]; // executeDirectQuery count_tasks
+        default:
+          return [];
+      }
+    });
+
+    mocks.classifyMock.mockResolvedValue({
+      intents: [{ intent: 'consultar_dados', confidence: 0.92, raw_span: 'quantas tarefas tenho' }],
+      language: 'pt-PT',
+      needs_confirmation: false,
+      overall_confidence: 0.92,
+    });
+
+    const res = await POST(makeRequest({ prompt: 'quantas tarefas tenho?' }) as never);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { mode: string; results: { kind: string }; undo_url?: string };
+    // Leitura salta o preview mesmo com always_preview=true — nada a confirmar.
+    expect(body.mode).toBe('executed');
+    expect(body.results.kind).toBe('direct_query');
+    expect(body.undo_url).toBeUndefined();
+    expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('J-6 follow-up — always_preview=true + consultar_emails (leitura pipeline) → executed SEM undo_url', async () => {
+    let callIndex = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callIndex++;
+      switch (callIndex) {
+        case 1:
+          return [{ count: 1 }];
+        case 2:
+          return [];
+        case 3:
+          return [{ id: 'run-uuid-test', created_at: new Date().toISOString() }];
+        case 4:
+          return [{ always_preview: true }]; // FORCE PREVIEW p/ escritas
+        case 5:
+          return [{ plan: 'familia' }];
+        default:
+          return []; // updateAfterClassifier + accountContext (vazio) + updates
+      }
+    });
+
+    mocks.classifyMock.mockResolvedValue({
+      intents: [{ intent: 'consultar_emails', confidence: 0.95, raw_span: 'mostra os meus emails' }],
+      language: 'pt-PT',
+      needs_confirmation: false,
+      overall_confidence: 0.95,
+    });
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [{ toolName: 'consultar_emails', input: { limit: 5 }, intent: 'consultar_emails' }],
+      planReasoning: null,
+      latencyMs: 100,
+      tokensInput: 50,
+      tokensOutput: 20,
+      costEur: 0.0001,
+      cacheHit: false,
+    });
+    mocks.executorExecuteMock.mockResolvedValue({
+      success: true,
+      results: [
+        {
+          toolName: 'consultar_emails',
+          output: [
+            { id: 'e1', subject: 'Fatura de junho', from: 'EDP <faturas@edp.pt>', receivedAt: '2026-07-01', snippet: '...' },
+          ],
+          reverseOpId: null,
+        },
+      ],
+    });
+
+    const res = await POST(makeRequest({ prompt: 'mostra os meus emails' }) as never);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { mode: string; summary: string; undo_url?: string };
+    expect(body.mode).toBe('executed');
+    // Leitura pipeline: dados no summary, SEM undo_url (reverter leitura não faz sentido).
+    expect(body.summary).toContain('Fatura de junho');
+    expect(body.undo_url).toBeUndefined();
+    // Passou pelo Planner+Executor (não é cost-router).
+    expect(mocks.plannerPlanMock).toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).toHaveBeenCalled();
+  });
+
   it('AC3 — always_preview=false + confidence ≥ 0.70 mantém mode=executed (regression)', async () => {
     let callIndex = 0;
     mocks.dbExecuteMock.mockImplementation(async () => {

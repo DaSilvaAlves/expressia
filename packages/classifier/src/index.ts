@@ -34,6 +34,8 @@ export type { ClassifierInput, ClassifierOpts } from './classifier';
 export {
   IntentSchema,
   INTENT_VALUES,
+  READ_ONLY_INTENTS,
+  isReadOnlyIntent,
   ClassifiedIntentSchema,
   ClassificationSchema,
   CLASSIFIER_CONFIDENCE_THRESHOLD,

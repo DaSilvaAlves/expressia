@@ -191,8 +191,10 @@ async function handleTextMessage(
 async function replyForOutcome(chatId: number, outcome: AgentRunOutcome): Promise<void> {
   switch (outcome.status) {
     case 'executed': {
-      if (outcome.kind === 'direct_query') {
-        // Consulta read-only (cost-router) — sem undo.
+      if (outcome.kind === 'direct_query' || outcome.readOnly) {
+        // Leitura (cost-router directo OU pipeline read-only: consultar_emails,
+        // listar_tarefas, ...) — mostra só os DADOS, sem "Feito." nem botão
+        // (Cancelar): reverter uma consulta não faz sentido (reverse no-op → 410).
         await safeSend(chatId, outcome.summary);
         return;
       }

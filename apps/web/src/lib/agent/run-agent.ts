@@ -32,7 +32,11 @@ import '@/lib/agent/tools/calendar/index';
 // Side-effect: regista a gmail tool (Story J-6) no `toolRegistry` singleton.
 import '@/lib/agent/tools/gmail/index';
 
-import { Classifier, type ClassificationResult } from '@meu-jarvis/classifier';
+import {
+  Classifier,
+  isReadOnlyIntent,
+  type ClassificationResult,
+} from '@meu-jarvis/classifier';
 import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { buildCacheKey, getCacheClient, CACHE_TTL_SECONDS } from '@/lib/agent/cache';
 import { isSingleConsultarDados, executeDirectQuery } from '@/lib/agent/cost-router';
@@ -133,7 +137,7 @@ export type AgentResult =
  *   - `kind: 'direct_query'` — cost-router bypass (read-only, sem undo).
  */
 export type AgentRunOutcome =
-  | { status: 'executed'; kind: 'pipeline'; runId: string; summary: string; results: AtomicOutcome; undoExpiresAt: string }
+  | { status: 'executed'; kind: 'pipeline'; runId: string; summary: string; results: AtomicOutcome; undoExpiresAt: string; readOnly: boolean }
   | { status: 'executed'; kind: 'direct_query'; runId: string; summary: string; directResult: DirectQueryResult }
   | { status: 'preview'; runId: string; planSummary: string[]; confidence: number; expiresAt: string }
   | { status: 'replay'; run: IdempotentRunSnapshot }
@@ -354,12 +358,22 @@ export async function runAgentForHousehold(
     };
   }
 
+  // ─── 6c. Plano read-only? (Story J-6 follow-up) ───────────────────
+  // Um plano cujos intents são TODOS de leitura (consultar_dados, listar_*,
+  // consultar_emails) é seguro executar sem preview→confirm: não há nada a
+  // confirmar nem a reverter. Usado abaixo para (a) saltar o preview mesmo com
+  // `always_preview=true` e (b) não oferecer undo (sem `Feito.`+`Cancelar`).
+  const isReadOnlyPlan =
+    classification.intents.length > 0 &&
+    classification.intents.every((i) => isReadOnlyIntent(i.intent));
+
   // ─── 7. Branch FR4 — preview vs executed ──────────────────────────
   // Cost router (Story 2.9 AC6): bypass Planner+Executor para singleton
-  // `consultar_dados` — apenas se NÃO estamos em preview mode.
+  // `consultar_dados`. É read-only puro (sem side-effects) — corre em modo
+  // directo mesmo com `always_preview=true` (não há nada a pré-visualizar numa
+  // consulta). `needs_confirmation` (confiança baixa) continua a cair no preview.
   if (
     !classification.needs_confirmation &&
-    !alwaysPreview &&
     isSingleConsultarDados(classification.intents)
   ) {
     const rawSpan = classification.intents[0]?.raw_span;
@@ -406,7 +420,10 @@ export async function runAgentForHousehold(
     }
   }
 
-  if (classification.needs_confirmation || alwaysPreview) {
+  // `always_preview` NÃO se aplica a leituras (Story J-6 follow-up): não há nada
+  // a pré-visualizar/confirmar numa consulta. Escritas mantêm o preview forçado.
+  // `needs_confirmation` (confiança baixa) continua a forçar preview em qualquer caso.
+  if (classification.needs_confirmation || (alwaysPreview && !isReadOnlyPlan)) {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5min D20
     await updatePreviewState(runId, expiresAt, db);
 
@@ -560,6 +577,9 @@ export async function runAgentForHousehold(
     summary,
     results: outcome,
     undoExpiresAt: undoExpiresAt.toISOString(),
+    // Leituras (ex.: consultar_emails, listar_tarefas) não oferecem undo — o
+    // caller (webhook/HTTP) omite o botão/undo_url. Story J-6 follow-up.
+    readOnly: isReadOnlyPlan,
   };
 }
 

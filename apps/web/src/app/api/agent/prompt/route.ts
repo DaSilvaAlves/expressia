@@ -262,6 +262,19 @@ function mapOutcomeToResponse(
         return NextResponse.json(redactEndpointOutput(directResponseBody));
       }
 
+      if (outcome.readOnly) {
+        // Pipeline read-only (consultar_emails, listar_tarefas, ...) — devolve os
+        // resultados mas SEM undo_url (reverter uma leitura não faz sentido). O
+        // ResultMessage lida com `undo_url` ausente (compat Story 2.8 D40).
+        const readResponseBody = {
+          mode: 'executed' as const,
+          run_id: outcome.runId,
+          results: outcome.results,
+          summary: outcome.summary,
+        };
+        return NextResponse.json(redactEndpointOutput(readResponseBody));
+      }
+
       const responseBody = {
         mode: 'executed' as const,
         run_id: outcome.runId,
