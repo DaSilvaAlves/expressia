@@ -36,6 +36,7 @@ import { Classifier, type ClassificationResult } from '@meu-jarvis/classifier';
 import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { buildCacheKey, getCacheClient, CACHE_TTL_SECONDS } from '@/lib/agent/cache';
 import { isSingleConsultarDados, executeDirectQuery } from '@/lib/agent/cost-router';
+import { renderReadToolResults } from '@/lib/agent/format-results';
 import { childLogger } from '@meu-jarvis/observability';
 import {
   Executor,
@@ -715,6 +716,11 @@ function buildSummaryText(outcome: AtomicOutcome): string {
     return 'Operação falhou — rollback completo aplicado.';
   }
   const result = outcome as AtomicResult;
+  // Tools de leitura (ex.: consultar_emails) mostram os DADOS, não "N operações".
+  const read = renderReadToolResults(result.results ?? []);
+  if (read !== null) {
+    return read;
+  }
   const count = result.results?.length ?? 0;
   if (count === 0) {
     return 'Nada a executar — pedido reconhecido mas sem ações concretas.';

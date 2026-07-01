@@ -28,6 +28,7 @@ import {
   type ClassificationResult,
 } from '@meu-jarvis/classifier';
 import { getDb, withHousehold } from '@/lib/agent/db-shim';
+import { renderReadToolResults } from '@/lib/agent/format-results';
 import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import {
   childLogger,
@@ -439,6 +440,11 @@ export async function POST(
 }
 
 function buildConfirmSummary(result: AtomicResult): string {
+  // Tools de leitura (ex.: consultar_emails) mostram os DADOS, não "N operações".
+  const read = renderReadToolResults(result.results ?? []);
+  if (read !== null) {
+    return read;
+  }
   const count = result.results?.length ?? 0;
   if (count === 0) {
     return 'Confirmação aceite — nada a executar.';
