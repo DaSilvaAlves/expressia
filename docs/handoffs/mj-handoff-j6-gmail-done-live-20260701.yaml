@@ -1,0 +1,69 @@
+from_agent: "devops (Gage)"
+to_agent: "any"
+created: "2026-07-01T01:55:00Z"
+status: pending
+consumed: false
+
+project: "meu-jarvis (Expressia)"
+summary: >
+  Story J-6 (Gmail readonly) DONE e E2E LIVE PROVADO em prod. Duas capacidades vivas: (1)
+  brief diário com resumo de emails não lidos (+ fix "tu" informal herdado de J-4); (2) leitura
+  on-demand no Telegram ("mostra os meus emails" / "últimos N emails" → lista real com assunto +
+  remetente). `origin/main` = `63de0da`, working tree limpo, CI verde. O bug de execução da tool
+  NÃO era código — era config no Google Cloud (Gmail API desativada + scope gmail.readonly não
+  registado no consent screen); resolvido pelo Eurico no GCP (projeto `expressia-jarvis`). Pelo
+  caminho ficaram 2 melhorias do motor em prod: hotfix observabilidade (ToolExecutionError agora
+  aflora `cause.message`) + novo `renderReadToolResults` (mostra outputs de tools de LEITURA no
+  chat — antes só dava texto genérico de escrita). Resta só 1 follow-up COSMÉTICO (não bloqueia
+  nada) + bookkeeping de fecho da story.
+
+context:
+  story_id: "J-6"
+  story_path: "docs/stories/active/J-6.gmail-readonly-brief-leitura.story.md"
+  branch: "main"
+  current_task: "J-6 fechada Done; sessão fez deploy + diagnóstico E2E + 2 fixes em prod"
+  decisions_made:
+    - "Migration 0031 aplicada em prod (agent_intent +consultar_emails, idempotente)."
+    - "Deploy J-6 em main 98ab90a; hotfix observabilidade 4e2b1c4; renderizador leitura c194ace; story Done 63de0da."
+    - "Causa-raiz do erro da tool = GCP (Enable Gmail API + registar scope no OAuth consent screen), NÃO código. Fix feito pelo Eurico."
+    - "Read-only tools continuam a passar por preview->confirm porque household 2dedb1ec tem always_preview=true (preferência do Eurico) — NÃO desligar always_preview (afetaria escritas)."
+  files_modified:
+    - "packages/db/migrations/0031_agent_intent_gmail.sql (novo, aplicado prod)"
+    - "apps/web/src/lib/agent/tools/gmail/* (gmail-api, list-emails, index, testes)"
+    - "apps/web/src/lib/google/gmail.ts (getGmailSummaryForBrief)"
+    - "apps/web/src/lib/brief/{build-brief,synthesize}.ts (secção email + tu)"
+    - "apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts (aflora cause.message)"
+    - "apps/web/src/lib/agent/format-results.ts (novo — renderReadToolResults)"
+    - "apps/web/src/lib/agent/run-agent.ts (buildSummaryText usa renderReadToolResults)"
+  blockers: []
+  hypotheses_tested:
+    - "Token no household errado (lição J-3) → DESCARTADO (1 linha em google_oauth_tokens, household 2dedb1ec/user df5b403f, = telegram_link)."
+    - "Query sem ::uuid cast no getGmailAccessToken → DESCARTADO (idêntica ao calendar-api que funciona E2E)."
+    - "Erro real engolido pelo ToolExecutionError (só guardava o name da causa) → CONFIRMADO e corrigido."
+    - "Motor sem renderer para outputs de tools de leitura → CONFIRMADO (buildSummaryText/buildConfirmSummary genéricos) e corrigido."
+
+next_action: >
+  Follow-up COSMÉTICO opcional: fazer as tools read-only (consultar_emails, listar_tarefas, etc.)
+  saltarem o fluxo preview->confirm MESMO com always_preview=true — para leituras não mostrarem
+  "Feito." + botão "Cancelar" (que não faz sentido: reverse é _noop → 410). Alternativamente,
+  fechar J-6 com `@po *close-story J-6` (mover active/->completed/, atualizar este INDEX). Perguntar
+  ao Eurico qual dos dois quer primeiro (ou nenhum — J-6 já entrega valor).
+
+notes: |
+  J-6 já entrega valor E2E — este handoff é sobretudo continuidade/bookkeeping, não desbloqueio.
+
+  GOTCHA para futuras integrações Google (memória `jarvis_j6_gmail_live`): ao adicionar um scope
+  Google NOVO, é preciso 2 passos manuais no Google Cloud Console (projeto `expressia-jarvis`):
+  (a) Enable da API (Gmail API) em APIs & Services → Library; (b) registar o scope no OAuth consent
+  screen → Data Access. Sem isto a tool falha com erro opaco mesmo após re-consent OK. Fazer OAuth
+  sempre na conta principal `euricojsalves@gmail.com` (household 2dedb1ec / user df5b403f).
+
+  DIRECTIVA de arquitetura: NOVA tool de LEITURA tem de se registar em
+  `apps/web/src/lib/agent/format-results.ts` (renderReadToolResults), senão o chat mostra
+  "N operações" em vez dos dados.
+
+  Restrições permanentes: Billing CONGELADO; SEC-8 HOLD (não tocar withHousehold/db-shim/client.ts);
+  família removida (household_id/RLS intactos); push só @devops com ordem do Eurico; PT-PT europeu.
+
+  Estado Jarvis: Fase 1 (J-1..J-4) Done; v1.1 J-5 (Calendar escrita) Done live; J-6 (Gmail readonly)
+  Done live. Próximo natural da v1.1 seria J-7 (Gmail SEND — scope gmail.send, força confirmação).
