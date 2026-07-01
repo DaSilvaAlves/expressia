@@ -1,8 +1,15 @@
 from_agent: "devops (Gage)"
 to_agent: "any"
 created: "2026-07-01T01:55:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-07-01T01:24:23Z"
+consumed_by: "aiox-master (Orion)"
+consumed_note: >
+  Escolhido pelo Eurico o follow-up COSMÉTICO (leituras saltam preview->confirm
+  mesmo com always_preview=true). Implementado + testado localmente (gates verdes),
+  NÃO pushado (push só @devops). Sucessor pending:
+  mj-handoff-j6-readonly-skip-preview-ready-for-push-20260701.
 
 project: "meu-jarvis (Expressia)"
 summary: >

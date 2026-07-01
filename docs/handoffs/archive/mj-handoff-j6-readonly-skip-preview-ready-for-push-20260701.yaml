@@ -1,0 +1,70 @@
+from_agent: "aiox-master (Orion)"
+to_agent: "devops"
+created: "2026-07-01T01:24:23Z"
+status: consumed
+consumed: true
+consumed_at: "2026-07-01T02:45:00Z"
+consumed_by: "aiox-devops"
+
+project: "meu-jarvis (Expressia)"
+summary: >
+  Follow-up COSMÉTICO da J-6 IMPLEMENTADO e TESTADO localmente (gates verdes), a
+  aguardar push por @devops com ordem do Eurico. As tools de LEITURA
+  (consultar_emails, consultar_dados, listar_tarefas, listar_atrasadas) deixam de
+  passar pelo fluxo preview->confirm mesmo com `always_preview=true`, e uma
+  leitura executada já NÃO mostra "Feito." + botão "(Cancelar)" no Telegram (nem
+  `undo_url` na web) — reverter uma consulta não faz sentido (reverse no-op ->
+  410). Escritas mantêm o preview/undo intactos. ZERO migrations/schema (não toca
+  RLS nem SEC-8). Working tree com 8 ficheiros; `origin/main` continua em `cdab3c7`.
+
+context:
+  story_id: "J-6"
+  story_path: "docs/stories/active/J-6.gmail-readonly-brief-leitura.story.md"
+  branch: "main"
+  current_task: "Cosmético read-only implementado no working tree; falta push + smoke E2E."
+  decisions_made:
+    - "Conjunto canónico READ_ONLY_INTENTS + isReadOnlyIntent em packages/classifier/src/schemas.ts (lar dos intents). Read-only = consultar_dados, listar_tarefas, listar_atrasadas, consultar_emails. `unknown` NÃO é read-only (mantém clarificação)."
+    - "run-agent.ts: (a) cost-router de consultar_dados deixou de exigir !alwaysPreview (é read-only puro); (b) preview só é forçado por always_preview se o plano NÃO for todo read-only; (c) needs_confirmation (confiança baixa) continua a forçar preview em qualquer caso; (d) outcome executed pipeline ganha campo `readOnly`."
+    - "webhook Telegram: executed com kind=direct_query OU readOnly -> envia só o summary (sem 'Feito.' nem cancelKeyboard)."
+    - "rota HTTP POST /api/agent/prompt: executed readOnly -> resposta sem undo_url/undo_expires_at (ResultMessage já tolera ausência — Story 2.8 D40)."
+    - "Escritas (criar/editar/eliminar tarefas, finanças, calendário) intactas: preview e undo mantêm-se (teste AC3 always_preview + criar_tarefa continua a dar preview)."
+  files_modified:
+    - "packages/classifier/src/schemas.ts (READ_ONLY_INTENTS + isReadOnlyIntent)"
+    - "packages/classifier/src/index.ts (exports)"
+    - "packages/classifier/src/__tests__/schemas.test.ts (+2 testes)"
+    - "apps/web/src/lib/agent/run-agent.ts (isReadOnlyPlan; cost-router; preview-gate; readOnly no outcome)"
+    - "apps/web/src/app/api/telegram/webhook/route.ts (executed readOnly sem Feito/botão)"
+    - "apps/web/src/app/api/agent/prompt/route.ts (executed readOnly sem undo_url)"
+    - "apps/web/src/app/api/agent/prompt/__tests__/route.test.ts (+2 testes: always_preview+consultar_dados, always_preview+consultar_emails)"
+    - "apps/web/src/app/api/telegram/webhook/__tests__/route.test.ts (+1 teste: executed readOnly)"
+  blockers: []
+  gates:
+    typecheck: "EXIT 0 (web + classifier)"
+    lint: "EXIT 0 (No ESLint warnings or errors)"
+    test_classifier: "85/85 (+2)"
+    test_web: "1394/1394 (+3)"
+    check_rls: "N/A — sem alterações de schema/migração (nenhuma tabela household_id nova; 0031 já existia)"
+
+next_action: >
+  @devops: push (só com ordem do Eurico) dos 8 ficheiros do working tree — commit
+  convencional + trailers, fast-forward, sem --no-verify. NÃO precisa db:migrate
+  (zero migrations). Após deploy Vercel, smoke E2E no Telegram na conta principal
+  (household 2dedb1ec): "mostra os meus emails" deve devolver a lista SEM "Feito."
+  e SEM botão "(Cancelar)"; criar/editar tarefa deve continuar a mostrar preview
+  (always_preview) e undo 30s. Alternativa de bookkeeping ainda em aberto:
+  @po *close-story J-6 (mover active/->completed/). Billing CONGELADO; SEC-8 HOLD.
+
+notes: |
+  Contexto: no handoff antecessor (mj-handoff-j6-gmail-done-live-20260701, agora
+  arquivado) o Eurico escolheu este follow-up cosmético em vez de fechar já a
+  story. J-6 já entregava valor — isto é só polish de UX das leituras.
+
+  DIRECTIVA de arquitetura (nova, para lembrar):
+  - Nova intent de LEITURA: além de registar o renderer em
+    apps/web/src/lib/agent/format-results.ts (renderReadToolResults), acrescentar
+    o nome ao READ_ONLY_INTENTS em packages/classifier/src/schemas.ts — senão a
+    leitura volta a cair no preview e a oferecer undo sem sentido.
+
+  Restrições permanentes: Billing CONGELADO; SEC-8 HOLD (não tocar
+  withHousehold/db-shim/client.ts — não foi tocado); família removida
+  (household_id/RLS intactos); push só @devops com ordem do Eurico; PT-PT europeu.
