@@ -50,6 +50,11 @@ import {
   type AtomicResult,
   type PlanResult,
 } from '@meu-jarvis/planner-executor';
+import {
+  toolRegistry,
+  type DrizzleDbClient,
+  type ToolExecutionContext,
+} from '@meu-jarvis/tools';
 import { type OpenAIClientLike } from '@meu-jarvis/agent';
 
 import { revalidateTaskViews } from '@/lib/api-helpers/revalidate';
@@ -69,32 +74,78 @@ import type { IdempotentRunSnapshot } from '@/lib/agent/idempotency';
 const ROUTE = '/api/agent/prompt';
 
 /**
- * Story J-5 AC14 — intents do domínio Calendar. Escritas no Google Calendar não
- * participam em transacções Postgres: se uma tool irmã (tarefa/finança) falhar, o
- * rollback Postgres NÃO desfaz o evento já criado → evento órfão irrecuperável.
- * Por isso intents de Calendar não correm misturadas com outros domínios.
+ * Story J-5 AC14 + Story J-7 AC9 — intents de **escrita externa**. Escritas em
+ * sistemas externos (Google Calendar, Gmail send) NÃO participam em transacções
+ * Postgres: se uma tool irmã (tarefa/finança) falhar, o rollback Postgres NÃO
+ * desfaz o evento já criado nem o email já enviado → efeito órfão irrecuperável.
+ *
+ * O caso do Gmail send (J-7) é mais grave que o do Calendar (J-5): um email
+ * enviado não tem sequer undo (o reverse é `_noop`). Por isso intents de escrita
+ * externa não correm misturadas com outros domínios — o plano é bloqueado com um
+ * preview a pedir separação.
+ *
+ * Generalizado de `CALENDAR_INTENTS` (J-5) para `EXTERNAL_WRITE_INTENTS` (J-7)
+ * sem regressão: os 2 intents de Calendar de escrita continuam cobertos.
  */
-const CALENDAR_INTENTS: ReadonlySet<string> = new Set([
+const EXTERNAL_WRITE_INTENTS: ReadonlySet<string> = new Set([
   'criar_evento_calendario',
   'reagendar_evento_calendario',
+  'enviar_email',
 ]);
 
 /**
- * Story J-5 AC14 — detecta um plano misto "Calendar + outro domínio".
+ * Story J-5 AC14 + Story J-7 AC9 — detecta um plano misto "escrita externa +
+ * outro domínio".
  *
- * `true` quando existe ≥1 intent de Calendar E ≥1 intent de outro domínio
+ * `true` quando existe ≥1 intent de escrita externa E ≥1 intent de outro domínio
  * (tasks/finance/query — `unknown` é ignorado, não conta como domínio concreto).
  */
-function isMixedCalendarPlan(intents: ReadonlyArray<{ intent: string }>): boolean {
-  const hasCalendar = intents.some((i) => CALENDAR_INTENTS.has(i.intent));
-  if (!hasCalendar) {
+function isMixedExternalWritePlan(intents: ReadonlyArray<{ intent: string }>): boolean {
+  const hasExternalWrite = intents.some((i) => EXTERNAL_WRITE_INTENTS.has(i.intent));
+  if (!hasExternalWrite) {
     return false;
   }
   const hasOtherDomain = intents.some(
-    (i) => !CALENDAR_INTENTS.has(i.intent) && i.intent !== 'unknown',
+    (i) => !EXTERNAL_WRITE_INTENTS.has(i.intent) && i.intent !== 'unknown',
   );
   return hasOtherDomain;
 }
+
+/**
+ * Story J-7 SEND-PREVIEW-1 — intents cuja tool expõe um `preview()` com o
+ * RASCUNHO REAL da acção (ex.: `enviar_email` mostra Para/Assunto/Corpo). Para
+ * estes, a mensagem de confirmação enviada ao utilizador mostra o rascunho
+ * produzido por `tool.preview(input)` — não o label genérico do intent
+ * (`"enviar_email (92%)"`). É a rede de segurança de uma escrita irreversível: o
+ * utilizador revê o destinatário/assunto/corpo ANTES de confirmar o envio.
+ *
+ * Restrito a `enviar_email`: os previews de tarefas/finanças/calendar mantêm o
+ * comportamento actual (label genérico) — regressão zero.
+ */
+const PREVIEW_RENDER_INTENTS: ReadonlySet<string> = new Set(['enviar_email']);
+
+/** Story J-7 — o plano tem alguma intent com preview de rascunho real? */
+function planHasPreviewRenderIntent(intents: ReadonlyArray<{ intent: string }>): boolean {
+  return intents.some((i) => PREVIEW_RENDER_INTENTS.has(i.intent));
+}
+
+/**
+ * Story J-7 SEND-PREVIEW-1 — `db` placeholder para `tool.preview()`. O preview é
+ * PURO (sem I/O — contrato `ToolDefinition`): não deve tocar na base de dados.
+ * Este placeholder falha ruidosamente se algum caminho inesperado o usar
+ * (defense-in-depth, espelha `TX_RUNNER_DB_PLACEHOLDER` do Executor).
+ */
+const PREVIEW_DB_PLACEHOLDER: DrizzleDbClient = {
+  transaction() {
+    throw new Error('preview() não deve abrir transacção — é uma operação pura (sem I/O).');
+  },
+  insert() {
+    throw new Error('preview() não deve fazer insert — é uma operação pura (sem I/O).');
+  },
+  execute() {
+    throw new Error('preview() não deve executar SQL — é uma operação pura (sem I/O).');
+  },
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos públicos
@@ -139,7 +190,21 @@ export type AgentResult =
 export type AgentRunOutcome =
   | { status: 'executed'; kind: 'pipeline'; runId: string; summary: string; results: AtomicOutcome; undoExpiresAt: string; readOnly: boolean }
   | { status: 'executed'; kind: 'direct_query'; runId: string; summary: string; directResult: DirectQueryResult }
-  | { status: 'preview'; runId: string; planSummary: string[]; confidence: number; expiresAt: string }
+  | {
+      status: 'preview';
+      runId: string;
+      planSummary: string[];
+      confidence: number;
+      expiresAt: string;
+      /**
+       * Story J-7 SEND-PREVIEW-1 — quando `true`, `planSummary` contém o RASCUNHO
+       * real de uma escrita externa (ex.: `enviar_email`: Para/Assunto/Corpo +
+       * "Confirmas?"). A camada de resposta (webhook) apresenta-o directamente,
+       * sem o embrulhar no wrapper genérico de baixa confiança ("Não tenho a
+       * certeza (...)."). Ausente/`false` = preview genérico (comportamento actual).
+       */
+      awaitingExternalWriteConfirmation?: boolean;
+    }
   | { status: 'replay'; run: IdempotentRunSnapshot }
   | { status: 'idempotency_in_progress'; runId: string }
   | { status: 'rate_limited'; error: unknown }
@@ -333,25 +398,26 @@ export async function runAgentForHousehold(
     }
   }
 
-  // ─── 6b. Guard multi-intent Calendar (Story J-5 AC14) ─────────────
-  // Se o plano mistura Calendar com outro domínio, NÃO executamos nada: a Google
-  // Calendar API não participa na transacção Postgres (evento órfão se uma tool
-  // irmã falhar). Devolvemos um preview a pedir ao utilizador que separe os
-  // pedidos. Nenhuma tool é executada (Planner/Executor nem chegam a correr).
-  if (isMixedCalendarPlan(classification.intents)) {
+  // ─── 6b. Guard multi-intent escrita externa (Story J-5 AC14 + J-7 AC9) ─
+  // Se o plano mistura uma escrita externa (Calendar, Gmail send) com outro
+  // domínio, NÃO executamos nada: a API externa não participa na transacção
+  // Postgres (evento órfão / email enviado sem undo se uma tool irmã falhar).
+  // Devolvemos um preview a pedir ao utilizador que separe os pedidos. Nenhuma
+  // tool é executada (Planner/Executor nem chegam a correr).
+  if (isMixedExternalWritePlan(classification.intents)) {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5min D20
     await updatePreviewState(runId, expiresAt, db);
 
     log.info(
-      { run_id: runId, mode: 'preview', reason: 'mixed_calendar_plan' },
-      'Preview mode — plano misto Calendar+outro domínio, a pedir separação',
+      { run_id: runId, mode: 'preview', reason: 'mixed_external_write_plan' },
+      'Preview mode — plano misto escrita externa+outro domínio, a pedir separação',
     );
 
     return {
       status: 'preview',
       runId,
       planSummary: [
-        'Não consigo tratar o calendário e outra coisa ao mesmo tempo. Começas pelo evento ou pela tarefa/finança?',
+        'Não consigo tratar isto ao mesmo tempo que outro pedido. Fazemos um de cada vez?',
       ],
       confidence: classification.overall_confidence,
       expiresAt: expiresAt.toISOString(),
@@ -425,11 +491,36 @@ export async function runAgentForHousehold(
   // `needs_confirmation` (confiança baixa) continua a forçar preview em qualquer caso.
   if (classification.needs_confirmation || (alwaysPreview && !isReadOnlyPlan)) {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5min D20
+
+    // Story J-7 SEND-PREVIEW-1 — para escritas externas com preview de rascunho
+    // real (`enviar_email`), corremos o Planner AGORA para extrair o rascunho
+    // (Para/Assunto/Corpo) e mostrá-lo na confirmação, em vez do label genérico
+    // do intent. O plano é persistido (`updateAfterPlanner`) e REUTILIZADO no
+    // confirm (binding preview==envio) — o nº de chamadas ao Planner no caminho
+    // confirmado NÃO aumenta (move-se do confirm para aqui). Restantes intents
+    // (tarefas/finanças/calendar) mantêm o label genérico — regressão zero.
+    let draftSummary: string[] | null = null;
+    if (planHasPreviewRenderIntent(classification.intents)) {
+      draftSummary = await renderExternalWritePreview({
+        classification,
+        householdId,
+        userId,
+        traceId,
+        runId,
+        db,
+        log,
+      });
+    }
+
+    // `updatePreviewState` DEPOIS de `renderExternalWritePreview` (que persiste o
+    // plano com status='executing') — deixa o estado final em 'pending_preview'.
     await updatePreviewState(runId, expiresAt, db);
 
-    const planSummary = classification.intents.map(
-      (intent) => `${intent.intent} (${(intent.confidence * 100).toFixed(0)}%)`,
-    );
+    const planSummary =
+      draftSummary ??
+      classification.intents.map(
+        (intent) => `${intent.intent} (${(intent.confidence * 100).toFixed(0)}%)`,
+      );
 
     log.info(
       { run_id: runId, mode: 'preview', confidence: classification.overall_confidence },
@@ -442,6 +533,7 @@ export async function runAgentForHousehold(
       planSummary,
       confidence: classification.overall_confidence,
       expiresAt: expiresAt.toISOString(),
+      awaitingExternalWriteConfirmation: draftSummary !== null,
     };
   }
 
@@ -680,6 +772,89 @@ async function buildAccountContext(
   } catch (err) {
     log.warn({ err }, 'buildAccountContext falhou — Planner sem accountContext (fallback resolve a jusante)');
     return undefined;
+  }
+}
+
+/**
+ * Story J-7 SEND-PREVIEW-1 — constrói o rascunho real de uma escrita externa
+ * (`enviar_email`) para a mensagem de confirmação.
+ *
+ * Corre o Planner para extrair o input estruturado (to/subject/body) e invoca
+ * `tool.preview(input)` de cada tool com preview disponível no registry. Persiste
+ * o plano (`updateAfterPlanner`) para o confirm o REUTILIZAR — garantindo que o
+ * email enviado é EXACTAMENTE o rascunho que o utilizador reviu (binding
+ * preview==envio; a segurança de uma escrita irreversível só é real se o que se
+ * confirma for o que se vê).
+ *
+ * Falha graciosamente: se o Planner falhar ou nenhum toolCall tiver preview,
+ * devolve `null` e o caller cai no label genérico do intent (sem quebrar o
+ * fluxo). Nesse caso o plano NÃO fica persistido e o confirm re-planeia (fallback).
+ */
+async function renderExternalWritePreview(params: {
+  readonly classification: ClassificationResult;
+  readonly householdId: string;
+  readonly userId: string;
+  readonly traceId: string;
+  readonly runId: string;
+  readonly db: ReturnType<typeof getDb>;
+  readonly log: ReturnType<typeof childLogger>;
+}): Promise<string[] | null> {
+  const { classification, householdId, userId, traceId, runId, db, log } = params;
+  try {
+    const accountContext = await buildAccountContext(db, log, householdId);
+    const planner = new Planner();
+    const plan = await planner.plan({
+      classification,
+      householdId,
+      userId,
+      traceId,
+      runId,
+      accountContext,
+    });
+
+    // Persistir o plano para o confirm o reutilizar (binding preview==envio).
+    await updateAfterPlanner(
+      runId,
+      {
+        toolCalls: plan.toolCalls,
+        executorModel: planner.model,
+        tokensInput: plan.tokensInput,
+        tokensOutput: plan.tokensOutput,
+        costEur: plan.costEur,
+      },
+      db,
+    );
+
+    const previewCtx: ToolExecutionContext = {
+      householdId,
+      userId,
+      db: PREVIEW_DB_PLACEHOLDER,
+      traceId,
+      runId,
+    };
+
+    const drafts: string[] = [];
+    for (const call of plan.toolCalls) {
+      if (!toolRegistry.has(call.toolName)) {
+        continue;
+      }
+      const tool = toolRegistry.get(call.toolName);
+      // `preview` é síncrono e puro (contrato `ToolDefinition`). Valida o input
+      // extraído pelo Planner contra o schema da tool antes de renderizar.
+      const parsed = tool.inputSchema.safeParse(call.input);
+      if (!parsed.success) {
+        continue;
+      }
+      drafts.push(tool.preview(parsed.data, previewCtx));
+    }
+
+    return drafts.length > 0 ? drafts : null;
+  } catch (err) {
+    log.warn(
+      { err },
+      'renderExternalWritePreview falhou — a usar label genérico (confirm re-planeia)',
+    );
+    return null;
   }
 }
 

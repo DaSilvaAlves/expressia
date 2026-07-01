@@ -43,7 +43,7 @@ function extractAgentIntentEnumFromSource(): string[] {
 }
 
 describe('IntentSchema (AC2)', () => {
-  it('aceita os 18 valores canónicos', () => {
+  it('aceita os 19 valores canónicos', () => {
     for (const value of INTENT_VALUES) {
       expect(IntentSchema.safeParse(value).success).toBe(true);
     }
@@ -62,6 +62,15 @@ describe('IntentSchema (AC2)', () => {
 
   it('aceita o novo intent de Gmail readonly (Story J-6)', () => {
     expect(IntentSchema.safeParse('consultar_emails').success).toBe(true);
+  });
+
+  it('aceita o novo intent de Gmail send (Story J-7)', () => {
+    expect(IntentSchema.safeParse('enviar_email').success).toBe(true);
+  });
+
+  it('enviar_email NÃO é read-only (escrita externa — passa por preview→confirm)', () => {
+    expect(isReadOnlyIntent('enviar_email')).toBe(false);
+    expect(READ_ONLY_INTENTS.has('enviar_email' as never)).toBe(false);
   });
 
   it('READ_ONLY_INTENTS contém só as 4 intents de leitura (Story J-6 follow-up)', () => {
@@ -93,8 +102,9 @@ describe('IntentSchema (AC2)', () => {
     // 8 baseline (Story 2.1) + 3 Story 3.8 tools cérebro Tarefas (migration 0012)
     // + 4 Story 2.14 tools UPDATE/DELETE Tarefas e Finanças (migration 0026)
     // + 2 Story J-5 tools Calendar escrita (migration 0030)
-    // + 1 Story J-6 tool Gmail readonly (migration 0031).
-    expect(dbValues.length).toBe(18);
+    // + 1 Story J-6 tool Gmail readonly (migration 0031)
+    // + 1 Story J-7 tool Gmail send (migration 0032).
+    expect(dbValues.length).toBe(19);
   });
 });
 

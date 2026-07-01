@@ -240,6 +240,35 @@ describe('POST /api/telegram/webhook — tradução de resultados (AC7/AC8)', ()
     expect(sendCall!.reply_markup).toBeUndefined();
   });
 
+  it('SEND-PREVIEW-1 (J-7) — preview de envio mostra o RASCUNHO directamente (Para/Assunto/Corpo) + botões sim/não', async () => {
+    setupIdentityFound();
+    mocks.runAgentMock.mockResolvedValue({
+      status: 'preview',
+      runId: RUN_ID,
+      planSummary: [
+        'Vou enviar este email:\nPara: euricojsalves@gmail.com\nAssunto: Reunião\n\nOlá, teste.\n\nConfirmas?',
+      ],
+      confidence: 0.92,
+      expiresAt: new Date().toISOString(),
+      awaitingExternalWriteConfirmation: true,
+    });
+
+    await POST(makeRequest({ secret: SECRET, body: textUpdate('manda email ao euricojsalves@gmail.com') }) as never);
+
+    const sendCall = sentMessageCalls()[0];
+    expect(sendCall).toBeDefined();
+    // O rascunho é mostrado directamente (não o label genérico, não o wrapper).
+    expect(sendCall!.text).toContain('Vou enviar este email:');
+    expect(sendCall!.text).toContain('Para: euricojsalves@gmail.com');
+    expect(sendCall!.text).toContain('Assunto: Reunião');
+    expect(sendCall!.text).toContain('Confirmas?');
+    expect(sendCall!.text).not.toContain('Não tenho a certeza');
+    // Botões sim/não para confirmar/cancelar o envio.
+    const row = sendCall!.reply_markup?.inline_keyboard[0];
+    expect(row?.[0]?.callback_data).toBe(`confirm:${RUN_ID}`);
+    expect(row?.[1]?.callback_data).toBe(`cancel:${RUN_ID}`);
+  });
+
   it('AC8 — preview → sendMessage com botões sim/não (confirm/cancel)', async () => {
     setupIdentityFound();
     mocks.runAgentMock.mockResolvedValue({
@@ -297,6 +326,38 @@ describe('POST /api/telegram/webhook — callbacks (AC9/AC10/cancel)', () => {
     // Confirmação executada → novo botão (Cancelar).
     const sendCall = sentMessageCalls()[0];
     expect(sendCall!.reply_markup?.inline_keyboard[0]![0]!.callback_data).toBe(`undo:${RUN_ID}`);
+  });
+
+  it('UNDO-MISLEAD-1 (J-7) — confirm de envio IRREVERSÍVEL → sem botão (Cancelar), mensagem honesta', async () => {
+    setupIdentityFound();
+    mocks.executeConfirmMock.mockResolvedValue({
+      ok: true,
+      runId: RUN_ID,
+      summary: 'Email enviado. Emails enviados não podem ser recuperados.',
+      results: {
+        success: true,
+        results: [
+          {
+            toolName: 'enviar_email',
+            output: { id: 'm1', threadId: 'th1', to: 'euricojsalves@gmail.com' },
+            reverseOpId: 'noop-1',
+          },
+        ],
+      },
+      undoExpiresAt: new Date().toISOString(),
+    });
+
+    const res = await POST(makeRequest({ secret: SECRET, body: callbackUpdate(`confirm:${RUN_ID}`) }) as never);
+
+    expect(res.status).toBe(200);
+    const sendCall = sentMessageCalls()[0];
+    expect(sendCall).toBeDefined();
+    // Mensagem honesta — o email é definitivo.
+    expect(sendCall!.text).toContain('não podem ser recuperados');
+    // CRÍTICO: NENHUMA afordância de undo — sem botão (Cancelar), sem "Feito.".
+    expect(sendCall!.reply_markup).toBeUndefined();
+    expect(sendCall!.text).not.toContain('Feito');
+    expect(sendCall!.text).not.toMatch(/reverter/i);
   });
 
   it('cancel:{runId} → "Ok, não fiz nada." sem chamar undo/confirm', async () => {

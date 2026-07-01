@@ -30,6 +30,7 @@ import { type NextRequest } from 'next/server';
 import { hashForCorrelation } from '@meu-jarvis/observability';
 
 import { getServiceDb } from '@/lib/agent/db-shim';
+import { outcomeHasIrreversibleWrite } from '@/lib/agent/irreversible';
 import { runAgentForHousehold, type AgentRunOutcome } from '@/lib/agent/run-agent';
 import { executeUndo } from '@/app/api/agent/prompt/[runId]/undo/route';
 import { executeConfirm } from '@/app/api/agent/prompt/[runId]/confirm/route';
@@ -198,13 +199,29 @@ async function replyForOutcome(chatId: number, outcome: AgentRunOutcome): Promis
         await safeSend(chatId, outcome.summary);
         return;
       }
-      // Execução com mutação — confirmação + botão (Cancelar) activo 30 s.
+      // Story J-7 UNDO-MISLEAD-1 — escrita externa IRREVERSÍVEL (enviar_email):
+      // NÃO oferecer "(Cancelar)"/undo — um email enviado não é recuperável. (O
+      // caminho normal do envio é preview→confirm; este ramo é defensivo caso um
+      // envio chegue como `executed` directo.)
+      if (outcomeHasIrreversibleWrite(outcome.results)) {
+        await safeSend(chatId, outcome.summary);
+        return;
+      }
+      // Execução com mutação reversível — confirmação + botão (Cancelar) activo 30 s.
       await safeSend(chatId, `Feito. ${outcome.summary}`, cancelKeyboard(outcome.runId));
       return;
     }
 
     case 'preview': {
-      // Confiança baixa (ou acção destrutiva) — pergunta de confirmação.
+      // Story J-7 SEND-PREVIEW-1 — rascunho real de uma escrita externa
+      // (enviar_email): a `planSummary` JÁ É a mensagem completa (Para/Assunto/
+      // Corpo + "Confirmas?"). Mostra-a directamente + botões sim/não, sem o
+      // wrapper genérico de baixa confiança.
+      if (outcome.awaitingExternalWriteConfirmation && outcome.planSummary.length > 0) {
+        await safeSend(chatId, outcome.planSummary.join('\n\n'), confirmKeyboard(outcome.runId));
+        return;
+      }
+      // Confiança baixa (ou acção destrutiva) — pergunta de confirmação genérica.
       const detalhe = outcome.planSummary.length > 0 ? ` (${outcome.planSummary.join(', ')})` : '';
       await safeSend(
         chatId,
@@ -276,8 +293,15 @@ async function handleCallbackQuery(
     });
     await answerCallbackQuery(callback.id);
     if (result.ok) {
-      // Nova janela de 30 s para reverter a acção agora executada.
-      await safeSend(chatId, `Feito. ${result.summary}`, cancelKeyboard(runId));
+      // Story J-7 UNDO-MISLEAD-1 — escrita externa IRREVERSÍVEL (enviar_email):
+      // NÃO oferecer "(Cancelar)"/undo. O `result.summary` já é honesto ("Email
+      // enviado. Emails enviados não podem ser recuperados." — buildConfirmSummary).
+      if (outcomeHasIrreversibleWrite(result.results)) {
+        await safeSend(chatId, result.summary);
+      } else {
+        // Nova janela de 30 s para reverter a acção reversível agora executada.
+        await safeSend(chatId, `Feito. ${result.summary}`, cancelKeyboard(runId));
+      }
     } else {
       await safeSend(chatId, result.message);
     }

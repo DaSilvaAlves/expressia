@@ -43,11 +43,16 @@ vi.mock('@upstash/redis', () => ({
 import '@/lib/agent/run-agent';
 import { toolRegistry } from '@meu-jarvis/tools';
 
-describe('registo da gmail tool (anti tree-shaking)', () => {
+describe('registo das gmail tools (anti tree-shaking)', () => {
   it('importar run-agent.ts regista consultar_emails', () => {
     expect(toolRegistry.has('consultar_emails')).toBe(true);
 
     // E o domínio está correcto.
     expect(toolRegistry.get('consultar_emails').domain).toBe('email');
+  });
+
+  it('importar run-agent.ts regista enviar_email (Story J-7)', () => {
+    expect(toolRegistry.has('enviar_email')).toBe(true);
+    expect(toolRegistry.get('enviar_email').domain).toBe('email');
   });
 });

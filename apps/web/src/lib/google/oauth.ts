@@ -37,20 +37,24 @@ export class GoogleOAuthError extends Error {
  * Scopes pedidos no consentimento. `calendar.events` (Story J-5 — leitura E
  * escrita de eventos do calendário; superset de `calendar.readonly` para
  * eventos do calendário primário) + `gmail.readonly` (Story J-6 — leitura de
- * emails da caixa de entrada) + `openid email` para obter o email da conta
- * Google (referência informativa em `google_oauth_tokens.google_email`). Sem
- * `openid email`, o `userinfo` endpoint não devolveria o email.
+ * emails da caixa de entrada) + `gmail.send` (Story J-7 — envio/composição de
+ * email) + `openid email` para obter o email da conta Google (referência
+ * informativa em `google_oauth_tokens.google_email`). Sem `openid email`, o
+ * `userinfo` endpoint não devolveria o email.
  *
  * Story J-5 AC4: actualizado de `calendar.readonly` → `calendar.events`.
- * Story J-6 AC4: acrescentado `gmail.readonly` (cumulativo). A leitura do brief
- * diário (J-4 `getCalendarEventsToday`), as calendar tools (J-5) e o novo
- * `getGmailSummaryForBrief` (J-6) usam o MESMO token armazenado em
- * `google_oauth_tokens` — 1 linha, N scopes. `refreshAccessToken` é agnóstico ao
- * scope. Exige re-consentimento one-shot do Eurico (Google obriga nova
- * autorização quando os scopes aumentam).
+ * Story J-6 AC4: acrescentado `gmail.readonly` (cumulativo).
+ * Story J-7 AC4: acrescentado `gmail.send` (cumulativo). A leitura do brief
+ * diário (J-4 `getCalendarEventsToday`), as calendar tools (J-5), o
+ * `getGmailSummaryForBrief` (J-6) e a nova tool `enviar_email` (J-7) usam o
+ * MESMO token armazenado em `google_oauth_tokens` — 1 linha, N scopes.
+ * `refreshAccessToken` é agnóstico ao scope. Exige re-consentimento one-shot do
+ * Eurico (Google obriga nova autorização quando os scopes aumentam). NOTA:
+ * `gmail.send` é um scope SENSÍVEL — pode exigir registo no OAuth consent screen
+ * do GCP antes do consentimento (lição J-6 com `gmail.readonly`).
  */
 const OAUTH_SCOPES =
-  'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.readonly openid email';
+  'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send openid email';
 const GOOGLE_AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_ENDPOINT = 'https://www.googleapis.com/oauth2/v3/userinfo';

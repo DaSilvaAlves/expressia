@@ -210,7 +210,7 @@ describe('runAgentForHousehold — propagação de erros', () => {
   });
 });
 
-describe('runAgentForHousehold — guard multi-intent Calendar (Story J-5 AC14)', () => {
+describe('runAgentForHousehold — guard multi-intent escrita externa (Story J-5 AC14 + J-7 AC9)', () => {
   it('AC14 — intents mistos (calendar + tarefa) → preview sem executar tools', async () => {
     mocks.classifyMock.mockResolvedValue({
       intents: [
@@ -230,9 +230,145 @@ describe('runAgentForHousehold — guard multi-intent Calendar (Story J-5 AC14)'
 
     expect(outcome.status).toBe('preview');
     if (outcome.status === 'preview') {
-      expect(outcome.planSummary.join(' ')).toMatch(/calend[áa]rio/i);
+      // Story J-7 AC9: a mensagem deixou de ser calendar-specific.
+      expect(outcome.planSummary.join(' ')).toMatch(/um de cada vez/i);
+      expect(outcome.planSummary.join(' ')).not.toMatch(/calend[áa]rio/i);
     }
     // Nenhuma tool executada — Planner/Executor nem chegam a correr.
+    expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('AC9 (J-7) — intents mistos (enviar_email + tarefa) → preview/separação, nunca envio atómico', async () => {
+    mocks.classifyMock.mockResolvedValue({
+      intents: [
+        { intent: 'enviar_email', confidence: 0.9, raw_span: 'manda um email à Ana' },
+        { intent: 'criar_tarefa', confidence: 0.9, raw_span: 'e cria uma tarefa' },
+      ],
+      language: 'pt-PT',
+      // Mesmo com needs_confirmation true, o guard corre ANTES do branch de
+      // preview normal — devolve a mensagem de separação e não executa nada.
+      needs_confirmation: true,
+      overall_confidence: 0.9,
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'manda um email à Ana E cria uma tarefa',
+    });
+
+    expect(outcome.status).toBe('preview');
+    if (outcome.status === 'preview') {
+      expect(outcome.planSummary.join(' ')).toMatch(/um de cada vez/i);
+    }
+    // CRÍTICO: nenhuma tool executada — nenhum email enviado (Planner/Executor
+    // nem chegam a correr).
+    expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('SEND-PREVIEW-1 (J-7) — plano enviar_email mostra o RASCUNHO real (Para/Assunto/Corpo) na confirmação, não o label genérico', async () => {
+    mocks.classifyMock.mockResolvedValue({
+      intents: [
+        { intent: 'enviar_email', confidence: 0.92, raw_span: 'manda um email ao euricojsalves@gmail.com' },
+      ],
+      language: 'pt-PT',
+      // enviar_email força needs_confirmation (prompt v6, regra 5) → cai no branch
+      // de preview ANTES do Executor. O preview deve mostrar o rascunho real.
+      needs_confirmation: true,
+      overall_confidence: 0.92,
+    });
+    // O Planner corre AGORA (no preview) para extrair o rascunho estruturado.
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [
+        {
+          toolName: 'enviar_email',
+          input: {
+            to: 'euricojsalves@gmail.com',
+            subject: 'Reunião',
+            body: 'Olá, isto é um teste do Jarvis.',
+          },
+          intent: 'enviar_email',
+        },
+      ],
+      planReasoning: null,
+      latencyMs: 0,
+      tokensInput: 0,
+      tokensOutput: 0,
+      costEur: 0,
+      cacheHit: false,
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'manda um email ao euricojsalves@gmail.com sobre a reunião a dizer olá',
+    });
+
+    expect(outcome.status).toBe('preview');
+    if (outcome.status === 'preview') {
+      const text = outcome.planSummary.join('\n');
+      // Rascunho real renderizado por tool.preview() — Para/Assunto/Corpo + "Confirmas?".
+      expect(text).toContain('Para: euricojsalves@gmail.com');
+      expect(text).toContain('Assunto: Reunião');
+      expect(text).toContain('Olá, isto é um teste do Jarvis.');
+      expect(text).toContain('Confirmas?');
+      // NÃO o label genérico "enviar_email (92%)".
+      expect(text).not.toMatch(/enviar_email \(\d+%\)/);
+      // Flag que instrui o webhook a mostrar o rascunho directamente.
+      expect(outcome.awaitingExternalWriteConfirmation).toBe(true);
+    }
+    // O Planner correu (extrair rascunho); o Executor NÃO — nenhum email enviado.
+    expect(mocks.plannerPlanMock).toHaveBeenCalledTimes(1);
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('SEND-PREVIEW-1 (J-7) — fallback: se o Planner falhar no preview, usa label genérico (não quebra)', async () => {
+    mocks.classifyMock.mockResolvedValue({
+      intents: [{ intent: 'enviar_email', confidence: 0.9, raw_span: 'manda email' }],
+      language: 'pt-PT',
+      needs_confirmation: true,
+      overall_confidence: 0.9,
+    });
+    mocks.plannerPlanMock.mockRejectedValue(new Error('planner indisponível'));
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'manda um email',
+    });
+
+    expect(outcome.status).toBe('preview');
+    if (outcome.status === 'preview') {
+      // Degrada para o label genérico — sem crash.
+      expect(outcome.planSummary.join(' ')).toMatch(/enviar_email/);
+      expect(outcome.awaitingExternalWriteConfirmation).toBeFalsy();
+    }
+    // Executor nunca corre.
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('SEND-PREVIEW-1 (J-7) — regressão: preview de tarefa (confiança baixa) mantém o label genérico e NÃO corre o Planner', async () => {
+    mocks.classifyMock.mockResolvedValue({
+      intents: [{ intent: 'criar_tarefa', confidence: 0.4, raw_span: 'qq' }],
+      language: 'pt-PT',
+      needs_confirmation: true,
+      overall_confidence: 0.4,
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'faz qualquer coisa',
+    });
+
+    expect(outcome.status).toBe('preview');
+    if (outcome.status === 'preview') {
+      expect(outcome.planSummary.join(' ')).toMatch(/criar_tarefa \(\d+%\)/);
+      expect(outcome.awaitingExternalWriteConfirmation).toBeFalsy();
+    }
+    // Regressão zero: intents sem preview de rascunho NÃO correm o Planner no preview.
     expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
     expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
   });

@@ -1,0 +1,113 @@
+schema: 1
+story: 'J-7'
+slug: 'gmail-send-responder-compor'
+title: 'Gmail send — compor e enviar email novo via Telegram (preview→confirm, compose-only)'
+gate: PASS
+status_reason: 'Re-review do delta v1.2-DEV: os 2 concerns anteriores estão RESOLVIDOS com testes que os provam. A confirmação de envio passa a mostrar o rascunho real (Para/Assunto/Corpo + "Confirmas?") via tool.preview() puro, com binding preview==envio (plano persistido reutilizado no confirm, fallback re-plan seguro); a resposta pós-envio deixa de oferecer undo enganador para escrita irreversível (sem botão Cancelar, sem "30 segundos", sem "Revertido."; copy honesta). Regressão zero confirmada: os 3 gates (PREVIEW_RENDER_INTENTS/REUSE_PERSISTED_PLAN_INTENTS/IRREVERSIBLE_WRITE_TOOLS) estão restritos a enviar_email; previews/undo de tarefas/finanças/calendar e o caminho read-only inalterados. Guard AC9, needs_confirmation, MIME e enum-sync 19 intactos.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-07-01T19:05:00Z'
+
+# Re-review FOCADO NO DELTA (v1.2-DEV — SEND-PREVIEW-1 + UNDO-MISLEAD-1).
+# Verificação independente (lane de revisão — NÃO autor). Subconjunto do delta re-executado localmente.
+gates_verified:
+  - command: 'pnpm --filter @meu-jarvis/web test -- run-agent confirm webhook irreversible send-email'
+    result: 'PASS — 51/51 (5 ficheiros: webhook 17, send-email 10, confirm 9, run-agent 11, gmail-api). Re-executado por @qa. Logs confirmam (a) reason=mixed_external_write_plan a bloquear antes da execução e (b) renderExternalWritePreview falhou→label genérico (fallback do binding vivo).'
+  - command: 'pnpm lint / typecheck / classifier / tools / planner-executor / build / check:rls / db-test'
+    result: 'ACEITE do relatório @dev v1.2-DEV (evidência real reportada: web 1421, classifier 87, tools 440, planner-executor 76, db-test 205 c/ 0032 em PG real, check:rls 31 tabelas inalterado, build 10/10). Delta não toca schema/migration/enum — inalterados face à ronda 1 (já PASS).'
+
+# Estado dos 2 concerns da ronda anterior (CONCERNS 7,5/10)
+prior_concerns_resolution:
+  - id: 'SEND-PREVIEW-1'
+    prior_severity: high
+    status: RESOLVED
+    evidence: |
+      run-agent.ts §7 (preview branch): para intents em PREVIEW_RENDER_INTENTS={enviar_email},
+      renderExternalWritePreview() corre o Planner AGORA, valida o input (safeParse) e renderiza
+      tool.preview(input) via toolRegistry. O preview é PURO — o contrato preview(input,ctx):string
+      é síncrono e a send-email.ts usa só `input` (ignora ctx); PREVIEW_DB_PLACEHOLDER rebenta se
+      algum caminho tentar I/O (defense-in-depth). O branch de preview RETORNA antes do bloco
+      Planner+Executor: nenhum email enviado no preview (Executor nem é construído nesse caminho).
+      Binding preview==envio [D-J7.3]: updateAfterPlanner persiste tool_calls no preview; o confirm
+      (REUSE_PERSISTED_PLAN_INTENTS={enviar_email}) reconstrói via reconstructPersistedPlan e passa o
+      MESMO plano ao Executor → o email enviado é EXACTAMENTE o call.input que gerou o rascunho.
+      Fallback robusto: se o Planner falhar no preview OU o tool_calls persistido não validar
+      (z.array(PlanToolCallSchema) vazio/inválido), cai no label genérico / re-planeia no confirm —
+      degradação graciosa idêntica ao comportamento pré-fix (sem novo modo de falha). Flag
+      awaitingExternalWriteConfirmation instrui o webhook a mostrar o rascunho DIRECTO (sem wrapper
+      de incerteza) + botões sim/não. Testes: run-agent.test.ts (rascunho real Para/Assunto/Corpo +
+      Confirmas?, Executor NÃO corre; fallback→label genérico; regressão: intent não-email NÃO corre
+      Planner no preview); webhook route.test.ts (rascunho directo + confirmKeyboard); confirm.test.ts
+      (reutiliza tool_calls persistido). AC13a ("o bot mostra o rascunho Para/Assunto/Corpo") agora
+      cumprível como escrita.
+  - id: 'UNDO-MISLEAD-1'
+    prior_severity: medium
+    status: RESOLVED
+    evidence: |
+      Novo módulo-folha irreversible.ts (IRREVERSIBLE_WRITE_TOOLS={enviar_email} +
+      outcomeHasIrreversibleWrite, só tipos de planner-executor). confirm/route.ts buildConfirmSummary
+      devolve "Email enviado. Emails enviados não podem ser recuperados." (sem "reverter") para escrita
+      irreversível. webhook/route.ts suprime cancelKeyboard nos DOIS ramos (confirm callback L299 +
+      executed defensivo L206) → nenhum botão (Cancelar), nenhuma "30 segundos", nenhum "Revertido.".
+      O botão (Cancelar) é a ÚNICA origem do callback_data undo:{runId} numa inline keyboard do
+      Telegram — suprimi-lo torna o caminho executeUndo/_noop INALCANÇÁVEL via Telegram (a origem
+      exacta do bug reportado Cancelar→Revertido). [AUTO-DECISION] não alterar executeUndo/_noop:
+      menor superfície, contracts packages/tools intactos (AC5), zero risco nos domínios reversíveis.
+      Testes: webhook route.test.ts UNDO-MISLEAD-1 (confirm de envio irreversível → sem (Cancelar),
+      mensagem honesta); confirm.test.ts (summary contém "não podem ser recuperados").
+
+# Auditoria de regressão ZERO (crítico) — delta restrito a enviar_email
+regression_audit:
+  preview_render_scope: 'PASS — PREVIEW_RENDER_INTENTS={enviar_email}; planHasPreviewRenderIntent gate. Teste prova que intents sem preview de rascunho NÃO correm o Planner no preview (tarefas/finanças/calendar mantêm o label genérico).'
+  reuse_plan_scope: 'PASS — REUSE_PERSISTED_PLAN_INTENTS={enviar_email}; shouldReusePersistedPlan. Restantes intents re-planeiam no confirm (comportamento pré-fix inalterado).'
+  irreversible_scope: 'PASS — IRREVERSIBLE_WRITE_TOOLS={enviar_email}. Executed reversível mantém "Feito." + (Cancelar) 30s; read-only (direct_query/readOnly) mantém só os dados sem botão; ramos untouched.'
+  ac9_guard: 'PASS — EXTERNAL_WRITE_INTENTS {criar_evento_calendario, reagendar_evento_calendario, enviar_email} e isMixedExternalWritePlan (§6b) INTACTOS (não tocados pelo delta). Log runtime confirma mixed_external_write_plan a bloquear antes da execução.'
+  needs_confirmation_mime_enum: 'PASS — prompt v6 regra 5 (enviar_email força needs_confirmation), MIME base64url/RFC 2047 e enum-sync 19 pontos inalterados face à ronda 1 (delta não toca classifier/migration/schema).'
+
+top_issues:
+  - id: 'REL-J7-2'
+    severity: low
+    finding: 'Residual não-bloqueante: o route handler HTTP POST /confirm (não-Telegram) continua a incluir `undo_url` no corpo da resposta para envios irreversíveis (L423-433), embora o `summary` já seja honesto. Hoje é inócuo — enviar_email só é exercido via Telegram, que suprime o botão, e nenhum cliente web renderiza esse undo_url para envios. Torna-se material só se um futuro cliente web renderizar undo_url ingenuamente.'
+    suggested_action: 'Opcional/futuro: omitir undo_url no corpo do confirm quando outcomeHasIrreversibleWrite(result.results). Não bloqueia J-7 (surface do produto = Telegram, já honesto).'
+  - id: 'REL-J7-1'
+    severity: low
+    finding: 'Herdado (J-5/J-6): tree-shaking do side-effect import gmail/index em run-agent.ts/confirm/route.ts é provado em Vitest (registration.test.ts) mas não no bundler de produção.'
+    suggested_action: 'Verificar no E2E live (Tarefa 9): se o motor responder "tool não encontrada" ao envio, o side-effect foi eliminado. Já provado vivo para consultar_emails (J-6 em prod).'
+
+# Avaliação [D-J7.3]/[AUTO-DECISION] (pedido de re-review)
+design_decision_review:
+  planner_move_cost: 'ACEITE — no caminho CONFIRMADO o nº de chamadas ao Planner é neutro (movido do confirm para o preview; confirm reutiliza plano, tokens/custo=0). No caminho CANCELADO há +1 chamada Planner face ao pré-fix (o preview corria sem Planner) — mas essa chamada É o custo de mostrar o rascunho real (o próprio objectivo do SEND-PREVIEW-1), não desperdício. Single-user, negligível. Justificado.'
+  reuse_robustness: 'ACEITE — reconstructPersistedPlan valida via z.array(PlanToolCallSchema); vazio/inválido→null→re-plan (fallback seguro, sem novo modo de falha). Binding sólido: o plano persistido É o que o preview renderizou (ambos de plan.toolCalls).'
+  undo_unreachable: 'ACEITE — botão suprimido = callback undo:{runId} inalcançável via Telegram; não tocar executeUndo/_noop preserva contracts (AC5) e domínios reversíveis. Residual apenas na API HTTP directa (REL-J7-2, low).'
+
+waiver: { active: false }
+
+notes: |
+  Re-review de gate FOCADO NO DELTA v1.2-DEV (iteração 1/2 do loop fix→re-review). Os 2 concerns da
+  ronda anterior (SEND-PREVIEW-1 high, UNDO-MISLEAD-1 medium) estão AMBOS RESOLVIDOS com testes que os
+  provam, verificados por leitura do código de produção real (run-agent.ts, confirm/route.ts,
+  webhook/route.ts, irreversible.ts, send-email.ts, contracts.ts) e re-execução independente do
+  subconjunto (51/51 GREEN).
+
+  SEND-PREVIEW-1: a segurança de uma escrita irreversível deixou de ser decorativa — o utilizador vê
+  agora Para/Assunto/Corpo reais antes de confirmar, e o email enviado é vinculado ao rascunho revisto
+  (plano persistido reutilizado no confirm). O preview é puro (sem I/O), corre antes do Executor
+  (nenhum envio no preview), e degrada graciosamente para o label genérico se o Planner falhar.
+
+  UNDO-MISLEAD-1: o bot já não afirma reverter um email que não pode ser des-enviado — botão (Cancelar)
+  suprimido para enviar_email, copy honesta "Emails enviados não podem ser recuperados.". O caminho de
+  undo fica inalcançável via Telegram (surface do produto). O AUTO-DECISION de não tocar executeUndo/_noop
+  é a escolha de menor superfície (contracts packages/tools intactos, AC5) e elimina o bug na raiz.
+
+  Regressão ZERO confirmada e material: os três novos gates (PREVIEW_RENDER_INTENTS,
+  REUSE_PERSISTED_PLAN_INTENTS, IRREVERSIBLE_WRITE_TOOLS) estão TODOS restritos a enviar_email; teste
+  explícito prova que intents não-email NÃO correm o Planner no preview; executed reversível mantém
+  "Feito."+(Cancelar); read-only intacto; guard AC9, needs_confirmation, MIME e enum-sync 19 não tocados.
+
+  2 residuais LOW não-bloqueantes (REL-J7-2 undo_url no corpo HTTP do confirm — inócuo hoje; REL-J7-1
+  tree-shaking herdado — verificar no E2E). Nenhum bloqueia o merge/deploy nem o E2E live.
+
+  Verdicto: PASS (9,0/10, subiu de 7,5). Código em âmbito impecável, os 2 concerns de wiring resolvidos
+  com cirurgia mínima e disciplina de regressão exemplar. Story pode transitar para Done; prosseguir para
+  Tarefa 9 (deploy 0032 + re-consent OAuth gmail.send + E2E compose/cancelar/guard) com @devops/[EURICO].
+  Nota: AC12/AC13 (E2E live) permanecem precondições externas [EURICO]+@devops — não são deficiência de
+  código; AC13a agora É cumprível como escrita graças ao SEND-PREVIEW-1.

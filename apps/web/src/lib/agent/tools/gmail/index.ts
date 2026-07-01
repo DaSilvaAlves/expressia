@@ -23,9 +23,13 @@
 import { toolRegistry } from '@meu-jarvis/tools';
 
 import { consultarEmails } from './list-emails';
+import { enviarEmail } from './send-email';
 
-// Side-effect: regista a gmail tool no singleton partilhado.
+// Side-effect: regista as gmail tools no singleton partilhado.
+// `consultar_emails` (J-6, leitura) + `enviar_email` (J-7, escrita compose-only).
 toolRegistry.register(consultarEmails);
+toolRegistry.register(enviarEmail);
 
-export { consultarEmails };
+export { consultarEmails, enviarEmail };
 export type { ConsultarEmailsInput, ConsultarEmailsOutput } from './list-emails';
+export type { EnviarEmailInput, EnviarEmailOutput } from './send-email';

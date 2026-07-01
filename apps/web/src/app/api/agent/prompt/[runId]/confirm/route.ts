@@ -21,6 +21,7 @@
  */
 import { sql } from 'drizzle-orm';
 import { NextResponse, type NextRequest } from 'next/server';
+import { z } from 'zod';
 
 import { createServerSupabaseClient } from '@meu-jarvis/auth/server';
 import {
@@ -29,6 +30,7 @@ import {
 } from '@meu-jarvis/classifier';
 import { getDb, withHousehold } from '@/lib/agent/db-shim';
 import { renderReadToolResults } from '@/lib/agent/format-results';
+import { outcomeHasIrreversibleWrite } from '@/lib/agent/irreversible';
 import { resolveHouseholdId } from '@/lib/api-helpers/auth';
 import {
   childLogger,
@@ -38,6 +40,7 @@ import {
   Executor,
   Planner,
   PlannerError,
+  PlanToolCallSchema,
   ExecutorValidationError,
   ToolPlanGateError,
   ToolError,
@@ -78,8 +81,22 @@ interface PendingPreviewRow extends Record<string, unknown> {
   readonly status: string;
   readonly confirm_expires_at: string | null;
   readonly intents_detected: unknown;
+  /**
+   * Story J-7 SEND-PREVIEW-1 — plano persistido no preview (`tool_calls` JSONB).
+   * Para runs de `enviar_email`, o preview já correu o Planner e persistiu o
+   * rascunho; reutilizamo-lo aqui em vez de re-planear (binding preview==envio).
+   */
+  readonly tool_calls: unknown;
   readonly trace_id: string | null;
 }
+
+/**
+ * Story J-7 SEND-PREVIEW-1 — intents cujo plano persistido no preview deve ser
+ * REUTILIZADO no confirm (em vez de re-planear), garantindo que a escrita externa
+ * executada é EXACTAMENTE o rascunho que o utilizador reviu. Restrito a
+ * `enviar_email`: tarefas/finanças/calendar continuam a re-planear (regressão zero).
+ */
+const REUSE_PERSISTED_PLAN_INTENTS: ReadonlySet<string> = new Set(['enviar_email']);
 
 /**
  * Resultado discriminado de `executeConfirm`. O caso de sucesso (`ok: true`)
@@ -133,7 +150,7 @@ export async function executeConfirm(params: {
   // Lookup run em pending_preview — filtro household_id app-enforced (SEC-1-F3).
   const rows = await db.execute<PendingPreviewRow>(sql`
     select id, household_id, user_id, status, confirm_expires_at,
-           intents_detected, trace_id
+           intents_detected, tool_calls, trace_id
     from agent_runs
     where id = ${runId}::uuid
       and household_id = ${householdId}::uuid
@@ -217,22 +234,38 @@ export async function executeConfirm(params: {
   let outcome: AtomicOutcome;
   try {
     const planner = new Planner();
-    plan = await planner.plan({
-      classification,
-      householdId: run.household_id,
-      userId: run.user_id,
-      traceId: run.trace_id ?? `confirm-${Date.now()}`,
-      runId,
-    });
+
+    // Story J-7 SEND-PREVIEW-1 — para runs de escrita externa irreversível
+    // (enviar_email), reutilizamos o plano persistido no preview em vez de
+    // re-planear: o email enviado é EXACTAMENTE o rascunho que o utilizador reviu
+    // (binding preview==envio; a segurança de uma acção irreversível só é real se
+    // o que se confirma for o que se vê). Fallback (parse falha / plano vazio):
+    // re-planeia normalmente. Restantes intents: re-planeiam (regressão zero).
+    const reusedPlan = shouldReusePersistedPlan(classification.intents)
+      ? reconstructPersistedPlan(run.tool_calls)
+      : null;
+
+    plan =
+      reusedPlan ??
+      (await planner.plan({
+        classification,
+        householdId: run.household_id,
+        userId: run.user_id,
+        traceId: run.trace_id ?? `confirm-${Date.now()}`,
+        runId,
+      }));
+
     await updateAfterPlanner(
       runId,
       {
         toolCalls: plan.toolCalls,
         // Modelo realmente usado pelo Planner/Executor (produção: gpt-4o-mini).
+        // Ao reutilizar o plano do preview, não há nova chamada LLM aqui →
+        // tokens/custo do confirm são 0 (o custo do plano foi contabilizado no preview).
         executorModel: planner.model,
-        tokensInput: plan.tokensInput,
-        tokensOutput: plan.tokensOutput,
-        costEur: plan.costEur,
+        tokensInput: reusedPlan ? 0 : plan.tokensInput,
+        tokensOutput: reusedPlan ? 0 : plan.tokensOutput,
+        costEur: reusedPlan ? 0 : plan.costEur,
       },
       db,
     );
@@ -445,9 +478,45 @@ function buildConfirmSummary(result: AtomicResult): string {
   if (read !== null) {
     return read;
   }
+  // Story J-7 UNDO-MISLEAD-1 — escrita externa IRREVERSÍVEL (enviar_email): NÃO
+  // prometer reversão ("Tens 30 segundos para reverter") sobre um email já
+  // enviado. Mensagem honesta — a acção é definitiva.
+  if (outcomeHasIrreversibleWrite(result)) {
+    return 'Email enviado. Emails enviados não podem ser recuperados.';
+  }
   const count = result.results?.length ?? 0;
   if (count === 0) {
     return 'Confirmação aceite — nada a executar.';
   }
   return `Confirmaste a execução de ${count} operação(ões). Tens 30 segundos para reverter.`;
+}
+
+/**
+ * Story J-7 SEND-PREVIEW-1 — o run deve reutilizar o plano persistido no preview?
+ * (Restrito a `enviar_email` — binding preview==envio; ver `REUSE_PERSISTED_PLAN_INTENTS`.)
+ */
+function shouldReusePersistedPlan(intents: ReadonlyArray<{ intent: string }>): boolean {
+  return intents.some((i) => REUSE_PERSISTED_PLAN_INTENTS.has(i.intent));
+}
+
+/**
+ * Story J-7 SEND-PREVIEW-1 — reconstrói um `PlanResult` a partir do `tool_calls`
+ * JSONB persistido no preview. Métricas a zero (não houve chamada LLM no confirm).
+ * Devolve `null` se o payload não validar ou estiver vazio → o caller re-planeia
+ * (fallback seguro).
+ */
+function reconstructPersistedPlan(rawToolCalls: unknown): PlanResult | null {
+  const parsed = z.array(PlanToolCallSchema).safeParse(rawToolCalls);
+  if (!parsed.success || parsed.data.length === 0) {
+    return null;
+  }
+  return {
+    toolCalls: parsed.data,
+    planReasoning: null,
+    latencyMs: 0,
+    tokensInput: 0,
+    tokensOutput: 0,
+    costEur: 0,
+    cacheHit: false,
+  };
 }

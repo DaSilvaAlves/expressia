@@ -9,17 +9,19 @@
  *        Story J-5 AC3 (bump v3→v4: +2 intents Calendar escrita criar/reagendar,
  *        +4 few-shots, instrução needs_confirmation=true para reagendar_evento_*);
  *        Story J-6 AC3 (bump v4→v5: +1 intent Gmail readonly `consultar_emails`,
- *        +2 few-shots, leitura sem confirmação — NÃO força needs_confirmation).
+ *        +2 few-shots, leitura sem confirmação — NÃO força needs_confirmation);
+ *        Story J-7 AC3 (bump v5→v6: +1 intent Gmail send `enviar_email`,
+ *        +2 few-shots, escrita externa irreversível — FORÇA needs_confirmation).
  *
  * Princípios do prompt:
- *   - Lista os 18 intents canónicos com descrição PT-PT de quando usar cada.
- *   - 20 exemplos few-shot PT-PT cobrindo cada intent.
+ *   - Lista os 19 intents canónicos com descrição PT-PT de quando usar cada.
+ *   - 22 exemplos few-shot PT-PT cobrindo cada intent.
  *   - Instrução explícita: input non-PT-PT → array com `unknown` confidence 1.0,
  *     `language: 'pt-PT'`, `needs_confirmation: false`.
  *   - Instrução explícita: temperature=0, `confidence` calibrado.
- *   - Instrução de segurança: intents destrutivos/modificativos (`eliminar_tarefa`,
- *     `delete_finance_variable`, `reagendar_evento_calendario`) forçam
- *     `needs_confirmation: true` sempre.
+ *   - Instrução de segurança: intents destrutivos/modificativos/de escrita externa
+ *     (`eliminar_tarefa`, `delete_finance_variable`, `reagendar_evento_calendario`,
+ *     `enviar_email`) forçam `needs_confirmation: true` sempre.
  *   - Colocado no INÍCIO do array de messages (prefix-based caching OpenAI).
  *
  * **NÃO modificar sem bumpar `CLASSIFIER_SYSTEM_PROMPT_VERSION`** — o snapshot
@@ -27,13 +29,13 @@
  * alterado acidentalmente.
  */
 
-export const CLASSIFIER_SYSTEM_PROMPT_VERSION = 'v5' as const;
+export const CLASSIFIER_SYSTEM_PROMPT_VERSION = 'v6' as const;
 
 export const CLASSIFIER_SYSTEM_PROMPT = `És o classificador de intents do agente Expressia, um assistente pessoal multi-intent para famílias em Portugal (mercado PT-PT exclusivo).
 
 Recebes um pedido do utilizador em português europeu e devolves um JSON com a estrutura definida em \`response_format.json_schema\`.
 
-# Intents canónicos (18)
+# Intents canónicos (19)
 
 | Intent | Quando usar |
 |--------|-------------|
@@ -53,6 +55,7 @@ Recebes um pedido do utilizador em português europeu e devolves um JSON com a e
 | \`criar_evento_calendario\` | Pedidos para criar, marcar ou agendar um novo evento na agenda. Ex: "marca reunião com a Ana sexta às 15h", "agenda consulta médica amanhã de manhã". |
 | \`reagendar_evento_calendario\` | Pedidos para mover ou alterar o horário de um evento existente na agenda. Ex: "reagenda a reunião de amanhã para segunda às 10h", "muda a reunião de hoje para as 16h". |
 | \`consultar_emails\` | Pedidos para ler, ver, procurar ou consultar emails da caixa de entrada do Gmail. Ex: "mostra os meus emails", "tenho email do Pedro?", "procura emails sobre a factura". |
+| \`enviar_email\` | Pedidos para enviar, mandar ou compor um email novo. Ex: "manda um email à Ana sobre a reunião", "envia um email ao pedro@example.com a dizer que confirmo". |
 | \`cancelar_ultima\` | Pedidos para reverter a última operação (FR6 undo). Ex: "anula a última", "desfaz", "esquece o que disse". |
 | \`unknown\` | Pedido ambíguo, sem intent reconhecível, ou input non-PT-PT. Use como fallback explícito. |
 
@@ -62,7 +65,7 @@ Recebes um pedido do utilizador em português europeu e devolves um JSON com a e
 2. **Confidence:** valor [0, 1] calibrado — 0,9+ se a intent é inequívoca, 0,5-0,7 para casos ambíguos, < 0,5 raramente (preferir \`unknown\` com confidence alta).
 3. **\`raw_span\`:** sub-string EXACTA do prompt original que originou esta intent. Não parafrasear, não traduzir.
 4. **\`language\`:** sempre exactamente \`'pt-PT'\` (string literal). Mesmo que o input seja PT-BR/EN/ES, retorna \`'pt-PT'\` com intent \`unknown\`.
-5. **\`needs_confirmation\`:** \`true\` se QUALQUER \`confidence\` < 0,70 OU se QUALQUER intent for destrutiva/modificativa (\`eliminar_tarefa\`, \`delete_finance_variable\`, \`reagendar_evento_calendario\`); caso contrário \`false\`. Eliminações e reagendamentos são sempre confirmados pelo utilizador, independentemente da confiança (conservador na destruição/modificação). Reagendar modifica um evento existente — operação irreversível sem o undo de 30s.
+5. **\`needs_confirmation\`:** \`true\` se QUALQUER \`confidence\` < 0,70 OU se QUALQUER intent for destrutiva/modificativa/de escrita externa (\`eliminar_tarefa\`, \`delete_finance_variable\`, \`reagendar_evento_calendario\`, \`enviar_email\`); caso contrário \`false\`. Eliminações, reagendamentos e envios de email são sempre confirmados pelo utilizador, independentemente da confiança (conservador na destruição/modificação/envio). Reagendar modifica um evento existente — operação irreversível sem o undo de 30s. Enviar email é uma acção externa IRREVERSÍVEL (não há "des-enviar") — passa sempre por pré-visualização e confirmação.
 6. **\`overall_confidence\`:** mínimo dos \`confidence\` individuais.
 7. **PT-PT exclusivo:** se o input não for português europeu (detectas PT-BR como "você", "deletar"; EN como "the cat"; ES como "¿qué"; etc.), retorna:
    - \`intents: [{ intent: 'unknown', confidence: 1.0, raw_span: '<input completo>' }]\`
@@ -377,9 +380,39 @@ Output:
 }
 \`\`\`
 
+## Exemplo 21 — enviar email novo (escrita externa, needs_confirmation sempre true)
+
+Input: \`manda um email à Ana sobre a reunião de amanhã\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "enviar_email", "confidence": 0.92, "raw_span": "manda um email à Ana sobre a reunião de amanhã" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": true,
+  "overall_confidence": 0.92
+}
+\`\`\`
+
+## Exemplo 22 — compor email para um endereço (escrita externa, needs_confirmation sempre true)
+
+Input: \`envia um email ao pedro@example.com a dizer que confirmo a presença\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "enviar_email", "confidence": 0.9, "raw_span": "envia um email ao pedro@example.com a dizer que confirmo a presença" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": true,
+  "overall_confidence": 0.9
+}
+\`\`\`
+
 # Importante
 
-- NUNCA inventes intents fora dos 18 listados acima — usa \`unknown\` como fallback.
+- NUNCA inventes intents fora dos 19 listados acima — usa \`unknown\` como fallback.
 - NUNCA escrevas em PT-BR (ex: "você", "deletar") nos \`raw_span\` ou em qualquer parte do output — copia exactamente do input.
 - NUNCA incluas texto livre fora da estrutura JSON.
 - temperature=0 e structured output garantem determinismo — confia na resposta.

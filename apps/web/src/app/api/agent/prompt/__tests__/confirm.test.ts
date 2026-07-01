@@ -208,6 +208,62 @@ describe('POST /api/agent/prompt/[runId]/confirm', () => {
     expect(mocks.plannerPlanMock).toHaveBeenCalled();
     expect(mocks.executorExecuteMock).toHaveBeenCalled();
   });
+
+  it('SEND-PREVIEW-1 (J-7) — envio reutiliza o plano persistido do preview (NÃO re-planeia)', async () => {
+    const future = new Date(Date.now() + 60 * 1000).toISOString();
+    let callIndex = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callIndex++;
+      if (callIndex === 1) {
+        return [
+          {
+            id: RUN_ID,
+            household_id: TEST_HOUSEHOLD_ID,
+            user_id: TEST_USER_ID,
+            status: 'pending_preview',
+            confirm_expires_at: future,
+            intents_detected: [{ intent: 'enviar_email', confidence: 0.92, raw_span: 'manda email' }],
+            // Plano persistido no preview (o rascunho que o utilizador reviu).
+            tool_calls: [
+              {
+                toolName: 'enviar_email',
+                input: { to: 'euricojsalves@gmail.com', subject: 'Reunião', body: 'Olá.' },
+                intent: 'enviar_email',
+              },
+            ],
+            trace_id: 't1',
+          },
+        ];
+      }
+      return [];
+    });
+    mocks.executorExecuteMock.mockResolvedValue({
+      success: true,
+      results: [
+        {
+          toolName: 'enviar_email',
+          output: { id: 'm1', threadId: 'th1', to: 'euricojsalves@gmail.com' },
+          reverseOpId: 'r1',
+        },
+      ],
+    });
+
+    const res = await POST(makeRequest() as never, makeContext());
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { mode: string; summary: string };
+    expect(body.mode).toBe('executed');
+    // Binding preview==envio: o Planner NÃO re-corre; o Executor recebe o plano do preview.
+    expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).toHaveBeenCalled();
+    const execArg = mocks.executorExecuteMock.mock.calls[0]![0] as {
+      plan: { toolCalls: Array<{ toolName: string; input: Record<string, unknown> }> };
+    };
+    expect(execArg.plan.toolCalls[0]!.toolName).toBe('enviar_email');
+    expect(execArg.plan.toolCalls[0]!.input.to).toBe('euricojsalves@gmail.com');
+    // UNDO-MISLEAD-1: summary honesto — sem promessa de reversão.
+    expect(body.summary).toContain('não podem ser recuperados');
+    expect(body.summary).not.toMatch(/reverter/i);
+  });
 });
 
 /**

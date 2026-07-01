@@ -1,0 +1,93 @@
+id: mj-handoff-j7-qa-pass-to-devops-20260701
+from_agent: qa (Quinn)
+to_agent: devops (Gage)
+created: "2026-07-01T19:20:00Z"
+status: consumed
+consumed: true
+consumed_at: "2026-07-01T20:15:00Z"
+consumed_by: devops (Gage)
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: high
+type: ready-for-push
+
+summary: >-
+  Story J-7 (Gmail send — compose-only via Telegram) PASSOU o QA gate (PASS 9,0/10)
+  na re-review pós-correcção v1.2-DEV. Os 2 concerns da 1.ª ronda (SEND-PREVIEW-1 high,
+  UNDO-MISLEAD-1 medium) estão AMBOS resolvidos com testes que os provam; regressão zero
+  confirmada. Todo o código está no working tree (por commitar) — pronto para *push (só
+  com ordem do Eurico). Fecha o epic v1.1 (Calendar escrita + Gmail). Billing CONGELADO;
+  SEC-8 HOLD respeitado; ZERO tabela nova (check:rls 31 inalterado).
+
+context:
+  story_id: "J-7 (Gmail send — responder/compor; ÚLTIMA do epic v1.1)"
+  branch: main
+  gate: "PASS 9,0/10 → docs/qa/gates/J-7-gmail-send-responder-compor.yml"
+  qa_verification: >-
+    Lane de revisão independente: subconjunto do delta re-executado por @qa —
+    web (run-agent 11 + confirm 9 + webhook 17 + send-email 10 + gmail-api) = 51/51 GREEN.
+    Restantes gates aceites do relatório @dev v1.2-DEV com evidência real (web 1421,
+    classifier 87, tools 440, planner-executor 76, db-test 205 c/ 0032 em PG real,
+    check:rls 31 tabelas, build 10/10). Enum-sync 19 verificado nos 6 pontos.
+
+  files_to_commit:
+    created:
+      - "packages/db/migrations/0032_agent_intent_send_email.sql"
+      - "apps/web/src/lib/agent/tools/gmail/send-email.ts"
+      - "apps/web/src/lib/agent/tools/gmail/__tests__/send-email.test.ts"
+      - "apps/web/src/lib/agent/tools/gmail/__tests__/gmail-api.test.ts"
+      - "apps/web/src/lib/agent/irreversible.ts (v1.2-DEV — UNDO-MISLEAD-1)"
+      - "docs/qa/gates/J-7-gmail-send-responder-compor.yml"
+    modified:
+      - "apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts (binding preview==envio + summary honesto)"
+      - "apps/web/src/app/api/telegram/webhook/route.ts (rascunho directo + suprime undo irreversível)"
+      - "apps/web/src/app/api/agent/prompt/__tests__/confirm.test.ts"
+      - "apps/web/src/app/api/telegram/webhook/__tests__/route.test.ts"
+      - "apps/web/src/lib/agent/run-agent.ts (guard EXTERNAL_WRITE_INTENTS + renderExternalWritePreview)"
+      - "apps/web/src/lib/agent/__tests__/run-agent.test.ts"
+      - "apps/web/src/lib/agent/tools/gmail/gmail-api.ts (sendGmailMessage + buildRawMimeMessage + isGmailSendResponse)"
+      - "apps/web/src/lib/agent/tools/gmail/index.ts (regista enviarEmail)"
+      - "apps/web/src/lib/agent/tools/gmail/__tests__/registration.test.ts"
+      - "apps/web/src/lib/google/oauth.ts (OAUTH_SCOPES += gmail.send)"
+      - "apps/web/src/lib/google/__tests__/oauth.test.ts"
+      - "packages/classifier/src/prompts/classifier-system.ts (v5→v6)"
+      - "packages/classifier/src/schemas.ts (INTENT_VALUES += enviar_email)"
+      - "packages/classifier/src/__tests__/schemas.test.ts"
+      - "packages/classifier/src/__tests__/prompts.test.ts"
+      - "packages/db/src/schema/agent.ts (agentIntentEnum 19 valores)"
+      - "packages/planner-executor/src/schemas.ts (TOOL_TO_INTENT_MAP += enviar_email)"
+      - "packages/planner-executor/src/__tests__/contract.test.ts"
+      - "docs/stories/active/J-7.gmail-send-responder-compor.story.md (Status InReview; secção QA Results actualizada)"
+
+migration: >-
+  0032_agent_intent_send_email.sql — ALTER TYPE agent_intent ADD VALUE IF NOT EXISTS
+  'enviar_email' (idempotente, padrão 0030/0031). db:migrate em prod na Tarefa 9.1.
+  GOTCHA: NÃO usar o valor na mesma transacção do ADD VALUE. NÃO tocar apply-migrations.ts (L4).
+
+next_action: >-
+  @devops Tarefa 9 (só com ordem Eurico): (9.1) db:migrate em prod (0032, idempotente,
+  DIRECT_URL 5432); (9.2) *push + deploy Vercel — commit conventional, gates rápidos
+  lint·typecheck·check:rls EXIT 0, pesados via cache se working tree byte-idêntico,
+  SEM --force/--no-verify. CodeRabbit Disabled em core-config.yaml → SKIP (revisão manual
+  feita pelo gate). Depois handoff a [EURICO] para 9.3-9.6.
+
+eurico_actions:
+  - "9.3 GCP: confirmar Gmail API Enabled (feito J-6) + REGISTAR scope gmail.send no OAuth consent screen ANTES do consent (gmail.send é SENSÍVEL — Google recusa senão; lição J-6 com gmail.readonly)."
+  - "9.4 Re-consent OAuth (scopes acumulados calendar.events gmail.readonly gmail.send openid email) na conta PRINCIPAL euricojsalves@gmail.com (household 2dedb1ec) — único account válido (lição J-3/J-5/J-6)."
+  - "9.5 Verificar: SELECT google_email, household_id FROM google_oauth_tokens → 1 linha, household_id='2dedb1ec…', google_email=euricojsalves@gmail.com."
+  - "9.6 E2E ao @jarvis_eurico_bot: (a) compose 'manda um email ao euricojsalves@gmail.com a dizer teste do Jarvis' → bot mostra rascunho Para/Assunto/Corpo + confirmar → email chega; (b) cancelar → nada enviado; (c) guard multi-intent: envio + tarefa na mesma frase → bot pede para separar, nada enviado/criado."
+
+notes: |
+  - AC13a AGORA cumprível como escrita: o SEND-PREVIEW-1 fix faz o bot mostrar
+    Para/Assunto/Corpo reais (via tool.preview() + binding preview==envio) antes de
+    confirmar — validar exactamente isto no E2E 9.6(a).
+  - UNDO-MISLEAD-1 fix: no envio já NÃO aparece botão (Cancelar) nem "30 segundos"/"Revertido.";
+    a copy pós-envio é "Email enviado. Emails enviados não podem ser recuperados." — validar no E2E.
+  - Residuais LOW não-bloqueantes: REL-J7-2 (undo_url ainda no corpo HTTP do confirm — inócuo,
+    Telegram suprime o botão); REL-J7-1 (tree-shaking side-effect gmail/index — verificar no E2E
+    que o motor encontra a tool; já provado vivo para consultar_emails em J-6 prod).
+  - Memórias relevantes: [[jarvis-j6-gmail-live]], [[planner-switched-to-openai]],
+    [[migration-0001-policies-skip-prod]] (0032 é ADD VALUE, não policy — não aplica, mas rever runner).
+  - REGRAS: push só @devops e só com ordem Eurico. Imports absolutos @/. PT-PT em código/erros.
+    Billing CONGELADO. SEC-8 HOLD (withHousehold/db-shim/client.ts intactos).
