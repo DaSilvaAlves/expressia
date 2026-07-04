@@ -20,8 +20,6 @@
  *
  * Trace: Story J-6 AC7 + AC12, PRD-Jarvis §9 (roadmap v1.1 Gmail).
  */
-import { randomUUID } from 'node:crypto';
-
 import { z } from 'zod';
 
 import {
@@ -34,9 +32,11 @@ import {
 import {
   GMAIL_API_ENDPOINT,
   extractEmailHeader,
+  extractGmailListMessages,
   getGmailAccessToken,
   isGmailListItem,
   isGmailMessageDetail,
+  noopReverseOp,
   type GmailMessageMetadata,
 } from './gmail-api';
 
@@ -74,23 +74,6 @@ const GmailMessageMetadataSchema = z.object({
 const ConsultarEmailsOutputSchema = z.array(GmailMessageMetadataSchema);
 
 export type ConsultarEmailsOutput = z.infer<typeof ConsultarEmailsOutputSchema>;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Shape mínima da resposta de `GET /messages?q=...` que consumimos. */
-interface GmailListResponse {
-  readonly messages?: unknown[];
-}
-
-function extractListItems(data: unknown): unknown[] {
-  if (typeof data !== 'object' || data === null) {
-    return [];
-  }
-  const messages = (data as GmailListResponse).messages;
-  return Array.isArray(messages) ? messages : [];
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tool definition
@@ -142,78 +125,56 @@ export const consultarEmails: ToolDefinition<ConsultarEmailsInput, ConsultarEmai
     }
 
     const listData: unknown = await listRes.json().catch(() => null);
-    const items = extractListItems(listData);
+    const items = extractGmailListMessages(listData);
 
     // Resultado vazio é válido — devolve [] sem lançar.
     if (items.length === 0) {
       return [];
     }
 
-    // 2. Para cada id, lê os metadados (Subject/From/Date) e o snippet.
-    const emails: GmailMessageMetadata[] = [];
-    for (const item of items.slice(0, maxResults)) {
-      if (!isGmailListItem(item)) {
-        continue;
-      }
+    // 2. Para cada id, lê os metadados (Subject/From/Date) e o snippet em paralelo.
+    // Falhas individuais são ignoradas (null → filter) — um email com erro não
+    // deve deitar abaixo toda a listagem.
+    const detailParams = new URLSearchParams({ format: 'metadata' });
+    detailParams.append('metadataHeaders', 'Subject');
+    detailParams.append('metadataHeaders', 'From');
+    detailParams.append('metadataHeaders', 'Date');
+    const detailQuery = detailParams.toString();
 
-      const detailParams = new URLSearchParams({ format: 'metadata' });
-      detailParams.append('metadataHeaders', 'Subject');
-      detailParams.append('metadataHeaders', 'From');
-      detailParams.append('metadataHeaders', 'Date');
-
-      let detailRes: Response;
-      try {
-        detailRes = await fetch(
-          `${GMAIL_API_ENDPOINT}/messages/${item.id}?${detailParams.toString()}`,
-          { headers: { Authorization: `Bearer ${accessToken}` } },
-        );
-      } catch (err) {
-        throw new ToolExecutionError(
-          TOOL_NAME,
-          new Error(
-            `Falha de rede ao ler o email ${item.id} da Gmail API: ${err instanceof Error ? err.message : 'erro desconhecido'}.`,
-          ),
-        );
-      }
-
-      if (!detailRes.ok) {
-        throw new ToolExecutionError(
-          TOOL_NAME,
-          new Error(`A Gmail API recusou ler um email (HTTP ${detailRes.status}).`),
-        );
-      }
-
-      const detail: unknown = await detailRes.json().catch(() => null);
-      if (!isGmailMessageDetail(detail)) {
-        continue;
-      }
-
-      emails.push({
-        id: detail.id,
-        subject: extractEmailHeader(detail.payload.headers, 'Subject'),
-        from: extractEmailHeader(detail.payload.headers, 'From'),
-        receivedAt: extractEmailHeader(detail.payload.headers, 'Date'),
-        snippet: detail.snippet,
-      });
-    }
+    const emails: GmailMessageMetadata[] = (
+      await Promise.all(
+        items.slice(0, maxResults).map(async (item): Promise<GmailMessageMetadata | null> => {
+          if (!isGmailListItem(item)) return null;
+          try {
+            const detailRes = await fetch(
+              `${GMAIL_API_ENDPOINT}/messages/${item.id}?${detailQuery}`,
+              { headers: { Authorization: `Bearer ${accessToken}` } },
+            );
+            if (!detailRes.ok) return null;
+            const detail: unknown = await detailRes.json().catch(() => null);
+            if (!isGmailMessageDetail(detail)) return null;
+            return {
+              id: detail.id,
+              subject: extractEmailHeader(detail.payload.headers, 'Subject'),
+              from: extractEmailHeader(detail.payload.headers, 'From'),
+              receivedAt: extractEmailHeader(detail.payload.headers, 'Date'),
+              snippet: detail.snippet,
+            };
+          } catch {
+            return null;
+          }
+        }),
+      )
+    ).filter((e): e is GmailMessageMetadata => e !== null);
 
     return emails;
   },
 
   /**
-   * Sentinela inerte `_noop` (R1b v1.1).
-   *
-   * Tool read-only — FR6 undo conceptualmente não-aplicável. `executeAtomic`
-   * força persistência de uma row em `agent_reverse_ops`; usamos `table='_noop'`
-   * + UUID válido para satisfazer `ReverseOpDeleteRowSchema` sem permitir undo
-   * real. O endpoint `/undo` responde 410 Gone para `table = '_noop'`
-   * (comportamento já existente). Idêntico a `listar-tarefas.ts` L187-193.
+   * Sentinela inerte `_noop` (R1b v1.1) via helper partilhado `noopReverseOp`.
+   * O endpoint `/undo` responde 410 Gone para `table = '_noop'`.
    */
   async reverse(): Promise<ReverseOpPayload> {
-    return {
-      kind: 'delete_row',
-      table: '_noop',
-      id: randomUUID(),
-    };
+    return noopReverseOp();
   },
 };

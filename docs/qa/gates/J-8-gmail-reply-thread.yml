@@ -1,0 +1,158 @@
+schema: 1
+story: 'J-8'
+slug: 'gmail-reply-thread'
+title: 'Gmail reply — responder em thread a partir do Telegram (preview→confirm, threading RFC 2822)'
+gate: PASS
+status_reason: 'Primeira story da v1.2: reply a email em thread via Telegram. Threading correcto (In-Reply-To/References com o Message-ID RFC 2822 do original — NÃO o id interno da Gmail — + threadId no corpo do POST), preview puro/síncrono intacto (resolução corre em renderExternalWritePreview ANTES do Planner, nunca dentro de tool.preview()/execute()), prompt caching preservado (shortlist como prefixo da user message, provado por teste que a exclui de system/tools), parsing do from para endereço nu (Zod .email() satisfeito), zero-match honesto que o utilizador VÊ sem inventar threadId, guard multi-intent + os 4 Sets generalizados extendidos coerentemente, undo honesto (_noop + supressão do botão Cancelar), enum-sync 8 pontos completo. Restrições respeitadas: SEC-8/billing/família não tocados, sem any, sem novo scope OAuth, RLS/household_id intactos. Cobertura de testes material e verificada independentemente (31/31 GREEN no subconjunto crítico re-executado por @qa).'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-07-03T02:55:00Z'
+
+# Verificação independente (lane de revisão — NÃO autor). Leitura do código de
+# produção real + re-execução de um subconjunto crítico + auditoria git.
+gates_verified:
+  - command: 'pnpm --filter @meu-jarvis/web test -- run reply-email resolve-reply-target run-agent'
+    result: 'PASS — 31/31 (3 ficheiros). Re-executado por @qa. Logs de runtime confirmam (a) mixed_external_write_plan a bloquear antes de qualquer envio, (b) zero-match honesto ("nenhum email para responder", nenhum envio), (c) fallback de renderExternalWritePreview→label genérico quando o Planner falha. reply-email.test.ts prova In-Reply-To/References==Message-ID + threadId no corpo do POST.'
+  - command: 'lint / typecheck / classifier / tools / planner-executor / build / check:rls / db-test'
+    result: 'ACEITE da evidência do orquestrador (recolhida no working tree actual): typecheck exit 0 (10/10), lint exit 0 (10/10), classifier 89, tools 440, planner-executor 78, web 1450, build exit 0, check:rls 31 tabelas (zero tabela nova, NFR5 intacta), db-test 205 (migration 0033 em Postgres real via Testcontainers).'
+  - command: 'git status --short + git diff --name-only (restrições SEC-8/billing)'
+    result: 'PASS — nenhum ficheiro withHousehold/db-shim/client.ts/stripe/subscription/billing tocado. Migration 0033 = ADD VALUE IF NOT EXISTS idempotente. apply-migrations.ts (L4) não tocado.'
+
+# Avaliação dos 10 pontos críticos do foco de review
+critical_points:
+  - id: 'AC6-threading'
+    verdict: CORRECTO
+    evidence: |
+      reply-email.ts:107-117 passa inReplyTo/references = input.messageId (o valor do
+      cabeçalho Message-ID RFC 2822 do original, resolvido via extractEmailHeader em
+      resolve-reply-target.ts:153) + threadId=input.threadId. gmail-api.ts
+      buildRawMimeMessage:242-247 emite "In-Reply-To"/"References"; sendGmailMessage:323-326
+      inclui threadId no corpo POST { raw, threadId }. isGmailMessageDetail:118-136 captura
+      threadId top-level; resolve-reply-target.ts:137 pede "Message-ID" nos metadataHeaders.
+      Teste reply-email.test.ts:125-146 assere In-Reply-To/References==MESSAGE_ID + threadId no POST.
+  - id: 'AC5-D-J8.1-preview-puro'
+    verdict: CORRECTO
+    evidence: |
+      A resolução (resolveReplyCandidates) corre em renderExternalWritePreview (run-agent.ts:879-896),
+      ANTES de planner.plan() (linha 900). tool.preview()/execute() recebem threadId/messageId/to já
+      concretos. preview() de reply-email.ts:98-100 é síncrono, usa só input, ignora ctx. Defense-in-depth:
+      PREVIEW_DB_PLACEHOLDER (run-agent.ts:158-168) rebenta se algum caminho tentar I/O no preview.
+      Zero blast radius no contrato ToolDefinition.preview.
+  - id: 'prompt-caching'
+    verdict: CORRECTO
+    evidence: |
+      planner.ts:305-306 — emailReplyContextPrefix concatenado ao userMessage (messages[0].content),
+      NUNCA no system/tools. serializeEmailReplyContextForPlanner:518-540. Teste planner.test.ts:297-338
+      assere userContent contém "candidatos para responder"/threadXYZ E que system/tools NÃO os contêm.
+  - id: 'AC5-AC7-parse-from'
+    verdict: CORRECTO
+    evidence: |
+      parseEmailAddress (resolve-reply-target.ts:76-82) extrai o endereço entre <...> ou devolve o nu.
+      fromEmail alimenta o to da tool (z.string().email()). Teste resolve-reply-target.test.ts:74-84
+      (ambas as formas + string vazia sem @); reply-email.test.ts:174 assere que "Nome <email>" é
+      rejeitado por Zod.
+  - id: 'D-J8.2-zero-match'
+    verdict: CORRECTO
+    evidence: |
+      Shortlist vazia (resolveReplyCandidates→[]) → renderExternalWritePreview devolve
+      { kind: reply_zero_match, message: "Não encontrei esse email para responder." } (run-agent.ts:891-894);
+      o caller (run-agent.ts:539-566) devolve executed/direct_query com esse summary (o webhook mostra o
+      summary sem botões). Planner/Executor NÃO correm; nunca se inventa threadId. Reconciliação AC13 vs
+      AC17d SÓLIDA: o objectivo de segurança (nunca envia/inventa) e a mensagem honesta que o utilizador VÊ
+      são ambos cumpridos. Teste run-agent.test.ts:514-539 assere summary /não encontrei/i + plannerPlanMock
+      e executorExecuteMock NOT called. (Ver ARCH-J8-1, low — não bloqueante.)
+  - id: 'guard-4-sets'
+    verdict: CORRECTO
+    evidence: |
+      responder_email presente em EXTERNAL_WRITE_INTENTS (run-agent.ts:93-98), PREVIEW_RENDER_INTENTS
+      (130-133), REUSE_PERSISTED_PLAN_INTENTS (confirm/route.ts:100-103), IRREVERSIBLE_WRITE_TOOLS
+      (irreversible.ts:29-32). Teste run-agent.test.ts:419-445 — [responder_email, criar_tarefa] →
+      preview/separação, sem envio. Regressão zero: testes enviar_email/Calendar continuam GREEN.
+  - id: 'undo-honesto'
+    verdict: CORRECTO
+    evidence: |
+      reverse() = _noop (reply-email.ts:142-148); buildConfirmSummary (confirm/route.ts:488-489) devolve
+      "Email enviado. Emails enviados não podem ser recuperados." para escrita irreversível. Teste
+      route.test.ts:363-389 (J-8) — confirm de responder_email → sem botão (Cancelar), mensagem honesta.
+      Copy PT-PT. (Ver DOC-J8-1, low — a copy diz "Email enviado" e não "Resposta enviada".)
+  - id: 'enum-sync-8-pontos'
+    verdict: CORRECTO
+    evidence: |
+      (1) migration 0033 ADD VALUE IF NOT EXISTS; (2) agentIntentEnum (agent.ts:79); (3) INTENT_VALUES
+      (classifier/schemas.ts:82) e NÃO em READ_ONLY_INTENTS (102-107); (4) TOOL_TO_INTENT_MAP
+      (planner-executor/schemas.ts:273); (5) classifier v6→v7 (classifier-system.ts:35), tabela 20 intents,
+      few-shots Exemplo 23/24 com needs_confirmation:true, distinção enviar_email vs responder_email;
+      (6) EXTERNAL_WRITE_INTENTS+PREVIEW_RENDER_INTENTS; (7) REUSE_PERSISTED_PLAN_INTENTS;
+      (8) IRREVERSIBLE_WRITE_TOOLS. Todos coerentes; contagens 19→20 nos testes.
+  - id: 'restricoes'
+    verdict: CORRECTO
+    evidence: |
+      git diff confirma ZERO ficheiros SEC-8 (withHousehold/db-shim/client.ts) ou billing (stripe/subscription)
+      tocados. Sem any nos ficheiros-chave (grep vazio). Imports @/ e @meu-jarvis/*. PT-PT europeu em copy/erros.
+      Sem novo scope OAuth (reutiliza gmail.readonly+gmail.send — AC16 verificado no código; validação live é Tarefa 9).
+      household_id/RLS intactos; nenhuma tabela nova.
+  - id: 'cobertura-testes'
+    verdict: CORRECTO
+    evidence: |
+      reply-email.test.ts (10: preview Re:/no-dup, threading, sem token, HTTP fail, 4x Zod, reverse _noop);
+      resolve-reply-target.test.ts (parseEmailAddress x3, shortlist, zero-match [], descarte incompletos, API-recusa);
+      run-agent.test.ts (AC9 guard, AC10 rascunho real, AC13 zero-match sem Planner); confirm.test.ts (J-8 binding
+      preview==envio, reutiliza plano persistido); route.test.ts (J-8 undo suprimido); planner.test.ts (injecção
+      no prefixo, exclusão de system/tools); gmail-api.test.ts (threading + regressão compose). Sem gaps materiais.
+
+top_issues:
+  - id: 'ARCH-J8-1'
+    severity: low
+    finding: 'Zero-match honesto (D-J8.2) só dispara a mensagem "Não encontrei esse email para responder." quando a shortlist do inbox está VAZIA. Se o inbox tem emails mas nenhum corresponde ao pedido, o LLM é instruído a não emitir responder_email → toolCalls vazio → drafts vazio → renderExternalWritePreview devolve null → cai no label genérico do intent (não a mensagem honesta). A propriedade de segurança nuclear (nunca enviar/inventar threadId) MANTÉM-SE em ambos os casos — nada é enviado. É um gap semântico de UX, não de segurança.'
+    suggested_action: 'Futuro/opcional: quando o Planner devolve toolCalls vazio para um plano responder_email com shortlist não-vazia, devolver a mesma resposta informativa honesta em vez do label genérico. Alinha com a Opção B (query dirigida por entidade) como refinamento v2 registado na story. Não bloqueia J-8.'
+  - id: 'DOC-J8-1'
+    severity: low
+    finding: 'buildConfirmSummary devolve "Email enviado. Emails enviados não podem ser recuperados." também para responder_email; a AC12 sugeria "algo como Resposta enviada.". A copy actual é honesta e correcta (uma resposta É um email enviado), apenas menos específica que o exemplo da AC.'
+    suggested_action: 'Cosmético/opcional: diferenciar a copy para "Resposta enviada." quando a tool irreversível é responder_email. Não bloqueia.'
+  - id: 'REL-J8-1'
+    severity: low
+    finding: 'Herdado (J-5/J-6/J-7): o tree-shaking do side-effect import gmail/index (que regista responderEmail) é provado em Vitest (registration.test.ts) mas não no bundler de produção. Se o bundler eliminar o import, o motor responderia "tool não encontrada" ao reply.'
+    suggested_action: 'Verificar no E2E live (Tarefa 9 / AC17a): se um reply enviar com sucesso, o side-effect sobreviveu. Já provado vivo para consultar_emails (J-6) e enviar_email (J-7) em prod.'
+
+design_decision_review:
+  d_j8_1_resolution_in_preview: 'ACEITE — resolver a shortlist no branch de preview (onde o Planner já corre uma vez para responder_email/needs_confirmation:true) reutiliza SEND-PREVIEW-1 sem re-resolver nem re-planear no confirm (plano persistido, binding preview==envio). Contrato preview() intacto. Menor blast radius.'
+  d_j8_2_zero_match_direct_query: 'ACEITE — usar a forma executed/direct_query (em vez de throw ToolExecutionError, que seria engolido pela mensagem neutra do catch do webhook) entrega a mensagem honesta que o utilizador VÊ e cumpre o objectivo de segurança de AC13. Gap de UX residual em ARCH-J8-1 (low).'
+  d_j8_3_toolname_param: 'ACEITE — sendGmailMessage ganhou toolName? opcional (default enviar_email) para que os ToolExecutionError internos do reply reportem responder_email (observabilidade/audit), evitando um cause aninhado enganador.'
+  d_j8_4_isgmailmessagedetail_extend: 'ACEITE — estender isGmailMessageDetail com threadId?:string validado (rejeita se presente e não-string) é backward-compatible com as leituras J-6 e evita duplicar um type guard. Sem any.'
+  d_j8_5_db_cast: 'ACEITE — o cast db as unknown as DrizzleDbClient em renderExternalWritePreview é o mesmo padrão de runtime documentado em contracts.ts (o caller passa getDb() directamente); cast explícito duplo, não any/supressão de tipos. resolveReplyCandidates só usa ctx.db.execute RLS-scoped para o token.'
+
+waiver: { active: false }
+
+notes: |
+  Gate de PASS para a primeira story da v1.2 do Jarvis. Story exemplar em disciplina: reaproveita
+  integralmente a infra-estrutura generalizada pela J-7 (os 4 Sets criados "a pensar numa v2 de reply")
+  e resolve o problema de design central (resolução do email-alvo vs preview() puro) exactamente como a
+  story recomendou (Opção A — resolver ANTES do Planner, no mesmo ponto de buildAccountContext, injectando
+  a shortlist como prefixo da user message).
+
+  Os cinco pontos de maior risco foram verificados por leitura do código de produção real e re-execução
+  independente (31/31 GREEN):
+  - Threading: In-Reply-To/References usam o Message-ID RFC 2822 do original (extractEmailHeader), NÃO o
+    id interno da Gmail; threadId reforça no corpo do POST. Um reply chega AGRUPADO, não solto.
+  - Preview puro: a resolução (I/O Gmail) corre no pipeline, nunca em preview()/execute(); PREVIEW_DB_PLACEHOLDER
+    é a rede defense-in-depth. Contrato ToolDefinition inalterado — zero blast radius nas outras tools.
+  - Prompt caching: a shortlist viaja SEMPRE em messages[0] (prefixo da user message); teste dedicado prova
+    que NÃO contamina system/tools (senão quebrava o cache em prod).
+  - Parsing do from: parseEmailAddress dá o endereço nu; o z.string().email() do to é satisfeito e o teste
+    prova que "Nome <email>" é rejeitado.
+  - Zero-match: shortlist vazia → mensagem honesta que o utilizador VÊ, Planner/Executor não correm, threadId
+    nunca inventado. Reconciliação AC13/AC17d sólida (direct_query, não throw engolido).
+
+  Guard multi-intent + os 4 Sets extendidos coerentemente (plano misto → separação, nada executa; regressão
+  zero em enviar_email/Calendar). Undo honesto (_noop + supressão do botão Cancelar, copy honesta). Enum-sync
+  8 pontos completo e provado. Restrições respeitadas na íntegra: SEC-8/billing/família não tocados (git),
+  sem any, sem novo scope OAuth, RLS/household_id intactos, PT-PT europeu.
+
+  3 residuais LOW não-bloqueantes: ARCH-J8-1 (zero-match honesto só na inbox-vazia; segurança mantém-se no
+  caso "sem match" — gap de UX, candidato a refinamento v2/Opção B); DOC-J8-1 (copy "Email enviado" vs
+  "Resposta enviada" — cosmético); REL-J8-1 (tree-shaking herdado — verificar no E2E). Nenhum bloqueia
+  merge/deploy nem o E2E live.
+
+  Veredicto: PASS (9,2/10, confiança alta). Código impecável, disciplina de regressão e de contrato exemplar.
+  A story pode transitar para Done após a Tarefa 9 (deploy 0033 idempotente + confirmação OAuth sem re-consent
+  AC16 + E2E live AC17: reply mantém thread / cancelar / guard multi-intent / zero-match) — precondição externa
+  [EURICO]+@devops, NÃO deficiência de código. AC16/AC17 permanecem os únicos itens em aberto.

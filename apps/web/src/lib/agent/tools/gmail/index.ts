@@ -24,12 +24,16 @@ import { toolRegistry } from '@meu-jarvis/tools';
 
 import { consultarEmails } from './list-emails';
 import { enviarEmail } from './send-email';
+import { responderEmail } from './reply-email';
 
 // Side-effect: regista as gmail tools no singleton partilhado.
-// `consultar_emails` (J-6, leitura) + `enviar_email` (J-7, escrita compose-only).
+// `consultar_emails` (J-6, leitura) + `enviar_email` (J-7, escrita compose-only)
+// + `responder_email` (J-8, escrita reply em thread).
 toolRegistry.register(consultarEmails);
 toolRegistry.register(enviarEmail);
+toolRegistry.register(responderEmail);
 
-export { consultarEmails, enviarEmail };
+export { consultarEmails, enviarEmail, responderEmail };
 export type { ConsultarEmailsInput, ConsultarEmailsOutput } from './list-emails';
 export type { EnviarEmailInput, EnviarEmailOutput } from './send-email';
+export type { ResponderEmailInput, ResponderEmailOutput } from './reply-email';

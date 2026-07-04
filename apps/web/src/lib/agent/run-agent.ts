@@ -48,6 +48,7 @@ import {
   type AccountContext,
   type AtomicOutcome,
   type AtomicResult,
+  type EmailReplyContext,
   type PlanResult,
 } from '@meu-jarvis/planner-executor';
 import {
@@ -56,6 +57,8 @@ import {
   type ToolExecutionContext,
 } from '@meu-jarvis/tools';
 import { type OpenAIClientLike } from '@meu-jarvis/agent';
+
+import { resolveReplyCandidates } from '@/lib/agent/tools/gmail/resolve-reply-target';
 
 import { revalidateTaskViews } from '@/lib/api-helpers/revalidate';
 import {
@@ -91,6 +94,7 @@ const EXTERNAL_WRITE_INTENTS: ReadonlySet<string> = new Set([
   'criar_evento_calendario',
   'reagendar_evento_calendario',
   'enviar_email',
+  'responder_email',
 ]);
 
 /**
@@ -119,10 +123,26 @@ function isMixedExternalWritePlan(intents: ReadonlyArray<{ intent: string }>): b
  * (`"enviar_email (92%)"`). É a rede de segurança de uma escrita irreversível: o
  * utilizador revê o destinatário/assunto/corpo ANTES de confirmar o envio.
  *
- * Restrito a `enviar_email`: os previews de tarefas/finanças/calendar mantêm o
- * comportamento actual (label genérico) — regressão zero.
+ * `enviar_email` (J-7, rascunho Para/Assunto/Corpo) + `responder_email` (J-8,
+ * rascunho da resposta em thread): os previews de tarefas/finanças/calendar
+ * mantêm o comportamento actual (label genérico) — regressão zero.
  */
-const PREVIEW_RENDER_INTENTS: ReadonlySet<string> = new Set(['enviar_email']);
+const PREVIEW_RENDER_INTENTS: ReadonlySet<string> = new Set([
+  'enviar_email',
+  'responder_email',
+]);
+
+/**
+ * Story J-8 — intents que exigem resolução do email-alvo (shortlist do inbox)
+ * ANTES do Planner correr. Só `responder_email` (uma resposta refere-se a um email
+ * existente); `enviar_email` compõe de raiz e não precisa de resolução.
+ */
+const REPLY_EMAIL_INTENTS: ReadonlySet<string> = new Set(['responder_email']);
+
+/** Story J-8 — o plano contém alguma intent de resposta a email? */
+function planHasReplyEmailIntent(intents: ReadonlyArray<{ intent: string }>): boolean {
+  return intents.some((i) => REPLY_EMAIL_INTENTS.has(i.intent));
+}
 
 /** Story J-7 — o plano tem alguma intent com preview de rascunho real? */
 function planHasPreviewRenderIntent(intents: ReadonlyArray<{ intent: string }>): boolean {
@@ -499,9 +519,9 @@ export async function runAgentForHousehold(
     // confirm (binding preview==envio) — o nº de chamadas ao Planner no caminho
     // confirmado NÃO aumenta (move-se do confirm para aqui). Restantes intents
     // (tarefas/finanças/calendar) mantêm o label genérico — regressão zero.
-    let draftSummary: string[] | null = null;
+    let previewResult: ExternalWritePreviewResult = null;
     if (planHasPreviewRenderIntent(classification.intents)) {
-      draftSummary = await renderExternalWritePreview({
+      previewResult = await renderExternalWritePreview({
         classification,
         householdId,
         userId,
@@ -511,6 +531,42 @@ export async function runAgentForHousehold(
         log,
       });
     }
+
+    // Story J-8 AC13 — zero-match honesto: pediram para responder mas não há
+    // email-alvo (inbox vazio ou sem candidato válido). Resposta informativa, sem
+    // envio e sem botões de confirmação (nunca inventamos um threadId). Reutiliza
+    // a forma `direct_query` (o webhook mostra só o summary, sem "(Cancelar)").
+    if (previewResult?.kind === 'reply_zero_match') {
+      const latencyMs = Date.now() - startedAt;
+      await updateAfterExecutor(
+        runId,
+        {
+          status: 'success',
+          latencyMs,
+          responseSummary: previewResult.message,
+          errorCode: null,
+          errorMessage: null,
+        },
+        db,
+      );
+      log.info(
+        { run_id: runId, reason: 'reply_zero_match' },
+        'Zero-match honesto — nenhum email para responder (nenhum envio)',
+      );
+      return {
+        status: 'executed',
+        kind: 'direct_query',
+        runId,
+        summary: previewResult.message,
+        directResult: {
+          templateUsed: 'reply_zero_match',
+          data: null,
+          summary: previewResult.message,
+        },
+      };
+    }
+
+    const draftSummary = previewResult?.kind === 'draft' ? previewResult.drafts : null;
 
     // `updatePreviewState` DEPOIS de `renderExternalWritePreview` (que persiste o
     // plano com status='executing') — deixa o estado final em 'pending_preview'.
@@ -776,15 +832,34 @@ async function buildAccountContext(
 }
 
 /**
+ * Story J-7 SEND-PREVIEW-1 / J-8 — resultado de `renderExternalWritePreview`.
+ *   - `{ kind: 'draft', drafts }` — rascunho(s) real(is) da escrita externa.
+ *   - `{ kind: 'reply_zero_match', message }` — Story J-8 AC13: pediram uma
+ *     resposta mas não há email-alvo (nenhum candidato no inbox). Falha honesta,
+ *     sem envio, sem confirmação.
+ *   - `null` — sem rascunho disponível (Planner falhou / sem preview): o caller
+ *     cai no label genérico do intent.
+ */
+type ExternalWritePreviewResult =
+  | { kind: 'draft'; drafts: string[] }
+  | { kind: 'reply_zero_match'; message: string }
+  | null;
+
+/**
  * Story J-7 SEND-PREVIEW-1 — constrói o rascunho real de uma escrita externa
- * (`enviar_email`) para a mensagem de confirmação.
+ * (`enviar_email`, `responder_email`) para a mensagem de confirmação.
  *
- * Corre o Planner para extrair o input estruturado (to/subject/body) e invoca
- * `tool.preview(input)` de cada tool com preview disponível no registry. Persiste
- * o plano (`updateAfterPlanner`) para o confirm o REUTILIZAR — garantindo que o
- * email enviado é EXACTAMENTE o rascunho que o utilizador reviu (binding
- * preview==envio; a segurança de uma escrita irreversível só é real se o que se
- * confirma for o que se vê).
+ * Corre o Planner para extrair o input estruturado (to/subject/body [+ threadId/
+ * messageId no reply]) e invoca `tool.preview(input)` de cada tool com preview
+ * disponível no registry. Persiste o plano (`updateAfterPlanner`) para o confirm o
+ * REUTILIZAR — garantindo que o email enviado é EXACTAMENTE o rascunho que o
+ * utilizador reviu (binding preview==envio; a segurança de uma escrita irreversível
+ * só é real se o que se confirma for o que se vê).
+ *
+ * Story J-8 AC5 — para `responder_email`, resolve ANTES do Planner a shortlist de
+ * candidatos do inbox (`resolveReplyCandidates`) e injecta-a como `emailReplyContext`
+ * (prefixo da user message). Shortlist vazia → zero-match honesto (AC13): devolve
+ * `{ kind: 'reply_zero_match' }` SEM correr o Planner nem enviar nada.
  *
  * Falha graciosamente: se o Planner falhar ou nenhum toolCall tiver preview,
  * devolve `null` e o caller cai no label genérico do intent (sem quebrar o
@@ -798,9 +873,28 @@ async function renderExternalWritePreview(params: {
   readonly runId: string;
   readonly db: ReturnType<typeof getDb>;
   readonly log: ReturnType<typeof childLogger>;
-}): Promise<string[] | null> {
+}): Promise<ExternalWritePreviewResult> {
   const { classification, householdId, userId, traceId, runId, db, log } = params;
   try {
+    // Story J-8 AC5/AC13 — resolução do email-alvo para `responder_email`, ANTES
+    // do Planner. Reutiliza a Gmail API (metadados apenas). Sem candidatos →
+    // zero-match honesto (nunca inventar um threadId).
+    let emailReplyContext: EmailReplyContext | undefined;
+    if (planHasReplyEmailIntent(classification.intents)) {
+      const candidates = await resolveReplyCandidates({
+        householdId,
+        userId,
+        db: db as unknown as DrizzleDbClient,
+        traceId,
+        runId,
+      });
+      if (candidates.length === 0) {
+        log.info({ run_id: runId }, 'Zero-match — inbox sem candidatos para responder');
+        return { kind: 'reply_zero_match', message: 'Não encontrei esse email para responder.' };
+      }
+      emailReplyContext = candidates;
+    }
+
     const accountContext = await buildAccountContext(db, log, householdId);
     const planner = new Planner();
     const plan = await planner.plan({
@@ -810,6 +904,7 @@ async function renderExternalWritePreview(params: {
       traceId,
       runId,
       accountContext,
+      emailReplyContext,
     });
 
     // Persistir o plano para o confirm o reutilizar (binding preview==envio).
@@ -848,7 +943,7 @@ async function renderExternalWritePreview(params: {
       drafts.push(tool.preview(parsed.data, previewCtx));
     }
 
-    return drafts.length > 0 ? drafts : null;
+    return drafts.length > 0 ? { kind: 'draft', drafts } : null;
   } catch (err) {
     log.warn(
       { err },

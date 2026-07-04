@@ -73,6 +73,10 @@ export const agentIntentEnum = pgEnum('agent_intent', [
   // migration 0032 + `packages/classifier/src/schemas.ts` INTENT_VALUES
   // (sanity-check Article IV).
   'enviar_email',
+  // Story J-8 — tool Gmail reply (responder em thread, escrita externa
+  // irreversível). Sync com migration 0033 + `packages/classifier/src/schemas.ts`
+  // INTENT_VALUES (sanity-check Article IV).
+  'responder_email',
 ]);
 
 export const llmModelEnum = pgEnum('llm_model', [

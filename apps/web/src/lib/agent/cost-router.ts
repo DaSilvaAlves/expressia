@@ -19,14 +19,10 @@
 import { sql } from 'drizzle-orm';
 
 import type { ClassificationResult } from '@meu-jarvis/classifier';
+import type { DbExecutor } from '@/lib/agent/db-shim';
 
-/**
- * Type alias minimal — qualquer cliente Drizzle aceitando `execute(sql\`...\`)`.
- * Padrão consistente com `rate-limiter.ts` e `audit-log.ts`.
- */
-type Database = {
-  execute<T = unknown>(query: ReturnType<typeof sql>): Promise<T[]>;
-};
+/** @see DbExecutor em db-shim.ts — tipo canónico para esta assinatura minimal. */
+type Database = DbExecutor;
 
 /**
  * Resultado de uma query directa à BD (cost router bypass).

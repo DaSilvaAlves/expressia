@@ -21,6 +21,13 @@ const mocks = vi.hoisted(() => ({
   plannerPlanMock: vi.fn(),
   executorExecuteMock: vi.fn(),
   dbExecuteMock: vi.fn(),
+  resolveReplyCandidatesMock: vi.fn(),
+}));
+
+// Story J-8 — mecanismo de resolução do email-alvo (mockado para não tocar na
+// Gmail API real). Só é chamado para o intent `responder_email`.
+vi.mock('@/lib/agent/tools/gmail/resolve-reply-target', () => ({
+  resolveReplyCandidates: mocks.resolveReplyCandidatesMock,
 }));
 
 // Auth mock — o spy `getUserMock` NUNCA deve ser chamado por runAgentForHousehold.
@@ -407,6 +414,128 @@ describe('runAgentForHousehold — guard multi-intent escrita externa (Story J-5
     expect(outcome.status).toBe('executed');
     // O guard NÃO bloqueia pedidos de calendar puros.
     expect(mocks.plannerPlanMock).toHaveBeenCalled();
+  });
+
+  it('AC9 (J-8) — intents mistos (responder_email + tarefa) → separação, nunca envio', async () => {
+    mocks.classifyMock.mockResolvedValue({
+      intents: [
+        { intent: 'responder_email', confidence: 0.9, raw_span: 'responde ao Pedro' },
+        { intent: 'criar_tarefa', confidence: 0.9, raw_span: 'e cria uma tarefa' },
+      ],
+      language: 'pt-PT',
+      needs_confirmation: true,
+      overall_confidence: 0.9,
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'responde ao Pedro E cria uma tarefa',
+    });
+
+    expect(outcome.status).toBe('preview');
+    if (outcome.status === 'preview') {
+      expect(outcome.planSummary.join(' ')).toMatch(/um de cada vez/i);
+    }
+    // CRÍTICO: nenhum email enviado; a resolução nem sequer corre (guard antes).
+    expect(mocks.resolveReplyCandidatesMock).not.toHaveBeenCalled();
+    expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('runAgentForHousehold — responder_email (Story J-8)', () => {
+  it('AC10 — resolve a shortlist e mostra o RASCUNHO real da resposta (Re:) na confirmação', async () => {
+    mocks.classifyMock.mockResolvedValue({
+      intents: [{ intent: 'responder_email', confidence: 0.92, raw_span: 'responde ao Pedro' }],
+      language: 'pt-PT',
+      needs_confirmation: true,
+      overall_confidence: 0.92,
+    });
+    // Shortlist resolvida ANTES do Planner (AC5).
+    mocks.resolveReplyCandidatesMock.mockResolvedValue([
+      {
+        threadId: 'thr-1',
+        messageId: '<a@mail>',
+        from: 'Pedro <pedro@example.com>',
+        fromEmail: 'pedro@example.com',
+        subject: 'Jantar',
+        receivedAt: 'Wed, 02 Jul 2026 10:00:00 +0100',
+      },
+    ]);
+    // O Planner escolhe o candidato e devolve input concreto da tool.
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [
+        {
+          toolName: 'responder_email',
+          input: {
+            threadId: 'thr-1',
+            messageId: '<a@mail>',
+            to: 'pedro@example.com',
+            subject: 'Jantar',
+            body: 'Confirmo que vou.',
+          },
+          intent: 'responder_email',
+        },
+      ],
+      planReasoning: null,
+      latencyMs: 0,
+      tokensInput: 0,
+      tokensOutput: 0,
+      costEur: 0,
+      cacheHit: false,
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'responde ao Pedro a dizer que vou',
+    });
+
+    expect(outcome.status).toBe('preview');
+    if (outcome.status === 'preview') {
+      const text = outcome.planSummary.join('\n');
+      expect(text).toContain('Para: pedro@example.com');
+      expect(text).toContain('Assunto: Re: Jantar');
+      expect(text).toContain('Confirmo que vou.');
+      expect(text).toContain('Confirmas?');
+      expect(outcome.awaitingExternalWriteConfirmation).toBe(true);
+    }
+    // A resolução correu; o Planner correu (rascunho); o Executor NÃO — nada enviado.
+    expect(mocks.resolveReplyCandidatesMock).toHaveBeenCalledTimes(1);
+    expect(mocks.plannerPlanMock).toHaveBeenCalledTimes(1);
+    // A shortlist foi injectada no Planner (emailReplyContext).
+    const planArg = mocks.plannerPlanMock.mock.calls[0]![0] as { emailReplyContext?: unknown[] };
+    expect(Array.isArray(planArg.emailReplyContext)).toBe(true);
+    expect(planArg.emailReplyContext).toHaveLength(1);
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('AC13 — zero-match honesto (shortlist vazia) → mensagem "não encontrei", sem Planner, sem envio', async () => {
+    mocks.classifyMock.mockResolvedValue({
+      intents: [{ intent: 'responder_email', confidence: 0.92, raw_span: 'responde ao Zé' }],
+      language: 'pt-PT',
+      needs_confirmation: true,
+      overall_confidence: 0.92,
+    });
+    mocks.resolveReplyCandidatesMock.mockResolvedValue([]); // inbox sem candidatos
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'responde ao Zé que não existe',
+    });
+
+    // Resposta informativa (sem preview, sem botões de confirmação).
+    expect(outcome.status).toBe('executed');
+    if (outcome.status === 'executed' && outcome.kind === 'direct_query') {
+      expect(outcome.summary).toMatch(/não encontrei/i);
+    } else {
+      throw new Error('esperado executed/direct_query (zero-match honesto)');
+    }
+    // CRÍTICO: Planner e Executor NÃO correm — nunca se inventa um threadId.
+    expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
   });
 });
 

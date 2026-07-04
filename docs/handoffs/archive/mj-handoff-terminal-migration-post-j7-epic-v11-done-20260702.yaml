@@ -2,8 +2,10 @@ id: mj-handoff-terminal-migration-post-j7-epic-v11-done-20260702
 from_agent: devops (Gage)
 to_agent: any
 created: "2026-07-02T00:05:00Z"
-status: pending
-consumed: false
+status: consumed
+consumed: true
+consumed_at: "2026-07-02T00:50:00Z"
+consumed_by: "sdc pipeline (arranque J-8, direção confirmada por Eurico: v1.2 reply a email)"
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

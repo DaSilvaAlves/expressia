@@ -264,6 +264,72 @@ describe('POST /api/agent/prompt/[runId]/confirm', () => {
     expect(body.summary).toContain('não podem ser recuperados');
     expect(body.summary).not.toMatch(/reverter/i);
   });
+
+  it('J-8 — responder_email reutiliza o plano persistido do preview (binding preview==envio, NÃO re-planeia)', async () => {
+    const future = new Date(Date.now() + 60 * 1000).toISOString();
+    let callIndex = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callIndex++;
+      if (callIndex === 1) {
+        return [
+          {
+            id: RUN_ID,
+            household_id: TEST_HOUSEHOLD_ID,
+            user_id: TEST_USER_ID,
+            status: 'pending_preview',
+            confirm_expires_at: future,
+            intents_detected: [
+              { intent: 'responder_email', confidence: 0.92, raw_span: 'responde ao Pedro' },
+            ],
+            // Plano persistido no preview: o rascunho da resposta (threadId/messageId
+            // já resolvidos), EXACTAMENTE o que o utilizador reviu.
+            tool_calls: [
+              {
+                toolName: 'responder_email',
+                input: {
+                  threadId: 'thr-1',
+                  messageId: '<a@mail>',
+                  to: 'pedro@example.com',
+                  subject: 'Jantar',
+                  body: 'Confirmo que vou.',
+                },
+                intent: 'responder_email',
+              },
+            ],
+            trace_id: 't1',
+          },
+        ];
+      }
+      return [];
+    });
+    mocks.executorExecuteMock.mockResolvedValue({
+      success: true,
+      results: [
+        {
+          toolName: 'responder_email',
+          output: { id: 'm1', threadId: 'thr-1', to: 'pedro@example.com' },
+          reverseOpId: 'r1',
+        },
+      ],
+    });
+
+    const res = await POST(makeRequest() as never, makeContext());
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { mode: string; summary: string };
+    expect(body.mode).toBe('executed');
+    // Binding preview==envio: o Planner NÃO re-corre; o Executor recebe o plano do preview.
+    expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).toHaveBeenCalled();
+    const execArg = mocks.executorExecuteMock.mock.calls[0]![0] as {
+      plan: { toolCalls: Array<{ toolName: string; input: Record<string, unknown> }> };
+    };
+    expect(execArg.plan.toolCalls[0]!.toolName).toBe('responder_email');
+    expect(execArg.plan.toolCalls[0]!.input.threadId).toBe('thr-1');
+    expect(execArg.plan.toolCalls[0]!.input.to).toBe('pedro@example.com');
+    // UNDO-MISLEAD-1: summary honesto — sem promessa de reversão.
+    expect(body.summary).toContain('não podem ser recuperados');
+    expect(body.summary).not.toMatch(/reverter/i);
+  });
 });
 
 /**

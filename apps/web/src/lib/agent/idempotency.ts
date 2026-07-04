@@ -14,13 +14,10 @@
  */
 import { sql } from 'drizzle-orm';
 
-/**
- * Type alias minimal — qualquer cliente Drizzle aceitando `execute(sql\`...\`)`.
- * Evita import cross-package de `@meu-jarvis/db/client`.
- */
-type Database = {
-  execute<T = unknown>(query: ReturnType<typeof sql>): Promise<T[]>;
-};
+import type { DbExecutor } from '@/lib/agent/db-shim';
+
+/** @see DbExecutor em db-shim.ts — tipo canónico para esta assinatura minimal. */
+type Database = DbExecutor;
 
 /**
  * Janela em horas para replay determinístico (D19 — 24h Stripe-style).

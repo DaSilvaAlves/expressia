@@ -20,6 +20,15 @@
 import type { sql } from 'drizzle-orm';
 
 /**
+ * Tipo minimal de executor DB — `execute` apenas. Exportado para eliminar as
+ * cópias locais `type Database` em audit-log, cost-router, rate-limiter e
+ * idempotency (todos usam apenas `execute`).
+ */
+export type DbExecutor = {
+  execute<T = unknown>(query: ReturnType<typeof sql>): Promise<T[]>;
+};
+
+/**
  * Interface minimal do cliente Drizzle — compatível com `DrizzleDbClient` de
  * `@meu-jarvis/tools` (que requer `transaction`, `insert`, `execute`).
  *

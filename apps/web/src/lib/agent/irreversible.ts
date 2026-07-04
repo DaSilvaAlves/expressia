@@ -23,9 +23,13 @@ import type { AtomicOutcome, AtomicResult } from '@meu-jarvis/planner-executor';
 
 /**
  * Tools cuja escrita externa é irreversível (sem undo real; `reverse` = `_noop`).
- * Restrito a `enviar_email` — a única escrita irreversível do Jarvis (v1.1).
+ * `enviar_email` (J-7, compor) + `responder_email` (J-8, responder em thread) —
+ * ambos enviam um email pela Gmail API, que não tem "des-enviar".
  */
-export const IRREVERSIBLE_WRITE_TOOLS: ReadonlySet<string> = new Set(['enviar_email']);
+export const IRREVERSIBLE_WRITE_TOOLS: ReadonlySet<string> = new Set([
+  'enviar_email',
+  'responder_email',
+]);
 
 /**
  * O outcome executado contém alguma tool de escrita externa irreversível?

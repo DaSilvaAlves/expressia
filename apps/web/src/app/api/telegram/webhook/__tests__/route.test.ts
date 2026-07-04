@@ -360,6 +360,37 @@ describe('POST /api/telegram/webhook — callbacks (AC9/AC10/cancel)', () => {
     expect(sendCall!.text).not.toMatch(/reverter/i);
   });
 
+  it('J-8 — confirm de RESPOSTA IRREVERSÍVEL (responder_email) → sem botão (Cancelar), mensagem honesta', async () => {
+    setupIdentityFound();
+    mocks.executeConfirmMock.mockResolvedValue({
+      ok: true,
+      runId: RUN_ID,
+      summary: 'Email enviado. Emails enviados não podem ser recuperados.',
+      results: {
+        success: true,
+        results: [
+          {
+            toolName: 'responder_email',
+            output: { id: 'm1', threadId: 'thr-1', to: 'pedro@example.com' },
+            reverseOpId: 'noop-1',
+          },
+        ],
+      },
+      undoExpiresAt: new Date().toISOString(),
+    });
+
+    const res = await POST(makeRequest({ secret: SECRET, body: callbackUpdate(`confirm:${RUN_ID}`) }) as never);
+
+    expect(res.status).toBe(200);
+    const sendCall = sentMessageCalls()[0];
+    expect(sendCall).toBeDefined();
+    expect(sendCall!.text).toContain('não podem ser recuperados');
+    // CRÍTICO: NENHUMA afordância de undo enganadora sobre uma resposta enviada.
+    expect(sendCall!.reply_markup).toBeUndefined();
+    expect(sendCall!.text).not.toContain('Feito');
+    expect(sendCall!.text).not.toMatch(/reverter/i);
+  });
+
   it('cancel:{runId} → "Ok, não fiz nada." sem chamar undo/confirm', async () => {
     setupIdentityFound();
 

@@ -55,4 +55,9 @@ describe('registo das gmail tools (anti tree-shaking)', () => {
     expect(toolRegistry.has('enviar_email')).toBe(true);
     expect(toolRegistry.get('enviar_email').domain).toBe('email');
   });
+
+  it('importar run-agent.ts regista responder_email (Story J-8)', () => {
+    expect(toolRegistry.has('responder_email')).toBe(true);
+    expect(toolRegistry.get('responder_email').domain).toBe('email');
+  });
 });

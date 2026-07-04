@@ -118,6 +118,34 @@ export const AccountContextSchema = z.object({
 
 export type AccountContext = z.infer<typeof AccountContextSchema>;
 
+/**
+ * Story J-8 AC5 — shortlist de candidatos de resposta a email (`responder_email`).
+ *
+ * Um candidato é o metadado (SEM corpo) de um email recente do inbox. O endpoint
+ * (`apps/web`) resolve a shortlist via Gmail API FORA do LLM (padrão idêntico ao
+ * `accountContext`) e o Planner injecta-a como **prefixo da user message** (NUNCA
+ * no `system`/`tools` — preserva o cache de prompt). O LLM escolhe o candidato
+ * certo a partir da referência em linguagem natural do utilizador e popula
+ * `threadId`/`messageId`/`to` (=`fromEmail`) na tool call `responder_email`.
+ *
+ * `fromEmail` é o endereço nu parseado (ex.: `pedro@x.pt`) — o `to` da tool é
+ * `z.string().email()` e rejeita a forma "Nome <email>". Tipos `z.string()`
+ * (agnóstico de DDL, como `accountContext`).
+ */
+export const EmailReplyCandidateSchema = z.object({
+  threadId: z.string(),
+  messageId: z.string(),
+  from: z.string(),
+  fromEmail: z.string(),
+  subject: z.string(),
+  receivedAt: z.string(),
+});
+
+export const EmailReplyContextSchema = z.array(EmailReplyCandidateSchema);
+
+export type EmailReplyCandidate = z.infer<typeof EmailReplyCandidateSchema>;
+export type EmailReplyContext = z.infer<typeof EmailReplyContextSchema>;
+
 export const PlannerInputSchema = z.object({
   classification: ClassificationSchema,
   householdId: z.string().uuid(),
@@ -125,6 +153,12 @@ export const PlannerInputSchema = z.object({
   traceId: z.string().min(1),
   runId: z.string().uuid(),
   accountContext: AccountContextSchema.optional(),
+  /**
+   * Story J-8 AC5 — shortlist de candidatos de resposta a email (metadados
+   * apenas), injectada como prefixo da user message quando o plano contém
+   * `responder_email`. Ausente para todos os outros intents.
+   */
+  emailReplyContext: EmailReplyContextSchema.optional(),
   /**
    * Data civil "de hoje" no fuso do utilizador (`YYYY-MM-DD`), injectada como
    * âncora para o cálculo de prazos relativos ("hoje", "amanhã", "dia 1") pelo
@@ -175,11 +209,11 @@ export type ExecutorInput = z.infer<typeof ExecutorInputSchema>;
  * (3) tools são single source of truth da Story 2.3 e não mudam entre runs;
  * (4) tool name fora do MAP → fallback `'unknown'` (graceful degradation).
  *
- * **Cobertura obrigatória:** as 19 intents do `IntentSchema` (Story 2.4 AC2
+ * **Cobertura obrigatória:** as 20 intents do `IntentSchema` (Story 2.4 AC2
  * baseline 8 + Story 3.8 tools cérebro Tarefas +3 + Story 2.14 tools
  * UPDATE/DELETE +4 + Story J-5 tools Calendar +2 + Story J-6 tool Gmail readonly
- * +1 + Story J-7 tool Gmail send +1) têm pelo menos 1 tool name mapeado.
- * Validável em `__tests__/contract.test.ts`.
+ * +1 + Story J-7 tool Gmail send +1 + Story J-8 tool Gmail reply +1) têm pelo
+ * menos 1 tool name mapeado. Validável em `__tests__/contract.test.ts`.
  *
  * Nomenclatura tools snake_case lowercase (alinhada com Architecture §4.3
  * `create_task`, `query_finance_summary`, etc.).
@@ -234,6 +268,9 @@ export const TOOL_TO_INTENT_MAP: Record<string, Intent> = {
   // Story J-7 — tool Gmail send (tool name === intent name PT-PT). Mesma
   // direcção de dependência que a gmail readonly; o mapping tool→intent vive aqui.
   enviar_email: 'enviar_email',
+  // Story J-8 — tool Gmail reply (tool name === intent name PT-PT). Escrita
+  // externa irreversível (mesma família de `enviar_email`, com threading).
+  responder_email: 'responder_email',
 };
 
 /**

@@ -183,11 +183,15 @@ describe('consultar_emails', () => {
     await expect(consultarEmails.execute({}, makeCtx([TOKEN_ROW]))).rejects.toThrow();
   });
 
-  it('falha HTTP ao ler o detalhe de um email → lança ToolExecutionError', async () => {
+  it('falha HTTP ao ler o detalhe de um email → salta item (skip-on-failure), devolve []', async () => {
+    // Após refactor item 4 (parallelização): falhas por-mensagem são silenciosas
+    // (null → filter). A lista retorna vazia em vez de lançar — comportamento mais
+    // resiliente (um email inacessível não deita abaixo toda a listagem).
     fetchMock
       .mockResolvedValueOnce(fetchResponse({ messages: [{ id: 'm1' }] }))
       .mockResolvedValueOnce(fetchResponse(null, 401));
-    await expect(consultarEmails.execute({}, makeCtx([TOKEN_ROW]))).rejects.toThrow();
+    const out = await consultarEmails.execute({}, makeCtx([TOKEN_ROW]));
+    expect(out).toEqual([]);
   });
 
   it('reverse() devolve sentinela inerte _noop (R1b v1.1)', async () => {

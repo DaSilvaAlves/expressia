@@ -29,8 +29,6 @@
  *
  * Trace: Story J-7 AC7 + AC13, PRD-Jarvis §9 (roadmap v1.1 Gmail escrita).
  */
-import { randomUUID } from 'node:crypto';
-
 import { z } from 'zod';
 
 import {
@@ -40,7 +38,7 @@ import {
   type ToolExecutionContext,
 } from '@meu-jarvis/tools';
 
-import { getGmailAccessToken, sendGmailMessage } from './gmail-api';
+import { getGmailAccessToken, noopReverseOp, sendGmailMessage } from './gmail-api';
 
 const TOOL_NAME = 'enviar_email';
 
@@ -124,10 +122,6 @@ export const enviarEmail: ToolDefinition<EnviarEmailInput, EnviarEmailOutput> = 
    * segurança está no preview→confirm obrigatório (AC3), não no undo.
    */
   async reverse(): Promise<ReverseOpPayload> {
-    return {
-      kind: 'delete_row',
-      table: '_noop',
-      id: randomUUID(),
-    };
+    return noopReverseOp();
   },
 };

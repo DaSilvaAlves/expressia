@@ -300,7 +300,10 @@ export class Planner {
     // no `system`/`tools`), preservando o prefixo cacheável da Anthropic.
     const dateContextPrefix = serializeCurrentDateForPlanner(input.currentDate);
     const accountContextPrefix = serializeAccountContextForPlanner(input.accountContext);
-    const userMessage = `${dateContextPrefix}${accountContextPrefix}${serializeClassificationForPlanner(input.classification)}`;
+    // Story J-8 AC5 — shortlist de resposta a email (quando presente), também
+    // como prefixo da user message (NUNCA no `system`/`tools`).
+    const emailReplyContextPrefix = serializeEmailReplyContextForPlanner(input.emailReplyContext);
+    const userMessage = `${dateContextPrefix}${accountContextPrefix}${emailReplyContextPrefix}${serializeClassificationForPlanner(input.classification)}`;
 
     const providerInput: ProviderCompleteInput = {
       system: PLANNER_SYSTEM_PROMPT,
@@ -346,11 +349,23 @@ export class Planner {
       }
     }
 
-    const toolCalls: PlanToolCall[] = output.toolCalls.map((call) => ({
-      toolName: call.name,
-      input: call.input as Record<string, unknown>,
-      intent: resolveIntentFromToolName(call.name),
-    }));
+    const toolCalls: PlanToolCall[] = output.toolCalls.map((call) => {
+      // Guarda runtime: o LLM pode omitir `input` ou devolver null/array.
+      // Em vez de lançar um erro de cast opaco, normaliza para {} e deixa o
+      // PlanResultSchema.safeParse detectar campos obrigatórios em falta.
+      const rawInput = call.input;
+      const input: Record<string, unknown> =
+        rawInput !== null &&
+        typeof rawInput === 'object' &&
+        !Array.isArray(rawInput)
+          ? (rawInput as Record<string, unknown>)
+          : {};
+      return {
+        toolName: call.name,
+        input,
+        intent: resolveIntentFromToolName(call.name),
+      };
+    });
 
     const candidate: PlanResult = {
       toolCalls,
@@ -494,6 +509,42 @@ function serializeAccountContextForPlanner(
   }
   lines.push(
     'Se o utilizador não indicar conta nem cartão, OMITE accountId/cardId (a tool usa a conta por defeito).',
+  );
+  lines.push('');
+  lines.push('');
+  return lines.join('\n');
+}
+
+/**
+ * Story J-8 AC5 — serializa a shortlist de candidatos de resposta a email num
+ * prefixo PT-PT para anteceder a user message do Planner. Instrui o LLM a escolher
+ * o candidato certo a partir da referência do utilizador e a popular
+ * `threadId`/`messageId`/`to` (=`fromEmail`) da tool `responder_email` com valores
+ * EXACTOS da shortlist — nunca inventados. Se nenhum candidato corresponder, o LLM
+ * é instruído a NÃO emitir `responder_email` (zero-match honesto, AC13).
+ *
+ * Retorna string vazia quando `emailReplyContext` é ausente ou vazio (todos os
+ * outros intents — regressão zero). Como o `accountContext`, viaja em `messages`
+ * (NUNCA no `system`/`tools`), preservando o prefixo cacheável.
+ */
+function serializeEmailReplyContextForPlanner(
+  emailReplyContext: PlannerInput['emailReplyContext'],
+): string {
+  if (emailReplyContext === undefined || emailReplyContext.length === 0) {
+    return '';
+  }
+
+  const lines: string[] = ['[Emails recentes do inbox — candidatos para responder]'];
+  emailReplyContext.forEach((c, idx) => {
+    // Metadados apenas (sem corpo). O `messageId`/`threadId` são opacos e viajam
+    // em `messages` (cobertos por `redactProviderPayload`, NFR12).
+    lines.push(
+      `${idx + 1}. de: ${c.from} <${c.fromEmail}> | assunto: "${c.subject}" | data: ${c.receivedAt} | threadId: ${c.threadId} | messageId: ${c.messageId}`,
+    );
+  });
+  lines.push('');
+  lines.push(
+    'Para responder (responder_email), escolhe o candidato que corresponde ao pedido do utilizador e usa os valores EXACTOS desse candidato: to = fromEmail (endereço nu), threadId, messageId e subject. NUNCA inventes um threadId/messageId. Se NENHUM candidato corresponder ao pedido, NÃO emitas responder_email.',
   );
   lines.push('');
   lines.push('');

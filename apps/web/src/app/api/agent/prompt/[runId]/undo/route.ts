@@ -41,7 +41,7 @@ import {
 import { apiError } from '@/lib/errors';
 import { revalidateTaskViews } from '@/lib/api-helpers/revalidate';
 import { sentrySafeContext } from '@/lib/agent/redaction';
-import { refreshAccessToken } from '@/lib/google/oauth';
+import { getGoogleAccessToken } from '@/lib/google/access-token';
 import {
   withAgentPromptSpan,
   annotateAgentPromptSpan,
@@ -478,59 +478,27 @@ async function applyReverseOp(
   throw new Error(`Reverse op kind desconhecido.`);
 }
 
-/** Row mínima de `google_oauth_tokens` necessária para o refresh (Story J-5). */
-interface GoogleTokenRow {
-  readonly encrypted_refresh_token: string;
-  readonly token_iv: string;
-  readonly token_auth_tag: string;
-}
-
-function isGoogleTokenRow(value: unknown): value is GoogleTokenRow {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-  const r = value as Record<string, unknown>;
-  return (
-    typeof r.encrypted_refresh_token === 'string' &&
-    typeof r.token_iv === 'string' &&
-    typeof r.token_auth_tag === 'string'
-  );
-}
-
 /**
  * Aplica o undo de uma reverse op `external_call` (Google Calendar) — Story J-5.
  *
  *   - `delete_event` → DELETE do evento criado (404 = já apagado → `not_found`).
  *   - `restore_event` → PATCH de volta aos horários originais.
  *
- * Lê `google_oauth_tokens` inline via `service_role` (SEC-10 — undo corre fora de
- * sessão HTTP, sem JWT). `householdId`/`userId` vêm de `params` (scope de
- * `executeUndo`). NÃO usa helper inexistente — query inline por (household, user).
+ * Usa `getGoogleAccessToken` (helper partilhado) via `service_role` (SEC-10 — undo
+ * corre fora de sessão HTTP, sem JWT). `householdId`/`userId` vêm de `params`.
  */
 async function applyExternalCallUndo(
   op: ReverseOpExternalCall,
   serviceDb: ReturnType<typeof getServiceDb>,
   ctx: { householdId: string; userId: string },
 ): Promise<{ ok: true } | { ok: false; reason: 'not_found' | 'external_error' }> {
-  const rows = (await serviceDb.execute(sql`
-    select encrypted_refresh_token, token_iv, token_auth_tag
-    from public.google_oauth_tokens
-    where household_id = ${ctx.householdId}::uuid and user_id = ${ctx.userId}::uuid
-    limit 1
-  `)) as ReadonlyArray<unknown>;
-
-  const row = rows[0];
-  if (!isGoogleTokenRow(row)) {
-    return { ok: false, reason: 'not_found' };
-  }
-
   let accessToken: string;
   try {
-    ({ accessToken } = await refreshAccessToken(
-      row.encrypted_refresh_token,
-      row.token_iv,
-      row.token_auth_tag,
-    ));
+    const token = await getGoogleAccessToken(serviceDb, ctx.householdId, ctx.userId);
+    if (token === null) {
+      return { ok: false, reason: 'not_found' };
+    }
+    accessToken = token;
   } catch {
     return { ok: false, reason: 'external_error' };
   }

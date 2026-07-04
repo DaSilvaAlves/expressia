@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   buildRawMimeMessage,
+  isGmailMessageDetail,
   isGmailSendResponse,
   sendGmailMessage,
 } from '@/lib/agent/tools/gmail/gmail-api';
@@ -74,7 +75,7 @@ describe('buildRawMimeMessage', () => {
     expect(Buffer.from(encoded, 'base64').toString('utf-8')).toBe('Reunião amanhã');
   });
 
-  it('NÃO inclui cabeçalhos de reply (compose-only — In-Reply-To/References em v2)', () => {
+  it('NÃO inclui cabeçalhos de reply quando inReplyTo/references ausentes (compose J-7 — regressão zero)', () => {
     const raw = buildRawMimeMessage({
       to: 'ana@example.com',
       from: 'eu@example.com',
@@ -84,6 +85,50 @@ describe('buildRawMimeMessage', () => {
     const mime = Buffer.from(raw, 'base64url').toString('utf-8');
     expect(mime).not.toContain('In-Reply-To');
     expect(mime).not.toContain('References');
+  });
+
+  it('Story J-8 — inclui In-Reply-To/References quando presentes (threading)', () => {
+    const messageId = '<abc123@mail.gmail.com>';
+    const raw = buildRawMimeMessage({
+      to: 'ana@example.com',
+      from: 'eu@example.com',
+      subject: 'Re: Jantar',
+      body: 'Vou sim.',
+      inReplyTo: messageId,
+      references: messageId,
+    });
+    const mime = Buffer.from(raw, 'base64url').toString('utf-8');
+    expect(mime).toContain(`In-Reply-To: ${messageId}`);
+    expect(mime).toContain(`References: ${messageId}`);
+    // Continua base64url válido (sem padding).
+    expect(raw).toMatch(/^[A-Za-z0-9_-]+$/);
+  });
+});
+
+describe('isGmailMessageDetail (Story J-8 — captura threadId)', () => {
+  it('true e expõe threadId quando presente (string)', () => {
+    const detail = {
+      id: 'm1',
+      threadId: 'thr-1',
+      snippet: 's',
+      payload: { headers: [{ name: 'Message-ID', value: '<x@y>' }] },
+    };
+    expect(isGmailMessageDetail(detail)).toBe(true);
+    if (isGmailMessageDetail(detail)) {
+      expect(detail.threadId).toBe('thr-1');
+    }
+  });
+
+  it('true quando threadId ausente (backward-compatible J-6)', () => {
+    expect(
+      isGmailMessageDetail({ id: 'm1', snippet: 's', payload: { headers: [] } }),
+    ).toBe(true);
+  });
+
+  it('false quando threadId presente mas não é string', () => {
+    expect(
+      isGmailMessageDetail({ id: 'm1', threadId: 42, snippet: 's', payload: { headers: [] } }),
+    ).toBe(false);
   });
 });
 
@@ -160,5 +205,48 @@ describe('sendGmailMessage', () => {
     await expect(
       sendGmailMessage('tok', { to: 'ana@example.com', subject: 'x', body: 'y' }),
     ).rejects.toThrow();
+  });
+
+  it('Story J-8 — com threadId inclui-o no corpo do POST e emite In-Reply-To/References', async () => {
+    fetchMock
+      .mockResolvedValueOnce(fetchResponse({ emailAddress: 'eu@example.com' }))
+      .mockResolvedValueOnce(fetchResponse({ id: 'msg-r', threadId: 'thr-r' }));
+
+    const messageId = '<orig@mail.gmail.com>';
+    const out = await sendGmailMessage('tok', {
+      to: 'ana@example.com',
+      subject: 'Re: Jantar',
+      body: 'Vou sim.',
+      threadId: 'thr-r',
+      inReplyTo: messageId,
+      references: messageId,
+    });
+
+    expect(out).toEqual({ id: 'msg-r', threadId: 'thr-r' });
+
+    const [, sendInit] = fetchMock.mock.calls[1]!;
+    const parsed = JSON.parse(String((sendInit as RequestInit).body)) as {
+      raw?: string;
+      threadId?: string;
+    };
+    // threadId reforçado no corpo do POST.
+    expect(parsed.threadId).toBe('thr-r');
+    // Cabeçalhos de threading no MIME.
+    const mime = Buffer.from(parsed.raw as string, 'base64url').toString('utf-8');
+    expect(mime).toContain(`In-Reply-To: ${messageId}`);
+    expect(mime).toContain(`References: ${messageId}`);
+  });
+
+  it('Story J-8 — sem threadId, o corpo do POST é só { raw } (compose J-7 regressão zero)', async () => {
+    fetchMock
+      .mockResolvedValueOnce(fetchResponse({ emailAddress: 'eu@example.com' }))
+      .mockResolvedValueOnce(fetchResponse({ id: 'm', threadId: 't' }));
+
+    await sendGmailMessage('tok', { to: 'ana@example.com', subject: 'x', body: 'y' });
+
+    const [, sendInit] = fetchMock.mock.calls[1]!;
+    const parsed = JSON.parse(String((sendInit as RequestInit).body)) as Record<string, unknown>;
+    expect(parsed.threadId).toBeUndefined();
+    expect(typeof parsed.raw).toBe('string');
   });
 });

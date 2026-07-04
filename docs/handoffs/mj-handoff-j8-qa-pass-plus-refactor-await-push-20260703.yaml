@@ -1,0 +1,151 @@
+id: mj-handoff-j8-qa-pass-plus-refactor-await-push-20260703
+from_agent: executor (Sonnet, invocado directo — fora do /sdc)
+to_agent: devops
+created: "2026-07-03T19:35:00Z"
+status: pending
+
+project: meu-jarvis (Expressia)
+project_prefix: mj
+priority: normal
+type: ready-for-push
+
+summary: >-
+  Working tree tem DUAS camadas de trabalho por commitar, nenhuma pushada:
+  (1) Story J-8 (Gmail reply em thread, v1.2) — ciclo /sdc completo,
+  @architect (Aria) deu gate PASS 9,2/10, Status: InReview, só falta a
+  Tarefa 9 (deploy migration 0033 + confirmação OAuth sem re-consent + E2E
+  live no @jarvis_eurico_bot); (2) por cima da J-8, uma sessão de refactor
+  pré-aprovado (11 itens de dedupe/paralelização/cleanup, SEM relação
+  funcional com a J-8) correu e ficou 100% verde. Nada foi commitado —
+  `git status` mostra ~30 ficheiros modificados + 8 novos (J-8) misturados
+  com os ficheiros do refactor. Precisa de @devops separar/organizar os
+  commits, decidir se o refactor viaja no mesmo push da J-8 ou em commit
+  próprio, e depois executar a Tarefa 9 da story (precisa de acção
+  [EURICO] para o OAuth/E2E).
+
+context:
+  git_state: >-
+    origin/main = 540eb30 (chore(handoff) pós-J-7). Working tree SUJO,
+    nada commitado. `git status --short` lista ~30 ficheiros M (modified)
+    + 8 novos (??) — ver lista completa abaixo. Precede este handoff:
+    a98afe3 (docs fechar J-7) e 24d9822 (feat J-7 Gmail send).
+
+  camada_1_story_j8:
+    ficheiros_novos:
+      - apps/web/src/lib/agent/tools/gmail/reply-email.ts
+      - apps/web/src/lib/agent/tools/gmail/resolve-reply-target.ts
+      - apps/web/src/lib/agent/tools/gmail/__tests__/reply-email.test.ts
+      - apps/web/src/lib/agent/tools/gmail/__tests__/resolve-reply-target.test.ts
+      - packages/db/migrations/0033_agent_intent_reply_email.sql
+      - docs/stories/active/J-8.gmail-reply-thread.story.md
+      - docs/qa/gates/J-8-gmail-reply-thread.yml
+    ficheiros_modificados_j8: >-
+      packages/classifier/src/{prompts/classifier-system.ts,schemas.ts}
+      (v6→v7, novo intent responder_email, enum 19→20),
+      packages/db/src/schema/agent.ts (agentIntentEnum),
+      packages/planner-executor/src/{index.ts,schemas.ts}
+      (TOOL_TO_INTENT_MAP, EmailReplyContext, serialização prompt-caching-safe),
+      apps/web/src/lib/agent/{run-agent.ts,irreversible.ts},
+      apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts,
+      apps/web/src/lib/agent/tools/gmail/index.ts,
+      + testes correspondentes (run-agent.test.ts, confirm.test.ts,
+      route.test.ts do webhook Telegram, gmail-api.test.ts, registration.test.ts).
+    gate_status: >-
+      docs/qa/gates/J-8-gmail-reply-thread.yml → gate: PASS, score 9,2/10,
+      reviewer Quinn (Test Architect). 3 concerns LOW não-bloqueantes
+      (ARCH-J8-1 zero-match semântico, DOC-J8-1 copy "Email enviado" vs
+      "Resposta enviada", REL-J8-1 tree-shaking herdado — verificar em
+      E2E). Story Status: InReview. AC16/AC17 (OAuth sem re-consent +
+      E2E live) são os ÚNICOS itens em aberto antes de Done — dependem de
+      deploy real + [EURICO].
+
+  camada_2_refactor_pos_j8:
+    descricao: >-
+      11 refactors pré-aprovados pelo Eurico, aplicados DEPOIS da J-8 no
+      mesmo working tree, SEM alterar comportamento (extract+delegate,
+      não rename). Motivação: eliminar 3 cópias idênticas de
+      getXAccessToken, 2 cópias de extractListItems/extractInboxItems,
+      3 cópias de reverse() noop, 4 cópias de `type Database`, 2 magic-number
+      TTLs espalhados, 1 shadow-type DirectQueryResult, 1 buildSummaryText
+      duplicado sem o check de escrita irreversível, loops seriais → Promise.all,
+      1 cast unchecked no Planner.
+    ficheiros_novos:
+      - apps/web/src/lib/google/access-token.ts (getGoogleAccessToken partilhado)
+    ficheiros_chave_modificados:
+      - apps/web/src/lib/agent/tools/calendar/calendar-api.ts (wrapper fino)
+      - apps/web/src/lib/agent/tools/gmail/gmail-api.ts (wrapper fino + extractGmailListMessages + noopReverseOp)
+      - apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts (usa getGoogleAccessToken)
+      - apps/web/src/lib/agent/tools/gmail/{list-emails.ts,resolve-reply-target.ts} (Promise.all)
+      - apps/web/src/lib/agent/tools/gmail/{send-email.ts,reply-email.ts} (noopReverseOp)
+      - apps/web/src/lib/agent/db-shim.ts (novo export type DbExecutor)
+      - apps/web/src/lib/agent/{audit-log.ts,cost-router.ts,rate-limiter.ts,idempotency.ts} (type Database = DbExecutor)
+      - apps/web/src/lib/agent/run-agent.ts (PREVIEW_TTL_MS/UNDO_TTL_MS exportados, Promise.all em checkRateLimit+checkQuota
+        e accounts+cards, DirectQueryOutcome renomeado, buildOutcomeSummary novo exportado)
+      - apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts (importa UNDO_TTL_MS + buildOutcomeSummary)
+      - packages/planner-executor/src/planner.ts (guard runtime em mapOutput — input null/array/non-object → {})
+      - packages/db/vitest.config.ts (testTimeout: 10_000)
+    teste_ajustado: >-
+      apps/web/src/lib/agent/tools/gmail/__tests__/list-emails.test.ts — 1 teste
+      reescrito para reflectir mudança de comportamento intencional (item 4):
+      falha HTTP num detalhe de mensagem individual agora é skip-on-failure
+      (devolve [] em vez de lançar) em vez de propagar erro fatal.
+    verificacao_local: >-
+      TUDO VERDE (working tree actual):
+      web 1450/1450 · db 22/22 · planner-executor 78/78 ·
+      pnpm lint EXIT 0 (10/10) · pnpm typecheck EXIT 0 (10/10) ·
+      suite completa `turbo run test --force` 2× 10/10 (04/07, prova o
+      fix do flake testTimeout) · pnpm build EXIT 0 (04/07) ·
+      pnpm check:rls EXIT 0 — 152 policies, coverage completa (04/07).
+      NÃO corrido isolado: classifier/tools/db-test (cobertos pela suite
+      completa via turbo).
+
+next_action: >-
+  @devops (Gage): (1) decidir a estratégia de commit — sugestão: 1 commit
+  `feat(agent): J-8 Gmail reply em thread (Telegram) — preview==envio +
+  undo honesto` para a camada J-8 + 1 commit separado
+  `refactor(agent): dedupe access-token/list-parsing/TTLs/Database-type +
+  paralelizar fetches independentes` para a camada de refactor (mais fácil
+  de revisar/reverter isoladamente; nenhum dos dois depende logicamente do
+  outro para funcionar, mas o refactor tocou ficheiros que a J-8 também
+  tocou — CUIDADO ao separar hunks, testar cada commit isoladamente com
+  `pnpm --filter @meu-jarvis/web test` antes de avançar para o seguinte);
+  (2) ~~re-correr pnpm build + pnpm check:rls~~ JÁ FEITO 04/07 (ambos
+  EXIT 0 — ver verificacao_local); (3) aplicar migration 0033
+  (`ADD VALUE IF NOT EXISTS 'responder_email'` no enum agent_intent) em
+  prod via `db:migrate` (DIRECT_URL) — idempotente, sem risco; (4) push
+  fast-forward (só com ordem explícita do Eurico); (5) depois do deploy,
+  Tarefa 9 da story J-8 precisa de [EURICO]: confirmar que o OAuth NÃO
+  precisa de re-consent (reutiliza gmail.readonly+gmail.send já
+  concedidos na J-6/J-7 — AC16) + E2E live no @jarvis_eurico_bot (reply
+  mantém thread / cancelar / guard multi-intent / zero-match honesto —
+  AC17). Só depois disso a story J-8 passa InReview → Done.
+
+constraints:
+  - "Billing CONGELADO — não tocar Stripe/pagamentos."
+  - "SEC-8 HOLD — withHousehold/db-shim/client.ts: só o db-shim.ts mudou (novo export de TIPO DbExecutor, zero mudança de runtime) — confirmar no diff que nenhuma função mudou de assinatura/comportamento."
+  - "Família removida — app single-user; household_id/RLS INTACTOS."
+  - "OAuth Google sempre na CONTA PRINCIPAL euricojsalves@gmail.com (lição recorrente J-3/J-5/J-6/J-7)."
+  - "PT-PT em código/UI/erros. Imports absolutos @/. CodeRabbit Disabled em core-config → SKIP."
+  - "Push/PR exclusivo do @devops, só com ordem explícita do Eurico (agent-authority.md)."
+
+notes: |
+  - O refactor foi pedido directamente ao executor (fora do ciclo /sdc),
+    com a instrução explícita de NÃO reverter/reescrever o WIP da J-8 —
+    só aplicar as mudanças por cima. Isso foi respeitado; nenhum ficheiro
+    da J-8 foi revertido, só tocado onde o refactor genuinamente se
+    sobrepunha (ex.: run-agent.ts e confirm/route.ts, que a J-8 também
+    editava).
+  - IMPORTANTE para quem for separar os commits: `run-agent.ts` e
+    `confirm/route.ts` têm hunks da J-8 (novo intent responder_email,
+    resolução de shortlist, EmailReplyContext) E hunks do refactor
+    (PREVIEW_TTL_MS/UNDO_TTL_MS, buildOutcomeSummary, Promise.all) no
+    MESMO ficheiro. Um `git add -p` cuidadoso é necessário se se quiser
+    2 commits limpos; alternativa mais simples e igualmente aceitável:
+    1 único commit que entrega os dois (mensagem a mencionar ambos).
+  - Gate PASS da J-8 (docs/qa/gates/J-8-gmail-reply-thread.yml) foi
+    escrito ANTES do refactor rodar — os números de teste que lá constam
+    (web 1450, etc.) já bateram certo com o estado pós-refactor porque o
+    refactor não adicionou nem removeu testes líquidos (só reescreveu 1).
+    Não é preciso re-pedir @qa; a evidência do gate continua válida.
+  - Memórias relevantes: jarvis-j7-gmail-send-live, story-j2-gate-pass
+    (padrão de handoff), planner-switched-to-openai.

@@ -93,10 +93,14 @@ interface PendingPreviewRow extends Record<string, unknown> {
 /**
  * Story J-7 SEND-PREVIEW-1 — intents cujo plano persistido no preview deve ser
  * REUTILIZADO no confirm (em vez de re-planear), garantindo que a escrita externa
- * executada é EXACTAMENTE o rascunho que o utilizador reviu. Restrito a
- * `enviar_email`: tarefas/finanças/calendar continuam a re-planear (regressão zero).
+ * executada é EXACTAMENTE o rascunho que o utilizador reviu. `enviar_email` (J-7)
+ * + `responder_email` (J-8): tarefas/finanças/calendar continuam a re-planear
+ * (regressão zero).
  */
-const REUSE_PERSISTED_PLAN_INTENTS: ReadonlySet<string> = new Set(['enviar_email']);
+const REUSE_PERSISTED_PLAN_INTENTS: ReadonlySet<string> = new Set([
+  'enviar_email',
+  'responder_email',
+]);
 
 /**
  * Resultado discriminado de `executeConfirm`. O caso de sucesso (`ok: true`)

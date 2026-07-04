@@ -294,6 +294,62 @@ describe('Planner.plan() — payload structure', () => {
     expect(toolsStr).not.toContain('CartaoTesteXYZ');
   });
 
+  it('emailReplyContext (Story J-8) é injectado no PREFIXO da user message — nunca no system/tools', async () => {
+    let capturedParams: Record<string, unknown> | undefined;
+    const client = createMockAnthropicClient((params) => {
+      capturedParams = params;
+      return buildToolUseResponse([{ name: 'query_tasks', input: {} }]);
+    });
+    const planner = new Planner({ client, registry: createMockRegistry() });
+    await planner.plan(
+      buildInput({
+        classification: {
+          intents: [
+            { intent: 'responder_email', confidence: 0.92, raw_span: 'responde ao Pedro' },
+          ],
+          language: 'pt-PT',
+          needs_confirmation: true,
+          overall_confidence: 0.92,
+        },
+        emailReplyContext: [
+          {
+            threadId: 'threadXYZ',
+            messageId: '<msgidXYZ@mail>',
+            from: 'Pedro <pedroXYZ@example.com>',
+            fromEmail: 'pedroXYZ@example.com',
+            subject: 'AssuntoReplyXYZ',
+            receivedAt: 'Wed, 02 Jul 2026 10:00:00 +0100',
+          },
+        ],
+      }),
+    );
+
+    const messages = capturedParams?.messages as Array<{ role: string; content: string }>;
+    const userContent = messages[0]?.content ?? '';
+    // Shortlist no prefixo da user message.
+    expect(userContent).toContain('candidatos para responder');
+    expect(userContent).toContain('threadXYZ');
+    expect(userContent).toContain('pedroXYZ@example.com');
+    // NUNCA no system nem nos tools (preserva prompt caching).
+    const systemStr = JSON.stringify(capturedParams?.system ?? '');
+    const toolsStr = JSON.stringify(capturedParams?.tools ?? '');
+    expect(systemStr).not.toContain('threadXYZ');
+    expect(toolsStr).not.toContain('threadXYZ');
+  });
+
+  it('emailReplyContext ausente → sem prefixo de resposta na user message', async () => {
+    let capturedParams: Record<string, unknown> | undefined;
+    const client = createMockAnthropicClient((params) => {
+      capturedParams = params;
+      return buildToolUseResponse([{ name: 'create_task', input: { title: 'A' } }]);
+    });
+    const planner = new Planner({ client, registry: createMockRegistry() });
+    await planner.plan(buildInput());
+
+    const messages = capturedParams?.messages as Array<{ role: string; content: string }>;
+    expect(messages[0]?.content ?? '').not.toContain('candidatos para responder');
+  });
+
   it('accountContext ausente → sem prefixo de contexto na user message', async () => {
     let capturedParams: Record<string, unknown> | undefined;
     const client = createMockAnthropicClient((params) => {

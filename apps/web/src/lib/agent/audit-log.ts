@@ -26,16 +26,10 @@
  */
 import { sql } from 'drizzle-orm';
 
-import { getServiceDb } from '@/lib/agent/db-shim';
+import { getServiceDb, type DbExecutor } from '@/lib/agent/db-shim';
 
-/**
- * Type alias minimal — qualquer cliente Drizzle aceitando `execute(sql\`...\`)`.
- * Evita import cross-package de `@meu-jarvis/db/client` que causa cascading
- * typecheck issues com `@/schema` interno do package db.
- */
-type Database = {
-  execute<T = unknown>(query: ReturnType<typeof sql>): Promise<T[]>;
-};
+/** @see DbExecutor em db-shim.ts — tipo canónico para esta assinatura minimal. */
+type Database = DbExecutor;
 
 /**
  * Input para INSERT inicial em `agent_runs` (status='classifying').

@@ -10,11 +10,10 @@
  * Trace: Story J-5 AC6/AC7, Dev Notes "Padrão de obtenção do accessToken".
  */
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
-import { sql } from 'drizzle-orm';
 
 import { ToolExecutionError, type ToolExecutionContext } from '@meu-jarvis/tools';
 
-import { refreshAccessToken } from '@/lib/google/oauth';
+import { getGoogleAccessToken } from '@/lib/google/access-token';
 
 /** Fuso horário do mercado PT-PT (CON — Portugal continental). */
 export const CALENDAR_TZ = 'Europe/Lisbon';
@@ -23,29 +22,8 @@ export const CALENDAR_TZ = 'Europe/Lisbon';
 export const CALENDAR_EVENTS_ENDPOINT =
   'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 
-/** Row mínima de `google_oauth_tokens` necessária para o refresh. */
-interface TokenRow {
-  readonly encrypted_refresh_token: string;
-  readonly token_iv: string;
-  readonly token_auth_tag: string;
-}
-
-function isTokenRow(value: unknown): value is TokenRow {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-  const row = value as Record<string, unknown>;
-  return (
-    typeof row.encrypted_refresh_token === 'string' &&
-    typeof row.token_iv === 'string' &&
-    typeof row.token_auth_tag === 'string'
-  );
-}
-
 /**
- * Lê `google_oauth_tokens` (RLS activa via `ctx.db` authenticated) para o
- * `(household_id, user_id)` do contexto e devolve um access_token fresco.
- *
+ * Wrapper fino sobre `getGoogleAccessToken` para as calendar tools.
  * Lança `ToolExecutionError` PT-PT se não houver token conectado.
  *
  * @param ctx - contexto de execução da tool (db da transacção + ids).
@@ -55,27 +33,14 @@ export async function getCalendarAccessToken(
   ctx: ToolExecutionContext,
   toolName: string,
 ): Promise<string> {
-  const rows = (await ctx.db.execute(sql`
-    select encrypted_refresh_token, token_iv, token_auth_tag
-    from public.google_oauth_tokens
-    where household_id = ${ctx.householdId} and user_id = ${ctx.userId}
-    limit 1
-  `)) as ReadonlyArray<unknown>;
-
-  const row = rows[0];
-  if (!isTokenRow(row)) {
+  const token = await getGoogleAccessToken(ctx.db, ctx.householdId, ctx.userId);
+  if (token === null) {
     throw new ToolExecutionError(
       toolName,
       new Error('Precisas de conectar o Google Calendar. Acede a /api/google/auth-url.'),
     );
   }
-
-  const { accessToken } = await refreshAccessToken(
-    row.encrypted_refresh_token,
-    row.token_iv,
-    row.token_auth_tag,
-  );
-  return accessToken;
+  return token;
 }
 
 /** Limite de um evento devolvido pela Calendar API (`dateTime` ou `date`). */

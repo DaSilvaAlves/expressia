@@ -41,6 +41,8 @@ export {
   PlannerInputSchema,
   ExecutorInputSchema,
   AccountContextSchema,
+  EmailReplyCandidateSchema,
+  EmailReplyContextSchema,
 } from './schemas';
 export type {
   PlanToolCall,
@@ -48,6 +50,8 @@ export type {
   PlannerInput,
   ExecutorInput,
   AccountContext,
+  EmailReplyCandidate,
+  EmailReplyContext,
 } from './schemas';
 
 // System prompt — apenas versão (texto raw NÃO exportado)
