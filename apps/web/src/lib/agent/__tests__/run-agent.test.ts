@@ -25,10 +25,18 @@ const mocks = vi.hoisted(() => ({
 }));
 
 // Story J-8 — mecanismo de resolução do email-alvo (mockado para não tocar na
-// Gmail API real). Só é chamado para o intent `responder_email`.
-vi.mock('@/lib/agent/tools/gmail/resolve-reply-target', () => ({
-  resolveReplyCandidates: mocks.resolveReplyCandidatesMock,
-}));
+// Gmail API real). Só `resolveReplyCandidates` é mockado (chama a Gmail API); o
+// helper puro `extractExplicitEmailAddresses` (Story J-8 FIX — guardrail de email
+// explícito) mantém a implementação REAL via `importActual`.
+vi.mock('@/lib/agent/tools/gmail/resolve-reply-target', async () => {
+  const actual = (await vi.importActual(
+    '@/lib/agent/tools/gmail/resolve-reply-target',
+  )) as Record<string, unknown>;
+  return {
+    ...actual,
+    resolveReplyCandidates: mocks.resolveReplyCandidatesMock,
+  };
+});
 
 // Auth mock — o spy `getUserMock` NUNCA deve ser chamado por runAgentForHousehold.
 vi.mock('@meu-jarvis/auth/server', () => ({
@@ -535,6 +543,138 @@ describe('runAgentForHousehold — responder_email (Story J-8)', () => {
     }
     // CRÍTICO: Planner e Executor NÃO correm — nunca se inventa um threadId.
     expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('FIX [D-J8.6] — email explícito que NÃO corresponde ao candidato escolhido → zero-match determinístico, SEM envio', async () => {
+    // Reprodução do bug de produção (E2E live 04/07): o utilizador pede resposta a
+    // euricojoseia@gmail.com; o Planner (LLM barato) casa com um email ERRADO da
+    // shortlist (info@cursoemvideo.com) e enviava. O guardrail bloqueia.
+    mocks.classifyMock.mockResolvedValue({
+      intents: [
+        {
+          intent: 'responder_email',
+          confidence: 0.92,
+          raw_span: 'responde ao euricojoseia@gmail.com',
+        },
+      ],
+      language: 'pt-PT',
+      needs_confirmation: true,
+      overall_confidence: 0.92,
+    });
+    // Inbox CHEIO (o zero-match antigo por shortlist vazia NÃO dispararia aqui).
+    mocks.resolveReplyCandidatesMock.mockResolvedValue([
+      {
+        threadId: 'thr-news',
+        messageId: '<news@mail>',
+        from: 'Curso em Vídeo <info@cursoemvideo.com>',
+        fromEmail: 'info@cursoemvideo.com',
+        subject: 'O que eu vi no Vale do Silício',
+        receivedAt: 'Wed, 02 Jul 2026 10:00:00 +0100',
+      },
+    ]);
+    // O Planner escolhe o candidato ERRADO (não corresponde ao endereço pedido).
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [
+        {
+          toolName: 'responder_email',
+          input: {
+            threadId: 'thr-news',
+            messageId: '<news@mail>',
+            to: 'info@cursoemvideo.com',
+            subject: 'O que eu vi no Vale do Silício',
+            body: 'Confirmo a presença.',
+          },
+          intent: 'responder_email',
+        },
+      ],
+      planReasoning: null,
+      latencyMs: 0,
+      tokensInput: 0,
+      tokensOutput: 0,
+      costEur: 0,
+      cacheHit: false,
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'responde ao email euricojoseia@gmail.com que confirmo a presença na reunião dia 10-7',
+    });
+
+    // Zero-match honesto: mensagem que NOMEIA o endereço pedido, sem envio.
+    expect(outcome.status).toBe('executed');
+    if (outcome.status === 'executed' && outcome.kind === 'direct_query') {
+      expect(outcome.summary).toMatch(/não encontrei/i);
+      expect(outcome.summary).toContain('euricojoseia@gmail.com');
+    } else {
+      throw new Error('esperado executed/direct_query (guardrail email explícito)');
+    }
+    // O Planner correu (single-shot), mas o Executor NÃO — nenhum email enviado.
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('FIX [D-J8.6] — email explícito que CORRESPONDE ao candidato escolhido → passa (preview mostrado)', async () => {
+    mocks.classifyMock.mockResolvedValue({
+      intents: [
+        {
+          intent: 'responder_email',
+          confidence: 0.92,
+          raw_span: 'responde ao pedro@example.com',
+        },
+      ],
+      language: 'pt-PT',
+      needs_confirmation: true,
+      overall_confidence: 0.92,
+    });
+    mocks.resolveReplyCandidatesMock.mockResolvedValue([
+      {
+        threadId: 'thr-1',
+        messageId: '<a@mail>',
+        from: 'Pedro <pedro@example.com>',
+        fromEmail: 'pedro@example.com',
+        subject: 'Jantar',
+        receivedAt: 'Wed, 02 Jul 2026 10:00:00 +0100',
+      },
+    ]);
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [
+        {
+          toolName: 'responder_email',
+          // O utilizador escreveu Pedro@Example.com (maiúsculas) — o match é
+          // case-insensitive contra o `to` resolvido em minúsculas.
+          input: {
+            threadId: 'thr-1',
+            messageId: '<a@mail>',
+            to: 'pedro@example.com',
+            subject: 'Jantar',
+            body: 'Confirmo que vou.',
+          },
+          intent: 'responder_email',
+        },
+      ],
+      planReasoning: null,
+      latencyMs: 0,
+      tokensInput: 0,
+      tokensOutput: 0,
+      costEur: 0,
+      cacheHit: false,
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'responde ao Pedro@Example.com a dizer que vou',
+    });
+
+    expect(outcome.status).toBe('preview');
+    if (outcome.status === 'preview') {
+      const text = outcome.planSummary.join('\n');
+      expect(text).toContain('Para: pedro@example.com');
+      expect(outcome.awaitingExternalWriteConfirmation).toBe(true);
+    } else {
+      throw new Error('esperado preview (email explícito corresponde)');
+    }
     expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
   });
 });

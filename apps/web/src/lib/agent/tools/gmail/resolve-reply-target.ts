@@ -68,6 +68,50 @@ export interface ReplyCandidate {
 }
 
 /**
+ * Story J-8 FIX (bug de produção 04/07/2026) — extrai TODOS os endereços de email
+ * EXPLÍCITOS de um texto livre (o pedido em linguagem natural do utilizador).
+ *
+ * Usado pelo guardrail determinístico de `responder_email`: quando o utilizador
+ * escreve um endereço concreto ("responde ao euricojoseia@gmail.com que ..."), o
+ * `to` que o Planner escolher TEM de bater com um destes — caso contrário bloqueia-se
+ * o envio (não se confia no LLM barato para casar endereços). Ver `run-agent.ts`
+ * `checkExplicitReplyEmailGuard` + [D-J8.6].
+ *
+ * Regex simples e robusto (`local@dominio.tld`), com pós-limpeza dos bordos:
+ *   - Remove pontuação/delimitadores agarrados à esquerda (`<`, `(`, aspas).
+ *   - Remove pontuação de fim de frase agarrada à direita (`.`, `,`, `;`, `:`,
+ *     `!`, `?`, `)`, `>`, `]`, aspas) — um endereço nunca termina nestes caracteres.
+ * Normaliza para minúsculas (comparação case-insensitive) e elimina duplicados,
+ * preservando a ordem da primeira ocorrência. Devolve `[]` quando não há emails
+ * (ex.: referência por nome — "responde ao Pedro").
+ */
+export function extractExplicitEmailAddresses(text: string): string[] {
+  const EMAIL_RE = /[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+/g;
+  const matches = text.match(EMAIL_RE);
+  if (matches === null) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of matches) {
+    const cleaned = raw
+      .trim()
+      .replace(/^[<("'`]+/, '')
+      .replace(/[.,;:!?)\]>"'`]+$/, '')
+      .toLowerCase();
+    // Sanidade mínima após a limpeza: tem de manter um `@` e um `.` no domínio.
+    if (cleaned.length === 0 || !cleaned.includes('@') || !cleaned.includes('.')) {
+      continue;
+    }
+    if (!seen.has(cleaned)) {
+      seen.add(cleaned);
+      result.push(cleaned);
+    }
+  }
+  return result;
+}
+
+/**
  * Extrai o endereço de email nu de um cabeçalho `From` RFC 2822. Aceita as duas
  * formas comuns:
  *   - `Nome <email@dominio>` → `email@dominio` (conteúdo entre `<...>`).

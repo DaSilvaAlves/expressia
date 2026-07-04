@@ -58,7 +58,10 @@ import {
 } from '@meu-jarvis/tools';
 import { type OpenAIClientLike } from '@meu-jarvis/agent';
 
-import { resolveReplyCandidates } from '@/lib/agent/tools/gmail/resolve-reply-target';
+import {
+  extractExplicitEmailAddresses,
+  resolveReplyCandidates,
+} from '@/lib/agent/tools/gmail/resolve-reply-target';
 
 import { revalidateTaskViews } from '@/lib/api-helpers/revalidate';
 import {
@@ -147,6 +150,61 @@ function planHasReplyEmailIntent(intents: ReadonlyArray<{ intent: string }>): bo
 /** Story J-7 — o plano tem alguma intent com preview de rascunho real? */
 function planHasPreviewRenderIntent(intents: ReadonlyArray<{ intent: string }>): boolean {
   return intents.some((i) => PREVIEW_RENDER_INTENTS.has(i.intent));
+}
+
+/** Story J-8 FIX — lê o `to` (string) de um input de toolCall, ou `null`. */
+function extractReplyToAddress(input: unknown): string | null {
+  if (typeof input !== 'object' || input === null) {
+    return null;
+  }
+  const to = (input as { to?: unknown }).to;
+  return typeof to === 'string' ? to : null;
+}
+
+/**
+ * Story J-8 FIX (bug de produção 04/07/2026, vector demonstrado de `ARCH-J8-1`) —
+ * guardrail DETERMINÍSTICO de email explícito para `responder_email`.
+ *
+ * O E2E live provou que a instrução SÓ-PROMPT do Planner ("se NENHUM candidato
+ * corresponder, NÃO emitas responder_email") NÃO é suficiente: o LLM barato
+ * (gpt-4o-mini) casou o pedido "responde ao euricojoseia@gmail.com" com um
+ * candidato ERRADO da shortlist (info@cursoemvideo.com) e ENVIOU. O zero-match
+ * honesto anterior só disparava com a shortlist VAZIA — com inbox cheio, nunca
+ * activava.
+ *
+ * Este pós-check NÃO confia no modelo: quando o utilizador escreveu ≥1 endereço
+ * de email EXPLÍCITO no pedido, o `to` que o Planner escolheu TEM de bater
+ * exactamente (case-insensitive, após trim) com um desses endereços. Caso
+ * contrário, força-se zero-match — o plano é descartado, nada é enviado, e a
+ * mensagem honesta NOMEIA o endereço pedido.
+ *
+ * Devolve `null` (deixa passar) quando: (i) o pedido não tem email explícito
+ * (referência por nome, "responde ao Pedro" — o Planner escolhe da shortlist,
+ * comportamento inalterado; matching por NOME fica como débito Opção B); ou
+ * (ii) o `to` do plano corresponde a um dos endereços pedidos.
+ */
+function checkExplicitReplyEmailGuard(
+  prompt: string,
+  toolCalls: ReadonlyArray<{ toolName: string; input: unknown }>,
+): string | null {
+  const explicit = extractExplicitEmailAddresses(prompt);
+  if (explicit.length === 0) {
+    // Sem email explícito — referência por nome. Comportamento inalterado.
+    return null;
+  }
+  const explicitSet = new Set(explicit);
+  for (const call of toolCalls) {
+    if (call.toolName !== 'responder_email') {
+      continue;
+    }
+    const to = extractReplyToAddress(call.input);
+    if (to === null || !explicitSet.has(to.trim().toLowerCase())) {
+      // O email escolhido pelo Planner NÃO corresponde ao endereço pedido pelo
+      // utilizador → bloqueio determinístico (nunca envia o email errado).
+      return `Não encontrei nenhum email de ${explicit.join(', ')} para responder.`;
+    }
+  }
+  return null;
 }
 
 /**
@@ -523,6 +581,7 @@ export async function runAgentForHousehold(
     if (planHasPreviewRenderIntent(classification.intents)) {
       previewResult = await renderExternalWritePreview({
         classification,
+        prompt,
         householdId,
         userId,
         traceId,
@@ -867,6 +926,7 @@ type ExternalWritePreviewResult =
  */
 async function renderExternalWritePreview(params: {
   readonly classification: ClassificationResult;
+  readonly prompt: string;
   readonly householdId: string;
   readonly userId: string;
   readonly traceId: string;
@@ -874,7 +934,7 @@ async function renderExternalWritePreview(params: {
   readonly db: ReturnType<typeof getDb>;
   readonly log: ReturnType<typeof childLogger>;
 }): Promise<ExternalWritePreviewResult> {
-  const { classification, householdId, userId, traceId, runId, db, log } = params;
+  const { classification, prompt, householdId, userId, traceId, runId, db, log } = params;
   try {
     // Story J-8 AC5/AC13 — resolução do email-alvo para `responder_email`, ANTES
     // do Planner. Reutiliza a Gmail API (metadados apenas). Sem candidatos →
@@ -906,6 +966,21 @@ async function renderExternalWritePreview(params: {
       accountContext,
       emailReplyContext,
     });
+
+    // Story J-8 FIX [D-J8.6] — guardrail DETERMINÍSTICO de email explícito, DEPOIS
+    // do Planner e ANTES de persistir/mostrar o preview. Se o utilizador nomeou um
+    // endereço concreto e o `to` escolhido pelo Planner não bate, força-se
+    // zero-match: descarta-se o plano (não se persiste, não se re-corre o Planner)
+    // e devolve-se a mensagem honesta. Fecha o vector demonstrado no E2E live
+    // (responder ao email errado com inbox cheio).
+    const explicitEmailGuardMessage = checkExplicitReplyEmailGuard(prompt, plan.toolCalls);
+    if (explicitEmailGuardMessage !== null) {
+      log.info(
+        { run_id: runId, reason: 'reply_explicit_email_mismatch' },
+        'Zero-match determinístico — email escolhido não corresponde ao endereço pedido (nenhum envio)',
+      );
+      return { kind: 'reply_zero_match', message: explicitEmailGuardMessage };
+    }
 
     // Persistir o plano para o confirm o reutilizar (binding preview==envio).
     await updateAfterPlanner(

@@ -3,9 +3,99 @@ story: 'J-8'
 slug: 'gmail-reply-thread'
 title: 'Gmail reply — responder em thread a partir do Telegram (preview→confirm, threading RFC 2822)'
 gate: PASS
+# REVISÃO 2 (04/07/2026): FIX de bug de produção. O E2E live reprovou e revelou o
+# vector real de ARCH-J8-1 (envio para email errado). O guardrail determinístico
+# [D-J8.6] fecha-o com evidência real (30/30 GREEN, lint/typecheck exit 0). PASS 9,0/10.
+# Ver fix_review_20260704. Residual: SEC-J8-2 (defense-in-depth pré-existente, low).
 status_reason: 'Primeira story da v1.2: reply a email em thread via Telegram. Threading correcto (In-Reply-To/References com o Message-ID RFC 2822 do original — NÃO o id interno da Gmail — + threadId no corpo do POST), preview puro/síncrono intacto (resolução corre em renderExternalWritePreview ANTES do Planner, nunca dentro de tool.preview()/execute()), prompt caching preservado (shortlist como prefixo da user message, provado por teste que a exclui de system/tools), parsing do from para endereço nu (Zod .email() satisfeito), zero-match honesto que o utilizador VÊ sem inventar threadId, guard multi-intent + os 4 Sets generalizados extendidos coerentemente, undo honesto (_noop + supressão do botão Cancelar), enum-sync 8 pontos completo. Restrições respeitadas: SEC-8/billing/família não tocados, sem any, sem novo scope OAuth, RLS/household_id intactos. Cobertura de testes material e verificada independentemente (31/31 GREEN no subconjunto crítico re-executado por @qa).'
 reviewer: 'Quinn (Test Architect)'
-updated: '2026-07-03T02:55:00Z'
+updated: '2026-07-04T20:40:00Z'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# REVISÃO 2 — FIX de bug de produção (04/07/2026). Verificação independente do
+# guardrail determinístico [D-J8.6]. Lane de revisão (não autor): leitura do
+# código de produção real + re-execução com evidência + análise de bypass.
+# ─────────────────────────────────────────────────────────────────────────────
+fix_review_20260704:
+  context: |
+    O E2E live de AC17 [EURICO] REPROVOU e revelou um bug REAL de correcção/segurança
+    em produção: perante "responde ao email euricojoseia@gmail.com que confirmo a
+    presença", o bot respondeu e ENVIOU ao endereço ERRADO (info@cursoemvideo.com,
+    newsletter da shortlist). Causa: o Planner (gpt-4o-mini) ignorou a instrução
+    SÓ-PROMPT ("se nenhum candidato corresponder, não emitas responder_email") e casou
+    o pedido com o candidato errado. O zero-match honesto [D-J8.2] só disparava com
+    inbox VAZIO. A minha classificação anterior de ARCH-J8-1 como LOW assentava na
+    premissa "nada é enviado" — o E2E provou-a FALSA para o vector de email explícito.
+  verdict: PASS
+  score: 9.0
+  checks:
+    - id: 'guard-fecha-vector'
+      verdict: CORRECTO
+      evidence: |
+        checkExplicitReplyEmailGuard (run-agent.ts:186-208) corre DEPOIS de planner.plan()
+        (L960) e ANTES de updateAfterPlanner/persist (L986) — o pós-check está no ponto
+        certo (run-agent.ts:976-983). (a) email explícito não-correspondente → devolve
+        reply_zero_match, plano descartado (não persiste, Planner não re-corre), nada enviado,
+        mensagem NOMEIA o endereço pedido; (b) email explícito correspondente (case-insensitive
+        após trim) → guard devolve null → preview normal; (c) referência por nome (sem email no
+        texto) → extractExplicitEmailAddresses devolve [] → guard devolve null → inalterado.
+        Fail-closed: se input.to é null/não-string, extractReplyToAddress→null → bloqueia.
+    - id: 'determinismo'
+      verdict: CORRECTO
+      evidence: |
+        A decisão de segurança é 100% string-comparison — não depende do LLM. Helper puro
+        extractExplicitEmailAddresses (resolve-reply-target.ts:88-112): regex
+        /[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+/g + limpeza de bordos (strip de <("'` à esquerda,
+        pontuação de fim de frase à direita) + toLowerCase + dedup preservando ordem. Robusto
+        em formatos comuns (nu, em frase, entre <>/(), subaddressing +tag, domínio multi-nível,
+        maiúsculas, pontuação agarrada). Provado por 7 testes do helper.
+    - id: 'invariantes'
+      verdict: CORRECTO
+      evidence: |
+        preview()/execute() das tools continuam puros (o guard vive no pipeline, não na tool);
+        prompt caching intacto (nada mexido em system/tools do Planner — o guard lê plan.toolCalls
+        e o prompt RAW, não injecta contexto); binding preview==envio preservado (single-shot: no
+        mismatch descarta ANTES de persistir → confirm nunca reutiliza plano mau; no match persiste
+        normal); SEC-8 HOLD e billing intactos (git diff: zero ficheiros withHousehold/client.ts/
+        stripe/subscription); sem any (grep vazio nos ficheiros de produção); imports @/ e
+        @meu-jarvis/*; PT-PT europeu.
+    - id: 'regressao-zero'
+      verdict: CORRECTO
+      evidence: |
+        O guard só actua sobre call.toolName === "responder_email"; enviar_email/Calendar/tarefas/
+        finanças inalterados. Referência por nome inalterada. 16/16 run-agent (inclui guard
+        multi-intent, enviar_email, Calendar) + 14/14 resolve-reply-target GREEN.
+    - id: 'evidencia-real'
+      verdict: CORRECTO
+      evidence: |
+        pnpm --filter @meu-jarvis/web test -- run resolve-reply-target run-agent → 30/30 GREEN
+        (2 ficheiros). Logs de runtime confirmam AMBOS os caminhos de bloqueio: reason=
+        "reply_zero_match" (inbox vazio) E reason="reply_explicit_email_mismatch" (guard
+        determinístico) — nenhum envio em qualquer caso. pnpm --filter @meu-jarvis/web lint →
+        exit 0 (No ESLint warnings or errors). pnpm --filter @meu-jarvis/web typecheck → exit 0.
+    - id: 'teste-anti-regressao'
+      verdict: CORRECTO
+      evidence: |
+        run-agent.test.ts:549-615 "FIX [D-J8.6] — email explícito que NÃO corresponde" reproduz
+        EXACTAMENTE o cenário de prod: prompt euricojoseia@gmail.com, shortlist com
+        info@cursoemvideo.com (inbox CHEIO, não vazio), Planner escolhe o errado → assere
+        executed/direct_query, summary /não encontrei/i + contém "euricojoseia@gmail.com",
+        Executor NOT called. O mock usa importActual → o helper REAL é exercitado (não stub).
+        Par positivo (617-679): Pedro@Example.com (maiúsculas) casa case-insensitive → preview
+        "Para: pedro@example.com". Sem o guard o 1.º teste devolveria preview e falharia.
+
+# ARCH-J8-1 — REAVALIADO no fix 04/07. Fecha para o vector de email explícito.
+arch_j8_1_reassessment: |
+  ARCH-J8-1 (o vector demonstrado em prod) está FECHADO deterministicamente para o caso
+  de EMAIL EXPLÍCITO: quando o utilizador escreve um endereço concreto, o guard força
+  zero-match se o Planner não escolher exactamente esse endereço — nada é enviado, provado
+  por teste que reproduz o cenário de produção. Débito residual (Opção B, v2): a resolução
+  por NOME ("responde ao Pedro", sem email no texto) continua a depender do Planner para
+  escolher o candidato certo — SEM enforcement determinístico. Mitigação existente: o
+  preview-then-confirm mostra "Para: <email resolvido>" ao utilizador ANTES do envio, pelo
+  que a referência por nome (fuzzy por natureza) é de risco genuinamente inferior ao email
+  explícito (onde o utilizador deu o endereço exacto e esperava que fosse honrado). Fecho
+  correcto do vector de maior risco.
 
 # Verificação independente (lane de revisão — NÃO autor). Leitura do código de
 # produção real + re-execução de um subconjunto crítico + auditoria git.
@@ -102,8 +192,13 @@ critical_points:
 top_issues:
   - id: 'ARCH-J8-1'
     severity: low
-    finding: 'Zero-match honesto (D-J8.2) só dispara a mensagem "Não encontrei esse email para responder." quando a shortlist do inbox está VAZIA. Se o inbox tem emails mas nenhum corresponde ao pedido, o LLM é instruído a não emitir responder_email → toolCalls vazio → drafts vazio → renderExternalWritePreview devolve null → cai no label genérico do intent (não a mensagem honesta). A propriedade de segurança nuclear (nunca enviar/inventar threadId) MANTÉM-SE em ambos os casos — nada é enviado. É um gap semântico de UX, não de segurança.'
-    suggested_action: 'Futuro/opcional: quando o Planner devolve toolCalls vazio para um plano responder_email com shortlist não-vazia, devolver a mesma resposta informativa honesta em vez do label genérico. Alinha com a Opção B (query dirigida por entidade) como refinamento v2 registado na story. Não bloqueia J-8.'
+    status: 'closed-for-explicit-email (fix 04/07/2026 [D-J8.6])'
+    finding: 'O vector demonstrado em prod (email explícito casado com candidato errado + ENVIO) está FECHADO deterministicamente pelo guardrail [D-J8.6]. Residual: matching por NOME sem enforcement determinístico (débito Opção B, v2), mitigado pelo preview-then-confirm que mostra "Para: <email>" antes do envio. A antiga premissa "nada é enviado" foi corrigida — antes só era verdade com inbox vazio; agora é verdade também para email explícito não-correspondente.'
+    suggested_action: 'Débito Opção B (v2): matching determinístico do nome contra from/fromEmail da shortlist, ou query Gmail dirigida por entidade (q=from:pedro). Não bloqueia.'
+  - id: 'SEC-J8-2'
+    severity: low
+    finding: 'Defense-in-depth (PRÉ-EXISTENTE, não introduzido por este fix — aplica-se igualmente a J-7 enviar_email, já em prod). O guardrail determinístico vive apenas em renderExternalWritePreview (ramo de preview). O ramo de execução directa (run-agent.ts §8, L655+) corre Planner+Executor e ENVIA sem passar pelo guard. Esse ramo só é alcançado se needs_confirmation=false. Para responder_email, needs_confirmation:true é forçado por REGRA DE PROMPT do classifier (LLM), não por backstop determinístico no pipeline. Ou seja: a ROTA para dentro do guard depende do classifier LLM — o mesmo tipo de dependência-de-LLM que este fix existe para eliminar na SELECÇÃO. Probabilidade baixa (o prompt força a regra 5; a falha do prod ocorreu DENTRO do ramo de preview, com needs_confirmation:true correcto), mas não-nula.'
+    suggested_action: 'Endurecimento futuro (não bloqueia): forçar deterministicamente EXTERNAL_WRITE_INTENTS para o ramo de preview independentemente do needs_confirmation do classifier (ex.: hasExternalWrite || needs_confirmation na condição de preview), OU replicar checkExplicitReplyEmailGuard no ramo §8 antes do Executor. Fecha a rota que ainda depende do classifier LLM. Escopo transversal (afecta também enviar_email/Calendar) — registar como item de hardening da arquitectura de escrita externa, fora do âmbito deste fix pontual.'
   - id: 'DOC-J8-1'
     severity: low
     finding: 'buildConfirmSummary devolve "Email enviado. Emails enviados não podem ser recuperados." também para responder_email; a AC12 sugeria "algo como Resposta enviada.". A copy actual é honesta e correcta (uma resposta É um email enviado), apenas menos específica que o exemplo da AC.'

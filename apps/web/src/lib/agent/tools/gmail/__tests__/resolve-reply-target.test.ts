@@ -19,6 +19,7 @@ vi.mock('@/lib/google/oauth', () => ({
 import type { ToolExecutionContext } from '@meu-jarvis/tools';
 
 import {
+  extractExplicitEmailAddresses,
   parseEmailAddress,
   resolveReplyCandidates,
 } from '@/lib/agent/tools/gmail/resolve-reply-target';
@@ -171,5 +172,49 @@ describe('resolveReplyCandidates', () => {
     await expect(
       resolveReplyCandidates(makeCtx(), { fetchImpl: fetchImpl as unknown as typeof fetch }),
     ).rejects.toThrow();
+  });
+});
+
+describe('extractExplicitEmailAddresses (Story J-8 FIX — guardrail email explícito)', () => {
+  it('email nu (só o endereço)', () => {
+    expect(extractExplicitEmailAddresses('euricojoseia@gmail.com')).toEqual([
+      'euricojoseia@gmail.com',
+    ]);
+  });
+
+  it('email dentro de uma frase', () => {
+    expect(
+      extractExplicitEmailAddresses(
+        'responde ao euricojoseia@gmail.com que confirmo a presença',
+      ),
+    ).toEqual(['euricojoseia@gmail.com']);
+  });
+
+  it('email com pontuação de fim de frase agarrada (ponto/vírgula)', () => {
+    expect(extractExplicitEmailAddresses('responde a euricojoseia@gmail.com.')).toEqual([
+      'euricojoseia@gmail.com',
+    ]);
+    expect(extractExplicitEmailAddresses('responde a a@b.pt, por favor')).toEqual(['a@b.pt']);
+  });
+
+  it('email entre <> ou parênteses (bordos limpos)', () => {
+    expect(extractExplicitEmailAddresses('responde a <a@x.com>')).toEqual(['a@x.com']);
+    expect(extractExplicitEmailAddresses('(pedro@example.com)')).toEqual(['pedro@example.com']);
+  });
+
+  it('múltiplos endereços (ordem preservada, duplicados removidos)', () => {
+    expect(
+      extractExplicitEmailAddresses('manda a a@x.com e a B@X.com e outra vez a@x.com'),
+    ).toEqual(['a@x.com', 'b@x.com']);
+  });
+
+  it('normaliza para minúsculas (comparação case-insensitive)', () => {
+    expect(extractExplicitEmailAddresses('Eurico@Gmail.COM')).toEqual(['eurico@gmail.com']);
+  });
+
+  it('sem email explícito (referência por nome) devolve []', () => {
+    expect(extractExplicitEmailAddresses('responde ao Pedro a dizer que sim')).toEqual([]);
+    expect(extractExplicitEmailAddresses('')).toEqual([]);
+    expect(extractExplicitEmailAddresses('sem arroba nem dominio aqui')).toEqual([]);
   });
 });
