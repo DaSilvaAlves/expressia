@@ -2,7 +2,10 @@ id: mj-handoff-j8-qa-pass-plus-refactor-await-push-20260703
 from_agent: executor (Sonnet, invocado directo — fora do /sdc)
 to_agent: devops
 created: "2026-07-03T19:35:00Z"
-status: pending
+status: consumed
+consumed: true
+consumed_at: "2026-07-04T11:20:00Z"
+consumed_by: "devops (Gage) — push 9e8411e executado (commit único, ordem explícita Eurico); migração 0033 aplicada em prod; CI 3/3 verde; Vercel Ready. Resto (Tarefa 9 E2E [EURICO]) migrado para o sucessor mj-handoff-terminal-migration-pos-j8-push-20260704."
 
 project: meu-jarvis (Expressia)
 project_prefix: mj

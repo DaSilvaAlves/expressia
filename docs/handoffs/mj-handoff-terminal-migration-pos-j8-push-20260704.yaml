@@ -1,0 +1,67 @@
+from_agent: "devops (Gage)"
+to_agent: "any"
+created: "2026-07-04T11:25:00Z"
+status: pending
+consumed: false
+consumed_at: null
+consumed_by: null
+
+project: "meu-jarvis (Expressia)"
+summary: >-
+  MIGRAÇÃO DE TERMINAL — Story J-8 (Gmail reply em thread) + refactor
+  pré-aprovado (11 itens) PUSHADOS em commit único 9e8411e (fast-forward
+  540eb30..9e8411e). CI 3/3 verde (RLS gate + Quality + Build), deploy
+  Vercel Production ● Ready, migração 0033 aplicada em prod (enum
+  agent_intent com responder_email, 513ms). Working tree só com
+  bookkeeping de handoffs por commitar. FALTA APENAS: E2E live [EURICO]
+  no @jarvis_eurico_bot (AC16 OAuth sem re-consent + AC17 checklist de
+  5 pontos) → depois fechar J-8 (InReview→Done, active/→completed/).
+
+context:
+  story_id: "J-8"
+  story_path: "docs/stories/active/J-8.gmail-reply-thread.story.md"
+  branch: "main"
+  current_task: >-
+    Pós-push da J-8+refactor. Sessão terminou depois de: push 9e8411e,
+    migração 0033 em prod, CI verde, deploy Ready. Eurico ia fazer o E2E
+    no bot — resultado ainda não reportado.
+  decisions_made:
+    - "Commit único J-8+refactor (não 2) — run-agent.ts e confirm/route.ts misturavam hunks das duas camadas; estados intermédios nunca testados (blessed pelo handoff antecessor)."
+    - "Incidente resolvido: um agente noutra lane tinha começado a REVERTER o refactor gmail e morreu a meio (tree não compilava); Eurico decidiu 'Manter refactor completo' — estado restaurado e re-verificado (tsc 0, web 1450/1450, lint 0, build 0)."
+    - "Skills aiox-* refactorizadas (fora do repo, máquina local): protocolo comum extraído para ~/.claude/aiox/aiox-protocol.md; 10 SKILL.md referenciam-no; /sdc v2.2+ com flake guard no Gate 3."
+  files_modified:
+    - "42 ficheiros no commit 9e8411e (ver git show) — código J-8 + refactor + docs/gate/migração"
+    - "docs/handoffs/* (bookkeeping desta migração, por commitar)"
+  blockers:
+    - "E2E AC16/AC17 é acção [EURICO] no Telegram — nenhum agente consegue executar (bot pessoal + OAuth Google)."
+  hypotheses_tested:
+    - "Flake @meu-jarvis/db sob turbo paralelo = testTimeout 5s vs contenção CPU (provado: 2× turbo --force verde após testTimeout 10s; isolado sempre passou)."
+
+next_action: >-
+  Perguntar ao Eurico o resultado do E2E (checklist: 1. reply sem
+  re-consent OAuth na conta principal euricojsalves@gmail.com; 2. resposta
+  agrupada na thread do Gmail; 3. cancelar no preview não envia; 4. guard
+  multi-intent recusa; 5. zero-match honesto). PASS → fechar J-8: Status
+  Done, mover story active/→completed/, commitar bookkeeping
+  (chore(story)+handoffs). FAIL → diagnosticar com logs Vercel + gate YAML
+  (3 concerns LOW: ARCH-J8-1 zero-match, DOC-J8-1 copy, REL-J8-1
+  tree-shaking) e abrir fix.
+
+notes: |
+  Constraints vivas: billing CONGELADO · SEC-8 HOLD · família removida
+  (household_id/RLS intactos) · OAuth SEMPRE na conta principal
+  euricojsalves@gmail.com · push/PR/merge só @devops com ordem Eurico.
+
+  Backlog de refactor NÃO aplicado (recomendações da sessão de review,
+  candidatas a story de manutenção — nenhuma urgente):
+  - planner.ts:177 require() em contexto ESM → factory async
+  - planner-system.ts diz "INTENTS CANONICAS (15)" mas são 20 (prompt
+    hash-tested — corrigir dentro de uma story)
+  - EmailReplyCandidateSchema.fromEmail → z.string().email() (fail early)
+  - run-agent.ts com 1.020 linhas → extrair constants/preview/errors
+  - base de erros duplicada em 3 packages → AgentBaseError partilhado
+  - client.ts singletons sem reset p/ testes (_resetDbSingletons)
+
+  Gotcha novo desta sessão: docs/HANDOFF-INDEX.md tem 444KB — está a
+  rebentar o limite de leitura (256KB); candidato a poda/arquivação das
+  linhas Archived antigas numa próxima sessão de manutenção.
