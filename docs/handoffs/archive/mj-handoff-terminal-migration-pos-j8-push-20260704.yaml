@@ -1,10 +1,10 @@
 from_agent: "devops (Gage)"
 to_agent: "any"
 created: "2026-07-04T11:25:00Z"
-status: pending
-consumed: false
-consumed_at: null
-consumed_by: null
+status: consumed
+consumed: true
+consumed_at: "2026-07-04T20:55:00Z"
+consumed_by: "devops (Gage)"
 
 project: "meu-jarvis (Expressia)"
 summary: >-
