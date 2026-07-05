@@ -37,6 +37,13 @@ import { ToolValidationError } from './errors';
  *                              entrada do Gmail via API externa). Mesma direcção de
  *                              dependência que `calendar` — a tool vive em `apps/web`
  *                              (`@/lib/google/oauth`), só o domínio é registado aqui.
+ *   - `memory`    — Story M-1 (memorizar; captura de memória explícita — grava
+ *                              texto livre em `jarvis_memories`). Escrita INTERNA
+ *                              Postgres pura, SEM dependência de API externa — por
+ *                              isso a tool vive em `packages/tools/src/memory/`
+ *                              (mesma direcção de dependência que `tasks`/`finance`),
+ *                              ao contrário de `calendar`/`email` que vivem em
+ *                              `apps/web`.
  */
 export const TOOL_DOMAIN_VALUES = [
   'tasks',
@@ -45,6 +52,7 @@ export const TOOL_DOMAIN_VALUES = [
   'system',
   'calendar',
   'email',
+  'memory',
 ] as const;
 
 /**

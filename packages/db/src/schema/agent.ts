@@ -77,6 +77,11 @@ export const agentIntentEnum = pgEnum('agent_intent', [
   // irreversível). Sync com migration 0033 + `packages/classifier/src/schemas.ts`
   // INTENT_VALUES (sanity-check Article IV).
   'responder_email',
+  // Story M-1 — tool `memorizar` (captura de memória explícita, escrita INTERNA
+  // reversível — mesmo perfil de `criar_tarefa`). Sync com migration 0034 +
+  // `packages/classifier/src/schemas.ts` INTENT_VALUES (sanity-check Article IV).
+  // NÃO adicionar a READ_ONLY_INTENTS — é escrita, não leitura.
+  'memorizar',
 ]);
 
 export const llmModelEnum = pgEnum('llm_model', [

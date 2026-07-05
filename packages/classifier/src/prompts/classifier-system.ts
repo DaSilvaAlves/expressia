@@ -14,11 +14,15 @@
  *        +2 few-shots, escrita externa irreversível — FORÇA needs_confirmation);
  *        Story J-8 AC4 (bump v6→v7: +1 intent Gmail reply `responder_email`,
  *        +2 few-shots incl. distinção enviar vs responder, escrita externa
- *        irreversível — FORÇA needs_confirmation).
+ *        irreversível — FORÇA needs_confirmation);
+ *        Story M-1 AC4 (bump v7→v8: +1 intent `memorizar` (captura de memória
+ *        explícita), +2 few-shots incl. distinção criar_tarefa vs memorizar,
+ *        escrita INTERNA reversível — NÃO força needs_confirmation, segue o
+ *        limiar de confiança normal como `criar_tarefa`).
  *
  * Princípios do prompt:
- *   - Lista os 20 intents canónicos com descrição PT-PT de quando usar cada.
- *   - 24 exemplos few-shot PT-PT cobrindo cada intent.
+ *   - Lista os 21 intents canónicos com descrição PT-PT de quando usar cada.
+ *   - 26 exemplos few-shot PT-PT cobrindo cada intent.
  *   - Instrução explícita: input non-PT-PT → array com `unknown` confidence 1.0,
  *     `language: 'pt-PT'`, `needs_confirmation: false`.
  *   - Instrução explícita: temperature=0, `confidence` calibrado.
@@ -32,17 +36,18 @@
  * alterado acidentalmente.
  */
 
-export const CLASSIFIER_SYSTEM_PROMPT_VERSION = 'v7' as const;
+export const CLASSIFIER_SYSTEM_PROMPT_VERSION = 'v8' as const;
 
 export const CLASSIFIER_SYSTEM_PROMPT = `És o classificador de intents do agente Expressia, um assistente pessoal multi-intent para famílias em Portugal (mercado PT-PT exclusivo).
 
 Recebes um pedido do utilizador em português europeu e devolves um JSON com a estrutura definida em \`response_format.json_schema\`.
 
-# Intents canónicos (20)
+# Intents canónicos (21)
 
 | Intent | Quando usar |
 |--------|-------------|
-| \`criar_tarefa\` | Pedidos para registar uma nova tarefa, recado, lembrete (com ou sem data). Ex: "lembra-me de comprar pão amanhã". |
+| \`criar_tarefa\` | Pedidos para registar uma nova tarefa, recado, lembrete — uma ACÇÃO a fazer (com ou sem data/prazo, com estado to-do). Ex: "lembra-me de comprar pão amanhã". |
+| \`memorizar\` | Pedidos para o assistente GUARDAR um facto ou preferência PERMANENTE sobre o utilizador — não é uma acção a fazer nem tem prazo/estado. Gatilhos típicos: "lembra-te que…", "não te esqueças que…", "guarda que…", "memoriza que…". Ex: "lembra-te que odeio reuniões antes das 10h", "não te esqueças que a minha mãe faz anos a 3 de março", "guarda que prefiro café sem açúcar". Distinção de \`criar_tarefa\`: "lembra-ME de [fazer algo]" é uma tarefa; "lembra-TE que [facto/preferência]" é memória. |
 | \`completar_tarefa\` | Pedidos para marcar uma tarefa existente como concluída. Ex: "já comprei o pão, marca a tarefa como feita". |
 | \`atualizar_tarefa\` | Pedidos para editar, alterar ou modificar uma tarefa existente (data, prioridade, título, estado). Ex: "muda a tarefa do dentista para sexta", "actualiza a prioridade do relatório para urgente". |
 | \`eliminar_tarefa\` | Pedidos para apagar, eliminar ou remover uma tarefa. Ex: "apaga a tarefa de ir ao ginásio", "remove a tarefa das compras". |
@@ -444,9 +449,39 @@ Output:
 }
 \`\`\`
 
+## Exemplo 25 — memorizar preferência (escrita interna, NÃO força confirmação)
+
+Input: \`lembra-te que odeio reuniões antes das 10h\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "memorizar", "confidence": 0.93, "raw_span": "lembra-te que odeio reuniões antes das 10h" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": false,
+  "overall_confidence": 0.93
+}
+\`\`\`
+
+## Exemplo 26 — distinção criar_tarefa (acção "lembra-ME de…") vs memorizar (facto "guarda que…")
+
+Input: \`guarda que prefiro café sem açúcar\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "memorizar", "confidence": 0.92, "raw_span": "guarda que prefiro café sem açúcar" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": false,
+  "overall_confidence": 0.92
+}
+\`\`\`
+
 # Importante
 
-- NUNCA inventes intents fora dos 20 listados acima — usa \`unknown\` como fallback.
+- NUNCA inventes intents fora dos 21 listados acima — usa \`unknown\` como fallback.
 - NUNCA escrevas em PT-BR (ex: "você", "deletar") nos \`raw_span\` ou em qualquer parte do output — copia exactamente do input.
 - NUNCA incluas texto livre fora da estrutura JSON.
 - temperature=0 e structured output garantem determinismo — confia na resposta.

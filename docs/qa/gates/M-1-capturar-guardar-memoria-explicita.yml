@@ -1,0 +1,179 @@
+schema: 1
+story: 'M-1'
+slug: 'capturar-guardar-memoria-explicita'
+title: 'Capturar e guardar memória explícita — intent `memorizar` grava texto livre em jarvis_memories (household-scoped, undo 30s)'
+gate: PASS
+status_reason: 'Primeira story da epic v2 (Memória rica). Captura explícita: intent `memorizar` → tool grava texto tal-e-qual em jarvis_memories (tabela nova household-scoped) → undo real 30s (delete_row). Âmbito impecavelmente disciplinado (D1+D2 apenas; usar=M-2, brief=M-3, esquecer=M-4, inferência=v2.x todos fora). PO-FIX-1 correcto e provado empiricamente: as 4 RLS policies vivem na 0034 (aplicação real, mesmo ficheiro que o CREATE TABLE → ordem garantida em db-test e chegada automática a prod) E no DO-block da 0001 (só para o check:rls estático, no-op em runtime) — o teste RLS dedicado jarvis_memories.rls.test.ts 5/5 em Postgres real confirma que as policies estão VIVAS (se estivessem só na 0001 o guard if-exists teria dado FALSE e o teste falharia). AC8 verificado por git: ZERO alteração a run-agent.ts/confirm/route.ts/irreversible.ts — memorizar segue o caminho genérico de criar_tarefa. Enum-sync 6 pontos completo. reverse() reversível de verdade (delete_row, não _noop). Restrições respeitadas: SEC-8/billing/família não tocados, sem any, imports @/ e @meu-jarvis/*, PT-PT europeu, household_id + 4 policies. 9/9 gates verificados independentemente (o subconjunto crítico re-executado por @qa: check:rls 32 tabelas / db-test 210 / tools 456 / classifier 92 / planner-executor 78 / lint 10 / typecheck 10 GREEN).'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-07-05T15:20:00Z'
+quality_score: 95
+expires: '2026-07-19T00:00:00Z'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Lane de revisão INDEPENDENTE (não autor — o fix foi do @dev). Leitura do
+# código real dos 18 ficheiros (6 criados + 12 modificados) + re-execução de
+# evidência (pnpm, não npm) + auditoria git das restrições.
+# ─────────────────────────────────────────────────────────────────────────────
+
+evidence:
+  tests_reviewed: 26 # 16 memorizar.test.ts + 5 jarvis_memories.rls.test.ts + deltas schemas/contract/prompts/contracts
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    ac_gaps: [] # AC11 (deploy + E2E live) = precondição externa [EURICO]+@devops, NÃO gap de código
+
+# Re-execução independente (working tree actual, pnpm). Counts reais.
+gates_verified:
+  - command: 'pnpm check:rls'
+    result: 'PASS — 32 tabelas com household_id, 160 policies; jarvis_memories coberta (texto create policy ... on public.jarvis_memories for {select,insert,update,delete} detectado na 0001). O parser (check-rls-coverage.ts:33) lê APENAS a 0001 — confirma porque o DO-block espelhado tem de estar lá (PO-FIX-1 alínea b).'
+  - command: 'pnpm --filter @meu-jarvis/db-test test'
+    result: 'PASS — 210/210 (39 ficheiros) em Postgres real via Testcontainers. jarvis_memories.rls.test.ts 5/5 (SELECT isolado, cross-household SELECT/UPDATE/DELETE bloqueado com count 0, INSERT WITH CHECK rejeitado). 0034 aplicada em PG real (tabela+policies no mesmo ficheiro) — prova empírica de PO-FIX-1(a).'
+  - command: 'pnpm --filter @meu-jarvis/tools test'
+    result: 'PASS — 456/456 (26 ficheiros). +16 em memorizar.test.ts (metadata/Zod/preview/execute/reverse) + TOOL_DOMAIN_VALUES 7 em contracts.test.ts.'
+  - command: 'pnpm --filter @meu-jarvis/classifier test'
+    result: 'PASS — 92/92 (7 ficheiros). prompts.test.ts valida hash v8 + 21 intents + 26 few-shots; schemas.test.ts confirma memorizar NÃO read-only.'
+  - command: 'pnpm --filter @meu-jarvis/planner-executor test'
+    result: 'PASS — 78/78 (7 ficheiros). TOOL_TO_INTENT_MAP cobre 21 intents (memorizar: memorizar).'
+  - command: 'pnpm lint + pnpm typecheck'
+    result: 'PASS — lint 10/10 (--max-warnings=0, FULL TURBO), typecheck 10/10 (tsc --noEmit, sem any).'
+  - command: 'pnpm --filter @meu-jarvis/web test + pnpm build'
+    result: 'ACEITE da evidência @dev (web 1459/1459, build 10/10). Justificação de proporcionalidade: git diff --stat confirma ZERO ficheiros apps/web alterados — a única via de regressão web/build seria através dos packages importados (tools/classifier/planner/db), todos re-executados GREEN acima. Re-correr 171 ficheiros web + build seria custo alto sem valor incremental dado o diff nulo em apps/web.'
+  - command: 'git status --short + git diff --stat HEAD (restrições)'
+    result: 'PASS — AC8 confirmado: run-agent.ts / confirm/route.ts / irreversible.ts NÃO aparecem no diff (grep memorizar nesses ficheiros = vazio). Nenhum ficheiro withHousehold/db-shim/client.ts/stripe/subscription/billing tocado. apply-migrations.ts (L4) não tocado. 0034 = ADD VALUE IF NOT EXISTS + CREATE TABLE IF NOT EXISTS idempotentes.'
+
+# Avaliação dos 7 pontos críticos do foco de review
+critical_points:
+  - id: 'PO-FIX-1-ordering-RLS'
+    verdict: CORRECTO
+    evidence: |
+      As 4 policies estão em DOIS sítios com papéis distintos: (a) 0034 linhas 89-105 —
+      DO-block $rls_jarvis_memories$ APÓS o CREATE TABLE (linha 50), com enable+force RLS
+      e drop policy if exists antes de cada create policy (idempotente); dispara porque a
+      tabela já existe neste ponto. (b) 0001 linhas 929-945 — DO-block idêntico com guard
+      if exists (pg_tables jarvis_memories); no-op em runtime (0001 corre ANTES da 0034,
+      tabela ainda não existe) mas fornece o TEXTO que o check:rls estático detecta.
+      SEM dupla-criação: em db-test ambos correm em ordem lexicográfica no mesmo passo —
+      o de 0001 é no-op (guard FALSE), o de 0034 aplica; o drop policy if exists garante
+      idempotência mesmo se ambos disparassem. Prova empírica: db-test 210/210 com o teste
+      RLS dedicado a passar significa que a RLS está viva (aplicada pela 0034).
+  - id: 'teste-RLS-cross-household'
+    verdict: CORRECTO
+    evidence: |
+      jarvis_memories.rls.test.ts (5 testes, Postgres real): (1) userA vê as suas 2 memórias
+      ordenadas; (2) cross-household SELECT — userB vê 0 rows das memórias de A; (3) cross-household
+      INSERT com household_id de A por userB → expectRlsBlocks true + admin confirma count 0
+      (WITH CHECK rejeita); (4) cross-household UPDATE → result.count 0, admin confirma content
+      inalterado ("Original"); (5) cross-household DELETE → result.count 0, admin confirma a row
+      persiste (count 1). Bootstrap correcto (N2 do @po): seedTwoHouseholds() insere os users em
+      auth.users ANTES da memória — FK created_by_user_id é on delete restrict. insertMemory helper
+      local, admin() (sem RLS) prepara, asUser()/expectRlsBlocks() (RLS activo) verifica. Isolamento
+      real provado, não mockado (lição SEC-8.1 respeitada).
+  - id: 'ambito-sem-creep'
+    verdict: CORRECTO
+    evidence: |
+      M-1 NÃO usa a memória (M-2), NÃO esquece (M-4), NÃO infere (v2.x). A tabela nasce "fria" —
+      nenhum código a lê ainda (intencional, mesmo estado de jarvis_facts entre J-3 e agora).
+      AC8 verificado por git: run-agent.ts/confirm/route.ts/irreversible.ts ausentes do diff;
+      grep memorizar nesses 3 ficheiros = vazio. memorizar NÃO entra em EXTERNAL_WRITE_INTENTS/
+      PREVIEW_RENDER_INTENTS/REUSE_PERSISTED_PLAN_INTENTS/IRREVERSIBLE_WRITE_TOOLS — segue o
+      caminho genérico de criar_tarefa (escrita interna reversível por SQL). generate-daily-brief.ts
+      não tocado. Disciplina de âmbito exemplar.
+  - id: 'enum-sync-6-pontos'
+    verdict: CORRECTO
+    evidence: |
+      (1) 0034 ADD VALUE IF NOT EXISTS memorizar; (2) agentIntentEnum agent.ts:84 (21) +
+      memory.ts novo (jarvisMemories + tipos, exportado no index.ts); (3) INTENT_VALUES
+      classifier/schemas.ts:91 (21) e explicitamente NÃO em READ_ONLY_INTENTS (linhas 82-91
+      documentam a decisão); (4) TOOL_TO_INTENT_MAP planner-executor/schemas.ts:279
+      (memorizar: memorizar); (5) classifier-system.ts v7→v8 (CLASSIFIER_SYSTEM_PROMPT_VERSION
+      linha 39), tabela 21 intents com descrição que distingue lembra-ME (tarefa) de lembra-TE
+      (memória), Exemplos 25/26 few-shots (memorizar não força confirmação + distinção criar_tarefa);
+      (6) TOOL_DOMAIN_VALUES contracts.ts:55 memory (7) + JSDoc. Sem omissões — os sanity-checks
+      automáticos (contracts.test.ts/schemas.test.ts/contract.test.ts/prompts.test.ts) leem o código
+      real e passam com as contagens actualizadas.
+  - id: 'reversibilidade-real'
+    verdict: CORRECTO
+    evidence: |
+      memorizar.reverse(output) devolve { kind: 'delete_row', table: 'jarvis_memories', id: output.memoryId }
+      (memorizar.ts:138-144) — reversível DE VERDADE, ao contrário de enviar_email/responder_email
+      (que usam _noop porque são escrita externa irreversível). Padrão exacto de criar_tarefa (Story 3.8),
+      infra de undo já provada em prod. 2 testes dedicados (delete_row com memoryId + assert que NÃO é _noop
+      + id em formato UUID). execute() insere só (household_id, created_by_user_id, content) via
+      ctx.db.execute(sql`...`) parametrizado — household_id/created_by_user_id de ctx (NUNCA do input),
+      source no default 'explicit', RETURNING id, content; erro defensivo se não devolver row.
+  - id: 'restricoes'
+    verdict: CORRECTO
+    evidence: |
+      git diff confirma ZERO ficheiros SEC-8 (withHousehold/db-shim/client.ts) ou billing (stripe/subscription).
+      Sem any nos ficheiros novos (execute usa cast tipado JarvisMemoriesInsertReturn, não any; test usa unknown +
+      type guards em captureSqlText). Imports @/ (dentro do package) e relativos ../contracts para o boundary
+      cross-package documentado (mesma excepção de tasks/index.ts). PT-PT europeu em comentários/erros/preview
+      ("Vou lembrar-me disso: ..."). household_id + 4 policies + trigger set_updated_at (helper canónico, NÃO
+      update_updated_at_column — gotcha J-2 evitado). Família removida: jarvis_memories é mais uma tabela
+      household-scoped, tenancy intacta.
+  - id: 'evidencia-real-pnpm'
+    verdict: CORRECTO
+    evidence: |
+      Re-executado independentemente com pnpm (não npm): check:rls (32 tabelas / jarvis_memories coberta) +
+      db-test (210/210, jarvis_memories.rls 5/5 em PG real) + tools (456) + classifier (92) + planner-executor (78)
+      + lint (10/10) + typecheck (10/10). Todos GREEN. Counts batem com o relatório @dev. web/build aceites da
+      evidência @dev por proporcionalidade (zero diff em apps/web).
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'RLS household-scoped provada REALMENTE (5 testes cross-household em Postgres via Testcontainers) — isolamento SELECT/INSERT/UPDATE/DELETE. household_id/created_by_user_id derivados de ctx, nunca do input (defesa em profundidade + teste que assere inputSchema sem household_id). content é PII (risco R2 do brief) — comment on column marca "nunca em span attributes OTel"; só memoryId (UUID) entra em agent_reverse_ops. SEC-8/billing intactos.'
+  performance:
+    status: PASS
+    notes: 'INSERT único atómico, índice jarvis_memories_household_id_idx alinhado com o predicate RLS. estimatedTokens 50 (mesmo perfil de criar_tarefa). Sem leitura/retrieval nesta story (tabela fria), sem impacto no hot-path do motor.'
+  reliability:
+    status: PASS
+    notes: 'Erro defensivo se o INSERT não devolver row. reverse() real (delete_row) suporta undo honesto 30s. Migration idempotente (ADD VALUE IF NOT EXISTS, CREATE TABLE IF NOT EXISTS, drop policy if exists). PO-FIX-1 elimina o passo manual do SQL Editor em prod (0034 é ficheiro novo → db:migrate aplica tabela+policies automaticamente, sem o skip da 0001).'
+  maintainability:
+    status: PASS
+    notes: 'Segue o modelo criar_tarefa quase 1:1 (padrão familiar). Novo domínio memory de primeira classe (7º), tool no package partilhado tools/ (escrita Postgres pura). Comentários JSDoc/SQL densos a documentar PO-FIX-1 e as [AUTO-DECISION]. Sanity-checks automáticos protegem contra divergência de enum/domínio (Article IV No Invention).'
+
+recommendations:
+  immediate: [] # Nenhuma — nada bloqueia merge/deploy
+  future:
+    - action: 'M-4 (esquecer): desenhar a distinção entre `cancelar_ultima` ("esquece o que disse") e o futuro `esquecer` ("esquece que X" — apagar memória) com cuidado. Os few-shots de M-1 já evitam a palavra "esquece" de propósito para não abrir ambiguidade prematura — manter essa disciplina na M-4.'
+      refs: ['packages/classifier/src/prompts/classifier-system.ts']
+    - action: 'M-2 (usar a memória): ao introduzir injecção no Planner (serializeMemoryContextForPlanner) aplicar o cap N=50 do brief D3 e ponderar retrieval; nada disto pertence a M-1 (tabela deliberadamente fria).'
+      refs: ['packages/tools/src/memory/memorizar.ts']
+
+top_issues: [] # Nenhum issue — código impecável para o âmbito
+
+waiver: { active: false }
+
+notes: |
+  Gate PASS (9,5/10, confiança alta) para a primeira story da epic v2 (Memória rica). Revisão em lane
+  INDEPENDENTE (não autor): leitura dos 18 ficheiros de código real + re-execução de evidência com pnpm
+  + auditoria git das restrições.
+
+  O ponto de maior risco — PO-FIX-1 (ordering das RLS policies) — está CORRECTO e provado EMPIRICAMENTE.
+  A subtileza: db-test aplica todas as migrations em ordem lexicográfica num só passo, a 0001 corre ANTES
+  da 0034; se as policies vivessem só no DO-block da 0001 (guard `if exists jarvis_memories`), o guard
+  avaliaria FALSE (a tabela ainda não existe) e a tabela ficaria SEM RLS → household B veria as memórias
+  de A. A solução (policies na 0034 junto do CREATE TABLE para aplicação real + espelho na 0001 só para o
+  check:rls estático que lê APENAS a 0001) é a de menor risco e está implementada com idempotência
+  (drop policy if exists nos dois blocos). O teste RLS dedicado jarvis_memories.rls.test.ts (5/5 em Postgres
+  real) é precisamente a prova de que as policies estão VIVAS — é a primeira tabela pós-0001 com teste RLS
+  dedicado, pelo que também valida o padrão para futuras tabelas.
+
+  Disciplina de âmbito exemplar: M-1 captura e guarda, mais nada. A tabela nasce fria (nenhum código a lê),
+  não esquece, não infere — usar=M-2, brief=M-3, esquecer=M-4, inferência=v2.x, todos fora e explicitamente
+  documentados. AC8 (ZERO alteração a run-agent.ts/confirm/route.ts/irreversible.ts) confirmado por git —
+  memorizar é escrita interna reversível por SQL (delete_row), herda o caminho genérico de criar_tarefa sem
+  tocar nos 4 Sets de escrita externa da J-7/J-8.
+
+  Enum-sync 6 pontos completo e coerente; reverse() reversível de verdade; RLS/PII cuidada; restrições
+  respeitadas na íntegra (SEC-8/billing/família não tocados, sem any, PT-PT, household_id + 4 policies +
+  trigger com o helper canónico, gotcha J-2 evitado). 9/9 gates GREEN, o subconjunto crítico re-executado
+  independentemente por @qa (check:rls / db-test / tools / classifier / planner-executor / lint / typecheck).
+
+  Zero issues bloqueantes, zero CONCERNS. Score 95/100 (95 e não 100 apenas por prudência de que o E2E live
+  ainda não correu — não por qualquer deficiência de código). A story fica PRONTA para @devops push + deploy
+  0034 (idempotente, cria tabela + 4 policies numa só operação, SEM passo manual no SQL Editor) + E2E live
+  [EURICO] (dizer "lembra-te que odeio reuniões antes das 10h" → confirmar row em jarvis_memories + testar
+  undo 30s). AC11 (deploy + E2E) é precondição externa [EURICO]+@devops, NÃO gap de código — é o único item
+  em aberto para transitar a Done.

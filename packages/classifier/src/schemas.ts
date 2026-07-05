@@ -8,7 +8,7 @@
  *        sanity-check (`__tests__/schemas.test.ts`).
  *
  * Princípios:
- *   - Os 20 valores de `IntentSchema` batem EXACTAMENTE com o enum DB. Sem
+ *   - Os 21 valores de `IntentSchema` batem EXACTAMENTE com o enum DB. Sem
  *     desvios, sem invenção — Article IV (No Invention).
  *   - `intents.min(1)` é literal de Architecture §4.2 (sempre pelo menos
  *     `unknown` em prompts não-PT-PT ou ambíguos).
@@ -23,11 +23,12 @@ import { z } from 'zod';
 import type { LlmModel } from '@meu-jarvis/agent';
 
 /**
- * Os 20 intents canónicos do classifier — alinhados com enum Postgres
+ * Os 21 intents canónicos do classifier — alinhados com enum Postgres
  * `agent_intent` (Story 2.1, migration 0005; Story 3.8 migration 0012;
  * Story 2.14 migration 0026; Story J-5 migration 0030; Story J-6 migration
- * 0031; Story J-7 migration 0032; Story J-8 migration 0033). NÃO modificar sem
- * actualizar simultaneamente o enum DB e correr `db:migrate`.
+ * 0031; Story J-7 migration 0032; Story J-8 migration 0033; Story M-1 migration
+ * 0034). NÃO modificar sem actualizar simultaneamente o enum DB e correr
+ * `db:migrate`.
  *
  * Sanity-check em runtime (test): `__tests__/schemas.test.ts` LÊ o ficheiro
  * `packages/db/src/schema/agent.ts` via `fs.readFile` + regex sobre
@@ -80,6 +81,14 @@ export const INTENT_VALUES = [
   // (sanity-check em `__tests__/schemas.test.ts`). NÃO adicionar a
   // READ_ONLY_INTENTS — é escrita externa, não leitura.
   'responder_email',
+  // Story M-1 — tool `memorizar` (captura de memória explícita). Escrita
+  // INTERNA reversível (mesmo perfil de `criar_tarefa`, INSERT + delete_row),
+  // NÃO escrita externa. Sync com migration 0034 +
+  // `packages/db/src/schema/agent.ts` agentIntentEnum. Article IV:
+  // INTENT_VALUES bate EXACTAMENTE com o enum DB (sanity-check em
+  // `__tests__/schemas.test.ts`). NÃO adicionar a READ_ONLY_INTENTS — é
+  // escrita (embora interna e simples), não leitura.
+  'memorizar',
 ] as const;
 
 export const IntentSchema = z.enum(INTENT_VALUES);

@@ -87,3 +87,7 @@ export * from './tasks';
 // Tools concretas — domínio Finanças (Story 4.10).
 // Re-export + side-effect register no toolRegistry singleton.
 export * from './finance';
+
+// Tools concretas — domínio Memória (Story M-1).
+// Re-export + side-effect register no toolRegistry singleton.
+export * from './memory';

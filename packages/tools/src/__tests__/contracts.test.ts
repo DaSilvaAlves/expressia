@@ -162,8 +162,8 @@ describe('deserializeReverseOp — input inválido', () => {
 });
 
 describe('Enums — coerência runtime', () => {
-  it('TOOL_DOMAIN_VALUES tem exactamente 6 entries (Story J-6 +email)', () => {
-    expect(TOOL_DOMAIN_VALUES.length).toBe(6);
+  it('TOOL_DOMAIN_VALUES tem exactamente 7 entries (Story M-1 +memory)', () => {
+    expect(TOOL_DOMAIN_VALUES.length).toBe(7);
     expect([...TOOL_DOMAIN_VALUES]).toEqual([
       'tasks',
       'finance',
@@ -171,14 +171,16 @@ describe('Enums — coerência runtime', () => {
       'system',
       'calendar',
       'email',
+      'memory',
     ]);
   });
 
-  it('ToolDomainSchema aceita os 6 valores e rejeita outros', () => {
+  it('ToolDomainSchema aceita os 7 valores e rejeita outros', () => {
     expect(() => ToolDomainSchema.parse('tasks')).not.toThrow();
     expect(() => ToolDomainSchema.parse('finance')).not.toThrow();
     expect(() => ToolDomainSchema.parse('calendar')).not.toThrow();
     expect(() => ToolDomainSchema.parse('email')).not.toThrow();
+    expect(() => ToolDomainSchema.parse('memory')).not.toThrow();
     expect(() => ToolDomainSchema.parse('invalid')).toThrow();
   });
 

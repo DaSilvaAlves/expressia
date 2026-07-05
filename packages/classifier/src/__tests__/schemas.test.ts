@@ -43,16 +43,25 @@ function extractAgentIntentEnumFromSource(): string[] {
 }
 
 describe('IntentSchema (AC2)', () => {
-  it('aceita os 20 valores canónicos', () => {
+  it('aceita os 21 valores canónicos', () => {
     for (const value of INTENT_VALUES) {
       expect(IntentSchema.safeParse(value).success).toBe(true);
     }
   });
 
-  it('rejeita valores fora dos 18 canónicos (Article IV)', () => {
+  it('rejeita valores fora dos 21 canónicos (Article IV)', () => {
     expect(IntentSchema.safeParse('inventado').success).toBe(false);
     expect(IntentSchema.safeParse('criar_evento').success).toBe(false);
     expect(IntentSchema.safeParse('').success).toBe(false);
+  });
+
+  it('aceita o novo intent de memória explícita (Story M-1)', () => {
+    expect(IntentSchema.safeParse('memorizar').success).toBe(true);
+  });
+
+  it('memorizar NÃO é read-only (escrita interna — passa pelo limiar de confiança normal)', () => {
+    expect(isReadOnlyIntent('memorizar')).toBe(false);
+    expect(READ_ONLY_INTENTS.has('memorizar' as never)).toBe(false);
   });
 
   it('aceita os 2 novos intents de Calendar (Story J-5)', () => {
@@ -113,8 +122,9 @@ describe('IntentSchema (AC2)', () => {
     // + 2 Story J-5 tools Calendar escrita (migration 0030)
     // + 1 Story J-6 tool Gmail readonly (migration 0031)
     // + 1 Story J-7 tool Gmail send (migration 0032)
-    // + 1 Story J-8 tool Gmail reply (migration 0033).
-    expect(dbValues.length).toBe(20);
+    // + 1 Story J-8 tool Gmail reply (migration 0033)
+    // + 1 Story M-1 tool `memorizar` (migration 0034).
+    expect(dbValues.length).toBe(21);
   });
 });
 

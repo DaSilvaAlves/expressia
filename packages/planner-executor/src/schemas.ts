@@ -209,11 +209,12 @@ export type ExecutorInput = z.infer<typeof ExecutorInputSchema>;
  * (3) tools são single source of truth da Story 2.3 e não mudam entre runs;
  * (4) tool name fora do MAP → fallback `'unknown'` (graceful degradation).
  *
- * **Cobertura obrigatória:** as 20 intents do `IntentSchema` (Story 2.4 AC2
+ * **Cobertura obrigatória:** as 21 intents do `IntentSchema` (Story 2.4 AC2
  * baseline 8 + Story 3.8 tools cérebro Tarefas +3 + Story 2.14 tools
  * UPDATE/DELETE +4 + Story J-5 tools Calendar +2 + Story J-6 tool Gmail readonly
- * +1 + Story J-7 tool Gmail send +1 + Story J-8 tool Gmail reply +1) têm pelo
- * menos 1 tool name mapeado. Validável em `__tests__/contract.test.ts`.
+ * +1 + Story J-7 tool Gmail send +1 + Story J-8 tool Gmail reply +1 + Story M-1
+ * tool `memorizar` +1) têm pelo menos 1 tool name mapeado. Validável em
+ * `__tests__/contract.test.ts`.
  *
  * Nomenclatura tools snake_case lowercase (alinhada com Architecture §4.3
  * `create_task`, `query_finance_summary`, etc.).
@@ -271,6 +272,11 @@ export const TOOL_TO_INTENT_MAP: Record<string, Intent> = {
   // Story J-8 — tool Gmail reply (tool name === intent name PT-PT). Escrita
   // externa irreversível (mesma família de `enviar_email`, com threading).
   responder_email: 'responder_email',
+  // Story M-1 — tool `memorizar` (tool name === intent name PT-PT). Escrita
+  // INTERNA reversível (INSERT em jarvis_memories + delete_row), mesmo perfil
+  // de `criar_tarefa`. A tool vive em `packages/tools/src/memory/` (escrita
+  // Postgres pura, sem API externa); o mapping tool→intent vive aqui.
+  memorizar: 'memorizar',
 };
 
 /**

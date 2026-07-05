@@ -7,13 +7,14 @@
  *        Story J-5 AC3 (bump v3→v4 + 17 intents + 4 few-shots Calendar);
  *        Story J-6 AC3 (bump v4→v5 + 18 intents + 2 few-shots Gmail readonly);
  *        Story J-7 AC3 (bump v5→v6 + 19 intents + 2 few-shots Gmail send);
- *        Story J-8 AC4 (bump v6→v7 + 20 intents + 2 few-shots Gmail reply).
+ *        Story J-8 AC4 (bump v6→v7 + 20 intents + 2 few-shots Gmail reply);
+ *        Story M-1 AC4 (bump v7→v8 + 21 intents + 2 few-shots memorizar).
  *
  * Estratégia:
  *   - Hash SHA-256 do conteúdo da constante `CLASSIFIER_SYSTEM_PROMPT`.
  *   - Qualquer mudança requer actualização intencional do hash + bump
  *     do `CLASSIFIER_SYSTEM_PROMPT_VERSION`.
- *   - Versão actual: `v7`.
+ *   - Versão actual: `v8`.
  */
 import { createHash } from 'node:crypto';
 
@@ -25,11 +26,11 @@ import {
 } from '@/prompts/classifier-system';
 
 describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
-  it('versão é "v7" (Story J-8 bump)', () => {
-    expect(CLASSIFIER_SYSTEM_PROMPT_VERSION).toBe('v7');
+  it('versão é "v8" (Story M-1 bump)', () => {
+    expect(CLASSIFIER_SYSTEM_PROMPT_VERSION).toBe('v8');
   });
 
-  it('contém os 20 intents canónicos por nome (Story J-8 — +1 Gmail reply)', () => {
+  it('contém os 21 intents canónicos por nome (Story M-1 — +1 memorizar)', () => {
     const intents = [
       'criar_tarefa',
       'completar_tarefa',
@@ -49,6 +50,7 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
       'consultar_emails',
       'enviar_email',
       'responder_email',
+      'memorizar',
       'cancelar_ultima',
       'unknown',
     ];
@@ -57,9 +59,18 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
     }
   });
 
-  it('header anuncia 20 intents (Story J-8)', () => {
-    // Format real do header: `# Intents canónicos (20)`.
-    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/Intents can[óo]nicos \(20\)/);
+  it('header anuncia 21 intents (Story M-1)', () => {
+    // Format real do header: `# Intents canónicos (21)`.
+    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/Intents can[óo]nicos \(21\)/);
+  });
+
+  it('memorizar NÃO força needs_confirmation (escrita interna reversível — Story M-1)', () => {
+    // A regra 5 lista os intents que forçam confirmação; memorizar não está lá.
+    expect(CLASSIFIER_SYSTEM_PROMPT).toContain('memorizar');
+    // O exemplo few-shot de memorizar tem needs_confirmation false.
+    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(
+      /"intent": "memorizar"[\s\S]*?"needs_confirmation": false/,
+    );
   });
 
   it('intents destrutivos/modificativos/escrita externa forçam needs_confirmation true (DP-2.14.B + J-5 + J-7)', () => {
@@ -79,10 +90,10 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
     expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/portugu[êe]s europeu/i);
   });
 
-  it('inclui pelo menos 24 exemplos few-shot (Story J-8: 2 novos Gmail reply)', () => {
+  it('inclui pelo menos 26 exemplos few-shot (Story M-1: 2 novos memorizar)', () => {
     const matches = CLASSIFIER_SYSTEM_PROMPT.match(/## Exemplo \d/g);
     expect(matches).not.toBeNull();
-    expect(matches?.length ?? 0).toBeGreaterThanOrEqual(24);
+    expect(matches?.length ?? 0).toBeGreaterThanOrEqual(26);
   });
 
   it('inclui exemplo de input non-PT-PT → unknown (PT-PT exclusivo)', () => {
@@ -93,8 +104,8 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
   it('é estável — hash SHA-256 não muda sem alteração intencional', () => {
     const hash = createHash('sha256').update(CLASSIFIER_SYSTEM_PROMPT).digest('hex');
     expect(hash).toMatch(/^[a-f0-9]{64}$/);
-    // O prompt v7 tem ≈13KB (24 exemplos few-shot + 20 intents).
+    // O prompt v8 tem ≈14KB (26 exemplos few-shot + 21 intents).
     expect(CLASSIFIER_SYSTEM_PROMPT.length).toBeGreaterThan(3000);
-    expect(CLASSIFIER_SYSTEM_PROMPT.length).toBeLessThan(15000);
+    expect(CLASSIFIER_SYSTEM_PROMPT.length).toBeLessThan(16000);
   });
 });

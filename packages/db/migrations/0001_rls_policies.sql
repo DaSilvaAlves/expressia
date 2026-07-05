@@ -904,5 +904,46 @@ begin
 end$rls_jarvis_facts$;
 
 -- =====================================================================
+-- jarvis_memories (Story M-1 — tabela criada via 0034)
+-- =====================================================================
+-- [PO-FIX-1] 4 policies (SELECT/INSERT/UPDATE/DELETE) com predicate:
+--   household_id = public.current_household_id()
+--
+-- Memórias explícitas de texto livre por household (conteúdo pessoal sensível,
+-- risco R2 do brief). ESTE bloco existe EXCLUSIVAMENTE para o gate estático
+-- `scripts/check-rls-coverage.ts:33` detectar o texto `create policy ... on
+-- public.jarvis_memories for {select,insert,update,delete}` (o parser lê APENAS
+-- a 0001). A APLICAÇÃO REAL das policies vive na migration 0034 (mesmo ficheiro
+-- que o CREATE TABLE) — ver PO-FIX-1 na story M-1.
+--
+-- Em runtime este bloco é NO-OP: a 0001 corre ANTES da 0034 (ordem lexicográfica),
+-- logo o guard `if exists (jarvis_memories)` avalia FALSE (a tabela ainda não
+-- existe) e nada é criado. O `drop policy if exists` garante idempotência caso
+-- este bloco seja alguma vez re-executado depois da 0034 (sem dupla criação).
+--
+-- create policy "jarvis_memories_select" on public.jarvis_memories for select to authenticated
+-- create policy "jarvis_memories_insert" on public.jarvis_memories for insert to authenticated
+-- create policy "jarvis_memories_update" on public.jarvis_memories for update to authenticated
+-- create policy "jarvis_memories_delete" on public.jarvis_memories for delete to authenticated
+
+do $rls_jarvis_memories$
+begin
+  if exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'jarvis_memories') then
+    execute 'alter table public.jarvis_memories enable row level security';
+    execute 'alter table public.jarvis_memories force row level security';
+
+    execute 'drop policy if exists "jarvis_memories_select" on public.jarvis_memories';
+    execute 'drop policy if exists "jarvis_memories_insert" on public.jarvis_memories';
+    execute 'drop policy if exists "jarvis_memories_update" on public.jarvis_memories';
+    execute 'drop policy if exists "jarvis_memories_delete" on public.jarvis_memories';
+
+    execute $POLICY$create policy "jarvis_memories_select" on public.jarvis_memories for select to authenticated using (household_id = public.current_household_id())$POLICY$;
+    execute $POLICY$create policy "jarvis_memories_insert" on public.jarvis_memories for insert to authenticated with check (household_id = public.current_household_id())$POLICY$;
+    execute $POLICY$create policy "jarvis_memories_update" on public.jarvis_memories for update to authenticated using (household_id = public.current_household_id()) with check (household_id = public.current_household_id())$POLICY$;
+    execute $POLICY$create policy "jarvis_memories_delete" on public.jarvis_memories for delete to authenticated using (household_id = public.current_household_id())$POLICY$;
+  end if;
+end$rls_jarvis_memories$;
+
+-- =====================================================================
 -- FIM DA MIGRAÇÃO 0001
 -- =====================================================================
