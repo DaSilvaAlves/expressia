@@ -146,6 +146,24 @@ export const EmailReplyContextSchema = z.array(EmailReplyCandidateSchema);
 export type EmailReplyCandidate = z.infer<typeof EmailReplyCandidateSchema>;
 export type EmailReplyContext = z.infer<typeof EmailReplyContextSchema>;
 
+/**
+ * Story M-2 AC2 — memórias do household (o que o Jarvis "sabe" sobre o Eurico),
+ * lidas RLS-scoped de `jarvis_memories` (via `getDb()`) ANTES do Planner e
+ * injectadas como **prefixo da user message** (NUNCA no `system`/`tools` —
+ * preserva o prefixo cacheável do provider). Terceiro contexto do mesmo padrão
+ * de `accountContext`/`emailReplyContext`.
+ *
+ * Só `content` é exposto ao Planner — metadados mínimos (sem `id`/`source`/
+ * timestamps): reduz tokens e ruído, e `content` é o único campo com valor
+ * semântico. `content` é PII sensível (comment da migration 0034): viaja em
+ * `messages` (coberto por `redactProviderPayload`, NFR12), NUNCA em span
+ * attributes/logs. Tipo `z.string()` (agnóstico de DDL, como os outros
+ * contextos — o endpoint em `apps/web` faz o mapeamento da row para a string).
+ */
+export const MemoryContextSchema = z.array(z.object({ content: z.string() }));
+
+export type MemoryContext = z.infer<typeof MemoryContextSchema>;
+
 export const PlannerInputSchema = z.object({
   classification: ClassificationSchema,
   householdId: z.string().uuid(),
@@ -159,6 +177,13 @@ export const PlannerInputSchema = z.object({
    * `responder_email`. Ausente para todos os outros intents.
    */
   emailReplyContext: EmailReplyContextSchema.optional(),
+  /**
+   * Story M-2 AC2 — memórias do household (contexto passivo lido RLS-scoped ANTES
+   * do Planner), injectadas como prefixo da user message para o assistente
+   * "conhecer" o Eurico por defeito. Ausente para households sem memórias. Só
+   * `content` (sem id/source/timestamps — ver `MemoryContextSchema`).
+   */
+  memoryContext: MemoryContextSchema.optional(),
   /**
    * Data civil "de hoje" no fuso do utilizador (`YYYY-MM-DD`), injectada como
    * âncora para o cálculo de prazos relativos ("hoje", "amanhã", "dia 1") pelo

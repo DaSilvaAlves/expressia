@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ExecutorInputSchema,
+  MemoryContextSchema,
   PlanResultSchema,
   PlanToolCallSchema,
   PlannerInputSchema,
@@ -89,6 +90,51 @@ describe('PlannerInputSchema', () => {
       runId: VALID_UUID,
     });
     expect(result.success).toBe(false);
+  });
+
+  it('Story M-2 — aceita input SEM memoryContext (campo opcional, regressão zero)', () => {
+    const result = PlannerInputSchema.safeParse({
+      classification: MIN_CLASSIFICATION,
+      householdId: VALID_UUID,
+      userId: VALID_UUID,
+      traceId: 'trace-1',
+      runId: VALID_UUID,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('Story M-2 — aceita input COM memoryContext válido', () => {
+    const result = PlannerInputSchema.safeParse({
+      classification: MIN_CLASSIFICATION,
+      householdId: VALID_UUID,
+      userId: VALID_UUID,
+      traceId: 'trace-1',
+      runId: VALID_UUID,
+      memoryContext: [{ content: 'odeio reuniões antes das 10h' }],
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('MemoryContextSchema (Story M-2)', () => {
+  it('valida array de { content: string }', () => {
+    const result = MemoryContextSchema.safeParse([
+      { content: 'odeio reuniões antes das 10h' },
+      { content: 'prefiro café sem açúcar' },
+    ]);
+    expect(result.success).toBe(true);
+  });
+
+  it('aceita array vazio (household sem memórias)', () => {
+    expect(MemoryContextSchema.safeParse([]).success).toBe(true);
+  });
+
+  it('rejeita item sem content', () => {
+    expect(MemoryContextSchema.safeParse([{}]).success).toBe(false);
+  });
+
+  it('rejeita content não-string', () => {
+    expect(MemoryContextSchema.safeParse([{ content: 123 }]).success).toBe(false);
   });
 });
 

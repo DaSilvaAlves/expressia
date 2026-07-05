@@ -49,6 +49,7 @@ import {
   type AtomicOutcome,
   type AtomicResult,
   type EmailReplyContext,
+  type MemoryContext,
   type PlanResult,
 } from '@meu-jarvis/planner-executor';
 import {
@@ -654,6 +655,9 @@ export async function runAgentForHousehold(
 
   // ─── 8. Planner + Executor (executed branch) ──────────────────────
   const accountContext = await buildAccountContext(db, log, householdId);
+  // Story M-2 AC4 — memórias do household (contexto passivo lido ANTES do Planner,
+  // ao lado do accountContext).
+  const memoryContext = await buildMemoryContext(db, log, householdId);
 
   let plan: PlanResult;
   let outcome: AtomicOutcome;
@@ -666,6 +670,7 @@ export async function runAgentForHousehold(
       traceId,
       runId,
       accountContext,
+      memoryContext,
     });
     await updateAfterPlanner(
       runId,
@@ -891,6 +896,47 @@ async function buildAccountContext(
 }
 
 /**
+ * Story M-2 AC1 — constrói o `memoryContext`: as memórias que o Jarvis guardou
+ * sobre o household ("o que sabe sobre o Eurico"), lidas RLS-scoped de
+ * `jarvis_memories` (cap 50 — D3 do brief v2 — mais recentes primeiro). São
+ * injectadas como prefixo da user message do Planner para o assistente
+ * "conhecer" o utilizador por defeito (injecção-sempre, não condicional a intent).
+ *
+ * Tenancy (NFR5): RLS 2.ª rede activa (`getDb()`, role `authenticated` +
+ * `current_household_id()`) + filtro app-level explícito (1.ª rede) — NUNCA
+ * `getServiceDb()` (vazaria cross-household). Falha de leitura é NÃO-FATAL, tal
+ * como `buildAccountContext`: `log.warn({ err })` (NUNCA o `content` — PII
+ * sensível, migration 0034) e o pipeline prossegue sem memória nesse turno, em
+ * vez de falhar o pedido inteiro. Devolve `undefined` quando não há memórias.
+ */
+export async function buildMemoryContext(
+  db: ReturnType<typeof getDb>,
+  log: ReturnType<typeof childLogger>,
+  householdId: string,
+): Promise<MemoryContext | undefined> {
+  try {
+    // A query lê `id`/`created_at` para ordenação/cap, mas só `content` é exposto
+    // ao Planner (metadados mínimos — ver `MemoryContextSchema`).
+    const rows = await db.execute<{ id: string; content: string; created_at: string }>(sql`
+      select id, content, created_at
+      from public.jarvis_memories
+      where household_id = ${householdId}::uuid
+      order by created_at desc
+      limit 50
+    `);
+
+    if (rows.length === 0) {
+      return undefined;
+    }
+    return rows.map((r) => ({ content: r.content }));
+  } catch (err) {
+    // N1 — NUNCA logar as linhas/`content` (PII sensível, migration 0034): só `{ err }`.
+    log.warn({ err }, 'buildMemoryContext falhou — Planner sem memoryContext (não-fatal)');
+    return undefined;
+  }
+}
+
+/**
  * Story J-7 SEND-PREVIEW-1 / J-8 — resultado de `renderExternalWritePreview`.
  *   - `{ kind: 'draft', drafts }` — rascunho(s) real(is) da escrita externa.
  *   - `{ kind: 'reply_zero_match', message }` — Story J-8 AC13: pediram uma
@@ -956,6 +1002,10 @@ async function renderExternalWritePreview(params: {
     }
 
     const accountContext = await buildAccountContext(db, log, householdId);
+    // Story M-2 AC4 — memórias também no preview de rascunho real (J-7/J-8): um
+    // email composto via preview-then-confirm beneficia da memória ao gerar o
+    // rascunho, mesmo padrão do accountContext (que já corre nos dois sítios).
+    const memoryContext = await buildMemoryContext(db, log, householdId);
     const planner = new Planner();
     const plan = await planner.plan({
       classification,
@@ -965,6 +1015,7 @@ async function renderExternalWritePreview(params: {
       runId,
       accountContext,
       emailReplyContext,
+      memoryContext,
     });
 
     // Story J-8 FIX [D-J8.6] — guardrail DETERMINÍSTICO de email explícito, DEPOIS

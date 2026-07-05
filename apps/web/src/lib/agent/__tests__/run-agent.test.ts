@@ -84,7 +84,43 @@ vi.mock('@upstash/redis', () => ({
   })),
 }));
 
-import { runAgentForHousehold } from '@/lib/agent/run-agent';
+import { buildMemoryContext, runAgentForHousehold } from '@/lib/agent/run-agent';
+
+/**
+ * Extrai o texto SQL literal de um objecto `sql` do drizzle (concatena os
+ * `StringChunk.value`) — para asserts sobre a query sem depender da ordem de
+ * chamadas do mock (Story M-2: distinguir a query de `jarvis_memories`).
+ */
+function sqlText(arg: unknown): string {
+  const chunks = (arg as { queryChunks?: unknown[] })?.queryChunks;
+  if (!Array.isArray(chunks)) return '';
+  return chunks
+    .map((c) => {
+      const value = (c as { value?: unknown })?.value;
+      if (Array.isArray(value)) return value.join('');
+      return typeof value === 'string' ? value : '';
+    })
+    .join(' ');
+}
+
+/**
+ * Story M-2 — db mock que devolve `memoryRows` para a query de `jarvis_memories`
+ * (via inspecção do SQL) e mantém a sequência base (rate limit / quota / INSERT).
+ * As restantes queries (accounts/cards/updates) devolvem `[]`.
+ */
+function setupDbWithMemory(
+  memoryRows: ReadonlyArray<{ id: string; content: string; created_at: string }>,
+): void {
+  let callIndex = 0;
+  mocks.dbExecuteMock.mockImplementation(async (arg: unknown) => {
+    callIndex++;
+    if (callIndex === 1) return [{ count: 1 }]; // rate limit
+    if (callIndex === 2) return []; // quota
+    if (callIndex === 3) return [{ id: 'run-uuid-test', created_at: new Date().toISOString() }]; // INSERT
+    if (sqlText(arg).includes('jarvis_memories')) return memoryRows;
+    return [];
+  });
+}
 
 const TEST_USER_ID = '00000000-0000-0000-0000-000000000001';
 const TEST_HOUSEHOLD_ID = '00000000-0000-0000-0000-0000000000a1';
@@ -676,6 +712,136 @@ describe('runAgentForHousehold — responder_email (Story J-8)', () => {
       throw new Error('esperado preview (email explícito corresponde)');
     }
     expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('buildMemoryContext (Story M-2 AC1)', () => {
+  function makeLog() {
+    return { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() };
+  }
+
+  it('mapeia linhas para [{ content }] — só content exposto; query usa jarvis_memories + LIMIT 50', async () => {
+    const execute = vi.fn().mockResolvedValue([
+      { id: 'm1', content: 'odeio reuniões antes das 10h', created_at: '2026-07-05T10:00:00Z' },
+      { id: 'm2', content: 'prefiro café sem açúcar', created_at: '2026-07-04T10:00:00Z' },
+    ]);
+    const log = makeLog();
+
+    const result = await buildMemoryContext(
+      { execute } as never,
+      log as never,
+      TEST_HOUSEHOLD_ID,
+    );
+
+    expect(result).toEqual([
+      { content: 'odeio reuniões antes das 10h' },
+      { content: 'prefiro café sem açúcar' },
+    ]);
+    expect(execute).toHaveBeenCalledTimes(1);
+    const query = sqlText(execute.mock.calls[0]![0]);
+    expect(query).toContain('jarvis_memories');
+    expect(query).toContain('50'); // cap D3
+    expect(query).toContain('order by created_at desc');
+  });
+
+  it('lista vazia → undefined (mesmo contrato de buildAccountContext)', async () => {
+    const execute = vi.fn().mockResolvedValue([]);
+    const result = await buildMemoryContext({ execute } as never, makeLog() as never, TEST_HOUSEHOLD_ID);
+    expect(result).toBeUndefined();
+  });
+
+  it('erro de leitura → undefined (não-fatal) + log.warn({ err }) SEM content (N1/PII)', async () => {
+    const boom = new Error('rls fail');
+    const execute = vi.fn().mockRejectedValue(boom);
+    const log = makeLog();
+
+    const result = await buildMemoryContext({ execute } as never, log as never, TEST_HOUSEHOLD_ID);
+
+    expect(result).toBeUndefined();
+    expect(log.warn).toHaveBeenCalledTimes(1);
+    // N1 — o primeiro argumento é apenas { err }, nunca as linhas/content.
+    expect(log.warn.mock.calls[0]![0]).toEqual({ err: boom });
+  });
+});
+
+describe('buildMemoryContext — injectado nos DOIS call-sites (Story M-2 AC4)', () => {
+  const MEMORY_ROWS = [
+    { id: 'm1', content: 'odeio reuniões antes das 10h', created_at: '2026-07-05T10:00:00Z' },
+  ];
+
+  it('branch executed — memoryContext chega ao planner.plan', async () => {
+    setupDbWithMemory(MEMORY_ROWS);
+    mocks.classifyMock.mockResolvedValue({
+      intents: [{ intent: 'criar_tarefa', confidence: 0.85, raw_span: 'criar tarefa' }],
+      language: 'pt-PT',
+      needs_confirmation: false,
+      overall_confidence: 0.85,
+    });
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [{ toolName: 'create_task', input: { title: 'X' }, intent: 'criar_tarefa' }],
+      planReasoning: null,
+      latencyMs: 0,
+      tokensInput: 0,
+      tokensOutput: 0,
+      costEur: 0,
+      cacheHit: false,
+    });
+    mocks.executorExecuteMock.mockResolvedValue({
+      success: true,
+      results: [{ toolName: 'create_task', output: { id: 'task-1' }, reverseOpId: 'rop-1' }],
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'criar tarefa amanhã',
+    });
+
+    expect(outcome.status).toBe('executed');
+    const planArg = mocks.plannerPlanMock.mock.calls[0]![0] as {
+      memoryContext?: Array<{ content: string }>;
+    };
+    expect(planArg.memoryContext).toEqual([{ content: 'odeio reuniões antes das 10h' }]);
+  });
+
+  it('renderExternalWritePreview (enviar_email) — memoryContext chega ao planner.plan do preview', async () => {
+    setupDbWithMemory(MEMORY_ROWS);
+    mocks.classifyMock.mockResolvedValue({
+      intents: [
+        { intent: 'enviar_email', confidence: 0.92, raw_span: 'manda um email ao euricojsalves@gmail.com' },
+      ],
+      language: 'pt-PT',
+      needs_confirmation: true,
+      overall_confidence: 0.92,
+    });
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [
+        {
+          toolName: 'enviar_email',
+          input: { to: 'euricojsalves@gmail.com', subject: 'Reunião', body: 'Olá.' },
+          intent: 'enviar_email',
+        },
+      ],
+      planReasoning: null,
+      latencyMs: 0,
+      tokensInput: 0,
+      tokensOutput: 0,
+      costEur: 0,
+      cacheHit: false,
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'manda um email ao euricojsalves@gmail.com a dizer olá',
+    });
+
+    expect(outcome.status).toBe('preview');
+    expect(mocks.plannerPlanMock).toHaveBeenCalledTimes(1);
+    const planArg = mocks.plannerPlanMock.mock.calls[0]![0] as {
+      memoryContext?: Array<{ content: string }>;
+    };
+    expect(planArg.memoryContext).toEqual([{ content: 'odeio reuniões antes das 10h' }]);
   });
 });
 

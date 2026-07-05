@@ -350,6 +350,62 @@ describe('Planner.plan() — payload structure', () => {
     expect(messages[0]?.content ?? '').not.toContain('candidatos para responder');
   });
 
+  it('memoryContext (Story M-2) é injectado no PREFIXO da user message — nunca no system/tools', async () => {
+    let capturedParams: Record<string, unknown> | undefined;
+    const client = createMockAnthropicClient((params) => {
+      capturedParams = params;
+      return buildToolUseResponse([{ name: 'query_tasks', input: {} }]);
+    });
+    const planner = new Planner({ client, registry: createMockRegistry() });
+    await planner.plan(
+      buildInput({
+        classification: {
+          intents: [
+            { intent: 'consultar_dados', confidence: 0.9, raw_span: 'o que sabes sobre mim' },
+          ],
+          language: 'pt-PT',
+          needs_confirmation: false,
+          overall_confidence: 0.9,
+        },
+        memoryContext: [
+          { content: 'odeio reuniões antes das 10h' },
+          { content: 'prefiro café sem açúcar' },
+        ],
+      }),
+    );
+
+    const messages = capturedParams?.messages as Array<{ role: string; content: string }>;
+    const userContent = messages[0]?.content ?? '';
+    // Bloco de memória no prefixo da user message.
+    expect(userContent).toContain('O que sabes sobre o Eurico');
+    expect(userContent).toContain('odeio reuniões antes das 10h');
+    expect(userContent).toContain('prefiro café sem açúcar');
+    // NUNCA no system nem nos tools (preserva prompt caching + higiene PII/NFR12).
+    const systemStr = JSON.stringify(capturedParams?.system ?? '');
+    const toolsStr = JSON.stringify(capturedParams?.tools ?? '');
+    expect(systemStr).not.toContain('odeio reuniões antes das 10h');
+    expect(toolsStr).not.toContain('odeio reuniões antes das 10h');
+  });
+
+  it('memoryContext ausente/vazio → sem prefixo de memória na user message (regressão zero)', async () => {
+    let capturedParams: Record<string, unknown> | undefined;
+    const client = createMockAnthropicClient((params) => {
+      capturedParams = params;
+      return buildToolUseResponse([{ name: 'create_task', input: { title: 'A' } }]);
+    });
+    const planner = new Planner({ client, registry: createMockRegistry() });
+    // Ausente
+    await planner.plan(buildInput());
+    let userContent =
+      (capturedParams?.messages as Array<{ role: string; content: string }>)[0]?.content ?? '';
+    expect(userContent).not.toContain('O que sabes sobre o Eurico');
+    // Array vazio
+    await planner.plan(buildInput({ memoryContext: [] }));
+    userContent =
+      (capturedParams?.messages as Array<{ role: string; content: string }>)[0]?.content ?? '';
+    expect(userContent).not.toContain('O que sabes sobre o Eurico');
+  });
+
   it('accountContext ausente → sem prefixo de contexto na user message', async () => {
     let capturedParams: Record<string, unknown> | undefined;
     const client = createMockAnthropicClient((params) => {

@@ -303,7 +303,13 @@ export class Planner {
     // Story J-8 AC5 — shortlist de resposta a email (quando presente), também
     // como prefixo da user message (NUNCA no `system`/`tools`).
     const emailReplyContextPrefix = serializeEmailReplyContextForPlanner(input.emailReplyContext);
-    const userMessage = `${dateContextPrefix}${accountContextPrefix}${emailReplyContextPrefix}${serializeClassificationForPlanner(input.classification)}`;
+    // Story M-2 AC3 — memórias do household ("o que sabes sobre o Eurico"),
+    // também como prefixo da user message (NUNCA no `system`/`tools`). Fica mais
+    // perto da classificação por ser o contexto mais geral/menos específico à
+    // acção concreta (mesmo raciocínio "mais específico primeiro, mais geral
+    // perto do pedido" dos restantes prefixos).
+    const memoryContextPrefix = serializeMemoryContextForPlanner(input.memoryContext);
+    const userMessage = `${dateContextPrefix}${accountContextPrefix}${emailReplyContextPrefix}${memoryContextPrefix}${serializeClassificationForPlanner(input.classification)}`;
 
     const providerInput: ProviderCompleteInput = {
       system: PLANNER_SYSTEM_PROMPT,
@@ -546,6 +552,34 @@ function serializeEmailReplyContextForPlanner(
   lines.push(
     'Para responder (responder_email), escolhe o candidato que corresponde ao pedido do utilizador e usa os valores EXACTOS desse candidato: to = fromEmail (endereço nu), threadId, messageId e subject. NUNCA inventes um threadId/messageId. Se NENHUM candidato corresponder ao pedido, NÃO emitas responder_email.',
   );
+  lines.push('');
+  lines.push('');
+  return lines.join('\n');
+}
+
+/**
+ * Story M-2 AC3 — serializa as memórias do household ("o que o Jarvis sabe sobre
+ * o Eurico") num prefixo PT-PT para anteceder a user message do Planner. Formato
+ * de metadados mínimos: só `content`, uma linha por memória (`- {content}`), sem
+ * `id`/`source`/timestamps.
+ *
+ * Retorna string vazia (sem prefixo) quando `memoryContext` é ausente ou vazio
+ * (regressão zero — household sem memórias). Como os restantes contextos, viaja
+ * em `messages` (NUNCA no `system`/`tools`), preservando o prefixo cacheável do
+ * provider. `content` é PII sensível (migration 0034) — coberto por
+ * `redactProviderPayload` (NFR12) por construção; NÃO entra em span attributes.
+ */
+function serializeMemoryContextForPlanner(
+  memoryContext: PlannerInput['memoryContext'],
+): string {
+  if (memoryContext === undefined || memoryContext.length === 0) {
+    return '';
+  }
+
+  const lines: string[] = ['[O que sabes sobre o Eurico]'];
+  for (const memory of memoryContext) {
+    lines.push(`- ${memory.content}`);
+  }
   lines.push('');
   lines.push('');
   return lines.join('\n');

@@ -43,6 +43,7 @@ export {
   AccountContextSchema,
   EmailReplyCandidateSchema,
   EmailReplyContextSchema,
+  MemoryContextSchema,
 } from './schemas';
 export type {
   PlanToolCall,
@@ -52,6 +53,7 @@ export type {
   AccountContext,
   EmailReplyCandidate,
   EmailReplyContext,
+  MemoryContext,
 } from './schemas';
 
 // System prompt — apenas versão (texto raw NÃO exportado)

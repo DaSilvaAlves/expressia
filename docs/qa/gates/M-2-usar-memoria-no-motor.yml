@@ -1,0 +1,92 @@
+schema: 1
+story: 'M-2'
+story_title: 'Usar a memória no motor'
+gate: PASS
+score: 96
+status_reason: 'Terceira instância byte-a-byte do padrão de prefixo (accountContext 2.13 / emailReplyContext J-8), replicada com correcção: leitura RLS-scoped via getDb(), injecção só no prefixo da user message (nunca system/tools), N1/PII honrado no catch. Todos os gates GREEN com evidência re-executada.'
+reviewer: 'Quinn (Test Architect)'
+agent_model: 'Opus 4.8 (1M)'
+updated: '2026-07-05T18:05:00Z'
+
+top_issues: []
+
+waiver: { active: false }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pontos críticos verificados (leitura de código real, não só documentação)
+# ─────────────────────────────────────────────────────────────────────────────
+critical_checks:
+  rls_isolation:
+    verdict: PASS
+    evidence: >-
+      buildMemoryContext (run-agent.ts:912-937) recebe `db` que é sempre getDb()
+      (role authenticated, RLS 2ª rede + current_household_id()). Query com filtro
+      app-level explícito `where household_id = ${householdId}::uuid` (1ª rede).
+      getServiceDb() aparece SÓ em comentários — proibição documentada, nunca
+      invocado. Grep confirma: nenhuma chamada getServiceDb no ficheiro.
+  prompt_caching:
+    verdict: PASS
+    evidence: >-
+      memoryContextPrefix (planner.ts:311) entra SÓ no userMessage (messages[0],
+      linha 312/316). system=PLANNER_SYSTEM_PROMPT e tools intocados. Teste
+      planner.test.ts:353-388 prova via mock client: messages[0].content contém
+      "O que sabes sobre o Eurico" + as duas memórias, e JSON.stringify(system)/
+      JSON.stringify(tools) NÃO contêm o conteúdo. Determinístico (mock captura
+      params reais do provider).
+  pii_n1:
+    verdict: PASS
+    evidence: >-
+      Catch de buildMemoryContext (run-agent.ts:934) faz só log.warn({ err }, ...)
+      — nunca content/linhas. Teste run-agent.test.ts:753-764 assere
+      log.warn.mock.calls[0][0] toEqual({ err: boom }). content nunca em span
+      attributes. Alinhado com comment PII da migration 0034.
+  scope_no_creep:
+    verdict: PASS
+    evidence: >-
+      git status: 7 ficheiros exactos da File List (4 source + 3 test), ZERO
+      migrations. INTENT_VALUES/TOOL_TO_INTENT_MAP/TOOL_DOMAIN_VALUES intocados
+      (memorizar é pré-existente da M-1, não novo). 4 conjuntos J-7/J-8
+      (EXTERNAL_WRITE_INTENTS etc.) intocados. Captura (M-1), brief (M-3),
+      esquecer (M-4), retrieval (v2.x) fora de âmbito — confirmado.
+  pattern_both_callsites:
+    verdict: PASS
+    evidence: >-
+      Call-site 1 (branch executed, run-agent.ts:660) e call-site 2
+      (renderExternalWritePreview, run-agent.ts:1008) chamam buildMemoryContext e
+      passam memoryContext a planner.plan(...), ao lado de buildAccountContext.
+      Testes run-agent.test.ts:772-845 provam ambos via inspecção de sqlText
+      (robusto a reordenação, não por índice de chamada).
+  constraints:
+    verdict: PASS
+    evidence: >-
+      Sem `any` (unknown + type guards no sqlText; casts `as never` só em mocks de
+      teste). Imports @/ e @meu-jarvis/*. PT-PT europeu em bloco/comentários/testes.
+      SEC-8 (withHousehold/db-shim/client) e billing intocados.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Evidência real re-executada por @qa (pnpm, não npm)
+# ─────────────────────────────────────────────────────────────────────────────
+evidence_reexecuted:
+  planner_executor_test: '86 passed / 7 files (schemas 15, planner 21, contract 2) — GREEN'
+  web_run_agent_isolated: '21 passed / 1 file — GREEN, sem flake isolado (o timeout reportado pelo @dev era artefacto do turbo paralelo, não reproduz isolado)'
+  lint: '10/10 tasks, FULL TURBO cache válido (código inalterado desde execução @dev) — No ESLint warnings or errors'
+  typecheck: '10/10 tasks, FULL TURBO cache válido — 0 erros'
+  git_migrations: 'packages/db/migrations/ sem alterações — check:rls inalterado por construção'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AC coverage
+# ─────────────────────────────────────────────────────────────────────────────
+ac_coverage:
+  AC1_buildMemoryContext: PASS  # SELECT RLS-scoped cap 50 DESC, undefined se vazio, catch não-fatal
+  AC2_MemoryContextSchema: PASS  # z.array({content:string}) + campo opcional em PlannerInputSchema + export
+  AC3_serializer: PASS  # bloco [O que sabes sobre o Eurico], 2 newlines finais, ordem data→contas→email→memória→classif
+  AC4_two_callsites: PASS  # executed + renderExternalWritePreview; 4 sets J-7/J-8 intocados
+  AC5_tests: PASS  # 11 testes novos (schemas 6, planner 2, run-agent 5); presença/ausência prefixo, N1, cap 50, dois call-sites
+  AC6_gates: PASS  # lint/typecheck/web/planner-executor/build/check:rls/db-test GREEN (@dev) + re-exec @qa dos críticos
+  AC7_e2e_live: DEFERRED  # [EURICO] best-effort pós-deploy, não bloqueante (por design — LLM não-determinístico)
+
+recommendation: >-
+  PASS — pronto para @devops *push. E2E live "o que sabes sobre mim?" no
+  @jarvis_eurico_bot é best-effort [EURICO] pós-deploy (AC7): resultado negativo é
+  nota de qualidade de prompt, não reabre a story. A entrega técnica bloqueante
+  (memória chega ao payload do provider, determinístico) está provada.
