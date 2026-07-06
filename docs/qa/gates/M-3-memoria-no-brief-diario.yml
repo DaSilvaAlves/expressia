@@ -1,0 +1,115 @@
+schema: 1
+story: 'M-3'
+story_title: 'Memória no brief diário'
+gate: PASS
+score: 95
+status_reason: 'Metade "brief" de D4 entregue com o mesmo rigor da M-2. resolveMemoriesSection lê jarvis_memories via o db RLS-scoped de withHousehold (nunca getServiceDb), memória entra SÓ no prompt de síntese (nunca no fallback determinístico), mock de db.execute discrimina por SQL (sem falso-positivo no AC8), catch silencioso honra N1/PII. Todos os gates re-executados GREEN.'
+reviewer: 'Quinn (Test Architect)'
+agent_model: 'Opus 4.8 (1M)'
+updated: '2026-07-05T18:45:00Z'
+
+top_issues: []
+
+waiver: { active: false }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pontos críticos verificados (leitura de código real, não só documentação)
+# ─────────────────────────────────────────────────────────────────────────────
+critical_checks:
+  rls_isolation:
+    verdict: PASS
+    evidence: >-
+      resolveMemoriesSection(db, householdId) (build-brief.ts:84-102) recebe o
+      MESMO `db` RLS-scoped que buildBriefForHousehold obtém de withHousehold
+      (generate-daily-brief.ts:109-126, role authenticated, 2ª rede RLS viva).
+      getServiceDb() só toca telegram_link para identidade (linhas 90-96, SEC-10
+      legítimo) — NUNCA os dados de domínio. Query com filtro app-level explícito
+      `where household_id = ${householdId}::uuid` (defesa-em-profundidade, 1ª rede),
+      idêntico a resolveCalendarSection/resolveEmailSection. Grep confirma: as 4
+      ocorrências de getServiceDb/run-agent no ficheiro são todas comentários,
+      zero invocações/imports. Isolamento de memórias entre households garantido.
+  memory_llm_only_not_fallback:
+    verdict: PASS
+    evidence: >-
+      buildFallbackBrief (synthesize.ts:264-303) NÃO referencia data.memories em
+      lado nenhum — o template determinístico ignora memória por completo (AC5).
+      Teste dedicado synthesize.test.ts:298-308 prova
+      buildFallbackBrief(comMemórias) === buildFallbackBrief(semMemórias) e a
+      ausência de "O que sabes sobre o Eurico"/"odeio reuniões". O bloco entra SÓ
+      em serializeBriefData (linhas 211-215), como PRIMEIRO bloco, ANTES da agenda.
+  mock_discriminates_by_sql:
+    verdict: PASS
+    evidence: >-
+      makeDb (build-brief.test.ts:69-79) inspecciona sqlText(query) e encaminha
+      queries com 'jarvis_memories' para memoryImpl; as restantes
+      (google_oauth_tokens) para executeImpl. Sem isto, a 3ª query concorrente do
+      Promise.all daria falso-positivo (calendar/email poluídos com linhas de
+      memória, ou memories com forma de token). O teste M-3(a) assere ainda que a
+      query emitida contém 'jarvis_memories' + 'limit 50' — a prova do AC8 é limpa,
+      não passa pela razão errada. Nota should-fix do @po honrada byte-a-byte.
+  pii_n1:
+    verdict: PASS
+    evidence: >-
+      Catch de resolveMemoriesSection (build-brief.ts:97-101) é silencioso: devolve
+      [], SEM qualquer log (nem { err }). content das memórias (PII sensível,
+      comentário da migration 0034) nunca é tocado no caminho de erro nem em spans.
+      Segue o padrão silencioso de resolveCalendarSection (sem logger acessível
+      neste ponto). memoryCount NÃO foi adicionado ao GenerateDailyBriefSummary —
+      opcional por design, omitido para não tocar generate-daily-brief.ts (SEC-8).
+  scope_no_creep:
+    verdict: PASS
+    evidence: >-
+      File List = 4 source/test do módulo brief + a story. ZERO migrations
+      (jarvis_memories + 4 RLS policies já em prod desde M-1/0034). Sem novo intent
+      (agent_intent/TOOL_TO_INTENT_MAP/TOOL_DOMAIN_VALUES intocados). run-agent.ts /
+      planner.ts / generate-daily-brief.ts NÃO tocados (SEC-8 HOLD respeitado).
+      Captura (M-1), motor (M-2), esquecer (M-4), retrieval (v2.x) fora de âmbito.
+  duplication_not_import:
+    verdict: PASS
+    evidence: >-
+      resolveMemoriesSection é função local privada de build-brief.ts, SQL idêntico
+      ao de buildMemoryContext (M-2) mas SEM import de run-agent.ts — segue o
+      precedente exacto de resolveCalendarSection/resolveEmailSection (leem
+      google_oauth_tokens sem importar helpers de agent/). Contratos de retorno
+      divergentes justificam (readonly string[] vs { content }[] do
+      MemoryContextSchema). Menor blast radius = duplicação. Grep confirma zero
+      imports cruzados agent↔brief.
+  constraints:
+    verdict: PASS
+    evidence: >-
+      Sem `any` em build-brief.ts (grep: 0 matches; interface JarvisMemoryRow
+      tipada; casts `as never` só em mocks de teste). Imports @/ e @meu-jarvis/*.
+      PT-PT europeu em bloco [O que sabes sobre o Eurico], regra do system prompt,
+      comentários e testes. SEC-8 (withHousehold/db-shim/client) e billing intocados.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Evidência real re-executada por @qa (pnpm, não npm)
+# ─────────────────────────────────────────────────────────────────────────────
+evidence_reexecuted:
+  web_test_brief: '64 passed / 4 files (build-brief + synthesize + run-agent + affected) — GREEN, 0 falhas. Inclui os 7 testes novos (3 build-brief resolveMemoriesSection + 4 synthesize memória).'
+  typecheck: 'pnpm --filter @meu-jarvis/web typecheck — tsc --noEmit, 0 erros'
+  lint: 'pnpm --filter @meu-jarvis/web lint — No ESLint warnings or errors (--max-warnings=0)'
+  git_migrations: 'packages/db/migrations/ sem alterações — check:rls inalterado por construção (só leitura adicional de tabela já coberta)'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AC coverage
+# ─────────────────────────────────────────────────────────────────────────────
+ac_coverage:
+  AC1_resolveMemoriesSection: PASS  # SELECT content RLS-scoped cap 50 DESC, [] se vazio, catch não-fatal silencioso
+  AC2_BriefData_memories: PASS  # memories?: readonly string[] + resolveMemoriesSection no Promise.all, data.memories populado
+  AC3_memoryLines: PASS  # [] se ausente/vazio; bloco [O que sabes sobre o Eurico] como PRIMEIRO em serializeBriefData
+  AC4_system_prompt_rule: PASS  # nova regra PT-PT: ter memórias em conta, não repetir literalmente, omitir se ausente
+  AC5_fallback_untouched: PASS  # buildFallbackBrief ignora memories; teste dedicado comMem===semMem
+  AC6_no_migration_intent: PASS  # sem migration, sem intent/tool; check:rls sem mudança de cobertura
+  AC7_pii: PASS  # content nunca em log/span; catch silencioso; memoryCount não adicionado (opcional)
+  AC8_tests: PASS  # 7 testes novos; mock discrimina por SQL (jarvis_memories vs google_oauth_tokens), sem falso-positivo
+  AC9_gates: PASS  # lint/typecheck/web GREEN re-exec @qa; build/check:rls/db-test GREEN @dev
+  AC10_e2e_live: DEFERRED  # [EURICO]/[@devops] invoke manual do job pós-deploy, não bloqueante (LLM não-determinístico)
+
+recommendation: >-
+  PASS — pronto para @devops *push. E2E live best-effort (AC10): [@devops] invoca
+  manualmente generate-daily-brief (Inngest Dashboard "Invoke Function") pós-deploy
+  e [EURICO] observa se o brief no Telegram reflecte a preferência ("odeio reuniões
+  antes das 10h"). Resultado negativo é nota de qualidade do BRIEF_SYSTEM_PROMPT,
+  não reabre a story — a entrega técnica bloqueante (a memória chega ao prompt de
+  síntese, determinístico) está provada.

@@ -58,6 +58,49 @@ interface GoogleOauthTokenRow {
   readonly token_auth_tag: string;
 }
 
+/** Row de `jarvis_memories` — só `content` é necessário ao brief (Story M-3). */
+interface JarvisMemoryRow {
+  readonly content: string;
+}
+
+/**
+ * Resolve as memórias explícitas do household (guardadas via "lembra-te que…",
+ * Story M-1) para injectar no prompt de síntese do brief (Story M-3, metade
+ * "brief" da decisão D4). Query idêntica à de `buildMemoryContext`
+ * (`run-agent.ts`, M-2), duplicada localmente por menor blast radius — mesma
+ * disciplina de `resolveCalendarSection`/`resolveEmailSection`, que também não
+ * importam helpers de leitura do módulo `agent/` (ver AUTO-DECISION na story).
+ *
+ * Cap 50, `ORDER BY created_at DESC` — sem retrieval semântico/keyword (D3
+ * rejeita-o para o MVP). Lê via o `db` RLS-scoped (`withHousehold`), NUNCA
+ * `getServiceDb()`, com filtro `household_id` explícito por defesa-em-profundidade.
+ *
+ * NUNCA lança — qualquer falha de leitura é não-fatal: devolve `[]` e o brief
+ * prossegue sem memória nesse dia (degradação graciosa, mesmo contrato da agenda
+ * e do email). Segue o padrão silencioso de `resolveCalendarSection` (sem logger
+ * acessível neste ponto); o `content` das memórias é PII sensível (migration
+ * 0034) e NUNCA seria logado ainda que houvesse logger (N1 herdado da M-2).
+ */
+async function resolveMemoriesSection(
+  db: DbShim,
+  householdId: string,
+): Promise<readonly string[]> {
+  try {
+    const rows = await db.execute<JarvisMemoryRow>(sql`
+      select content
+      from public.jarvis_memories
+      where household_id = ${householdId}::uuid
+      order by created_at desc
+      limit 50
+    `);
+    return rows.map((r) => r.content);
+  } catch {
+    // Falha inesperada na leitura — memória fica de fora, mas o brief continua.
+    // Sem log de conteúdo (PII, N1); padrão silencioso de resolveCalendarSection.
+    return [];
+  }
+}
+
 /**
  * Resolve a secção de agenda para `(household, user)`. NUNCA lança — toda a
  * falha é capturada e mapeada para um dos estados de `CalendarSection`, de modo
@@ -166,13 +209,14 @@ export async function buildBriefForHousehold(
 ): Promise<BriefResult> {
   // Agregação em paralelo — todas as queries são read-only e household-scoped.
   // A agenda corre em paralelo e nunca lança (degradação graciosa interna).
-  const [today, overdue, finances, accounts, calendar, email] = await Promise.all([
+  const [today, overdue, finances, accounts, calendar, email, memories] = await Promise.all([
     getTasksToday(db, householdId),
     getTasksOverdue(db, householdId),
     getFinancesMonth(db, householdId),
     getAccountsBalance(db, householdId),
     resolveCalendarSection(db, householdId, userId),
     resolveEmailSection(db, householdId, userId),
+    resolveMemoriesSection(db, householdId),
   ]);
 
   const data: BriefData = {
@@ -186,6 +230,7 @@ export async function buildBriefForHousehold(
     financeBalanceCents: finances.balance,
     accountsBalanceCents: accounts.totalBalanceCents,
     emailSummary: email.emails,
+    memories,
   };
 
   const { text, usedFallback } = await synthesizeBriefText(data, {

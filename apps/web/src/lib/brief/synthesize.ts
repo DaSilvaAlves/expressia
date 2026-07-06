@@ -59,6 +59,15 @@ export interface BriefData {
     readonly receivedAt: string;
     readonly snippet: string;
   }[];
+  /**
+   * Memórias explícitas do Eurico (guardadas via "lembra-te que…", Story M-1),
+   * a ter em conta ao comentar as restantes secções do brief (Story M-3).
+   * Opcional e gracioso: `undefined`/`[]` → secção `[O que sabes sobre o Eurico]`
+   * omitida por completo (regressão zero para households sem memórias). Preenchido
+   * por `resolveMemoriesSection` em `build-brief.ts`. NUNCA usado no
+   * `buildFallbackBrief` (template determinístico não interpreta preferências).
+   */
+  readonly memories?: readonly string[];
 }
 
 export interface SynthesizeResult {
@@ -156,6 +165,25 @@ function emailLines(emailSummary: BriefData['emailSummary']): string[] {
   return lines;
 }
 
+/**
+ * Constrói as linhas da secção de memória (`[O que sabes sobre o Eurico]`),
+ * injectada SÓ no prompt de síntese LLM (`serializeBriefData`) — NUNCA no
+ * `buildFallbackBrief` (Story M-3, decisão de âmbito). Devolve `[]` quando não há
+ * `memories` ou está vazio (secção omitida por completo — regressão zero para
+ * households sem memórias). Bloco listado ANTES da agenda para que o LLM tenha as
+ * preferências em conta ao comentar qualquer secção seguinte.
+ */
+function memoryLines(memories: BriefData['memories']): string[] {
+  if (memories === undefined || memories.length === 0) {
+    return [];
+  }
+  const lines = ['[O que sabes sobre o Eurico]'];
+  for (const memory of memories) {
+    lines.push(`- ${memory}`);
+  }
+  return lines;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Prompt
 // ─────────────────────────────────────────────────────────────────────────────
@@ -165,6 +193,7 @@ const BRIEF_SYSTEM_PROMPT = `És o Jarvis, o assistente pessoal do Eurico. Escre
 Regras:
 - Começa com uma saudação breve de bom dia.
 - Resume, por esta ordem: agenda de hoje, tarefas de hoje, tarefas atrasadas (se houver), o estado das finanças do mês e, por fim, os emails não lidos.
+- Se for fornecida a secção \`[O que sabes sobre o Eurico]\`, tem essas preferências em conta ao comentar as secções seguintes (agenda/tarefas/finanças/emails) — ex.: ajusta o tom sobre um compromisso que colida com uma preferência conhecida. NÃO repitas a lista de preferências literalmente no brief, a menos que seja directamente relevante para o comentário de uma secção concreta. Se a secção não constar nos dados, não menciones preferência alguma.
 - Se a secção da agenda não constar nos dados, não menciones a agenda de todo.
 - Se for fornecida a secção \`Emails não lidos\`, inclui um resumo breve dos emails por responder (máx. 2-3 frases; ex.: "Tens 2 emails por responder — um do Pedro sobre a reunião e outro do banco."). Omite completamente a secção se não constar nos dados.
 - Trata o Eurico sempre por "tu" e usa formas verbais informais. Exemplos correctos: "Tens 3 tarefas.", "Tem um bom dia." — NUNCA "Tenha um bom dia." (formal) nem "Você tem".
@@ -176,7 +205,16 @@ Regras:
 function serializeBriefData(data: BriefData): string {
   const lines: string[] = [];
 
-  // Agenda primeiro (ordem do PRD: agenda → tarefas → finanças). Omitida por
+  // Memória primeiro (Story M-3): as preferências do Eurico precedem TUDO para
+  // que o LLM as tenha em conta ao comentar qualquer secção seguinte. Omitida por
+  // completo quando não há memórias (regressão zero).
+  const memories = memoryLines(data.memories);
+  if (memories.length > 0) {
+    lines.push(...memories);
+    lines.push('');
+  }
+
+  // Agenda depois (ordem do PRD: agenda → tarefas → finanças). Omitida por
   // completo quando `not_connected` (sem token OAuth).
   const calendar = calendarLines(data.calendar);
   if (calendar.length > 0) {

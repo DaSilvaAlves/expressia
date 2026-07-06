@@ -245,6 +245,69 @@ describe('serializeBriefData (via prompt do LLM) — email (Story J-6)', () => {
   });
 });
 
+describe('serializeBriefData (via prompt do LLM) — memória (Story M-3)', () => {
+  const opts = { traceId: 'trace-mem', householdId: '00000000-0000-0000-0000-000000000004' };
+
+  async function capturePromptContent(data: BriefData): Promise<string> {
+    let captured = '';
+    const completeSpy = vi.fn(async (args: { messages: Array<{ content: string }> }) => {
+      captured = args.messages[0]?.content ?? '';
+      return { content: 'ok' };
+    });
+    vi.mocked(getProvider).mockReturnValue({
+      id: 'openai',
+      model: 'gpt-4o-mini',
+      complete: completeSpy as never,
+    } as never);
+    await synthesizeBriefText(data, opts);
+    return captured;
+  }
+
+  it('memórias presentes → bloco "[O que sabes sobre o Eurico]" no prompt, ANTES da agenda', async () => {
+    const content = await capturePromptContent({
+      ...BASE_DATA,
+      calendar: { status: 'connected', events: [EVENT_0930] },
+      memories: ['odeio reuniões antes das 10h', 'prefiro café sem açúcar'],
+    });
+    expect(content).toContain('[O que sabes sobre o Eurico]');
+    expect(content).toContain('- odeio reuniões antes das 10h');
+    expect(content).toContain('- prefiro café sem açúcar');
+    // A memória precede TUDO — surge antes da agenda e das tarefas no prompt.
+    expect(content.indexOf('[O que sabes sobre o Eurico]')).toBeLessThan(
+      content.indexOf('Agenda de hoje:'),
+    );
+    expect(content.indexOf('[O que sabes sobre o Eurico]')).toBeLessThan(
+      content.indexOf('Tarefas de hoje'),
+    );
+    // E é o PRIMEIRO bloco do prompt.
+    expect(content.startsWith('[O que sabes sobre o Eurico]')).toBe(true);
+  });
+
+  it('memories vazio → bloco de memória omitido por completo (regressão zero)', async () => {
+    const content = await capturePromptContent({ ...BASE_DATA, memories: [] });
+    expect(content).not.toContain('[O que sabes sobre o Eurico]');
+    // Sem memória e sem agenda (not_connected), o prompt começa nas tarefas.
+    expect(content.startsWith('Tarefas de hoje')).toBe(true);
+  });
+
+  it('memories ausente (undefined) → bloco de memória omitido por completo', async () => {
+    const content = await capturePromptContent(BASE_DATA);
+    expect(content).not.toContain('[O que sabes sobre o Eurico]');
+  });
+
+  it('buildFallbackBrief NÃO referencia memórias mesmo quando presentes (AC5)', () => {
+    const withMemories = buildFallbackBrief({
+      ...BASE_DATA,
+      memories: ['odeio reuniões antes das 10h', 'prefiro café sem açúcar'],
+    });
+    const withoutMemories = buildFallbackBrief(BASE_DATA);
+    // O fallback é um template determinístico que ignora memórias por completo.
+    expect(withMemories).toBe(withoutMemories);
+    expect(withMemories).not.toContain('O que sabes sobre o Eurico');
+    expect(withMemories).not.toContain('odeio reuniões');
+  });
+});
+
 describe('synthesizeBriefText', () => {
   const opts = { traceId: 'trace-1', householdId: '00000000-0000-0000-0000-000000000001' };
 

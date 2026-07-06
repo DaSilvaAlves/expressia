@@ -40,9 +40,42 @@ vi.mock('@/lib/google/gmail', () => ({
 const HOUSEHOLD = '2dedb1ec-dc6f-4445-a5b4-b5f942755655';
 const USER = 'df5b403f-0000-4000-8000-000000000000';
 
-/** `db` mock — só `execute` é exercido (lê `google_oauth_tokens`). Default: sem linha. */
-function makeDb(executeImpl: () => Promise<unknown[]>) {
-  return { execute: vi.fn(executeImpl) } as never;
+/**
+ * Extrai o texto SQL literal de um objecto `sql` do drizzle (concatena os
+ * `StringChunk.value`) — para o mock discriminar por tabela sem depender da ordem
+ * das chamadas (Story M-3: distinguir `jarvis_memories` de `google_oauth_tokens`,
+ * que passam a correr em paralelo no mesmo `Promise.all`). Mesmo helper da M-2
+ * (`run-agent.test.ts`).
+ */
+function sqlText(arg: unknown): string {
+  const chunks = (arg as { queryChunks?: unknown[] })?.queryChunks;
+  if (!Array.isArray(chunks)) return '';
+  return chunks
+    .map((c) => {
+      const value = (c as { value?: unknown })?.value;
+      if (Array.isArray(value)) return value.join('');
+      return typeof value === 'string' ? value : '';
+    })
+    .join(' ');
+}
+
+/**
+ * `db` mock que DISCRIMINA por tabela (nota should-fix do @po, Story M-3): a query
+ * de `jarvis_memories` recebe `memoryImpl`; todas as outras (`google_oauth_tokens`
+ * — calendar/email) recebem `executeImpl`. Sem discriminação, um mock ingénuo
+ * poluiria a leitura de calendar/email com linhas de memória (ou vice-versa),
+ * dando um falso-positivo ao AC8. Default de memórias: sem linha.
+ */
+function makeDb(
+  executeImpl: () => Promise<unknown[]>,
+  memoryImpl: () => Promise<unknown[]> = async () => [],
+) {
+  return {
+    execute: vi.fn(async (query: unknown) => {
+      if (sqlText(query).includes('jarvis_memories')) return memoryImpl();
+      return executeImpl();
+    }),
+  } as never;
 }
 
 beforeEach(() => {
@@ -108,6 +141,7 @@ describe('buildBriefForHousehold', () => {
         financeBalanceCents: 70000,
         accountsBalanceCents: 250000,
         emailSummary: [],
+        memories: [],
       },
       { traceId: 'trace-1', householdId: HOUSEHOLD },
     );
@@ -282,5 +316,54 @@ describe('resolveEmailSection (via buildBriefForHousehold) — Story J-6', () =>
     expect(result.text).toBe('BRIEF GERADO'); // brief nunca derruba por causa do email
     const dataArg = vi.mocked(synthesizeBriefText).mock.calls[0]?.[0];
     expect(dataArg?.emailSummary).toEqual([]);
+  });
+});
+
+describe('resolveMemoriesSection (via buildBriefForHousehold) — Story M-3', () => {
+  /** A linha da query `jarvis_memories` (mock discrimina por SQL — nota @po). */
+  function memoryQuery(db: { execute: ReturnType<typeof vi.fn> }): unknown {
+    return db.execute.mock.calls.find((c) => sqlText(c[0]).includes('jarvis_memories'))?.[0];
+  }
+
+  it('memórias presentes → BriefData.memories populado; query usa jarvis_memories + LIMIT 50', async () => {
+    // executeImpl (google_oauth_tokens) sem linha; memoryImpl devolve 2 memórias.
+    const db = makeDb(
+      async () => [],
+      async () => [{ content: 'odeio reuniões antes das 10h' }, { content: 'prefiro café sem açúcar' }],
+    ) as unknown as { execute: ReturnType<typeof vi.fn> };
+
+    await buildBriefForHousehold(db as never, HOUSEHOLD, USER, 'trace-1');
+
+    const dataArg = vi.mocked(synthesizeBriefText).mock.calls[0]?.[0];
+    expect(dataArg?.memories).toEqual(['odeio reuniões antes das 10h', 'prefiro café sem açúcar']);
+
+    // A query correcta foi emitida (household-scoped, cap 50) — sem falso-positivo.
+    const query = sqlText(memoryQuery(db));
+    expect(query).toContain('jarvis_memories');
+    expect(query).toContain('limit 50');
+  });
+
+  it('sem memórias → BriefData.memories vazio (secção omitida a jusante)', async () => {
+    const db = makeDb(async () => []); // memoryImpl default → []
+    const result = await buildBriefForHousehold(db, HOUSEHOLD, USER, 'trace-1');
+
+    expect(result.text).toBe('BRIEF GERADO');
+    const dataArg = vi.mocked(synthesizeBriefText).mock.calls[0]?.[0];
+    expect(dataArg?.memories).toEqual([]);
+  });
+
+  it('erro na leitura de memórias → memories [] graciosamente, o brief continua', async () => {
+    const db = makeDb(
+      async () => [], // tokens OK (sem linha)
+      async () => {
+        throw new Error('db falhou a ler jarvis_memories');
+      },
+    );
+
+    const result = await buildBriefForHousehold(db, HOUSEHOLD, USER, 'trace-1');
+
+    expect(result.text).toBe('BRIEF GERADO'); // memória nunca derruba o brief
+    const dataArg = vi.mocked(synthesizeBriefText).mock.calls[0]?.[0];
+    expect(dataArg?.memories).toEqual([]);
   });
 });
