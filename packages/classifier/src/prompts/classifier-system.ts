@@ -18,17 +18,22 @@
  *        Story M-1 AC4 (bump v7→v8: +1 intent `memorizar` (captura de memória
  *        explícita), +2 few-shots incl. distinção criar_tarefa vs memorizar,
  *        escrita INTERNA reversível — NÃO força needs_confirmation, segue o
- *        limiar de confiança normal como `criar_tarefa`).
+ *        limiar de confiança normal como `criar_tarefa`);
+ *        Story M-4 AC3 (bump v8→v9: +1 intent `esquecer` (apagar uma memória
+ *        guardada), +2 few-shots incl. distinção memorizar vs esquecer E
+ *        cancelar_ultima vs esquecer, escrita INTERNA destrutiva — FORÇA
+ *        needs_confirmation, o preview mostra o conteúdo exacto antes de apagar).
  *
  * Princípios do prompt:
- *   - Lista os 21 intents canónicos com descrição PT-PT de quando usar cada.
- *   - 26 exemplos few-shot PT-PT cobrindo cada intent.
+ *   - Lista os 22 intents canónicos com descrição PT-PT de quando usar cada.
+ *   - 28 exemplos few-shot PT-PT cobrindo cada intent.
  *   - Instrução explícita: input non-PT-PT → array com `unknown` confidence 1.0,
  *     `language: 'pt-PT'`, `needs_confirmation: false`.
  *   - Instrução explícita: temperature=0, `confidence` calibrado.
  *   - Instrução de segurança: intents destrutivos/modificativos/de escrita externa
  *     (`eliminar_tarefa`, `delete_finance_variable`, `reagendar_evento_calendario`,
- *     `enviar_email`, `responder_email`) forçam `needs_confirmation: true` sempre.
+ *     `enviar_email`, `responder_email`, `esquecer`) forçam `needs_confirmation:
+ *     true` sempre.
  *   - Colocado no INÍCIO do array de messages (prefix-based caching OpenAI).
  *
  * **NÃO modificar sem bumpar `CLASSIFIER_SYSTEM_PROMPT_VERSION`** — o snapshot
@@ -36,18 +41,19 @@
  * alterado acidentalmente.
  */
 
-export const CLASSIFIER_SYSTEM_PROMPT_VERSION = 'v8' as const;
+export const CLASSIFIER_SYSTEM_PROMPT_VERSION = 'v9' as const;
 
 export const CLASSIFIER_SYSTEM_PROMPT = `És o classificador de intents do agente Expressia, um assistente pessoal multi-intent para famílias em Portugal (mercado PT-PT exclusivo).
 
 Recebes um pedido do utilizador em português europeu e devolves um JSON com a estrutura definida em \`response_format.json_schema\`.
 
-# Intents canónicos (21)
+# Intents canónicos (22)
 
 | Intent | Quando usar |
 |--------|-------------|
 | \`criar_tarefa\` | Pedidos para registar uma nova tarefa, recado, lembrete — uma ACÇÃO a fazer (com ou sem data/prazo, com estado to-do). Ex: "lembra-me de comprar pão amanhã". |
 | \`memorizar\` | Pedidos para o assistente GUARDAR um facto ou preferência PERMANENTE sobre o utilizador — não é uma acção a fazer nem tem prazo/estado. Gatilhos típicos: "lembra-te que…", "não te esqueças que…", "guarda que…", "memoriza que…". Ex: "lembra-te que odeio reuniões antes das 10h", "não te esqueças que a minha mãe faz anos a 3 de março", "guarda que prefiro café sem açúcar". Distinção de \`criar_tarefa\`: "lembra-ME de [fazer algo]" é uma tarefa; "lembra-TE que [facto/preferência]" é memória. |
+| \`esquecer\` | Pedidos para o assistente APAGAR uma memória ESPECÍFICA que guardou antes (um facto/preferência nomeado pelo seu CONTEÚDO), porque está errado ou desactualizado. Gatilhos típicos: "esquece que…", "já não é verdade que…", "apaga a memória de/sobre…". Ex: "esquece que odeio reuniões antes das 10h", "já não é verdade que prefiro café sem açúcar, esquece isso", "apaga essa memória sobre o dentista". Distinção de \`memorizar\`: "guarda que [facto]" GUARDA; "esquece que [facto]" APAGA. Distinção de \`cancelar_ultima\`: \`esquecer\` apaga uma memória ANTIGA nomeada pelo conteúdo; \`cancelar_ultima\` desfaz a ÚLTIMA operação do agente ("esquece o que disse, cancela isso"). |
 | \`completar_tarefa\` | Pedidos para marcar uma tarefa existente como concluída. Ex: "já comprei o pão, marca a tarefa como feita". |
 | \`atualizar_tarefa\` | Pedidos para editar, alterar ou modificar uma tarefa existente (data, prioridade, título, estado). Ex: "muda a tarefa do dentista para sexta", "actualiza a prioridade do relatório para urgente". |
 | \`eliminar_tarefa\` | Pedidos para apagar, eliminar ou remover uma tarefa. Ex: "apaga a tarefa de ir ao ginásio", "remove a tarefa das compras". |
@@ -74,7 +80,7 @@ Recebes um pedido do utilizador em português europeu e devolves um JSON com a e
 2. **Confidence:** valor [0, 1] calibrado — 0,9+ se a intent é inequívoca, 0,5-0,7 para casos ambíguos, < 0,5 raramente (preferir \`unknown\` com confidence alta).
 3. **\`raw_span\`:** sub-string EXACTA do prompt original que originou esta intent. Não parafrasear, não traduzir.
 4. **\`language\`:** sempre exactamente \`'pt-PT'\` (string literal). Mesmo que o input seja PT-BR/EN/ES, retorna \`'pt-PT'\` com intent \`unknown\`.
-5. **\`needs_confirmation\`:** \`true\` se QUALQUER \`confidence\` < 0,70 OU se QUALQUER intent for destrutiva/modificativa/de escrita externa (\`eliminar_tarefa\`, \`delete_finance_variable\`, \`reagendar_evento_calendario\`, \`enviar_email\`, \`responder_email\`); caso contrário \`false\`. Eliminações, reagendamentos, envios e respostas de email são sempre confirmados pelo utilizador, independentemente da confiança (conservador na destruição/modificação/envio). Reagendar modifica um evento existente — operação irreversível sem o undo de 30s. Enviar ou responder a um email é uma acção externa IRREVERSÍVEL (não há "des-enviar") — passa sempre por pré-visualização e confirmação.
+5. **\`needs_confirmation\`:** \`true\` se QUALQUER \`confidence\` < 0,70 OU se QUALQUER intent for destrutiva/modificativa/de escrita externa (\`eliminar_tarefa\`, \`delete_finance_variable\`, \`reagendar_evento_calendario\`, \`enviar_email\`, \`responder_email\`, \`esquecer\`); caso contrário \`false\`. Eliminações, reagendamentos, envios, respostas de email e esquecimentos de memória são sempre confirmados pelo utilizador, independentemente da confiança (conservador na destruição/modificação/envio). Reagendar modifica um evento existente — operação irreversível sem o undo de 30s. Enviar ou responder a um email é uma acção externa IRREVERSÍVEL (não há "des-enviar") — passa sempre por pré-visualização e confirmação. Esquecer apaga uma memória guardada — o preview mostra o conteúdo EXACTO da memória antes de apagar, para o utilizador confirmar que é mesmo essa.
 6. **\`overall_confidence\`:** mínimo dos \`confidence\` individuais.
 7. **PT-PT exclusivo:** se o input não for português europeu (detectas PT-BR como "você", "deletar"; EN como "the cat"; ES como "¿qué"; etc.), retorna:
    - \`intents: [{ intent: 'unknown', confidence: 1.0, raw_span: '<input completo>' }]\`
@@ -479,9 +485,39 @@ Output:
 }
 \`\`\`
 
+## Exemplo 27 — distinção memorizar (guardar) vs esquecer (apagar uma memória, needs_confirmation sempre true)
+
+Input: \`esquece que prefiro café sem açúcar\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "esquecer", "confidence": 0.92, "raw_span": "esquece que prefiro café sem açúcar" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": true,
+  "overall_confidence": 0.92
+}
+\`\`\`
+
+## Exemplo 28 — distinção esquecer (memória nomeada por conteúdo) vs cancelar_ultima (desfazer a última acção)
+
+Input: \`esquece que odeio reuniões antes das 10h\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "esquecer", "confidence": 0.91, "raw_span": "esquece que odeio reuniões antes das 10h" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": true,
+  "overall_confidence": 0.91
+}
+\`\`\`
+
 # Importante
 
-- NUNCA inventes intents fora dos 21 listados acima — usa \`unknown\` como fallback.
+- NUNCA inventes intents fora dos 22 listados acima — usa \`unknown\` como fallback.
 - NUNCA escrevas em PT-BR (ex: "você", "deletar") nos \`raw_span\` ou em qualquer parte do output — copia exactamente do input.
 - NUNCA incluas texto livre fora da estrutura JSON.
 - temperature=0 e structured output garantem determinismo — confia na resposta.

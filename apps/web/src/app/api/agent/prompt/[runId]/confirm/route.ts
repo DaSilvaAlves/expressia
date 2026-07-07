@@ -92,14 +92,16 @@ interface PendingPreviewRow extends Record<string, unknown> {
 
 /**
  * Story J-7 SEND-PREVIEW-1 — intents cujo plano persistido no preview deve ser
- * REUTILIZADO no confirm (em vez de re-planear), garantindo que a escrita externa
- * executada é EXACTAMENTE o rascunho que o utilizador reviu. `enviar_email` (J-7)
- * + `responder_email` (J-8): tarefas/finanças/calendar continuam a re-planear
- * (regressão zero).
+ * REUTILIZADO no confirm (em vez de re-planear), garantindo que a acção executada
+ * é EXACTAMENTE o que o utilizador reviu. `enviar_email` (J-7) + `responder_email`
+ * (J-8) + `esquecer` (M-4): a memória apagada no confirm é EXACTAMENTE a que o
+ * utilizador viu no preview (nunca re-resolvida às cegas). Tarefas/finanças/
+ * calendar continuam a re-planear (regressão zero).
  */
 const REUSE_PERSISTED_PLAN_INTENTS: ReadonlySet<string> = new Set([
   'enviar_email',
   'responder_email',
+  'esquecer',
 ]);
 
 /**
@@ -497,7 +499,8 @@ function buildConfirmSummary(result: AtomicResult): string {
 
 /**
  * Story J-7 SEND-PREVIEW-1 — o run deve reutilizar o plano persistido no preview?
- * (Restrito a `enviar_email` — binding preview==envio; ver `REUSE_PERSISTED_PLAN_INTENTS`.)
+ * (`enviar_email`/`responder_email` — binding preview==envio; `esquecer` (M-4) —
+ * binding preview==memória apagada; ver `REUSE_PERSISTED_PLAN_INTENTS`.)
  */
 function shouldReusePersistedPlan(intents: ReadonlyArray<{ intent: string }>): boolean {
   return intents.some((i) => REUSE_PERSISTED_PLAN_INTENTS.has(i.intent));

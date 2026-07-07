@@ -84,7 +84,11 @@ vi.mock('@upstash/redis', () => ({
   })),
 }));
 
-import { buildMemoryContext, runAgentForHousehold } from '@/lib/agent/run-agent';
+import {
+  buildForgetCandidatesContext,
+  buildMemoryContext,
+  runAgentForHousehold,
+} from '@/lib/agent/run-agent';
 
 /**
  * Extrai o texto SQL literal de um objecto `sql` do drizzle (concatena os
@@ -842,6 +846,172 @@ describe('buildMemoryContext — injectado nos DOIS call-sites (Story M-2 AC4)',
       memoryContext?: Array<{ content: string }>;
     };
     expect(planArg.memoryContext).toEqual([{ content: 'odeio reuniões antes das 10h' }]);
+  });
+});
+
+describe('buildForgetCandidatesContext (Story M-4 AC6)', () => {
+  function makeLog() {
+    return { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() };
+  }
+
+  it('mapeia linhas para [{ id, content }] — EXPÕE id; query usa jarvis_memories + LIMIT 50', async () => {
+    const execute = vi.fn().mockResolvedValue([
+      { id: 'm1', content: 'odeio reuniões antes das 10h', created_at: '2026-07-05T10:00:00Z' },
+      { id: 'm2', content: 'prefiro café sem açúcar', created_at: '2026-07-04T10:00:00Z' },
+    ]);
+    const log = makeLog();
+
+    const result = await buildForgetCandidatesContext(
+      { execute } as never,
+      log as never,
+      TEST_HOUSEHOLD_ID,
+    );
+
+    expect(result).toEqual([
+      { id: 'm1', content: 'odeio reuniões antes das 10h' },
+      { id: 'm2', content: 'prefiro café sem açúcar' },
+    ]);
+    const query = sqlText(execute.mock.calls[0]![0]);
+    expect(query).toContain('jarvis_memories');
+    expect(query).toContain('50');
+    expect(query).toContain('order by created_at desc');
+  });
+
+  it('lista vazia → undefined (zero-match ANTES do Planner)', async () => {
+    const execute = vi.fn().mockResolvedValue([]);
+    const result = await buildForgetCandidatesContext(
+      { execute } as never,
+      makeLog() as never,
+      TEST_HOUSEHOLD_ID,
+    );
+    expect(result).toBeUndefined();
+  });
+
+  it('erro de leitura → undefined (não-fatal) + log.warn({ err }) SEM content (N1/PII)', async () => {
+    const boom = new Error('rls fail');
+    const execute = vi.fn().mockRejectedValue(boom);
+    const log = makeLog();
+
+    const result = await buildForgetCandidatesContext(
+      { execute } as never,
+      log as never,
+      TEST_HOUSEHOLD_ID,
+    );
+
+    expect(result).toBeUndefined();
+    expect(log.warn).toHaveBeenCalledTimes(1);
+    expect(log.warn.mock.calls[0]![0]).toEqual({ err: boom });
+  });
+});
+
+describe('runAgentForHousehold — esquecer preview (Story M-4 AC7)', () => {
+  const FORGET_MEM_ID = '33333333-3333-4333-8333-333333333333';
+  const MEMORY_ROWS = [
+    { id: FORGET_MEM_ID, content: 'odeio reuniões antes das 10h', created_at: '2026-07-05T10:00:00Z' },
+  ];
+
+  function classifyEsquecer(): void {
+    mocks.classifyMock.mockResolvedValue({
+      intents: [
+        { intent: 'esquecer', confidence: 0.92, raw_span: 'esquece que odeio reuniões antes das 10h' },
+      ],
+      language: 'pt-PT',
+      needs_confirmation: true,
+      overall_confidence: 0.92,
+    });
+  }
+
+  it('preview real — forgetCandidatesContext chega ao Planner e o preview mostra o conteúdo resolvido (não o label genérico)', async () => {
+    setupDbWithMemory(MEMORY_ROWS);
+    classifyEsquecer();
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [
+        {
+          toolName: 'esquecer',
+          input: { memoryId: FORGET_MEM_ID, content: 'odeio reuniões antes das 10h' },
+          intent: 'esquecer',
+        },
+      ],
+      planReasoning: null,
+      latencyMs: 0,
+      tokensInput: 0,
+      tokensOutput: 0,
+      costEur: 0,
+      cacheHit: false,
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'esquece que odeio reuniões antes das 10h',
+    });
+
+    expect(outcome.status).toBe('preview');
+    expect(mocks.plannerPlanMock).toHaveBeenCalledTimes(1);
+    const planArg = mocks.plannerPlanMock.mock.calls[0]![0] as {
+      forgetCandidatesContext?: Array<{ id: string; content: string }>;
+    };
+    expect(planArg.forgetCandidatesContext).toEqual([
+      { id: FORGET_MEM_ID, content: 'odeio reuniões antes das 10h' },
+    ]);
+    // O preview mostra o conteúdo EXACTO da memória (não "esquecer (92%)").
+    if (outcome.status === 'preview') {
+      const summary = outcome.planSummary.join(' ');
+      expect(summary).toContain('Vou esquecer: "odeio reuniões antes das 10h". Confirmas?');
+      expect(summary).not.toMatch(/esquecer \(\d+%\)/);
+    }
+    // Nunca executa (só preview) — o Executor não corre.
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('zero-match honesto — household SEM memórias → forget_zero_match SEM correr o Planner (nunca inventa memoryId)', async () => {
+    setupDbWithMemory([]); // nenhuma memória
+    classifyEsquecer();
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'esquece que odeio reuniões antes das 10h',
+    });
+
+    // Resposta informativa (direct_query), sem confirmação, sem apagar nada.
+    expect(outcome.status).toBe('executed');
+    if (outcome.status === 'executed') {
+      expect(outcome.kind).toBe('direct_query');
+      expect(outcome.summary).toContain('Não encontrei nenhuma memória');
+    }
+    // Zero-match ANTES do Planner — não gasta chamada LLM.
+    expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('zero-match honesto — memórias existem mas o Planner NÃO emite esquecer → forget_zero_match', async () => {
+    setupDbWithMemory(MEMORY_ROWS);
+    classifyEsquecer();
+    // Planner corre mas não encontra correspondência clara → plano vazio.
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [],
+      planReasoning: 'nenhuma memória corresponde',
+      latencyMs: 0,
+      tokensInput: 0,
+      tokensOutput: 0,
+      costEur: 0,
+      cacheHit: false,
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'esquece que gosto de chá verde',
+    });
+
+    expect(outcome.status).toBe('executed');
+    if (outcome.status === 'executed') {
+      expect(outcome.kind).toBe('direct_query');
+      expect(outcome.summary).toContain('Não encontrei nenhuma memória');
+    }
+    expect(mocks.plannerPlanMock).toHaveBeenCalledTimes(1);
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
   });
 });
 

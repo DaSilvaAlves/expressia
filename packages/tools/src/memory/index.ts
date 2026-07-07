@@ -18,9 +18,12 @@
 import { toolRegistry } from '../registry';
 
 import { memorizar } from './memorizar';
+import { esquecer } from './esquecer';
 
-// Side-effect: regista a tool no singleton.
+// Side-effect: regista as tools do domínio `memory` no singleton.
 toolRegistry.register(memorizar);
+toolRegistry.register(esquecer);
 
-export { memorizar };
+export { memorizar, esquecer };
 export type { MemorizarInput, MemorizarOutput } from './memorizar';
+export type { EsquecerInput, EsquecerOutput } from './esquecer';

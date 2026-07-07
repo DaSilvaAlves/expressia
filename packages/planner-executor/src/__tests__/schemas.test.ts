@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ExecutorInputSchema,
+  ForgetCandidatesContextSchema,
   MemoryContextSchema,
   PlanResultSchema,
   PlanToolCallSchema,
@@ -113,6 +114,61 @@ describe('PlannerInputSchema', () => {
       memoryContext: [{ content: 'odeio reuniões antes das 10h' }],
     });
     expect(result.success).toBe(true);
+  });
+
+  it('Story M-4 — aceita input COM forgetCandidatesContext válido', () => {
+    const result = PlannerInputSchema.safeParse({
+      classification: MIN_CLASSIFICATION,
+      householdId: VALID_UUID,
+      userId: VALID_UUID,
+      traceId: 'trace-1',
+      runId: VALID_UUID,
+      forgetCandidatesContext: [{ id: VALID_UUID, content: 'odeio reuniões antes das 10h' }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('Story M-4 — aceita input SEM forgetCandidatesContext (opcional — regressão zero)', () => {
+    const result = PlannerInputSchema.safeParse({
+      classification: MIN_CLASSIFICATION,
+      householdId: VALID_UUID,
+      userId: VALID_UUID,
+      traceId: 'trace-1',
+      runId: VALID_UUID,
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('ForgetCandidatesContextSchema (Story M-4)', () => {
+  it('valida array de { id: uuid, content: string }', () => {
+    const result = ForgetCandidatesContextSchema.safeParse([
+      { id: VALID_UUID, content: 'odeio reuniões antes das 10h' },
+      { id: VALID_UUID, content: 'prefiro café sem açúcar' },
+    ]);
+    expect(result.success).toBe(true);
+  });
+
+  it('aceita array vazio (household sem memórias)', () => {
+    expect(ForgetCandidatesContextSchema.safeParse([]).success).toBe(true);
+  });
+
+  it('rejeita candidato sem id', () => {
+    expect(
+      ForgetCandidatesContextSchema.safeParse([{ content: 'x' }]).success,
+    ).toBe(false);
+  });
+
+  it('rejeita id não-UUID (distinto do MemoryContextSchema, que não tem id)', () => {
+    expect(
+      ForgetCandidatesContextSchema.safeParse([{ id: 'nao-uuid', content: 'x' }]).success,
+    ).toBe(false);
+  });
+
+  it('rejeita content não-string', () => {
+    expect(
+      ForgetCandidatesContextSchema.safeParse([{ id: VALID_UUID, content: 123 }]).success,
+    ).toBe(false);
   });
 });
 

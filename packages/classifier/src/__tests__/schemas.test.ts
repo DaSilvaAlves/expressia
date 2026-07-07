@@ -43,7 +43,7 @@ function extractAgentIntentEnumFromSource(): string[] {
 }
 
 describe('IntentSchema (AC2)', () => {
-  it('aceita os 21 valores canónicos', () => {
+  it('aceita os 22 valores canónicos', () => {
     for (const value of INTENT_VALUES) {
       expect(IntentSchema.safeParse(value).success).toBe(true);
     }
@@ -62,6 +62,15 @@ describe('IntentSchema (AC2)', () => {
   it('memorizar NÃO é read-only (escrita interna — passa pelo limiar de confiança normal)', () => {
     expect(isReadOnlyIntent('memorizar')).toBe(false);
     expect(READ_ONLY_INTENTS.has('memorizar' as never)).toBe(false);
+  });
+
+  it('aceita o novo intent de esquecer memória (Story M-4)', () => {
+    expect(IntentSchema.safeParse('esquecer').success).toBe(true);
+  });
+
+  it('esquecer NÃO é read-only (escrita destrutiva — passa por preview→confirm)', () => {
+    expect(isReadOnlyIntent('esquecer')).toBe(false);
+    expect(READ_ONLY_INTENTS.has('esquecer' as never)).toBe(false);
   });
 
   it('aceita os 2 novos intents de Calendar (Story J-5)', () => {
@@ -123,8 +132,9 @@ describe('IntentSchema (AC2)', () => {
     // + 1 Story J-6 tool Gmail readonly (migration 0031)
     // + 1 Story J-7 tool Gmail send (migration 0032)
     // + 1 Story J-8 tool Gmail reply (migration 0033)
-    // + 1 Story M-1 tool `memorizar` (migration 0034).
-    expect(dbValues.length).toBe(21);
+    // + 1 Story M-1 tool `memorizar` (migration 0034)
+    // + 1 Story M-4 tool `esquecer` (migration 0035).
+    expect(dbValues.length).toBe(22);
   });
 });
 

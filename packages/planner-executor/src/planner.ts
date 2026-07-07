@@ -309,7 +309,14 @@ export class Planner {
     // acção concreta (mesmo raciocínio "mais específico primeiro, mais geral
     // perto do pedido" dos restantes prefixos).
     const memoryContextPrefix = serializeMemoryContextForPlanner(input.memoryContext);
-    const userMessage = `${dateContextPrefix}${accountContextPrefix}${emailReplyContextPrefix}${memoryContextPrefix}${serializeClassificationForPlanner(input.classification)}`;
+    // Story M-4 AC5 — shortlist de memórias candidatas a esquecer (com `id`),
+    // injectada como prefixo da user message SÓ quando há `esquecer` no plano
+    // (NUNCA no `system`/`tools`). Fica logo antes da classificação, junto do
+    // memoryContext (ambos sobre memórias do Eurico).
+    const forgetCandidatesContextPrefix = serializeForgetCandidatesContextForPlanner(
+      input.forgetCandidatesContext,
+    );
+    const userMessage = `${dateContextPrefix}${accountContextPrefix}${emailReplyContextPrefix}${memoryContextPrefix}${forgetCandidatesContextPrefix}${serializeClassificationForPlanner(input.classification)}`;
 
     const providerInput: ProviderCompleteInput = {
       system: PLANNER_SYSTEM_PROMPT,
@@ -580,6 +587,44 @@ function serializeMemoryContextForPlanner(
   for (const memory of memoryContext) {
     lines.push(`- ${memory.content}`);
   }
+  lines.push('');
+  lines.push('');
+  return lines.join('\n');
+}
+
+/**
+ * Story M-4 AC5 — serializa a shortlist de memórias candidatas a esquecer num
+ * prefixo PT-PT para anteceder a user message do Planner. EXPÕE `id`
+ * propositadamente (ao contrário do `memoryContext` da M-2): o Planner precisa
+ * de escolher a memória certa e popular `memoryId` (o identificador
+ * AUTORITATIVO) no input da tool `esquecer`.
+ *
+ * Instrução anti-hallucination (mesma defesa da J-8, `[D-J8.2]`): se NENHUMA
+ * memória corresponder claramente ao pedido, o Planner é instruído a NÃO emitir
+ * `esquecer` — o utilizador prefere que digamos que não encontrámos, a apagar a
+ * memória errada. O preview (conteúdo exacto) + undo 30s são as redes seguintes.
+ *
+ * Retorna string vazia (sem prefixo) quando `forgetCandidatesContext` é ausente
+ * ou vazio (todos os outros intents — regressão zero). Como os restantes
+ * contextos, viaja em `messages` (NUNCA no `system`/`tools`), preservando o
+ * prefixo cacheável. `content` é PII sensível (migration 0034) — coberto por
+ * `redactProviderPayload` (NFR12); NÃO entra em span attributes.
+ */
+function serializeForgetCandidatesContextForPlanner(
+  forgetCandidatesContext: PlannerInput['forgetCandidatesContext'],
+): string {
+  if (forgetCandidatesContext === undefined || forgetCandidatesContext.length === 0) {
+    return '';
+  }
+
+  const lines: string[] = ['[Memórias guardadas — para apagar uma, identifica o id exacto]'];
+  for (const memory of forgetCandidatesContext) {
+    lines.push(`- id: ${memory.id}, content: "${memory.content}"`);
+  }
+  lines.push('');
+  lines.push(
+    'Para esquecer (esquecer), escolhe a memória que corresponde claramente ao pedido do utilizador e usa o `id` EXACTO dessa memória como `memoryId`, e o seu texto como `content`. Se NENHUMA memória corresponder claramente ao pedido, NÃO emitas `esquecer` — o utilizador prefere que digas que não encontraste, a apagar a memória errada.',
+  );
   lines.push('');
   lines.push('');
   return lines.join('\n');

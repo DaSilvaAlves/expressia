@@ -406,6 +406,55 @@ describe('Planner.plan() — payload structure', () => {
     expect(userContent).not.toContain('O que sabes sobre o Eurico');
   });
 
+  it('forgetCandidatesContext (Story M-4) é injectado no PREFIXO da user message com id — nunca no system/tools', async () => {
+    let capturedParams: Record<string, unknown> | undefined;
+    const client = createMockAnthropicClient((params) => {
+      capturedParams = params;
+      return buildToolUseResponse([{ name: 'query_tasks', input: {} }]);
+    });
+    const planner = new Planner({ client, registry: createMockRegistry() });
+    const memId = '22222222-2222-4222-8222-222222222222';
+    await planner.plan(
+      buildInput({
+        forgetCandidatesContext: [
+          { id: memId, content: 'odeio reuniões antes das 10h' },
+        ],
+      }),
+    );
+
+    const messages = capturedParams?.messages as Array<{ role: string; content: string }>;
+    const userContent = messages[0]?.content ?? '';
+    // Bloco de memórias candidatas no prefixo da user message, EXPÕE o id.
+    expect(userContent).toContain('Memórias guardadas');
+    expect(userContent).toContain(memId);
+    expect(userContent).toContain('odeio reuniões antes das 10h');
+    // NUNCA no system nem nos tools (prompt caching + higiene PII/NFR12).
+    const systemStr = JSON.stringify(capturedParams?.system ?? '');
+    const toolsStr = JSON.stringify(capturedParams?.tools ?? '');
+    expect(systemStr).not.toContain('odeio reuniões antes das 10h');
+    expect(toolsStr).not.toContain('odeio reuniões antes das 10h');
+    expect(systemStr).not.toContain(memId);
+  });
+
+  it('forgetCandidatesContext ausente/vazio → sem bloco [Memórias guardadas...] (regressão zero)', async () => {
+    let capturedParams: Record<string, unknown> | undefined;
+    const client = createMockAnthropicClient((params) => {
+      capturedParams = params;
+      return buildToolUseResponse([{ name: 'create_task', input: { title: 'A' } }]);
+    });
+    const planner = new Planner({ client, registry: createMockRegistry() });
+    // Ausente
+    await planner.plan(buildInput());
+    let userContent =
+      (capturedParams?.messages as Array<{ role: string; content: string }>)[0]?.content ?? '';
+    expect(userContent).not.toContain('Memórias guardadas');
+    // Array vazio
+    await planner.plan(buildInput({ forgetCandidatesContext: [] }));
+    userContent =
+      (capturedParams?.messages as Array<{ role: string; content: string }>)[0]?.content ?? '';
+    expect(userContent).not.toContain('Memórias guardadas');
+  });
+
   it('accountContext ausente → sem prefixo de contexto na user message', async () => {
     let capturedParams: Record<string, unknown> | undefined;
     const client = createMockAnthropicClient((params) => {

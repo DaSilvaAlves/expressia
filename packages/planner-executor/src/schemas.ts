@@ -164,6 +164,27 @@ export const MemoryContextSchema = z.array(z.object({ content: z.string() }));
 
 export type MemoryContext = z.infer<typeof MemoryContextSchema>;
 
+/**
+ * Story M-4 AC4 — shortlist de memórias candidatas a esquecer (`esquecer`).
+ *
+ * DISTINTO do `MemoryContextSchema` (M-2), que deliberadamente NÃO expõe `id`
+ * (só `content` — o motor não precisa do id para "saber sobre o Eurico"). Aqui o
+ * `id` É necessário: o Planner escolhe QUAL memória apagar a partir da shortlist
+ * e popula `memoryId` (o identificador AUTORITATIVO) no input da tool `esquecer`.
+ *
+ * O endpoint (`apps/web`) resolve a shortlist via SELECT RLS-scoped de
+ * `jarvis_memories` ANTES do Planner (padrão idêntico ao `accountContext`/
+ * `emailReplyContext`) e injecta-a como **prefixo da user message** SÓ quando o
+ * plano contém `esquecer` (NUNCA no `system`/`tools` — preserva o cache de
+ * prompt). `content` é PII sensível (migration 0034): viaja em `messages`
+ * (coberto por `redactProviderPayload`, NFR12), NUNCA em span attributes/logs.
+ */
+export const ForgetCandidatesContextSchema = z.array(
+  z.object({ id: z.string().uuid(), content: z.string() }),
+);
+
+export type ForgetCandidatesContext = z.infer<typeof ForgetCandidatesContextSchema>;
+
 export const PlannerInputSchema = z.object({
   classification: ClassificationSchema,
   householdId: z.string().uuid(),
@@ -184,6 +205,13 @@ export const PlannerInputSchema = z.object({
    * `content` (sem id/source/timestamps — ver `MemoryContextSchema`).
    */
   memoryContext: MemoryContextSchema.optional(),
+  /**
+   * Story M-4 AC4 — shortlist de memórias candidatas a esquecer (`{id, content}`),
+   * resolvida RLS-scoped ANTES do Planner e injectada como prefixo da user
+   * message SÓ quando o plano contém `esquecer`. O Planner escolhe a memória
+   * certa e popula `memoryId` na tool call. Ausente para todos os outros intents.
+   */
+  forgetCandidatesContext: ForgetCandidatesContextSchema.optional(),
   /**
    * Data civil "de hoje" no fuso do utilizador (`YYYY-MM-DD`), injectada como
    * âncora para o cálculo de prazos relativos ("hoje", "amanhã", "dia 1") pelo
@@ -234,12 +262,12 @@ export type ExecutorInput = z.infer<typeof ExecutorInputSchema>;
  * (3) tools são single source of truth da Story 2.3 e não mudam entre runs;
  * (4) tool name fora do MAP → fallback `'unknown'` (graceful degradation).
  *
- * **Cobertura obrigatória:** as 21 intents do `IntentSchema` (Story 2.4 AC2
+ * **Cobertura obrigatória:** as 22 intents do `IntentSchema` (Story 2.4 AC2
  * baseline 8 + Story 3.8 tools cérebro Tarefas +3 + Story 2.14 tools
  * UPDATE/DELETE +4 + Story J-5 tools Calendar +2 + Story J-6 tool Gmail readonly
  * +1 + Story J-7 tool Gmail send +1 + Story J-8 tool Gmail reply +1 + Story M-1
- * tool `memorizar` +1) têm pelo menos 1 tool name mapeado. Validável em
- * `__tests__/contract.test.ts`.
+ * tool `memorizar` +1 + Story M-4 tool `esquecer` +1) têm pelo menos 1 tool name
+ * mapeado. Validável em `__tests__/contract.test.ts`.
  *
  * Nomenclatura tools snake_case lowercase (alinhada com Architecture §4.3
  * `create_task`, `query_finance_summary`, etc.).
@@ -302,6 +330,11 @@ export const TOOL_TO_INTENT_MAP: Record<string, Intent> = {
   // de `criar_tarefa`. A tool vive em `packages/tools/src/memory/` (escrita
   // Postgres pura, sem API externa); o mapping tool→intent vive aqui.
   memorizar: 'memorizar',
+  // Story M-4 — tool `esquecer` (tool name === intent name PT-PT). Escrita
+  // INTERNA destrutiva mas reversível (DELETE em jarvis_memories +
+  // reinsert_row para undo real). A tool vive em `packages/tools/src/memory/`;
+  // o mapping tool→intent vive aqui.
+  esquecer: 'esquecer',
 };
 
 /**

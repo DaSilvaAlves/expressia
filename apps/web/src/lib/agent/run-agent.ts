@@ -49,6 +49,7 @@ import {
   type AtomicOutcome,
   type AtomicResult,
   type EmailReplyContext,
+  type ForgetCandidatesContext,
   type MemoryContext,
   type PlanResult,
 } from '@meu-jarvis/planner-executor';
@@ -128,12 +129,14 @@ function isMixedExternalWritePlan(intents: ReadonlyArray<{ intent: string }>): b
  * utilizador revê o destinatário/assunto/corpo ANTES de confirmar o envio.
  *
  * `enviar_email` (J-7, rascunho Para/Assunto/Corpo) + `responder_email` (J-8,
- * rascunho da resposta em thread): os previews de tarefas/finanças/calendar
- * mantêm o comportamento actual (label genérico) — regressão zero.
+ * rascunho da resposta em thread) + `esquecer` (M-4, conteúdo exacto da memória
+ * a apagar): os previews de tarefas/finanças/calendar mantêm o comportamento
+ * actual (label genérico) — regressão zero.
  */
 const PREVIEW_RENDER_INTENTS: ReadonlySet<string> = new Set([
   'enviar_email',
   'responder_email',
+  'esquecer',
 ]);
 
 /**
@@ -143,9 +146,21 @@ const PREVIEW_RENDER_INTENTS: ReadonlySet<string> = new Set([
  */
 const REPLY_EMAIL_INTENTS: ReadonlySet<string> = new Set(['responder_email']);
 
+/**
+ * Story M-4 — intents que exigem resolução da memória-alvo (shortlist de
+ * `jarvis_memories`) ANTES do Planner correr. Só `esquecer` (apagar uma memória
+ * refere-se a uma memória existente, escolhida por conteúdo).
+ */
+const FORGET_MEMORY_INTENTS: ReadonlySet<string> = new Set(['esquecer']);
+
 /** Story J-8 — o plano contém alguma intent de resposta a email? */
 function planHasReplyEmailIntent(intents: ReadonlyArray<{ intent: string }>): boolean {
   return intents.some((i) => REPLY_EMAIL_INTENTS.has(i.intent));
+}
+
+/** Story M-4 — o plano contém alguma intent de esquecer memória? */
+function planHasForgetMemoryIntent(intents: ReadonlyArray<{ intent: string }>): boolean {
+  return intents.some((i) => FORGET_MEMORY_INTENTS.has(i.intent));
 }
 
 /** Story J-7 — o plano tem alguma intent com preview de rascunho real? */
@@ -592,11 +607,17 @@ export async function runAgentForHousehold(
       });
     }
 
-    // Story J-8 AC13 — zero-match honesto: pediram para responder mas não há
-    // email-alvo (inbox vazio ou sem candidato válido). Resposta informativa, sem
-    // envio e sem botões de confirmação (nunca inventamos um threadId). Reutiliza
-    // a forma `direct_query` (o webhook mostra só o summary, sem "(Cancelar)").
-    if (previewResult?.kind === 'reply_zero_match') {
+    // Story J-8 AC13 / Story M-4 AC7 — zero-match honesto: pediram uma escrita
+    // com resolução de alvo (responder a um email / esquecer uma memória) mas não
+    // há alvo — inbox sem candidato válido (J-8) ou household sem memórias /
+    // nenhuma memória correspondeu (M-4). Resposta informativa, sem executar e sem
+    // botões de confirmação (nunca inventamos um threadId/memoryId). Reutiliza a
+    // forma `direct_query` (o webhook mostra só o summary, sem "(Cancelar)").
+    if (
+      previewResult?.kind === 'reply_zero_match' ||
+      previewResult?.kind === 'forget_zero_match'
+    ) {
+      const zeroMatchKind = previewResult.kind;
       const latencyMs = Date.now() - startedAt;
       await updateAfterExecutor(
         runId,
@@ -610,8 +631,10 @@ export async function runAgentForHousehold(
         db,
       );
       log.info(
-        { run_id: runId, reason: 'reply_zero_match' },
-        'Zero-match honesto — nenhum email para responder (nenhum envio)',
+        { run_id: runId, reason: zeroMatchKind },
+        zeroMatchKind === 'reply_zero_match'
+          ? 'Zero-match honesto — nenhum email para responder (nenhum envio)'
+          : 'Zero-match honesto — nenhuma memória para esquecer (nada apagado)',
       );
       return {
         status: 'executed',
@@ -619,7 +642,7 @@ export async function runAgentForHousehold(
         runId,
         summary: previewResult.message,
         directResult: {
-          templateUsed: 'reply_zero_match',
+          templateUsed: zeroMatchKind,
           data: null,
           summary: previewResult.message,
         },
@@ -937,17 +960,67 @@ export async function buildMemoryContext(
 }
 
 /**
+ * Story M-4 AC6 — constrói a shortlist `forgetCandidatesContext`: as memórias do
+ * household (`{id, content}`) candidatas a apagar via `esquecer`, lidas RLS-scoped
+ * de `jarvis_memories` (cap 50 — mesmo cap de `buildMemoryContext`, aqui para
+ * limitar o tamanho da shortlist de resolução). São injectadas como prefixo da
+ * user message do Planner SÓ quando o plano contém `esquecer` (AC5) — o Planner
+ * escolhe QUAL memória e popula `memoryId`.
+ *
+ * DISTINTA de `buildMemoryContext` (M-2): EXPÕE `id` (necessário para a resolução
+ * do alvo), enquanto o `memoryContext` da M-2 só expõe `content` por design.
+ *
+ * Devolve `undefined` quando não há memórias — o caller trata como zero-match
+ * ANTES de correr o Planner (AC7, não gasta uma chamada LLM em vão). Tenancy
+ * (NFR5): RLS 2.ª rede (`getDb()`) + filtro app-level explícito (1.ª rede) —
+ * NUNCA `getServiceDb()` (vazaria/apagaria cross-household). Falha de leitura é
+ * NÃO-FATAL: `log.warn({ err })` (NUNCA o `content` — PII sensível, mesma
+ * disciplina N1 da M-2) e o pipeline degrada para zero-match honesto.
+ */
+export async function buildForgetCandidatesContext(
+  db: ReturnType<typeof getDb>,
+  log: ReturnType<typeof childLogger>,
+  householdId: string,
+): Promise<ForgetCandidatesContext | undefined> {
+  try {
+    const rows = await db.execute<{ id: string; content: string; created_at: string }>(sql`
+      select id, content, created_at
+      from public.jarvis_memories
+      where household_id = ${householdId}::uuid
+      order by created_at desc
+      limit 50
+    `);
+
+    if (rows.length === 0) {
+      return undefined;
+    }
+    return rows.map((r) => ({ id: r.id, content: r.content }));
+  } catch (err) {
+    // N1 — NUNCA logar as linhas/`content` (PII sensível, migration 0034): só `{ err }`.
+    log.warn(
+      { err },
+      'buildForgetCandidatesContext falhou — Planner sem forgetCandidatesContext (zero-match honesto)',
+    );
+    return undefined;
+  }
+}
+
+/**
  * Story J-7 SEND-PREVIEW-1 / J-8 — resultado de `renderExternalWritePreview`.
  *   - `{ kind: 'draft', drafts }` — rascunho(s) real(is) da escrita externa.
  *   - `{ kind: 'reply_zero_match', message }` — Story J-8 AC13: pediram uma
  *     resposta mas não há email-alvo (nenhum candidato no inbox). Falha honesta,
  *     sem envio, sem confirmação.
+ *   - `{ kind: 'forget_zero_match', message }` — Story M-4 AC7: pediram para
+ *     esquecer mas não há memória-alvo (household sem memórias OU nenhuma
+ *     correspondeu ao pedido). Falha honesta, sem apagar, sem confirmação.
  *   - `null` — sem rascunho disponível (Planner falhou / sem preview): o caller
  *     cai no label genérico do intent.
  */
 type ExternalWritePreviewResult =
   | { kind: 'draft'; drafts: string[] }
   | { kind: 'reply_zero_match'; message: string }
+  | { kind: 'forget_zero_match'; message: string }
   | null;
 
 /**
@@ -1001,6 +1074,23 @@ async function renderExternalWritePreview(params: {
       emailReplyContext = candidates;
     }
 
+    // Story M-4 AC6/AC7 — resolução da memória-alvo para `esquecer`, ANTES do
+    // Planner. Lê a shortlist `{id, content}` RLS-scoped de `jarvis_memories`.
+    // Household sem memórias → zero-match honesto ANTES de gastar uma chamada LLM
+    // (nunca inventar um memoryId).
+    let forgetCandidatesContext: ForgetCandidatesContext | undefined;
+    if (planHasForgetMemoryIntent(classification.intents)) {
+      const candidates = await buildForgetCandidatesContext(db, log, householdId);
+      if (!candidates || candidates.length === 0) {
+        log.info({ run_id: runId }, 'Zero-match — household sem memórias para esquecer');
+        return {
+          kind: 'forget_zero_match',
+          message: 'Não encontrei nenhuma memória correspondente a isso para esquecer.',
+        };
+      }
+      forgetCandidatesContext = candidates;
+    }
+
     const accountContext = await buildAccountContext(db, log, householdId);
     // Story M-2 AC4 — memórias também no preview de rascunho real (J-7/J-8): um
     // email composto via preview-then-confirm beneficia da memória ao gerar o
@@ -1016,7 +1106,26 @@ async function renderExternalWritePreview(params: {
       accountContext,
       emailReplyContext,
       memoryContext,
+      forgetCandidatesContext,
     });
+
+    // Story M-4 AC7 — zero-match honesto pós-Planner: pediram para esquecer, há
+    // memórias no household, mas o Planner NÃO emitiu `esquecer` (nenhuma memória
+    // correspondeu claramente ao pedido — instrução anti-hallucination do
+    // prefixo, análoga a `[D-J8.2]`). Não apaga nada, não persiste o plano vazio.
+    if (
+      planHasForgetMemoryIntent(classification.intents) &&
+      !plan.toolCalls.some((c) => c.toolName === 'esquecer')
+    ) {
+      log.info(
+        { run_id: runId, reason: 'forget_no_match' },
+        'Zero-match honesto — nenhuma memória correspondeu ao pedido de esquecer',
+      );
+      return {
+        kind: 'forget_zero_match',
+        message: 'Não encontrei nenhuma memória correspondente a isso para esquecer.',
+      };
+    }
 
     // Story J-8 FIX [D-J8.6] — guardrail DETERMINÍSTICO de email explícito, DEPOIS
     // do Planner e ANTES de persistir/mostrar o preview. Se o utilizador nomeou um

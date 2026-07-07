@@ -82,6 +82,13 @@ export const agentIntentEnum = pgEnum('agent_intent', [
   // `packages/classifier/src/schemas.ts` INTENT_VALUES (sanity-check Article IV).
   // NÃO adicionar a READ_ONLY_INTENTS — é escrita, não leitura.
   'memorizar',
+  // Story M-4 — tool `esquecer` (apagar uma memória guardada, escrita INTERNA
+  // destrutiva mas reversível — DELETE + reinsert_row para undo real). Sync com
+  // migration 0035 + `packages/classifier/src/schemas.ts` INTENT_VALUES
+  // (sanity-check Article IV). NÃO adicionar a READ_ONLY_INTENTS — é escrita
+  // destrutiva, não leitura. FORÇA needs_confirmation (preview mostra o conteúdo
+  // exacto da memória antes de apagar).
+  'esquecer',
 ]);
 
 export const llmModelEnum = pgEnum('llm_model', [

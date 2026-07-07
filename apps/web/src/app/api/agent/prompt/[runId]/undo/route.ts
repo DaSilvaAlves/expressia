@@ -389,6 +389,14 @@ const ALLOWED_REVERSE_TABLES = new Set([
   'recurrences',
   'cards',
   'installments',
+  // Story M-4 [PO-MUST-FIX-1] — memórias explícitas. Necessário para o
+  // `reinsert_row` do `esquecer` (M-4) E — RETROACTIVAMENTE — para o `delete_row`
+  // do `memorizar` (M-1), que estava bloqueado por esta mesma whitelist desde o
+  // deploy da M-1 (o undo da M-1 nunca chegou a ser exercido em prod, por isso o
+  // bug não causou dano de dados). Sem esta entrada, `applyReverseOp` lança
+  // `Error('Tabela "jarvis_memories" não permitida ...')` e o undo falha em
+  // runtime apesar de `tool.reverse()`/os testes unitários da tool passarem.
+  'jarvis_memories',
 ]);
 
 /**

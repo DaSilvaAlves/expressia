@@ -8,13 +8,14 @@
  *        Story J-6 AC3 (bump v4→v5 + 18 intents + 2 few-shots Gmail readonly);
  *        Story J-7 AC3 (bump v5→v6 + 19 intents + 2 few-shots Gmail send);
  *        Story J-8 AC4 (bump v6→v7 + 20 intents + 2 few-shots Gmail reply);
- *        Story M-1 AC4 (bump v7→v8 + 21 intents + 2 few-shots memorizar).
+ *        Story M-1 AC4 (bump v7→v8 + 21 intents + 2 few-shots memorizar);
+ *        Story M-4 AC3 (bump v8→v9 + 22 intents + 2 few-shots esquecer).
  *
  * Estratégia:
  *   - Hash SHA-256 do conteúdo da constante `CLASSIFIER_SYSTEM_PROMPT`.
  *   - Qualquer mudança requer actualização intencional do hash + bump
  *     do `CLASSIFIER_SYSTEM_PROMPT_VERSION`.
- *   - Versão actual: `v8`.
+ *   - Versão actual: `v9`.
  */
 import { createHash } from 'node:crypto';
 
@@ -26,11 +27,11 @@ import {
 } from '@/prompts/classifier-system';
 
 describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
-  it('versão é "v8" (Story M-1 bump)', () => {
-    expect(CLASSIFIER_SYSTEM_PROMPT_VERSION).toBe('v8');
+  it('versão é "v9" (Story M-4 bump)', () => {
+    expect(CLASSIFIER_SYSTEM_PROMPT_VERSION).toBe('v9');
   });
 
-  it('contém os 21 intents canónicos por nome (Story M-1 — +1 memorizar)', () => {
+  it('contém os 22 intents canónicos por nome (Story M-4 — +1 esquecer)', () => {
     const intents = [
       'criar_tarefa',
       'completar_tarefa',
@@ -51,6 +52,7 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
       'enviar_email',
       'responder_email',
       'memorizar',
+      'esquecer',
       'cancelar_ultima',
       'unknown',
     ];
@@ -59,9 +61,18 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
     }
   });
 
-  it('header anuncia 21 intents (Story M-1)', () => {
-    // Format real do header: `# Intents canónicos (21)`.
-    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/Intents can[óo]nicos \(21\)/);
+  it('header anuncia 22 intents (Story M-4)', () => {
+    // Format real do header: `# Intents canónicos (22)`.
+    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/Intents can[óo]nicos \(22\)/);
+  });
+
+  it('esquecer FORÇA needs_confirmation (escrita destrutiva — Story M-4)', () => {
+    // A regra 5 lista esquecer entre os intents que forçam confirmação.
+    expect(CLASSIFIER_SYSTEM_PROMPT).toContain('esquecer');
+    // Ambos os exemplos few-shot de esquecer têm needs_confirmation true.
+    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(
+      /"intent": "esquecer"[\s\S]*?"needs_confirmation": true/,
+    );
   });
 
   it('memorizar NÃO força needs_confirmation (escrita interna reversível — Story M-1)', () => {
@@ -90,10 +101,10 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
     expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/portugu[êe]s europeu/i);
   });
 
-  it('inclui pelo menos 26 exemplos few-shot (Story M-1: 2 novos memorizar)', () => {
+  it('inclui pelo menos 28 exemplos few-shot (Story M-4: 2 novos esquecer)', () => {
     const matches = CLASSIFIER_SYSTEM_PROMPT.match(/## Exemplo \d/g);
     expect(matches).not.toBeNull();
-    expect(matches?.length ?? 0).toBeGreaterThanOrEqual(26);
+    expect(matches?.length ?? 0).toBeGreaterThanOrEqual(28);
   });
 
   it('inclui exemplo de input non-PT-PT → unknown (PT-PT exclusivo)', () => {
@@ -104,8 +115,8 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
   it('é estável — hash SHA-256 não muda sem alteração intencional', () => {
     const hash = createHash('sha256').update(CLASSIFIER_SYSTEM_PROMPT).digest('hex');
     expect(hash).toMatch(/^[a-f0-9]{64}$/);
-    // O prompt v8 tem ≈14KB (26 exemplos few-shot + 21 intents).
+    // O prompt v9 tem ≈15KB (28 exemplos few-shot + 22 intents).
     expect(CLASSIFIER_SYSTEM_PROMPT.length).toBeGreaterThan(3000);
-    expect(CLASSIFIER_SYSTEM_PROMPT.length).toBeLessThan(16000);
+    expect(CLASSIFIER_SYSTEM_PROMPT.length).toBeLessThan(18000);
   });
 });

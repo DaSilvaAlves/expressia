@@ -362,6 +362,105 @@ describe('POST /api/agent/prompt/[runId]/undo', () => {
     expect(flat).toMatch(/values \(/i);
   });
 
+  it('Story M-4 AC10 — reinsert_row de jarvis_memories re-insere a memória apagada (motor REAL applyReverseOp)', async () => {
+    // Prova que a whitelist ALLOWED_REVERSE_TABLES foi corrigida (PO-MUST-FIX-1):
+    // sem `jarvis_memories` na whitelist, `applyReverseOp` lançaria e o undo daria
+    // 500 — este teste corre contra o MOTOR REAL (não um mock que assume a
+    // whitelist já cobre a tabela). A memória volta com o id original + snapshot.
+    const future = new Date(Date.now() + 30 * 1000).toISOString();
+    const MEM_ID = '55555555-5555-4555-8555-555555555555';
+    let callCount = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return [{ id: RUN_ID, household_id: TEST_HOUSEHOLD_ID, status: 'success' }];
+      }
+      if (callCount === 2) {
+        return [
+          {
+            id: 'rop-reinsert-mem',
+            reverse_op: {
+              kind: 'reinsert_row',
+              table: 'jarvis_memories',
+              id: MEM_ID,
+              snapshot: {
+                household_id: TEST_HOUSEHOLD_ID,
+                created_by_user_id: TEST_USER_ID,
+                content: "odeio reuniões antes das 10h — d'Ana",
+                source: 'explicit',
+                created_at: '2026-07-01T09:30:00.000Z',
+              },
+            },
+            expires_at: future,
+            executed_at: null,
+          },
+        ];
+      }
+      return [];
+    });
+    mocks.serviceDbExecuteMock.mockResolvedValue([]);
+
+    const res = await POST(makeRequest() as never, makeContext());
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { reverted: boolean; ops_count: number };
+    expect(body.reverted).toBe(true);
+    expect(body.ops_count).toBe(1);
+
+    // O engine REAL deve emitir INSERT em jarvis_memories com o id original +
+    // colunas snake_case do snapshot.
+    const insertCall = mocks.serviceDbExecuteMock.mock.calls.find((call) => {
+      const flat = JSON.stringify(call[0] ?? {});
+      return /insert into jarvis_memories/i.test(flat);
+    });
+    expect(insertCall).toBeDefined();
+    const flat = JSON.stringify(insertCall![0] ?? {});
+    expect(flat).toMatch(/insert into jarvis_memories \(id, household_id, created_by_user_id/i);
+    expect(flat).toContain(MEM_ID); // id original preservado
+    expect(flat).toMatch(/created_at/); // coluna snake_case
+    expect(flat).toContain("d''Ana"); // apóstrofe escapada
+  });
+
+  it('Story M-4 AC10 (regressão M-1) — delete_row de jarvis_memories é aceite pelo motor REAL (undo da memorizar corrigido retroactivamente)', async () => {
+    // O undo da `memorizar` (M-1) produz `delete_row` sobre jarvis_memories.
+    // Antes do fix da whitelist, o motor REAL lançava aqui e o undo dava 500 —
+    // o undo da M-1 estava partido em prod desde o deploy. Este teste prova que
+    // passou a funcionar (mesma whitelist, sem tocar no código da M-1).
+    const future = new Date(Date.now() + 30 * 1000).toISOString();
+    const MEM_ID = '66666666-6666-4666-8666-666666666666';
+    let callCount = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return [{ id: RUN_ID, household_id: TEST_HOUSEHOLD_ID, status: 'success' }];
+      }
+      if (callCount === 2) {
+        return [
+          {
+            id: 'rop-delete-mem',
+            reverse_op: { kind: 'delete_row', table: 'jarvis_memories', id: MEM_ID },
+            expires_at: future,
+            executed_at: null,
+          },
+        ];
+      }
+      return [];
+    });
+    mocks.serviceDbExecuteMock.mockResolvedValue([]);
+
+    const res = await POST(makeRequest() as never, makeContext());
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { reverted: boolean };
+    expect(body.reverted).toBe(true);
+
+    // O engine REAL deve emitir DELETE em jarvis_memories com o id.
+    const deleteCall = mocks.serviceDbExecuteMock.mock.calls.find((call) => {
+      const flat = JSON.stringify(call[0] ?? {});
+      return /delete from jarvis_memories/i.test(flat);
+    });
+    expect(deleteCall).toBeDefined();
+    expect(JSON.stringify(deleteCall![0] ?? {})).toContain(MEM_ID);
+  });
+
   it('AC7 — 500 quando reverse op tabela não whitelisted (defesa SQL injection)', async () => {
     const future = new Date(Date.now() + 30 * 1000).toISOString();
     let callCount = 0;

@@ -1,0 +1,86 @@
+schema: 1
+story: 'M-4'
+story_title: 'Esquecer uma memória'
+gate: PASS
+status_reason: >-
+  MUST-FIX-1 (whitelist jarvis_memories no motor de undo) e SHOULD-FIX-1 (snapshot
+  snake_case) totalmente implementados e provados contra o motor REAL applyReverseOp
+  para ambos os kind (reinsert_row M-4 + delete_row M-1 regressão). DELETE
+  household-scoped via ctx.db, undo real, zero-match honesto e AC11 (fluxo completo)
+  verificados por leitura de código + re-execução de evidência real. Fecha a espinha v2.
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-07-07T01:00:00Z'
+
+waiver: { active: false }
+
+quality_score: 94
+expires: '2026-07-21T01:00:00Z'
+
+evidence:
+  tests_reviewed: 40
+  tests_reexecuted_green:
+    tools: 472
+    classifier: 95
+    planner_executor: 95
+    web_undo: 21
+    web_confirm: 11
+    web_forget_e2e_ac11: 2
+    db_test_pg_real: 210
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+    ac_gaps: []
+    ac_external_pending: [14]  # Deploy + E2E live [EURICO]+@devops — precondição externa, fora de CI
+
+top_issues: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: >-
+      DELETE/SELECT household-scoped via ctx.db (role authenticated, RLS 2ª rede) +
+      filtro app-level explícito household_id = ctx.householdId (1ª rede). NUNCA
+      getServiceDb() na tool. buildForgetCandidatesContext usa getDb() com filtro
+      household + LIMIT 50. Whitelist ALLOWED_REVERSE_TABLES anti-SQL-injection
+      mantida — jarvis_memories adicionada de forma controlada; auth.users continua
+      a ser rejeitado (teste 500 verde). PII: content nunca em logs/spans (catch só
+      log.warn({err})). SEC-8 HOLD respeitado (withHousehold/db-shim/client.ts
+      intactos). Billing intocado.
+  performance:
+    status: PASS
+    notes: >-
+      Shortlist cap LIMIT 50. forgetCandidatesContext só injectado como prefixo da
+      user message quando o plano contém esquecer (nunca em system/tools — prompt
+      caching preservado). Household sem memórias → zero-match ANTES de correr o
+      Planner (poupa 1 chamada LLM). estimatedTokens=90.
+  reliability:
+    status: PASS
+    notes: >-
+      Undo 30s REAL provado contra o motor real (reinsert_row com id original +
+      snapshot snake_case). Zero-match honesto cobre 2 cenários (household sem
+      memórias / Planner não emite esquecer) — nunca inventa memoryId. Zero-match na
+      execute() (row inexistente / condição de corrida) → ToolExecutionError PT-PT.
+      Snapshot congelado no reverse_op (jsonb) no momento do DELETE — imutável.
+  maintainability:
+    status: PASS
+    notes: >-
+      Sem `any` (typecheck limpo). Imports @/ e @meu-jarvis/*. PT-PT europeu em copy,
+      comentários e erros. Padrão SEND-PREVIEW-1 reutilizado de J-7/J-8 (proven em
+      prod). FORGET_MEMORY_INTENTS como Set dedicado (desacopla email/memória). Migration
+      0035 idempotente (ADD VALUE IF NOT EXISTS, sem uso na mesma tx).
+
+recommendations:
+  immediate: []
+  future:
+    - action: >-
+        [EURICO/@devops] Após deploy da 0035, validar em prod que o undo de uma
+        memória criada por `memorizar` (M-1) passa a funcionar — o fix da whitelist
+        corrige RETROACTIVAMENTE o bug latente do undo da M-1.
+      refs: ['apps/web/src/app/api/agent/prompt/[runId]/undo/route.ts']
+    - action: >-
+        Nota de teste (não-bloqueante): a Fase 2 do AC11 exercita a tool `esquecer`
+        directamente (o mesmo código que o Executor invoca) em vez de atravessar o
+        confirm route + Executor de ponta a ponta. A costura confirm→reuse-do-plano
+        está coberta separadamente por confirm.test.ts. Cobertura suficiente; um teste
+        futuro que ligue os dois num só fluxo eliminaria a última costura mockada.
+      refs: ['apps/web/src/lib/agent/__tests__/forget-memory-e2e.test.ts']

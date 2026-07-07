@@ -330,6 +330,75 @@ describe('POST /api/agent/prompt/[runId]/confirm', () => {
     expect(body.summary).toContain('não podem ser recuperados');
     expect(body.summary).not.toMatch(/reverter/i);
   });
+
+  it('M-4 — esquecer reutiliza o plano persistido do preview (binding preview==memória, NÃO re-planeia) + undo REAL', async () => {
+    const future = new Date(Date.now() + 60 * 1000).toISOString();
+    const MEM_ID = '44444444-4444-4444-4444-444444444444';
+    let callIndex = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callIndex++;
+      if (callIndex === 1) {
+        return [
+          {
+            id: RUN_ID,
+            household_id: TEST_HOUSEHOLD_ID,
+            user_id: TEST_USER_ID,
+            status: 'pending_preview',
+            confirm_expires_at: future,
+            intents_detected: [
+              { intent: 'esquecer', confidence: 0.92, raw_span: 'esquece que odeio reuniões' },
+            ],
+            // Plano persistido no preview: a memória EXACTA que o utilizador viu.
+            tool_calls: [
+              {
+                toolName: 'esquecer',
+                input: { memoryId: MEM_ID, content: 'odeio reuniões antes das 10h' },
+                intent: 'esquecer',
+              },
+            ],
+            trace_id: 't1',
+          },
+        ];
+      }
+      return [];
+    });
+    mocks.executorExecuteMock.mockResolvedValue({
+      success: true,
+      results: [
+        {
+          toolName: 'esquecer',
+          output: {
+            memoryId: MEM_ID,
+            content: 'odeio reuniões antes das 10h',
+            snapshot: {
+              household_id: TEST_HOUSEHOLD_ID,
+              created_by_user_id: TEST_USER_ID,
+              content: 'odeio reuniões antes das 10h',
+              source: 'explicit',
+              created_at: '2026-07-01T09:30:00.000Z',
+            },
+          },
+          reverseOpId: 'r1',
+        },
+      ],
+    });
+
+    const res = await POST(makeRequest() as never, makeContext());
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { mode: string; summary: string };
+    expect(body.mode).toBe('executed');
+    // Binding preview==memória: o Planner NÃO re-corre; o Executor recebe o plano do preview.
+    expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).toHaveBeenCalled();
+    const execArg = mocks.executorExecuteMock.mock.calls[0]![0] as {
+      plan: { toolCalls: Array<{ toolName: string; input: Record<string, unknown> }> };
+    };
+    expect(execArg.plan.toolCalls[0]!.toolName).toBe('esquecer');
+    expect(execArg.plan.toolCalls[0]!.input.memoryId).toBe(MEM_ID);
+    // Undo É real (esquecer NÃO é irreversível) — summary promete reversão 30s.
+    expect(body.summary).toMatch(/reverter/i);
+    expect(body.summary).not.toContain('não podem ser recuperados');
+  });
 });
 
 /**
