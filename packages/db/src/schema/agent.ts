@@ -89,6 +89,15 @@ export const agentIntentEnum = pgEnum('agent_intent', [
   // destrutiva, não leitura. FORÇA needs_confirmation (preview mostra o conteúdo
   // exacto da memória antes de apagar).
   'esquecer',
+  // Story M-5 — tool sugerir_memoria (captura INFERIDA de memória com
+  // confirmação SEMPRE obrigatória — o motor nota de passagem um facto/preferência
+  // e PROPÕE guardar, nunca em silêncio). Escrita INTERNA reversível (INSERT em
+  // jarvis_memories com source=inferred + delete_row para undo real, mesmo
+  // perfil de memorizar). Sync com migration 0036 +
+  // packages/classifier/src/schemas.ts INTENT_VALUES (sanity-check Article IV).
+  // NÃO adicionar a READ_ONLY_INTENTS — é escrita, não leitura. FORÇA
+  // needs_confirmation SEMPRE (R5 do brief — nunca captura sem consentimento).
+  'sugerir_memoria',
 ]);
 
 export const llmModelEnum = pgEnum('llm_model', [

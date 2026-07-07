@@ -127,6 +127,44 @@ describe('Classifier — happy path', () => {
   });
 });
 
+describe('Classifier — R5 enforcement determinístico (Story M-5 PO-MUST-FIX-1)', () => {
+  it('sugerir_memoria SOZINHO a confiança ALTA (0,95) → needs_confirmation: true (nunca captura silenciosa)', async () => {
+    // Contraste directo com "1 intent simples, confidence > 0.70 →
+    // needs_confirmation: false": para `sugerir_memoria` a confirmação NÃO
+    // depende da confiança — é forçada por ALWAYS_CONFIRM_INTENTS. Sem LLM real,
+    // sem depender de `always_preview`.
+    const result = buildValidResult({
+      intents: [{ intent: 'sugerir_memoria', confidence: 0.95, raw_span: 'odeio reuniões antes das 10h' }],
+      overall_confidence: 0.95,
+    });
+    const { client } = createMockOpenAIClient({ type: 'success', result });
+    const classifier = new Classifier(client);
+
+    const out = await classifier.classify(VALID_INPUT);
+    expect(out.needs_confirmation).toBe(true);
+    // A confiança agregada mantém-se alta — a confirmação NÃO vem da confiança.
+    expect(out.overall_confidence).toBe(0.95);
+  });
+
+  it('sugerir_memoria BUNDLED com criar_tarefa (ambos 0,95) → needs_confirmation: true', async () => {
+    const result = buildValidResult({
+      intents: [
+        { intent: 'criar_tarefa', confidence: 0.95, raw_span: 'cria uma tarefa para ligar ao dentista amanhã' },
+        { intent: 'sugerir_memoria', confidence: 0.95, raw_span: 'odeio reuniões antes das 10h' },
+      ],
+      overall_confidence: 0.95,
+    });
+    const { client } = createMockOpenAIClient({ type: 'success', result });
+    const classifier = new Classifier(client);
+
+    const out = await classifier.classify(VALID_INPUT);
+    // Mesmo com AMBAS as intents ≥ 0,70, a presença de sugerir_memoria força o
+    // preview (o buraco de R5 que a AC2-bis fecha: sem isto, executaria directo).
+    expect(out.needs_confirmation).toBe(true);
+    expect(out.overall_confidence).toBe(0.95);
+  });
+});
+
 describe('Classifier — intents específicos (cobertura dos 11 valores)', () => {
   it('classifica consultar_dados', async () => {
     const result = buildValidResult({

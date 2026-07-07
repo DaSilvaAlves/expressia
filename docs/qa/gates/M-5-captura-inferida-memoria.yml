@@ -1,0 +1,105 @@
+schema: 1
+story: 'M-5'
+story_title: 'Captura inferida de memória (com confirmação)'
+gate: PASS
+status_reason: >-
+  Requisito nuclear R5 ("nunca captura silenciosa") provado de forma DETERMINÍSTICA
+  e INDEPENDENTE: ALWAYS_CONFIRM_INTENTS (ReadonlySet<Intent> com 'sugerir_memoria')
+  + applyConfidenceDerivation (OR-força needs_confirmation) + gate de preview
+  run-agent.ts L598 (OR, needs_confirmation NÃO re-derivado a jusante) verificados no
+  código real e re-corridos na suite classifier (2 testes 0,95 isolado E bundled →
+  needs_confirmation:true, sem LLM/always_preview). Proveniência 'inferred' é literal
+  fixo no SQL da tool (input sem campo source). Undo real delete_row + whitelist
+  intacta. Âmbito estritamente single-turn (zero retrieval/pattern-mining/multi-facto).
+  Migration 0036 só-enum idempotente. Tarefa 7 (deploy + E2E live) = externo
+  [EURICO]+@devops, fora deste ciclo sem --push.
+reviewer: 'Aria (Architect)'
+updated: '2026-07-07T04:00:00Z'
+
+waiver: { active: false }
+
+quality_score: 96
+expires: '2026-07-21T04:00:00Z'
+
+evidence:
+  tests_reviewed: 24
+  tests_reexecuted_green:
+    classifier: 101       # inclui os 2 testes determinísticos de R5 (0,95 isolado E bundled)
+    tools: 489            # inclui sugerir-memoria.test.ts (SQL contém 'inferred', nunca 'explicit')
+    check_rls: 'EXIT 0'   # jarvis_memories coberta (memory.ts) — zero alteração de cobertura
+  tests_accepted_from_dev:  # evidência @dev aceite; contagens re-corridas acima batem exactamente a tabela
+    web: 1487
+    planner_executor: 95
+    db_test_pg_real: 210
+    lint: 'PASS (--max-warnings=0)'
+    typecheck: 'PASS 10/10'
+    build: 'PASS 10/10'
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8]
+    ac_gaps: []
+    ac_external_pending: [9]  # Deploy 0036 + E2E live [EURICO]+@devops — precondição externa, fora de CI
+
+top_issues: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: >-
+      R5 (nunca captura sem consentimento) é o eixo de segurança desta story e está
+      fechado em CÓDIGO, não no prompt: ALWAYS_CONFIRM_INTENTS força needs_confirmation
+      independentemente da confiança e de user_prefs.always_preview (default false). O
+      gate de preview (run-agent.ts L598) é um OR — needs_confirmation:true entra sempre
+      no ramo de preview; needs_confirmation só é LIDO a jusante (L548/598/783), nunca
+      reatribuído. Tenancy: sugerir_memoria.execute() usa EXCLUSIVAMENTE ctx.db (role
+      authenticated, RLS 2ª rede); household_id/created_by_user_id derivados de ctx,
+      NUNCA do input. source='inferred' é literal fixo no SQL (input sem campo source —
+      LLM não pode declarar proveniência). check:rls EXIT 0, jarvis_memories coberta.
+      SEC-8 HOLD respeitado (withHousehold/db-shim/client.ts intactos). Billing intocado.
+      PII: content nunca em spans/logs (só memoryId em agent_reverse_ops).
+  performance:
+    status: PASS
+    notes: >-
+      Zero query nova de histórico (single-turn — content vem da mensagem actual, não de
+      mineração de tasks/transactions). memoryContext (M-2) reutilizado sem alteração —
+      prompt caching preservado (sem novo prefixo). estimatedTokens=50 (= memorizar).
+      Ausência de toolCall (Planner não propõe) → drafts.length===0 → fallback ao label
+      genérico, sem novo kind tipo forget_zero_match (mecanismo genérico existente).
+  reliability:
+    status: PASS
+    notes: >-
+      Undo 30s REAL — reverse_op delete_row (INSERT desfeito por DELETE), jarvis_memories
+      já em ALLOWED_REVERSE_TABLES (undo/route.ts L399, desde M-4 — sem alteração). Binding
+      preview==memória guardada: sugerir_memoria em PREVIEW_RENDER_INTENTS (texto exacto)
+      + REUSE_PERSISTED_PLAN_INTENTS (confirm reutiliza plano persistido, sem re-extracção
+      às cegas). NÃO em EXTERNAL_WRITE_INTENTS nem IRREVERSIBLE_WRITE_TOOLS (undo é honesto).
+      Migration 0036 idempotente (ADD VALUE IF NOT EXISTS, sem uso na mesma tx). db-test
+      210 GREEN (0036 aplica em Postgres real via Testcontainers).
+  maintainability:
+    status: PASS
+    notes: >-
+      Sem `any` (typecheck 10/10). Imports @/ e @meu-jarvis/* (excepção relativa
+      documentada em memory/index.ts, herdada de tasks/index.ts). PT-PT europeu em copy
+      (preview em PERGUNTA, não afirmação — R5), comentários e erros. Modelada em
+      memorizar.ts (M-1). Âmbito exemplar: retrieval/pattern-mining/multi-facto/UI de
+      gestão rejeitados explicitamente e ausentes do código. Gotcha documentado (plicas
+      em comentário dentro de pgEnum([...]) quebram o sanity-check Article IV do enum).
+
+recommendations:
+  immediate: []
+  future:
+    - action: >-
+        [EURICO/@devops] Aplicar 0036 em prod (db:migrate, idempotente só-enum, sem passo
+        manual) + push/deploy Vercel + E2E live (proposta aceite com source='inferred' na
+        DB / proposta recusada nada gravado / undo 30s). Tarefa 7, fora deste ciclo.
+      refs: ['packages/db/migrations/0036_agent_intent_sugerir_memoria.sql']
+    - action: >-
+        Avaliação NÃO-bloqueante (levantada pela própria AC2-bis): estender
+        ALWAYS_CONFIRM_INTENTS aos restantes intents de escrita EXPLÍCITA que hoje só a
+        user_prefs.always_preview (default false) força em prod — esquecer, enviar_email,
+        responder_email, eliminar_tarefa, delete_finance_variable,
+        reagendar_evento_calendario. É o mesmo bug latente do modelo de confirmação; para
+        escritas explícitas o utilizador pediu a acção (risco menor que a inferência de
+        M-5), mas fechá-lo determinísticamente eliminaria a dependência de uma preferência
+        togglável como rede de segurança. Story própria — não expandir M-5.
+      refs: ['packages/classifier/src/schemas.ts', 'packages/classifier/src/classifier.ts']

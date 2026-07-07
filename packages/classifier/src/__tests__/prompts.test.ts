@@ -9,13 +9,14 @@
  *        Story J-7 AC3 (bump v5→v6 + 19 intents + 2 few-shots Gmail send);
  *        Story J-8 AC4 (bump v6→v7 + 20 intents + 2 few-shots Gmail reply);
  *        Story M-1 AC4 (bump v7→v8 + 21 intents + 2 few-shots memorizar);
- *        Story M-4 AC3 (bump v8→v9 + 22 intents + 2 few-shots esquecer).
+ *        Story M-4 AC3 (bump v8→v9 + 22 intents + 2 few-shots esquecer);
+ *        Story M-5 AC3 (bump v9→v10 + 23 intents + 2 few-shots sugerir_memoria).
  *
  * Estratégia:
  *   - Hash SHA-256 do conteúdo da constante `CLASSIFIER_SYSTEM_PROMPT`.
  *   - Qualquer mudança requer actualização intencional do hash + bump
  *     do `CLASSIFIER_SYSTEM_PROMPT_VERSION`.
- *   - Versão actual: `v9`.
+ *   - Versão actual: `v10`.
  */
 import { createHash } from 'node:crypto';
 
@@ -27,11 +28,11 @@ import {
 } from '@/prompts/classifier-system';
 
 describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
-  it('versão é "v9" (Story M-4 bump)', () => {
-    expect(CLASSIFIER_SYSTEM_PROMPT_VERSION).toBe('v9');
+  it('versão é "v10" (Story M-5 bump)', () => {
+    expect(CLASSIFIER_SYSTEM_PROMPT_VERSION).toBe('v10');
   });
 
-  it('contém os 22 intents canónicos por nome (Story M-4 — +1 esquecer)', () => {
+  it('contém os 23 intents canónicos por nome (Story M-5 — +1 sugerir_memoria)', () => {
     const intents = [
       'criar_tarefa',
       'completar_tarefa',
@@ -53,6 +54,7 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
       'responder_email',
       'memorizar',
       'esquecer',
+      'sugerir_memoria',
       'cancelar_ultima',
       'unknown',
     ];
@@ -61,9 +63,9 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
     }
   });
 
-  it('header anuncia 22 intents (Story M-4)', () => {
-    // Format real do header: `# Intents canónicos (22)`.
-    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/Intents can[óo]nicos \(22\)/);
+  it('header anuncia 23 intents (Story M-5)', () => {
+    // Format real do header: `# Intents canónicos (23)`.
+    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/Intents can[óo]nicos \(23\)/);
   });
 
   it('esquecer FORÇA needs_confirmation (escrita destrutiva — Story M-4)', () => {
@@ -84,6 +86,16 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
     );
   });
 
+  it('sugerir_memoria FORÇA needs_confirmation (captura inferida — Story M-5)', () => {
+    // A regra 5 lista sugerir_memoria entre os intents que forçam confirmação.
+    expect(CLASSIFIER_SYSTEM_PROMPT).toContain('sugerir_memoria');
+    // O exemplo few-shot positivo (criar_tarefa + sugerir_memoria) tem
+    // needs_confirmation true.
+    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(
+      /"intent": "sugerir_memoria"[\s\S]*?"needs_confirmation": true/,
+    );
+  });
+
   it('intents destrutivos/modificativos/escrita externa forçam needs_confirmation true (DP-2.14.B + J-5 + J-7)', () => {
     expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/eliminar_tarefa/);
     expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/delete_finance_variable/);
@@ -101,10 +113,10 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
     expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/portugu[êe]s europeu/i);
   });
 
-  it('inclui pelo menos 28 exemplos few-shot (Story M-4: 2 novos esquecer)', () => {
+  it('inclui pelo menos 30 exemplos few-shot (Story M-5: 2 novos sugerir_memoria)', () => {
     const matches = CLASSIFIER_SYSTEM_PROMPT.match(/## Exemplo \d/g);
     expect(matches).not.toBeNull();
-    expect(matches?.length ?? 0).toBeGreaterThanOrEqual(28);
+    expect(matches?.length ?? 0).toBeGreaterThanOrEqual(30);
   });
 
   it('inclui exemplo de input non-PT-PT → unknown (PT-PT exclusivo)', () => {
@@ -115,8 +127,10 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
   it('é estável — hash SHA-256 não muda sem alteração intencional', () => {
     const hash = createHash('sha256').update(CLASSIFIER_SYSTEM_PROMPT).digest('hex');
     expect(hash).toMatch(/^[a-f0-9]{64}$/);
-    // O prompt v9 tem ≈15KB (28 exemplos few-shot + 22 intents).
+    // O prompt v10 tem ≈20KB (30 exemplos few-shot + 23 intents; a descrição de
+    // sugerir_memoria é deliberadamente detalhada — conservadorismo + distinção
+    // de memorizar).
     expect(CLASSIFIER_SYSTEM_PROMPT.length).toBeGreaterThan(3000);
-    expect(CLASSIFIER_SYSTEM_PROMPT.length).toBeLessThan(18000);
+    expect(CLASSIFIER_SYSTEM_PROMPT.length).toBeLessThan(22000);
   });
 });

@@ -399,6 +399,84 @@ describe('POST /api/agent/prompt/[runId]/confirm', () => {
     expect(body.summary).toMatch(/reverter/i);
     expect(body.summary).not.toContain('não podem ser recuperados');
   });
+
+  it('M-5 — sugerir_memoria reutiliza o plano persistido (binding preview==memória guardada, NÃO re-planeia) + undo REAL', async () => {
+    const future = new Date(Date.now() + 60 * 1000).toISOString();
+    const MEM_ID = '55555555-5555-4555-8555-555555555555';
+    const PROPOSED_CONTENT = 'odeio reuniões antes das 10h';
+    let callIndex = 0;
+    mocks.dbExecuteMock.mockImplementation(async () => {
+      callIndex++;
+      if (callIndex === 1) {
+        return [
+          {
+            id: RUN_ID,
+            household_id: TEST_HOUSEHOLD_ID,
+            user_id: TEST_USER_ID,
+            status: 'pending_preview',
+            confirm_expires_at: future,
+            intents_detected: [
+              { intent: 'sugerir_memoria', confidence: 0.85, raw_span: PROPOSED_CONTENT },
+            ],
+            // Plano persistido no preview: o texto EXACTO que o utilizador viu/confirmou.
+            tool_calls: [
+              {
+                toolName: 'sugerir_memoria',
+                input: { content: PROPOSED_CONTENT },
+                intent: 'sugerir_memoria',
+              },
+            ],
+            trace_id: 't1',
+          },
+        ];
+      }
+      return [];
+    });
+    // Se o Planner FOSSE re-invocado, devolveria conteúdo DIFERENTE — o teste prova
+    // que NÃO é chamado (o confirm reutiliza o plano persistido, nunca re-extrai).
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [
+        {
+          toolName: 'sugerir_memoria',
+          input: { content: 'CONTEÚDO RE-EXTRAÍDO ERRADO' },
+          intent: 'sugerir_memoria',
+        },
+      ],
+      planReasoning: null,
+      latencyMs: 0,
+      tokensInput: 0,
+      tokensOutput: 0,
+      costEur: 0,
+      cacheHit: false,
+    });
+    mocks.executorExecuteMock.mockResolvedValue({
+      success: true,
+      results: [
+        {
+          toolName: 'sugerir_memoria',
+          output: { memoryId: MEM_ID, content: PROPOSED_CONTENT },
+          reverseOpId: 'r1',
+        },
+      ],
+    });
+
+    const res = await POST(makeRequest() as never, makeContext());
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { mode: string; summary: string };
+    expect(body.mode).toBe('executed');
+    // Binding preview==memória guardada: o Planner NÃO re-corre.
+    expect(mocks.plannerPlanMock).not.toHaveBeenCalled();
+    expect(mocks.executorExecuteMock).toHaveBeenCalled();
+    const execArg = mocks.executorExecuteMock.mock.calls[0]![0] as {
+      plan: { toolCalls: Array<{ toolName: string; input: Record<string, unknown> }> };
+    };
+    expect(execArg.plan.toolCalls[0]!.toolName).toBe('sugerir_memoria');
+    // O conteúdo executado é EXACTAMENTE o do preview — nunca o re-extraído errado.
+    expect(execArg.plan.toolCalls[0]!.input.content).toBe(PROPOSED_CONTENT);
+    // Undo É real (sugerir_memoria NÃO é irreversível) — summary promete reversão 30s.
+    expect(body.summary).toMatch(/reverter/i);
+    expect(body.summary).not.toContain('não podem ser recuperados');
+  });
 });
 
 /**
