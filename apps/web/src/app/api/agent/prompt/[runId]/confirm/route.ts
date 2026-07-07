@@ -95,13 +95,17 @@ interface PendingPreviewRow extends Record<string, unknown> {
  * REUTILIZADO no confirm (em vez de re-planear), garantindo que a acção executada
  * é EXACTAMENTE o que o utilizador reviu. `enviar_email` (J-7) + `responder_email`
  * (J-8) + `esquecer` (M-4): a memória apagada no confirm é EXACTAMENTE a que o
- * utilizador viu no preview (nunca re-resolvida às cegas). Tarefas/finanças/
- * calendar continuam a re-planear (regressão zero).
+ * utilizador viu no preview (nunca re-resolvida às cegas). `sugerir_memoria`
+ * (M-5): o conteúdo gravado no confirm é EXACTAMENTE o texto que o utilizador viu
+ * e confirmou no preview — nunca uma re-extracção às cegas pelo Planner numa
+ * segunda chamada (binding preview==memória guardada). Tarefas/finanças/calendar
+ * continuam a re-planear (regressão zero).
  */
 const REUSE_PERSISTED_PLAN_INTENTS: ReadonlySet<string> = new Set([
   'enviar_email',
   'responder_email',
   'esquecer',
+  'sugerir_memoria',
 ]);
 
 /**

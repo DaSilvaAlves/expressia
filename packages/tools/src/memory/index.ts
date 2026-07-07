@@ -19,11 +19,14 @@ import { toolRegistry } from '../registry';
 
 import { memorizar } from './memorizar';
 import { esquecer } from './esquecer';
+import { sugerirMemoria } from './sugerir-memoria';
 
 // Side-effect: regista as tools do domínio `memory` no singleton.
 toolRegistry.register(memorizar);
 toolRegistry.register(esquecer);
+toolRegistry.register(sugerirMemoria);
 
-export { memorizar, esquecer };
+export { memorizar, esquecer, sugerirMemoria };
 export type { MemorizarInput, MemorizarOutput } from './memorizar';
 export type { EsquecerInput, EsquecerOutput } from './esquecer';
+export type { SugerirMemoriaInput, SugerirMemoriaOutput } from './sugerir-memoria';

@@ -18,6 +18,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  ALWAYS_CONFIRM_INTENTS,
   CLASSIFIER_CONFIDENCE_THRESHOLD,
   CLASSIFIER_MODEL,
   ClassificationSchema,
@@ -43,13 +44,13 @@ function extractAgentIntentEnumFromSource(): string[] {
 }
 
 describe('IntentSchema (AC2)', () => {
-  it('aceita os 22 valores canónicos', () => {
+  it('aceita os 23 valores canónicos', () => {
     for (const value of INTENT_VALUES) {
       expect(IntentSchema.safeParse(value).success).toBe(true);
     }
   });
 
-  it('rejeita valores fora dos 21 canónicos (Article IV)', () => {
+  it('rejeita valores fora dos 23 canónicos (Article IV)', () => {
     expect(IntentSchema.safeParse('inventado').success).toBe(false);
     expect(IntentSchema.safeParse('criar_evento').success).toBe(false);
     expect(IntentSchema.safeParse('').success).toBe(false);
@@ -71,6 +72,28 @@ describe('IntentSchema (AC2)', () => {
   it('esquecer NÃO é read-only (escrita destrutiva — passa por preview→confirm)', () => {
     expect(isReadOnlyIntent('esquecer')).toBe(false);
     expect(READ_ONLY_INTENTS.has('esquecer' as never)).toBe(false);
+  });
+
+  it('aceita o novo intent de captura inferida de memória (Story M-5)', () => {
+    expect(IntentSchema.safeParse('sugerir_memoria').success).toBe(true);
+  });
+
+  it('sugerir_memoria NÃO é read-only (escrita interna — passa por preview→confirm)', () => {
+    expect(isReadOnlyIntent('sugerir_memoria')).toBe(false);
+    expect(READ_ONLY_INTENTS.has('sugerir_memoria' as never)).toBe(false);
+  });
+
+  it('[PO-MUST-FIX-1] sugerir_memoria está em ALWAYS_CONFIRM_INTENTS (força confirmação SEMPRE — R5)', () => {
+    // A "lista de intents que forçam confirmação" existe agora em CÓDIGO, não só
+    // como texto do prompt (que é descartado por applyConfidenceDerivation).
+    expect(ALWAYS_CONFIRM_INTENTS.has('sugerir_memoria')).toBe(true);
+    // Todos os valores são intents canónicos válidos (Article IV).
+    for (const intent of ALWAYS_CONFIRM_INTENTS) {
+      expect(IntentSchema.safeParse(intent).success).toBe(true);
+    }
+    // `memorizar` (escrita EXPLÍCITA, pedido deliberado) NÃO força confirmação —
+    // segue o limiar normal de 0,70, ao contrário de `sugerir_memoria` (inferência).
+    expect(ALWAYS_CONFIRM_INTENTS.has('memorizar' as never)).toBe(false);
   });
 
   it('aceita os 2 novos intents de Calendar (Story J-5)', () => {
@@ -133,8 +156,9 @@ describe('IntentSchema (AC2)', () => {
     // + 1 Story J-7 tool Gmail send (migration 0032)
     // + 1 Story J-8 tool Gmail reply (migration 0033)
     // + 1 Story M-1 tool `memorizar` (migration 0034)
-    // + 1 Story M-4 tool `esquecer` (migration 0035).
-    expect(dbValues.length).toBe(22);
+    // + 1 Story M-4 tool `esquecer` (migration 0035)
+    // + 1 Story M-5 tool `sugerir_memoria` (migration 0036).
+    expect(dbValues.length).toBe(23);
   });
 });
 

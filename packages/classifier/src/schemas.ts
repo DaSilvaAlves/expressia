@@ -96,6 +96,15 @@ export const INTENT_VALUES = [
   // (sanity-check em `__tests__/schemas.test.ts`). NÃO adicionar a
   // READ_ONLY_INTENTS — é escrita destrutiva, não leitura.
   'esquecer',
+  // Story M-5 — tool `sugerir_memoria` (captura INFERIDA de memória com
+  // confirmação SEMPRE obrigatória). Escrita INTERNA reversível (INSERT em
+  // jarvis_memories com source='inferred' + delete_row), mesmo perfil de
+  // `memorizar`. Sync com migration 0036 + `packages/db/src/schema/agent.ts`
+  // agentIntentEnum. Article IV: INTENT_VALUES bate EXACTAMENTE com o enum DB
+  // (sanity-check em `__tests__/schemas.test.ts`). NÃO adicionar a
+  // READ_ONLY_INTENTS — é escrita (interna e simples), não leitura. FORÇA
+  // needs_confirmation SEMPRE via ALWAYS_CONFIRM_INTENTS (abaixo) — R5 do brief.
+  'sugerir_memoria',
 ] as const;
 
 export const IntentSchema = z.enum(INTENT_VALUES);
@@ -126,6 +135,37 @@ export const READ_ONLY_INTENTS: ReadonlySet<Intent> = new Set<Intent>([
 export function isReadOnlyIntent(intent: string): boolean {
   return READ_ONLY_INTENTS.has(intent as Intent);
 }
+
+/**
+ * Story M-5 [PO-MUST-FIX-1] — intents que FORÇAM `needs_confirmation: true`
+ * SEMPRE, independentemente da confiança calibrada pelo LLM.
+ *
+ * Enforcement determinístico do risco R5 do brief ("captura sem consentimento"):
+ * hoje `needs_confirmation` é derivado EXCLUSIVAMENTE por confiança em
+ * `applyConfidenceDerivation` (`classifier.ts`) — `minConfidence < 0,70` — e o
+ * que o prompt diz sobre `needs_confirmation` é descartado (a função reconstrói
+ * o objecto). O único outro gatilho de preview em runtime é `user_prefs.
+ * always_preview`, que faz **default `false`** (migration 0007) e é togglável —
+ * NÃO pode ser a rede de segurança de R5. Sem este conjunto, um `sugerir_memoria`
+ * classificado com confiança ≥ 0,70 (ex.: bundled com `criar_tarefa`) executaria
+ * DIRECTO, em silêncio — a falha exacta que R5 proíbe.
+ *
+ * Ao contrário das escritas EXPLÍCITAS (`esquecer`/`enviar_email`/etc., que o
+ * utilizador PEDIU deliberadamente e cujo preview forçado hoje só a
+ * `always_preview` garante em prod), `sugerir_memoria` é uma INFERÊNCIA do
+ * sistema — a execução silenciosa é precisamente a falha catastrófica que R5
+ * proíbe. O @architect pode avaliar (não bloqueante para M-5) estender este
+ * conjunto aos restantes intents de escrita explícita.
+ *
+ * `applyConfidenceDerivation` (`classifier.ts`) consome este conjunto e passa a
+ * fazer `needs_confirmation = (minConfidence < threshold) || forcesConfirmation`.
+ * O teste determinístico de R5 (`classifier.test.ts`) prova que `sugerir_memoria`
+ * a confiança 0,95 devolve `needs_confirmation: true` — sem depender do LLM nem
+ * de `always_preview`.
+ */
+export const ALWAYS_CONFIRM_INTENTS: ReadonlySet<Intent> = new Set<Intent>([
+  'sugerir_memoria',
+]);
 
 /**
  * Resultado individual da classificação de uma intent dentro do prompt.

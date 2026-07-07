@@ -1015,6 +1015,99 @@ describe('runAgentForHousehold — esquecer preview (Story M-4 AC7)', () => {
   });
 });
 
+describe('runAgentForHousehold — sugerir_memoria preview (Story M-5 AC6/AC7)', () => {
+  const MEMORY_ROWS = [
+    { id: 'm1', content: 'gosto de correr de manhã', created_at: '2026-07-06T10:00:00Z' },
+  ];
+
+  it('preview real — o Planner emite sugerir_memoria e o preview mostra o texto EXACTO proposto (não o label genérico)', async () => {
+    setupDbWithMemory(MEMORY_ROWS);
+    mocks.classifyMock.mockResolvedValue({
+      intents: [
+        { intent: 'sugerir_memoria', confidence: 0.85, raw_span: 'odeio reuniões antes das 10h' },
+      ],
+      language: 'pt-PT',
+      // R5: needs_confirmation SEMPRE true para sugerir_memoria (ALWAYS_CONFIRM_INTENTS).
+      needs_confirmation: true,
+      overall_confidence: 0.85,
+    });
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [
+        {
+          toolName: 'sugerir_memoria',
+          input: { content: 'odeio reuniões antes das 10h' },
+          intent: 'sugerir_memoria',
+        },
+      ],
+      planReasoning: null,
+      latencyMs: 0,
+      tokensInput: 0,
+      tokensOutput: 0,
+      costEur: 0,
+      cacheHit: false,
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'cria uma tarefa para ligar ao dentista, já agora odeio reuniões antes das 10h',
+    });
+
+    expect(outcome.status).toBe('preview');
+    expect(mocks.plannerPlanMock).toHaveBeenCalledTimes(1);
+    // O preview mostra o texto EXACTO em forma de pergunta (não "sugerir_memoria (85%)").
+    if (outcome.status === 'preview') {
+      const summary = outcome.planSummary.join(' ');
+      expect(summary).toContain(
+        'Reparei nisto: "odeio reuniões antes das 10h". Queres que eu guarde isto como memória?',
+      );
+      expect(summary).not.toMatch(/sugerir_memoria \(\d+%\)/);
+    }
+    // Nunca executa (só preview) — o Executor não corre (nada é gravado sem confirmar).
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it('ausência de toolCall sugerir_memoria (Planner decidiu não propor) → não quebra o fluxo (fallback ao label genérico, sem forget_zero_match)', async () => {
+    setupDbWithMemory(MEMORY_ROWS);
+    mocks.classifyMock.mockResolvedValue({
+      intents: [
+        { intent: 'sugerir_memoria', confidence: 0.75, raw_span: 'algo trivial' },
+      ],
+      language: 'pt-PT',
+      needs_confirmation: true,
+      overall_confidence: 0.75,
+    });
+    // O Planner corre mas decide NÃO emitir sugerir_memoria (facto trivial / já
+    // coberto por memoryContext) → plano vazio. Distinto da M-4: aqui é resultado
+    // NEUTRO, não uma falha honesta a comunicar (sem `forget_zero_match`).
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [],
+      planReasoning: 'nada digno de propor',
+      latencyMs: 0,
+      tokensInput: 0,
+      tokensOutput: 0,
+      costEur: 0,
+      cacheHit: false,
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'cria uma tarefa para comprar pão',
+    });
+
+    // drafts.length === 0 → renderExternalWritePreview devolve null → fallback ao
+    // label genérico do(s) intent(s). Continua a ser um preview normal, sem crash.
+    expect(outcome.status).toBe('preview');
+    if (outcome.status === 'preview') {
+      const summary = outcome.planSummary.join(' ');
+      expect(summary).toMatch(/sugerir_memoria \(\d+%\)/);
+      expect(summary).not.toContain('Reparei nisto');
+    }
+    expect(mocks.executorExecuteMock).not.toHaveBeenCalled();
+  });
+});
+
 describe('runAgentForHousehold — rollback', () => {
   it('AC5 — rollback graceful (executor success:false) lança AtomicExecutionError', async () => {
     mocks.classifyMock.mockResolvedValue({

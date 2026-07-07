@@ -40,6 +40,7 @@ import {
 import { logger } from '@meu-jarvis/observability';
 
 import {
+  ALWAYS_CONFIRM_INTENTS,
   CLASSIFIER_CONFIDENCE_THRESHOLD,
   CLASSIFIER_MODEL,
   ClassificationSchema,
@@ -365,14 +366,24 @@ export class Classifier {
  * intents. Esta função é o "guardião" do contrato AC3 — o LLM pode devolver
  * valores incoerentes (ex: `needs_confirmation: false` mas há intent com
  * confidence < 0,70); o caller (Classifier) recalcula sempre estes campos.
+ *
+ * Story M-5 [PO-MUST-FIX-1] — enforcement determinístico de R5: além do limiar
+ * de confiança, `needs_confirmation` é forçado a `true` sempre que o plano
+ * contiver um intent de `ALWAYS_CONFIRM_INTENTS` (`sugerir_memoria`). É a rede de
+ * segurança em CÓDIGO (não no prompt, que aqui é descartado) que garante que uma
+ * captura INFERIDA de memória nunca é executada sem o utilizador ver o texto
+ * proposto — independentemente da confiança e de `always_preview`.
  */
 function applyConfidenceDerivation(parsed: ClassificationResult): ClassificationResult {
   const confidences = parsed.intents.map((i: ClassifiedIntent) => i.confidence);
   const minConfidence = confidences.reduce((a, b) => Math.min(a, b), 1);
+  const forcesConfirmation = parsed.intents.some((i: ClassifiedIntent) =>
+    ALWAYS_CONFIRM_INTENTS.has(i.intent),
+  );
   return {
     intents: parsed.intents,
     language: parsed.language,
-    needs_confirmation: minConfidence < CLASSIFIER_CONFIDENCE_THRESHOLD,
+    needs_confirmation: minConfidence < CLASSIFIER_CONFIDENCE_THRESHOLD || forcesConfirmation,
     overall_confidence: minConfidence,
   };
 }

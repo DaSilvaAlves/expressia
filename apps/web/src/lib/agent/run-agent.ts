@@ -130,13 +130,25 @@ function isMixedExternalWritePlan(intents: ReadonlyArray<{ intent: string }>): b
  *
  * `enviar_email` (J-7, rascunho Para/Assunto/Corpo) + `responder_email` (J-8,
  * rascunho da resposta em thread) + `esquecer` (M-4, conteúdo exacto da memória
- * a apagar): os previews de tarefas/finanças/calendar mantêm o comportamento
- * actual (label genérico) — regressão zero.
+ * a apagar) + `sugerir_memoria` (M-5, texto EXACTO da memória inferida proposta,
+ * em forma de pergunta): os previews de tarefas/finanças/calendar mantêm o
+ * comportamento actual (label genérico) — regressão zero.
+ *
+ * Story M-5 — `sugerir_memoria` NÃO precisa de resolução de alvo/shortlist (ao
+ * contrário de `esquecer`): não há uma linha existente a identificar por
+ * correspondência difusa; é sempre um INSERT novo com conteúdo extraído da
+ * mensagem actual pelo Planner. Se o Planner (apesar do intent classificado)
+ * decidir NÃO emitir o toolCall, o loop de `drafts` (sobre `plan.toolCalls`) não
+ * produz draft nenhum → `renderExternalWritePreview` devolve `null` → o caller
+ * cai no label genérico do(s) outro(s) intent(s). Resultado NEUTRO — NÃO um
+ * `forget_zero_match` (a M-4 tinha uma falha honesta a comunicar; aqui "o Planner
+ * não propôs" é só "esta mensagem não tinha nada digno de propor").
  */
 const PREVIEW_RENDER_INTENTS: ReadonlySet<string> = new Set([
   'enviar_email',
   'responder_email',
   'esquecer',
+  'sugerir_memoria',
 ]);
 
 /**
