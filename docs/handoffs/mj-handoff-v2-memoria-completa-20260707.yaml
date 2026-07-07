@@ -1,0 +1,81 @@
+from_agent: "devops (Gage)"
+to_agent: "any"
+created: "2026-07-07T01:10:00Z"
+status: pending
+consumed: false
+consumed_at: null
+consumed_by: null
+
+project: "meu-jarvis (Expressia)"
+summary: >-
+  MIGRAÇÃO DE TERMINAL — Epic v2 (Memória rica) COMPLETA e provada E2E em
+  produção. Série de 5 stories fechadas nesta sessão (04–07/07), todas via
+  ciclo /sdc autónomo (sm→po→dev→qa→devops), cada uma com CI 3/3 verde +
+  deploy Vercel Ready: FIX J-8 (guardrail reply) + M-1 (guardar memória) +
+  M-2 (usar no motor) + M-3 (usar no brief) + M-4 (esquecer). O Jarvis passou
+  a "conhecer o Eurico": guarda, usa no chat e no brief, e esquece. Repo
+  LIMPO, zero pendências de código. Falta apenas decidir a PRÓXIMA DIRECÇÃO
+  (v2.x inferência/retrieval, ou outra) — decisão do Eurico.
+
+context:
+  epic: "v2 — Memória rica (docs/epics/v2-memoria-rica-brief.md)"
+  branch: "main"
+  head_commit: "8242a41"
+  stories_done_esta_sessao:
+    - "J-8 (fix): guardrail determinístico de reply — bug de prod (reply enviava ao destinatário errado). Commit c6c6003. docs/stories/completed/J-8.*.md"
+    - "M-1: capturar+guardar memória (intent memorizar + tabela jarvis_memories + migração 0034). Commit 5956e49/ccc897a. E2E live PROVADO."
+    - "M-2: usar memória no motor/chat (buildMemoryContext, prefixo do Planner). Commit 5cdb12c/9b29f4a. Prova determinística."
+    - "M-3: usar memória no brief 07:30 (resolveMemoriesSection em build-brief.ts). Commit 7fd8716/ca58706. Prova determinística."
+    - "M-4: esquecer memória (intent esquecer + migração 0035 + fix undo whitelist). Commit bbd7b0f/8242a41. E2E live PROVADO."
+  e2e_prod_provado:
+    - "M-1: 'lembra-te que odeio reuniões antes das 10h' → gravado em jarvis_memories (source=explicit), confirmado por query à DB."
+    - "M-4: 'esquece que odeio reuniões antes das 10h' → preview mostrou conteúdo exacto → confirmou → DELETE. Confirmado por query: 0 memórias activas em prod."
+    - "M-2/M-3: prova bloqueante determinística (teste), E2E live best-effort (efeito da memória depende do LLM)."
+  migracoes_prod:
+    - "0034 (jarvis_memories + 4 RLS policies) aplicada em prod — verificada por query (RLS activa, 4 policies)."
+    - "0035 (enum esquecer) aplicada em prod — verificada por query."
+  decisions_made:
+    - "Padrão RLS pós-0001 (PO-FIX-1, M-1): tabela nova criada depois da 0001 tem de DUPLICAR as 4 policies — aplicação real na migration nova (chega a prod via db:migrate, sem passo manual no SQL Editor) + DO-block no-op na 0001 (só para o check:rls estático). Eliminou o gotcha J-3."
+    - "Bug latente da M-1 apanhado pelo @po na M-4 (MUST-FIX-1): o motor de undo (undo/route.ts, applyReverseOp) valida op.table contra ALLOWED_REVERSE_TABLES; jarvis_memories faltava → o undo da M-1/memorizar estava PARTIDO em prod desde o deploy (nunca exercido, sem dano). M-4 adicionou jarvis_memories à whitelist → corrige M-1 + habilita M-4. Teste passou a correr contra applyReverseOp REAL."
+    - "esquecer usa SEND-PREVIEW-1 (não o padrão eliminar_tarefa): preview mostra o conteúdo exacto antes de apagar — confirmação humana é a defesa contra apagar a errada (lição J-8)."
+    - "M-2/M-3 fecharam como Done com E2E live best-effort NÃO-bloqueante (prova = teste determinístico); M-1/M-4/J-8 com E2E mais determinístico."
+
+next_action: >-
+  DECIDIR A PRÓXIMA DIRECÇÃO com o Eurico (a espinha v2 está fechada, nada
+  bloqueado). Opções no roadmap (prd-jarvis §9): (A) v2.x — inferência
+  automática (o Jarvis extrai memórias das conversas sem "lembra-te") +
+  retrieval/pesquisa quando as memórias crescerem (hoje é injectar-todas cap
+  50, sem ranking); (B) outra direcção (voz/TTS-STT v2.x, mais integrações,
+  ou v3 SaaS/billing — mas billing está CONGELADO). Se o Eurico escolher,
+  arrancar via /sdc autónomo (o pipeline provou-se: apanhou 2 "verdes
+  enganadores" nesta série — J-8 e o undo da M-1). Nenhum trabalho de código
+  fica a meio.
+
+notes: |
+  Constraints vivas (inalteradas): billing CONGELADO · SEC-8 HOLD (não tocar
+  withHousehold/db-shim/client.ts) · família removida (household_id/RLS
+  intactos, não reintroduzir) · OAuth SEMPRE na conta principal
+  euricojsalves@gmail.com · push/PR/merge só @devops com ordem do Eurico ·
+  PT-PT europeu · data residency UE.
+
+  Débitos/follow-ups NÃO bloqueantes:
+  - SEC-J8-2 (gate J-8): o guardrail de reply só cobre o ramo de preview; o
+    ramo de execução directa depende de needs_confirmation:true (regra de
+    prompt do classifier). Hardening transversal da escrita externa (afecta
+    também J-7 enviar_email). Ver docs/qa/gates/J-8-*.yml.
+  - v2.x memória: injecta-todas cap 50 como prefixo da user message em CADA
+    prompt do motor (~750 tokens pior caso) — candidato a keyword/retrieval
+    se as memórias crescerem. Directiva registada nos commits M-2/M-3.
+  - DIRECTIVA de undo (lição M-1): qualquer tabela nova com undo TEM de entrar
+    em ALLOWED_REVERSE_TABLES (undo/route.ts) E ter teste contra applyReverseOp
+    REAL (não mock) — senão o undo falha silenciosamente em runtime.
+
+  Telegram: notificações a funcionar via Bot API. O token do @jarvis_eurico_bot
+  NÃO está em .env local (é Sensitive na Vercel, vercel env pull devolve vazio);
+  foi partilhado pelo Eurico em chat para esta sessão. Para avisar no Telegram
+  em sessões futuras, pedir o token ao Eurico ou pô-lo em apps/web/.env.local
+  (TELEGRAM_BOT_TOKEN=...). chat_id do Eurico: 5647753194.
+
+  Gotcha conhecido (não resolvido): docs/HANDOFF-INDEX.md tem ~444KB — rebenta
+  o limite de leitura (256KB). Editar por edição cirúrgica (grep+Edit da linha),
+  não ler inteiro. Candidato a poda das linhas Archived antigas.
