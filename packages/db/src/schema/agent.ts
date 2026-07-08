@@ -98,6 +98,13 @@ export const agentIntentEnum = pgEnum('agent_intent', [
   // NÃO adicionar a READ_ONLY_INTENTS — é escrita, não leitura. FORÇA
   // needs_confirmation SEMPRE (R5 do brief — nunca captura sem consentimento).
   'sugerir_memoria',
+  // Story M-6 — tool `listar_memorias` (consultar/recall das memórias guardadas
+  // via chat, "o que sabes sobre mim?"). LEITURA pura (SELECT em jarvis_memories,
+  // cap 50), SEM side-effects. Sync com migration 0037 +
+  // `packages/classifier/src/schemas.ts` INTENT_VALUES (sanity-check Article IV).
+  // É adicionado a READ_ONLY_INTENTS (salta preview→confirm, sem undo) —
+  // 4.ª tool do domínio memory, mesma tabela das M-1/M-4/M-5.
+  'listar_memorias',
 ]);
 
 export const llmModelEnum = pgEnum('llm_model', [

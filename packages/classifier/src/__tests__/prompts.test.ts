@@ -10,13 +10,14 @@
  *        Story J-8 AC4 (bump v6→v7 + 20 intents + 2 few-shots Gmail reply);
  *        Story M-1 AC4 (bump v7→v8 + 21 intents + 2 few-shots memorizar);
  *        Story M-4 AC3 (bump v8→v9 + 22 intents + 2 few-shots esquecer);
- *        Story M-5 AC3 (bump v9→v10 + 23 intents + 2 few-shots sugerir_memoria).
+ *        Story M-5 AC3 (bump v9→v10 + 23 intents + 2 few-shots sugerir_memoria);
+ *        Story M-6 AC3 (bump v10→v11 + 24 intents + 2 few-shots listar_memorias).
  *
  * Estratégia:
  *   - Hash SHA-256 do conteúdo da constante `CLASSIFIER_SYSTEM_PROMPT`.
  *   - Qualquer mudança requer actualização intencional do hash + bump
  *     do `CLASSIFIER_SYSTEM_PROMPT_VERSION`.
- *   - Versão actual: `v10`.
+ *   - Versão actual: `v11`.
  */
 import { createHash } from 'node:crypto';
 
@@ -28,11 +29,11 @@ import {
 } from '@/prompts/classifier-system';
 
 describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
-  it('versão é "v10" (Story M-5 bump)', () => {
-    expect(CLASSIFIER_SYSTEM_PROMPT_VERSION).toBe('v10');
+  it('versão é "v11" (Story M-6 bump)', () => {
+    expect(CLASSIFIER_SYSTEM_PROMPT_VERSION).toBe('v11');
   });
 
-  it('contém os 23 intents canónicos por nome (Story M-5 — +1 sugerir_memoria)', () => {
+  it('contém os 24 intents canónicos por nome (Story M-6 — +1 listar_memorias)', () => {
     const intents = [
       'criar_tarefa',
       'completar_tarefa',
@@ -40,6 +41,7 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
       'eliminar_tarefa',
       'listar_tarefas',
       'listar_atrasadas',
+      'listar_memorias',
       'criar_financa_variavel',
       'update_finance_variable',
       'delete_finance_variable',
@@ -63,9 +65,18 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
     }
   });
 
-  it('header anuncia 23 intents (Story M-5)', () => {
-    // Format real do header: `# Intents canónicos (23)`.
-    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/Intents can[óo]nicos \(23\)/);
+  it('header anuncia 24 intents (Story M-6)', () => {
+    // Format real do header: `# Intents canónicos (24)`.
+    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/Intents can[óo]nicos \(24\)/);
+  });
+
+  it('listar_memorias NÃO força needs_confirmation (leitura — Story M-6)', () => {
+    // A regra 5 lista os intents que forçam confirmação; listar_memorias não está lá.
+    expect(CLASSIFIER_SYSTEM_PROMPT).toContain('listar_memorias');
+    // O exemplo few-shot de listar_memorias tem needs_confirmation false.
+    expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(
+      /"intent": "listar_memorias"[\s\S]*?"needs_confirmation": false/,
+    );
   });
 
   it('esquecer FORÇA needs_confirmation (escrita destrutiva — Story M-4)', () => {
@@ -113,10 +124,10 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
     expect(CLASSIFIER_SYSTEM_PROMPT).toMatch(/portugu[êe]s europeu/i);
   });
 
-  it('inclui pelo menos 30 exemplos few-shot (Story M-5: 2 novos sugerir_memoria)', () => {
+  it('inclui pelo menos 32 exemplos few-shot (Story M-6: 2 novos listar_memorias)', () => {
     const matches = CLASSIFIER_SYSTEM_PROMPT.match(/## Exemplo \d/g);
     expect(matches).not.toBeNull();
-    expect(matches?.length ?? 0).toBeGreaterThanOrEqual(30);
+    expect(matches?.length ?? 0).toBeGreaterThanOrEqual(32);
   });
 
   it('inclui exemplo de input non-PT-PT → unknown (PT-PT exclusivo)', () => {
@@ -127,10 +138,10 @@ describe('CLASSIFIER_SYSTEM_PROMPT (AC4)', () => {
   it('é estável — hash SHA-256 não muda sem alteração intencional', () => {
     const hash = createHash('sha256').update(CLASSIFIER_SYSTEM_PROMPT).digest('hex');
     expect(hash).toMatch(/^[a-f0-9]{64}$/);
-    // O prompt v10 tem ≈20KB (30 exemplos few-shot + 23 intents; a descrição de
-    // sugerir_memoria é deliberadamente detalhada — conservadorismo + distinção
-    // de memorizar).
+    // O prompt v11 tem ≈21KB (32 exemplos few-shot + 24 intents; a descrição de
+    // listar_memorias distingue explicitamente de memorizar/sugerir_memoria e
+    // consultar_dados).
     expect(CLASSIFIER_SYSTEM_PROMPT.length).toBeGreaterThan(3000);
-    expect(CLASSIFIER_SYSTEM_PROMPT.length).toBeLessThan(22000);
+    expect(CLASSIFIER_SYSTEM_PROMPT.length).toBeLessThan(23000);
   });
 });

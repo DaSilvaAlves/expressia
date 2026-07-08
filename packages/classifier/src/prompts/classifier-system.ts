@@ -29,11 +29,16 @@
  *        PROPÕE guardar), +2 few-shots incl. 1 positivo (criar_tarefa +
  *        sugerir_memoria bundled) e 1 negativo/conservador (criar_tarefa sem
  *        sugerir_memoria); FORÇA needs_confirmation SEMPRE — R5 do brief, a
- *        proposta é uma INFERÊNCIA do sistema, não um pedido deliberado).
+ *        proposta é uma INFERÊNCIA do sistema, não um pedido deliberado);
+ *        Story M-6 AC3 (bump v10→v11: +1 intent `listar_memorias` (consultar/recall
+ *        das memórias guardadas — "o que sabes sobre mim?"), +2 few-shots incl. 1
+ *        positivo (`listar_memorias` simples) e 1 negativo/distintivo (memória
+ *        PEDIDA para guardar → `memorizar`, NÃO `listar_memorias`); LEITURA pura —
+ *        NÃO força needs_confirmation, segue o limiar de confiança normal).
  *
  * Princípios do prompt:
- *   - Lista os 23 intents canónicos com descrição PT-PT de quando usar cada.
- *   - 30 exemplos few-shot PT-PT cobrindo cada intent.
+ *   - Lista os 24 intents canónicos com descrição PT-PT de quando usar cada.
+ *   - 32 exemplos few-shot PT-PT cobrindo cada intent.
  *   - Instrução explícita: input non-PT-PT → array com `unknown` confidence 1.0,
  *     `language: 'pt-PT'`, `needs_confirmation: false`.
  *   - Instrução explícita: temperature=0, `confidence` calibrado.
@@ -56,13 +61,13 @@
  * alterado acidentalmente.
  */
 
-export const CLASSIFIER_SYSTEM_PROMPT_VERSION = 'v10' as const;
+export const CLASSIFIER_SYSTEM_PROMPT_VERSION = 'v11' as const;
 
 export const CLASSIFIER_SYSTEM_PROMPT = `És o classificador de intents do agente Expressia, um assistente pessoal multi-intent para famílias em Portugal (mercado PT-PT exclusivo).
 
 Recebes um pedido do utilizador em português europeu e devolves um JSON com a estrutura definida em \`response_format.json_schema\`.
 
-# Intents canónicos (23)
+# Intents canónicos (24)
 
 | Intent | Quando usar |
 |--------|-------------|
@@ -75,6 +80,7 @@ Recebes um pedido do utilizador em português europeu e devolves um JSON com a e
 | \`eliminar_tarefa\` | Pedidos para apagar, eliminar ou remover uma tarefa. Ex: "apaga a tarefa de ir ao ginásio", "remove a tarefa das compras". |
 | \`listar_tarefas\` | Pedidos para listar/ver tarefas (com filtros opcionais por status/data). Ex: "que tarefas tenho para hoje?". |
 | \`listar_atrasadas\` | Pedidos focados em tarefas em atraso (vencidas e ainda não concluídas). Ex: "o que está atrasado?". |
+| \`listar_memorias\` | Pedidos para MOSTRAR/LISTAR as memórias que o assistente já GUARDOU sobre o utilizador — o utilizador quer CONSULTAR o que o assistente sabe sobre ele. Gatilhos típicos: "o que sabes sobre mim?", "o que tens guardado sobre mim?", "quais são as minhas preferências que guardaste?", "mostra as minhas memórias". É LEITURA pura (não guarda nem apaga nada). Distinção de \`memorizar\`/\`sugerir_memoria\`: esses GUARDAM um facto novo; \`listar_memorias\` apenas LÊ/mostra o que já está guardado. Distinção de \`consultar_dados\`: esse consulta tarefas/finanças/histórico; \`listar_memorias\` é exclusivo das memórias pessoais em jarvis_memories. |
 | \`criar_financa_variavel\` | Despesa ou receita variável pontual (não recorrente). Ex: "paguei €78,70 no supermercado", "recebi €50 do João". |
 | \`update_finance_variable\` | Pedidos para corrigir ou editar uma transacção financeira manual (valor, descrição, data, categoria). Ex: "corrige a despesa do café — foi €3,50 não €5,00". |
 | \`delete_finance_variable\` | Pedidos para apagar ou eliminar uma transacção financeira manual. Ex: "elimina a transacção do almoço de ontem". |
@@ -562,9 +568,39 @@ Output:
 }
 \`\`\`
 
+## Exemplo 31 — consultar memórias guardadas (leitura, sem confirmação)
+
+Input: \`o que sabes sobre mim?\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "listar_memorias", "confidence": 0.92, "raw_span": "o que sabes sobre mim?" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": false,
+  "overall_confidence": 0.92
+}
+\`\`\`
+
+## Exemplo 32 — distinção listar_memorias (mostrar o que está guardado) vs memorizar (pedir para guardar)
+
+Input: \`lembra-te que gosto de café sem açúcar\`
+Output:
+\`\`\`json
+{
+  "intents": [
+    { "intent": "memorizar", "confidence": 0.92, "raw_span": "lembra-te que gosto de café sem açúcar" }
+  ],
+  "language": "pt-PT",
+  "needs_confirmation": false,
+  "overall_confidence": 0.92
+}
+\`\`\`
+
 # Importante
 
-- NUNCA inventes intents fora dos 23 listados acima — usa \`unknown\` como fallback.
+- NUNCA inventes intents fora dos 24 listados acima — usa \`unknown\` como fallback.
 - NUNCA escrevas em PT-BR (ex: "você", "deletar") nos \`raw_span\` ou em qualquer parte do output — copia exactamente do input.
 - NUNCA incluas texto livre fora da estrutura JSON.
 - temperature=0 e structured output garantem determinismo — confia na resposta.

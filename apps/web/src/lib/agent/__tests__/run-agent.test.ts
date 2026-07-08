@@ -1108,6 +1108,66 @@ describe('runAgentForHousehold — sugerir_memoria preview (Story M-5 AC6/AC7)',
   });
 });
 
+describe('runAgentForHousehold — listar_memorias read-only (Story M-6 AC7)', () => {
+  it('plano [listar_memorias] é read-only: salta preview→confirm mesmo com always_preview=true e não oferece undo', async () => {
+    // db mock: sequência base + user_prefs.always_preview=true (a leitura tem de
+    // saltar o preview na mesma) + memoryContext vazio.
+    let callIndex = 0;
+    mocks.dbExecuteMock.mockImplementation(async (arg: unknown) => {
+      callIndex++;
+      if (callIndex === 1) return [{ count: 1 }]; // rate limit
+      if (callIndex === 2) return []; // quota
+      if (callIndex === 3) return [{ id: 'run-uuid-test', created_at: new Date().toISOString() }]; // INSERT
+      if (sqlText(arg).includes('user_prefs')) return [{ always_preview: true }];
+      return [];
+    });
+
+    mocks.classifyMock.mockResolvedValue({
+      intents: [{ intent: 'listar_memorias', confidence: 0.92, raw_span: 'o que sabes sobre mim?' }],
+      language: 'pt-PT',
+      needs_confirmation: false,
+      overall_confidence: 0.92,
+    });
+    mocks.plannerPlanMock.mockResolvedValue({
+      toolCalls: [{ toolName: 'listar_memorias', input: {}, intent: 'listar_memorias' }],
+      planReasoning: null,
+      latencyMs: 0,
+      tokensInput: 0,
+      tokensOutput: 0,
+      costEur: 0,
+      cacheHit: false,
+    });
+    mocks.executorExecuteMock.mockResolvedValue({
+      success: true,
+      results: [
+        {
+          toolName: 'listar_memorias',
+          output: {
+            memories: [{ content: 'prefiro café sem açúcar', createdAt: '2026-07-06T09:00:00.000Z' }],
+            count: 1,
+          },
+          reverseOpId: 'rop-noop',
+        },
+      ],
+    });
+
+    const outcome = await runAgentForHousehold({
+      userId: TEST_USER_ID,
+      householdId: TEST_HOUSEHOLD_ID,
+      prompt: 'o que sabes sobre mim?',
+    });
+
+    // isReadOnlyPlan === true ⟹ executed (não preview) + readOnly flag true.
+    expect(outcome.status).toBe('executed');
+    if (outcome.status === 'executed' && outcome.kind === 'pipeline') {
+      expect(outcome.readOnly).toBe(true);
+      expect(outcome.summary).toBe('Tenho 1 memória guardada:\n1. prefiro café sem açúcar');
+    } else {
+      throw new Error('esperado executed/pipeline read-only');
+    }
+  });
+});
+
 describe('runAgentForHousehold — rollback', () => {
   it('AC5 — rollback graceful (executor success:false) lança AtomicExecutionError', async () => {
     mocks.classifyMock.mockResolvedValue({

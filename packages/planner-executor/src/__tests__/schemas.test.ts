@@ -244,5 +244,8 @@ describe('TOOL_TO_INTENT_MAP + resolveIntentFromToolName (D6)', () => {
     expect(intents).toContain('eliminar_tarefa');
     expect(intents).toContain('update_finance_variable');
     expect(intents).toContain('delete_finance_variable');
+    // Story M-6 — tool `listar_memorias` (recall das memórias guardadas)
+    expect(intents).toContain('listar_memorias');
+    expect(resolveIntentFromToolName('listar_memorias')).toBe('listar_memorias');
   });
 });

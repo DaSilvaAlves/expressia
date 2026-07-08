@@ -105,6 +105,14 @@ export const INTENT_VALUES = [
   // READ_ONLY_INTENTS — é escrita (interna e simples), não leitura. FORÇA
   // needs_confirmation SEMPRE via ALWAYS_CONFIRM_INTENTS (abaixo) — R5 do brief.
   'sugerir_memoria',
+  // Story M-6 — tool `listar_memorias` (consultar/recall das memórias guardadas
+  // via chat — "o que sabes sobre mim?"). LEITURA pura (SELECT em jarvis_memories,
+  // cap 50), sem side-effects nem reverse_op útil. Sync com migration 0037 +
+  // `packages/db/src/schema/agent.ts` agentIntentEnum. Article IV: INTENT_VALUES
+  // bate EXACTAMENTE com o enum DB (sanity-check em `__tests__/schemas.test.ts`).
+  // É adicionado a READ_ONLY_INTENTS (abaixo) — salta preview→confirm, mesmo
+  // perfil de `listar_tarefas`/`listar_atrasadas`/`consultar_emails`.
+  'listar_memorias',
 ] as const;
 
 export const IntentSchema = z.enum(INTENT_VALUES);
@@ -122,13 +130,17 @@ export type Intent = z.infer<typeof IntentSchema>;
  *
  * `unknown` NÃO é read-only: é ambíguo e deve continuar a pedir clarificação.
  *
- * Trace: Story J-6 follow-up (leituras saltam preview→confirm).
+ * Trace: Story J-6 follow-up (leituras saltam preview→confirm); Story M-6
+ *        (+`listar_memorias` — recall das memórias guardadas).
  */
 export const READ_ONLY_INTENTS: ReadonlySet<Intent> = new Set<Intent>([
   'consultar_dados',
   'listar_tarefas',
   'listar_atrasadas',
   'consultar_emails',
+  // Story M-6 — `listar_memorias` é leitura pura (SELECT em jarvis_memories):
+  // salta preview→confirm e não oferece undo (reverse é `_noop` → 410).
+  'listar_memorias',
 ]);
 
 /** `true` se `intent` for uma intent de leitura (sem side-effects). */
