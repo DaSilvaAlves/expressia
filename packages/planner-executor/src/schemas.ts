@@ -342,6 +342,12 @@ export const TOOL_TO_INTENT_MAP: Record<string, Intent> = {
   // delete_row), mesmo perfil de `memorizar`. A tool vive em
   // `packages/tools/src/memory/`; o mapping tool→intent vive aqui.
   sugerir_memoria: 'sugerir_memoria',
+  // Story M-6 — tool `listar_memorias` (tool name === intent name PT-PT).
+  // LEITURA pura das memórias guardadas (SELECT em jarvis_memories, cap 50),
+  // sem side-effects. A tool vive em `packages/tools/src/memory/`; o mapping
+  // tool→intent vive aqui. Mesmo perfil read-only de `listar_tarefas`/
+  // `listar_atrasadas`.
+  listar_memorias: 'listar_memorias',
 };
 
 /**

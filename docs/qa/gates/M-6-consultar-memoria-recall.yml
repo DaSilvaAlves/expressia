@@ -1,0 +1,122 @@
+schema: 1
+story: 'M-6'
+story_title: 'Consultar memória (recall) via chat'
+gate: PASS
+status_reason: >-
+  Fecha o ciclo da epic v2 "Memória rica" (capturar M-1/M-5 → usar M-2/M-3 →
+  esquecer M-4 → CONSULTAR M-6). Os dois focos de maior risco estão fechados e
+  provados no código real: (1) READ-ONLY determinístico — 'listar_memorias' está
+  em READ_ONLY_INTENTS e NÃO em ALWAYS_CONFIRM_INTENTS; isReadOnlyPlan
+  (run-agent.ts L538-540) é genérico via isReadOnlyIntent e o gate de preview L598
+  (`needs_confirmation || (alwaysPreview && !isReadOnlyPlan)`) faz a leitura saltar
+  preview→confirm mesmo com always_preview=true; recall-memory-e2e Fase 1 prova
+  outcome=executed/readOnly=true e summary=lista formatada (nunca "Executei N
+  operações"). (2) PO-FIX-1 — isMemoryListOutput NÃO faz Array.isArray(output);
+  confirma objecto não-nulo → output.memories array → valida elementos, e
+  renderReadToolResults chama formatMemories(output.memories); recall-e2e Fase 2 +
+  format-results provam formatMemories chamado, não o fallback silencioso. Tenancy
+  (foco 3): execute() usa EXCLUSIVAMENTE ctx.db (RLS 2ª rede) + household_id de ctx
+  no WHERE (1ª rede) + public.jarvis_memories schema-qualificado (PO-FIX-2); RLS
+  suite (M-1) prova cross-household SELECT bloqueado contra Postgres real. Âmbito
+  exemplar: input SÓ limit (query/topic descartados por teste), zero retrieval/
+  tsvector/embeddings, cap 50 order by created_at desc (= buildMemoryContext M-2).
+  Migration 0037 só-enum idempotente; check:rls EXIT 0 sem alteração de cobertura.
+  M-6 é via de leitura NOVA e independente — run-agent.ts NÃO alterado
+  (buildMemoryContext M-2 intacto). Tarefa 7 (deploy + E2E live) = externo
+  [EURICO]+@devops, fora deste ciclo sem --push.
+reviewer: 'Aria (Architect)'
+updated: '2026-07-08T19:10:00Z'
+
+waiver: { active: false }
+
+quality_score: 96
+expires: '2026-07-22T19:10:00Z'
+
+evidence:
+  tests_reviewed: 20
+  tests_reexecuted_green:
+    tools: 504            # inclui listar-memorias.test.ts (SELECT public.jarvis_memories + household_id + limit param)
+    classifier: 105       # inclui schemas.test.ts (READ_ONLY 5 entries, ALWAYS_CONFIRM só sugerir_memoria) + prompts v11 (24 intents)
+    check_rls: 'EXIT 0'   # jarvis_memories coberta (memory.ts) — ZERO alteração de cobertura
+  tests_accepted_from_dev:  # evidência @dev aceite; as 3 contagens re-corridas acima batem exactamente a tabela
+    web: 1496
+    planner_executor: 95
+    db_test_pg_real: 210
+    lint: 'PASS (--max-warnings=0)'
+    typecheck: 'PASS 10/10'
+    build: 'PASS 10/10'
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8]
+    ac_gaps: []
+    ac_external_pending: [9]  # Deploy 0037 + E2E live [EURICO]+@devops — precondição externa, fora de CI
+
+top_issues: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: >-
+      Tenancy/RLS (NFR5) fechada: listar_memorias.execute() usa EXCLUSIVAMENTE
+      ctx.db (role authenticated, RLS 2ª rede) + household_id derivado de ctx no
+      WHERE (1ª rede, defesa em profundidade), NUNCA getServiceDb() nem input.
+      public.jarvis_memories schema-qualificado (PO-FIX-2, igual ao modelo M-2). A
+      RLS suite jarvis_memories.rls.test.ts (M-1) prova cross-household SELECT
+      bloqueado contra Postgres real via asUser() (userB não vê memórias de A) —
+      db-test 210 GREEN. check:rls EXIT 0, jarvis_memories coberta. READ-ONLY
+      determinístico impede escrita/undo indevido: sem side-effects, reverse()=
+      sentinela _noop (410 Gone genérico). SEC-8 HOLD respeitado (withHousehold/
+      db-shim/client.ts NÃO tocados — File List confirma). Billing intocado.
+      PII (NFR12): content das memórias nunca em span attributes/logs de erro.
+  performance:
+    status: PASS
+    notes: >-
+      Query única SELECT com cap (input.limit ?? 50), order by created_at desc —
+      mesma forma de buildMemoryContext (M-2). Sem retrieval semântico/tsvector/
+      embeddings (rejeitado, brief D3). Prompt caching preservado: memoryContext
+      (M-2) não é tocado; esta é uma via de leitura sob pedido explícito,
+      independente da injecção automática. estimatedTokens=100 (= listar_tarefas,
+      output até 50 memórias). Cost router / mecanismo read-only genérico reutilizado
+      (zero código novo em run-agent.ts além da entrada no Set READ_ONLY_INTENTS).
+  reliability:
+    status: PASS
+    notes: >-
+      Leitura pura → sem estado a reverter. reverse() devolve sentinela inerte
+      { delete_row, _noop, <uuid> } (R1b v1.1, mesmo pattern de listar_tarefas/
+      listar_atrasadas); endpoint /undo trata _noop genericamente (410), sem
+      alteração. isReadOnlyPlan salta preview mesmo com always_preview=true e não
+      oferece undo (sem "Feito."+"Cancelar" sem sentido). buildSummaryText já chama
+      renderReadToolResults genericamente antes do fallback. Migration 0037
+      idempotente (ADD VALUE IF NOT EXISTS, sem uso na mesma tx) — db-test 210 GREEN
+      (0037 aplica em Postgres real via Testcontainers).
+  maintainability:
+    status: PASS
+    notes: >-
+      Sem `any` (typecheck 10/10; isMemoryListOutput usa unknown + type guard). PO-FIX-1
+      é o ponto de manutenção crítico e está correcto e testado: type guard desembrulha
+      output.memories (objecto embrulhado), NÃO copia Array.isArray(output) de isEmailArray
+      — teste de não-interferência com consultar_emails presente. Imports @/ e @meu-jarvis/*
+      (excepção relativa documentada em memory/index.ts, herdada de tasks/index.ts). PT-PT
+      europeu em copy (mensagens 0/1/N memórias), descrição da tabela de intents,
+      comentários. Modelada em listar-atrasadas.ts + buildMemoryContext (M-2). Âmbito
+      exemplar: retrieval/keyword/UI de gestão rejeitados explicitamente e ausentes do
+      código (input só limit, provado por teste que descarta query/topic). Prompt v11 (24
+      intents, +2 few-shots: Ex.31 positivo + Ex.32 negativo memorizar vs listar_memorias);
+      regra 5 (needs_confirmation) inalterada — listar_memorias fora da lista de confirmação.
+
+recommendations:
+  immediate: []
+  future:
+    - action: >-
+        [EURICO/@devops] Aplicar 0037 em prod (db:migrate, idempotente só-enum, sem passo
+        manual — padrão M-4/M-5) + push/deploy Vercel + E2E live: "o que sabes sobre mim?"
+        → lista directa das memórias (sem preview/undo), fecha o gap observado no E2E da
+        M-5 (07/07, resposta "unknown"/"nada a executar"); variações de wording (best-effort);
+        household sem memórias → mensagem de lista vazia. Tarefa 7, fora deste ciclo.
+      refs: ['packages/db/migrations/0037_agent_intent_listar_memorias.sql']
+    - action: >-
+        Follow-up de UX cosmético levantado nas Dev Notes (NÃO âmbito M-6): wording de
+        confirmação genérico "Não tenho a certeza (memorizar (93%))" a 93% de confiança é
+        enganador — o template de baixa confiança é reutilizado quando always_preview força
+        preview por outra via. Ficheiro distinto do que M-6 toca. Story própria para o @po.
+      refs: ['apps/web/src/lib/agent/run-agent.ts']

@@ -44,13 +44,13 @@ function extractAgentIntentEnumFromSource(): string[] {
 }
 
 describe('IntentSchema (AC2)', () => {
-  it('aceita os 23 valores canónicos', () => {
+  it('aceita os 24 valores canónicos', () => {
     for (const value of INTENT_VALUES) {
       expect(IntentSchema.safeParse(value).success).toBe(true);
     }
   });
 
-  it('rejeita valores fora dos 23 canónicos (Article IV)', () => {
+  it('rejeita valores fora dos 24 canónicos (Article IV)', () => {
     expect(IntentSchema.safeParse('inventado').success).toBe(false);
     expect(IntentSchema.safeParse('criar_evento').success).toBe(false);
     expect(IntentSchema.safeParse('').success).toBe(false);
@@ -81,6 +81,19 @@ describe('IntentSchema (AC2)', () => {
   it('sugerir_memoria NÃO é read-only (escrita interna — passa por preview→confirm)', () => {
     expect(isReadOnlyIntent('sugerir_memoria')).toBe(false);
     expect(READ_ONLY_INTENTS.has('sugerir_memoria' as never)).toBe(false);
+  });
+
+  it('aceita o novo intent de consultar memórias (Story M-6)', () => {
+    expect(IntentSchema.safeParse('listar_memorias').success).toBe(true);
+  });
+
+  it('listar_memorias É read-only (leitura pura — salta preview→confirm)', () => {
+    expect(isReadOnlyIntent('listar_memorias')).toBe(true);
+    expect(READ_ONLY_INTENTS.has('listar_memorias')).toBe(true);
+  });
+
+  it('listar_memorias NÃO está em ALWAYS_CONFIRM_INTENTS (é leitura, não escrita — Story M-6)', () => {
+    expect(ALWAYS_CONFIRM_INTENTS.has('listar_memorias' as never)).toBe(false);
   });
 
   it('[PO-MUST-FIX-1] sugerir_memoria está em ALWAYS_CONFIRM_INTENTS (força confirmação SEMPRE — R5)', () => {
@@ -123,9 +136,15 @@ describe('IntentSchema (AC2)', () => {
     expect(READ_ONLY_INTENTS.has('responder_email' as never)).toBe(false);
   });
 
-  it('READ_ONLY_INTENTS contém só as 4 intents de leitura (Story J-6 follow-up)', () => {
+  it('READ_ONLY_INTENTS contém as 5 intents de leitura (Story J-6 follow-up + M-6 listar_memorias)', () => {
     expect([...READ_ONLY_INTENTS].sort()).toEqual(
-      ['consultar_dados', 'consultar_emails', 'listar_atrasadas', 'listar_tarefas'].sort(),
+      [
+        'consultar_dados',
+        'consultar_emails',
+        'listar_atrasadas',
+        'listar_memorias',
+        'listar_tarefas',
+      ].sort(),
     );
     // Todos os valores são intents canónicos válidos (Article IV).
     for (const intent of READ_ONLY_INTENTS) {
@@ -136,6 +155,7 @@ describe('IntentSchema (AC2)', () => {
   it('isReadOnlyIntent — leituras true, escritas/unknown false', () => {
     expect(isReadOnlyIntent('consultar_emails')).toBe(true);
     expect(isReadOnlyIntent('listar_tarefas')).toBe(true);
+    expect(isReadOnlyIntent('listar_memorias')).toBe(true);
     expect(isReadOnlyIntent('consultar_dados')).toBe(true);
     // Escritas e `unknown` NÃO são read-only (não devem saltar preview→confirm).
     expect(isReadOnlyIntent('criar_tarefa')).toBe(false);
@@ -157,8 +177,9 @@ describe('IntentSchema (AC2)', () => {
     // + 1 Story J-8 tool Gmail reply (migration 0033)
     // + 1 Story M-1 tool `memorizar` (migration 0034)
     // + 1 Story M-4 tool `esquecer` (migration 0035)
-    // + 1 Story M-5 tool `sugerir_memoria` (migration 0036).
-    expect(dbValues.length).toBe(23);
+    // + 1 Story M-5 tool `sugerir_memoria` (migration 0036)
+    // + 1 Story M-6 tool `listar_memorias` (migration 0037).
+    expect(dbValues.length).toBe(24);
   });
 });
 

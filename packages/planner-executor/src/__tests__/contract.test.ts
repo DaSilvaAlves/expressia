@@ -10,8 +10,8 @@ import { INTENT_VALUES } from '@meu-jarvis/classifier';
 import { TOOL_TO_INTENT_MAP } from '@/schemas';
 import { createMockRegistry } from '@/__fixtures__/mock-tool-registry';
 
-describe('TOOL_TO_INTENT_MAP cobre 23 intents IntentSchema (D6)', () => {
-  it('cada uma das 23 intents canónicas tem ≥1 tool name mapeado', () => {
+describe('TOOL_TO_INTENT_MAP cobre 24 intents IntentSchema (D6)', () => {
+  it('cada uma das 24 intents canónicas tem ≥1 tool name mapeado', () => {
     const intentsCovered = new Set(Object.values(TOOL_TO_INTENT_MAP));
     for (const intent of INTENT_VALUES) {
       expect(intentsCovered).toContain(intent);
