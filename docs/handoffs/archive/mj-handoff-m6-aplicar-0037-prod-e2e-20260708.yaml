@@ -1,10 +1,10 @@
 from_agent: "devops (Gage)"
 to_agent: "any"
 created: "2026-07-08T19:15:00Z"
-status: pending
-consumed: false
-consumed_at: null
-consumed_by: null
+status: consumed
+consumed: true
+consumed_at: "2026-07-08T19:37:23Z"
+consumed_by: "orchestrator (/sdc)"
 
 project: "meu-jarvis (Expressia)"
 summary: >-
@@ -43,6 +43,18 @@ next_action: >-
   2dedb1ec, chat_id Eurico 5647753194). Depois, fechar bookkeeping (marcar
   este handoff consumido + arquivar). NÃO é preciso mais push de código —
   M-6 já está em main.
+
+consumption_record: >-
+  CONSUMIDO 2026-07-08T19:37Z — orchestrator (/sdc), execução via aiox-devops.
+  Passo 1: `db:migrate` aplicou a 0037 AGORA ([apply] 486ms; as 36 anteriores
+  [skip]) — não estava aplicada, sem trabalho duplicado. Passo 2: enum
+  agent_intent confirmado por query DIRECT_URL = 24 valores, `listar_memorias`
+  PRESENTE. Passo 3: deploy Vercel Production READY no commit f56b5b4 (verificado
+  por API v13/deployments; produção corrente da828da é descendente doc-only,
+  também Ready, região fra1). Todo o código M-6 live. RESTA [EURICO]: só o E2E
+  manual no Telegram ("o que sabes sobre mim?" ao @jarvis_eurico_bot, household
+  2dedb1ec, chat_id 5647753194; prod pode ter 0 memórias — guardar uma antes se
+  preciso). Sem commits/push nesta consumação.
 
 notes: |
   VERIFICAR ANTES DE AGIR (handoff-central): confirmar contra o estado real
