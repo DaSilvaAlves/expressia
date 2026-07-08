@@ -1,0 +1,64 @@
+from_agent: "devops (Gage)"
+to_agent: "any"
+created: "2026-07-08T19:15:00Z"
+status: pending
+consumed: false
+consumed_at: null
+consumed_by: null
+
+project: "meu-jarvis (Expressia)"
+summary: >-
+  MIGRAÇÃO DE TERMINAL — Story M-6 (consultar memória / recall via chat, epic
+  v2 "Memória rica") FOI MERGED a main; falta o passo pós-merge dedicado:
+  aplicar a migration 0037 (só-enum) a produção, confirmar o deploy de
+  produção Ready e correr o E2E "o que sabes sobre mim?" no Telegram. O merge
+  fechou a epic v2 nos 4 verbos (capturar/usar/esquecer/CONSULTAR). Zero
+  trabalho de código a meio — só operação de release. O Eurico autorizou
+  continuar noutro terminal.
+
+context:
+  epic: "v2 — Memória rica (docs/epics/v2-memoria-rica-brief.md) — ESPINHA FECHADA com M-6"
+  branch: "main"
+  head_commit: "f56b5b4"
+  pr: "#13 (DaSilvaAlves/expressia) — MERGED 2026-07-08T19:07:18Z, squash, branch feat/m-6-consultar-memoria-recall apagada"
+  o_que_ja_esta_feito:
+    - "PR #13 merged com squash SHA f56b5b4; main local sincronizado (git pull --ff-only 75bfe89..f56b5b4), working tree LIMPO."
+    - "Merge-authority foi 6/6 verde: CI GitHub (Quality + RLS Coverage Gate + Build Next.js) SUCCESS · check Vercel SUCCESS · gate @architect PASS 9,6/10 · mergeable MERGEABLE · CodeRabbit N/A · hard-stop N/A."
+    - "O check Vercel tinha ficado FAILURE por causa transitória (Sentry backend HTTP 500 no `sentry-cli releases finalize`; o `next build` passou). Resolvido com `vercel redeploy` do MESMO commit 2f5ff24 (novo deploy expressia-dhepl6il6 ficou Ready) — flipou para SUCCESS. NÃO se tocou em código nem env."
+  o_que_falta_passo_pos_merge:
+    - "1. APLICAR MIGRATION 0037 a prod: `pnpm --filter @meu-jarvis/db db:migrate` (usa DIRECT_URL porta 5432). A 0037_agent_intent_listar_memorias.sql é SÓ-ENUM idempotente (adiciona valor `listar_memorias` ao enum agent_intent) — SEM tabela nova, SEM policies novas, SEM passo SQL manual. Confirmar por `SELECT unnest(enum_range(NULL::agent_intent))` que `listar_memorias` está presente."
+    - "2. CONFIRMAR DEPLOY DE PRODUÇÃO: o merge em main disparou deploy Vercel Production automático — verificar que ficou Ready (`vercel ls expressia` / `vercel inspect`) no commit f56b5b4."
+    - "3. E2E LIVE no Telegram: perguntar ao @jarvis_eurico_bot 'o que sabes sobre mim?' (ou variação) e confirmar que o Jarvis lista as memórias guardadas via a tool read-only listar-memorias (intent listar_memorias). Nota: em prod pode haver 0 memórias activas (a M-4 apagou a de teste); se necessário, guardar uma memória primeiro ('lembra-te que ...') e depois consultar."
+  detalhes_tecnicos_m6:
+    - "Intent listar_memorias no enum agent_intent (migração 0037 só-enum)."
+    - "Tool read-only listar-memorias.ts (packages/tools/src/memory/): SELECT RLS-scoped, sem reverse_op, salta preview→confirm (READ_ONLY_INTENTS)."
+    - "PO-FIX-1: isMemoryListOutput desembrulha output.memories no format-results (apps/web/src/lib/agent/format-results.ts)."
+    - "jarvis_memories + 4 RLS policies já existem desde a 0034 (M-1) — M-6 NÃO cria tabela."
+
+next_action: >-
+  Executar os 3 passos pós-merge por ordem: (1) aplicar a 0037 a prod via
+  `pnpm --filter @meu-jarvis/db db:migrate` e confirmar o enum por query;
+  (2) confirmar o deploy Production Vercel Ready no commit f56b5b4;
+  (3) correr o E2E "o que sabes sobre mim?" no @jarvis_eurico_bot (household
+  2dedb1ec, chat_id Eurico 5647753194). Depois, fechar bookkeeping (marcar
+  este handoff consumido + arquivar). NÃO é preciso mais push de código —
+  M-6 já está em main.
+
+notes: |
+  VERIFICAR ANTES DE AGIR (handoff-central): confirmar contra o estado real
+  antes de aplicar a 0037 — pode já ter sido aplicada noutra sessão. Se
+  `SELECT ... enum_range` já mostrar `listar_memorias`, o passo 1 está feito
+  (a migration é idempotente, re-correr db:migrate faz skip do ficheiro já
+  registado em __schema_migrations).
+
+  GOTCHA relevante (ver memória): a 0037 é SÓ-ENUM e o runner db:migrate
+  aplica-a normalmente (não é o caso das policies novas na 0001 pattern
+  D-J2.1 que o runner faz skip). Não é preciso DO-block manual.
+
+  Constraints vivas (inalteradas): billing CONGELADO · SEC-8 HOLD (não tocar
+  withHousehold/db-shim/client.ts) · família removida (household_id/RLS
+  intactos) · OAuth SEMPRE na conta principal euricojsalves@gmail.com ·
+  push/PR/merge só @devops com ordem do Eurico · PT-PT europeu · data
+  residency UE (Vercel fra1 + Supabase eu-central-1). Telegram token não
+  está em .env local (é Sensitive na Vercel); chat_id Eurico 5647753194,
+  household 2dedb1ec.
