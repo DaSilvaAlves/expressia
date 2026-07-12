@@ -1,0 +1,166 @@
+schema: 1
+story: 'V-1'
+story_title: 'Transcrever nota de voz do Telegram e agir (STT input-first)'
+gate: CONCERNS
+status_reason: >-
+  Primeira story da epic v2.x (Voz), input-first STT. Implementação exemplar e
+  verdadeiramente mínima: message.voice → downloadVoiceFile (getFile + endpoint de
+  ficheiros, fetch nativo) → GoogleSpeechProvider (STT v2 europe-west4, chirp_2,
+  JWT RS256 à mão via node:crypto, zero dependência nova) → runAgentForHousehold
+  (o MESMO ponto de entrada do texto, zero branch nova no motor). Privacidade
+  sólida e provada no código real: o áudio (bytes) só existe em memória dentro do
+  withSpan e nunca é escrito em disco/DB (teste NFR-V2 confirma 1 só SELECT de
+  identidade, sem INSERT); a transcrição nunca é logada em claro (teste dedicado
+  com IBAN); o segredo STT_SERVICE_ACCOUNT_JSON e o token/chave nunca são logados
+  (só código de estado HTTP). Degradação graciosa completa (download/STT/vazio →
+  sempre 200 + mensagem PT-PT, sem reentrega infinita). AC8 zero-migration/motor
+  confirmado por git (só toca telegram/ + providers/stt/). Todos os 6 gates
+  re-corridos por mim em verde com evidência real. CONCERNS (não-bloqueante) por um
+  único ponto: a zona-morta 60-120 s — a guarda de duração da AC3 é 120 s mas o
+  recognize síncrono do Google STT v2 aceita ~60 s, pelo que uma nota entre 60 e
+  120 s passa a guarda, falha na STT e devolve "tenta de novo" (mensagem que sugere
+  erro transitório quando o retry falhará sempre). Fix trivial e estritamente
+  melhor (baixar VOICE_MAX_DURATION_S de 120 para 60), já antecipado pela AC11d.
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-07-08T22:05:00Z'
+
+waiver: { active: false }
+
+quality_score: 90
+expires: '2026-07-22T22:05:00Z'
+
+evidence:
+  tests_reviewed: 31
+  tests_reexecuted_green:
+    agent: 121          # inclui stt.test.ts (10 novos: sucesso, multi-segmento, vazio, rede, quota-429, token-401 + factory 4)
+    web: 1517           # inclui webhook route 27 (+9 voz) + types 7 + get-file 5; 1 flake de contenção turbo (calendario/page) reconfirmado verde em isolamento (1,6 s)
+    lint: 'PASS (--max-warnings=0, 10/10 FULL TURBO)'
+    typecheck: 'PASS 10/10'
+    build: 'PASS 10/10'
+    check_rls: 'EXIT 0'  # zero tabelas novas — sem alteração de cobertura
+  risks_identified: 1
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 8, 10]
+    ac_gaps: []
+    ac_deferred_by_design: [7]      # NFR-V3 latência: mede-se em prod via span, não é gate (a própria AC define assim)
+    ac_external_pending: [9, 11]    # HALT fornecedor RESOLVIDO (Tarefa 0); setup GCP + deploy + E2E live = [EURICO]+@devops (Tarefa 7)
+
+top_issues:
+  - id: 'REL-001'
+    severity: medium
+    finding: >-
+      Zona-morta 60-120 s: a guarda de duração (VOICE_MAX_DURATION_S = 120) é mais
+      permissiva que o limite técnico do recognize síncrono do Google STT v2
+      (~60 s). Uma nota entre 60 e 120 s passa a guarda, gasta download + chamada
+      STT, e falha com "Não consegui processar essa nota de voz agora. Tenta de
+      novo..." — mensagem que sugere erro transitório quando o retry da MESMA nota
+      falhará sempre. O utilizador pode entrar num loop de retry sem saída (excepto
+      escrever). É seguro (degradação graciosa, 200, sem crash) mas é um defeito de
+      UX real, não cosmético, e desperdiça bytes/tempo/custo antes de falhar.
+    suggested_action: >-
+      Baixar VOICE_MAX_DURATION_S de 120 para 60 (e ajustar a copy da guarda para
+      "limite 1 minuto"). Move a falha da STT (pós-download, mensagem enganadora)
+      para a guarda upfront (mensagem honesta "encurta ou escreve" ANTES de gastar
+      download/STT) — estritamente melhor em custo, latência e honestidade. Já
+      antecipado pela AC11d; recomendo aplicar antes do deploy em vez de esperar
+      pelo E2E, dado o fix ser uma única constante.
+  - id: 'PERF-001'
+    severity: low
+    finding: >-
+      O access token Google é mintado a cada transcribe() (2 chamadas HTTP por nota
+      de voz: token + recognize), sem cache do token (válido 1 h). Irrelevante para
+      1 utilizador com poucos áudios/dia, mas duplica a latência de auth por pedido.
+    suggested_action: >-
+      Opcional/futuro: cachear o access token em memória até exp-60 s no
+      GoogleSpeechProvider. Não bloqueia; não vale a pena para o volume actual.
+  - id: 'TEST-001'
+    severity: low
+    finding: >-
+      O span withSpan('telegram.voice.stt', ...) (AC6) está presente no código mas
+      não é directamente asserido nos testes (a latência/observabilidade não tem
+      teste dedicado). withSpan é um wrapper fino já coberto noutro sítio.
+    suggested_action: >-
+      Opcional: um teste que confirme a emissão do span de voz. Baixa prioridade —
+      observabilidade, não correcção.
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: >-
+      Privacidade de áudio (dado íntimo) tratada com rigor e PROVADA no código real,
+      não só na story. (1) O áudio nunca é persistido: os bytes só existem em memória
+      dentro do withSpan entre download e transcribe, descartados ao sair de escopo;
+      o teste NFR-V2 assere que a única ida à DB no fluxo de voz é o SELECT de
+      identidade em telegram_link (0 INSERT). (2) A transcrição nunca é logada em
+      claro: route.ts loga só update_id, hashForCorrelation(userId), voice.duration
+      (metadado) e status; teste dedicado com transcrição contendo IBAN confirma
+      ausência nos logs. (3) Segredos: STT_SERVICE_ACCOUNT_JSON parseado em stt/index
+      e nunca logado; google-speech.ts e get-file.ts logam SÓ o código de estado HTTP
+      em erro (nunca token, chave privada, access token nem corpo da resposta) —
+      testes de disciplina de logs em stt.test.ts (quota 429 body não vaza) e
+      get-file.test.ts (token + corpo não vazam). (4) JWT RS256 correcto: header/
+      claims (iss/scope cloud-platform/aud/iat/exp=now+3600) + crypto.sign RSA-SHA256
+      com a chave privada da service account; erro de assinatura → SttError sem
+      detalhes; o teste assina com uma chave RSA-2048 REAL (só o fetch é mockado), pelo
+      que o caminho de assinatura corre a sério. Residência UE preservada: endpoint
+      regional europe-west4 (constraint inegociável do CLAUDE.md; a excepção de texto
+      NÃO é estendida ao áudio). SEC-8 HOLD respeitado (withHousehold/db-shim/client.ts
+      Postgres NÃO tocados; telegram/client.ts é ficheiro distinto). Billing intocado.
+  performance:
+    status: PASS
+    notes: >-
+      NFR-V3 (latência total download+STT+motor+envio) não inventa alvo — mede-se em
+      prod via o span isolado telegram.voice.stt (AC6/AC7), a registar no Change Log
+      pós-E2E (AC11d), coerente com o precedente do caminho de texto. Guardas AC3
+      aplicadas ANTES do download evitam gastar bytes/tempo em ficheiros já
+      rejeitáveis. Ponto de eficiência menor (token não cacheado) em PERF-001 — não
+      material para 1 utilizador.
+  reliability:
+    status: CONCERNS
+    notes: >-
+      Degradação graciosa completa e correcta: falha de download (TelegramFileError),
+      falha de STT (SttError), transcrição vazia/só-espaços e falha do próprio motor
+      devolvem SEMPRE 200 ao Telegram + mensagem PT-PT amigável, nunca erro cru nem
+      silêncio nem reentrega infinita; safeSend engole falhas de envio. Testes cobrem
+      cada ramo. O ÚNICO ponto de fiabilidade é REL-001 (zona-morta 60-120 s): a
+      falha é graciosa e segura, mas a mensagem "tenta de novo" é enganadora nessa
+      janela (retry nunca terá sucesso). Não bloqueia — mas deve ser resolvido
+      (cap→60 s), como a própria AC11d prevê.
+  maintainability:
+    status: PASS
+    notes: >-
+      Sem `any` (typecheck 10/10; unknown + type guards em isTelegramVoice,
+      isServiceAccountKey, isRecord, extractTranscript). SttProviderInterface espelha
+      o padrão provider-agnostic dos providers de texto — trocar de fornecedor só
+      muda o adaptador concreto, não o webhook. handleVoiceMessage é paralelo a
+      handleTextMessage (mesma forma), o prefixo "Percebi:" é mensagem separada sem
+      refactorizar replyForOutcome nem o caminho de texto (PO-FIX-1 a). Erros tipados
+      próprios (TelegramFileError, SttError). Imports @/ e @meu-jarvis/*; subpath
+      export @meu-jarvis/agent/providers confirmado no package.json. PT-PT europeu em
+      toda a copy e comentários. Garantia de não-persistência documentada em comentário
+      no código (paralelo ao pedido da story). Zero migração/intent/ToolDomain novos —
+      pura camada de transcodificação de entrada, tal como o brief define.
+
+recommendations:
+  immediate:
+    - action: >-
+        [@dev] Baixar VOICE_MAX_DURATION_S de 120 para 60 em route.ts e ajustar a copy
+        da guarda para "limite 1 minuto" (REL-001). Alinha a guarda com o limite real
+        do recognize síncrono, elimina a zona-morta 60-120 s antes de chegar a prod, e
+        dá uma mensagem honesta upfront sem gastar download/STT. Fix de uma constante +
+        uma string; re-correr route.test.ts (o teste da guarda usa duration 121, mantém-se
+        válido; ajustar o número se se quiser um limite exacto de 60). Não-bloqueante: se
+        preferir-se, pode ficar para a AC11d no E2E, mas recomendo aplicar já.
+      refs: ['apps/web/src/app/api/telegram/webhook/route.ts']
+  future:
+    - action: >-
+        [EURICO/@devops] Tarefa 7 — setup externo GCP (projecto + Cloud Speech-to-Text v2
+        API + service account) → STT_SERVICE_ACCOUNT_JSON em Vercel Env UE (base64
+        recomendado, evita quebras de linha na chave) → push/deploy → E2E positivo (nota
+        curta "gastei 23 euros no almoço" → "Percebi: ..." + acção) + negativo (nota longa
+        → guarda de duração) → registar latência real observada no Change Log (AC11d).
+      refs: ['packages/agent/src/providers/stt/index.ts']
+    - action: >-
+        Opcional/futuro: cachear o access token Google em memória até exp-60 s (PERF-001);
+        teste de emissão do span telegram.voice.stt (TEST-001). Ambos baixa prioridade.
+      refs: ['packages/agent/src/providers/stt/google-speech.ts']

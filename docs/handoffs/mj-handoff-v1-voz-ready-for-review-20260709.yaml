@@ -1,0 +1,137 @@
+from_agent: "dev (Dex)"
+to_agent: "any"
+created: "2026-07-09T00:00:00Z"
+status: pending
+consumed: false
+consumed_at: null
+consumed_by: null
+
+project: "meu-jarvis (Expressia)"
+summary: >-
+  MIGRAÇÃO DE TERMINAL — Story V-1 (transcrever nota de voz do Telegram via STT,
+  input-first) IMPLEMENTADA e em Ready for Review, mas TODA em WORKING TREE
+  (NADA commitado, NADA pushado; HEAD continua 09b3ae2, o bookkeeping do M-6).
+  Primeira story da epic v2.x (Voz). Nota de voz → download → STT (Google Cloud
+  Speech-to-Text v2, europe-west4, chirp_2) → MESMO runAgentForHousehold do
+  texto (zero alteração ao motor cognitivo). @qa gate: CONCERNS 90/100
+  (não-bloqueante) — o único MUST, REL-001 (cap de duração 120s→60s), JÁ está
+  aplicado; 2 concerns LOW (PERF-001, TEST-001) ficam como dívida diferida.
+  Incluídos ainda 2 micro-fixes aprovados pelo Eurico a código M-6/J-2 (fora da
+  V-1): cache key versionada pelo prompt do classifier + copy honesta do no-op
+  confirm. Gates verdes. Falta: @devops commit+push+deploy e [EURICO] setup GCP
+  + E2E live.
+
+context:
+  epic: "v2.x — Voz (docs/epics/v2x-voz-brief.md)"
+  story: "docs/stories/active/V-1.transcrever-voz-telegram.story.md (Status: Ready for Review)"
+  qa_gate: "docs/qa/gates/V-1-transcrever-voz-telegram.yml — CONCERNS 90/100 (não-bloqueante)"
+  branch: "main"
+  head_commit: "09b3ae2 (INALTERADO — nada commitado nesta sessão)"
+  working_tree: "SUJO — V-1 + REL-001 + 2 micro-fixes todos no working tree, por commitar"
+
+  decisao_fornecedor_stt: >-
+    Tarefa 0 (HALT) resolvida pelo Eurico: Google Cloud Speech-to-Text v2,
+    região europe-west4, modelo chirp_2 (único confirmado p/ pt-PT nessa região;
+    OGG_OPUS nativo do Telegram sem transcodificação; residência UE garantida).
+    API confirmada contra a doc oficial (Article IV) via document-specialist
+    ANTES de codificar. DECISÃO DE DEPENDÊNCIA: fetch nativo + node:crypto
+    (JWT-bearer RS256 da service-account), ZERO dependência nova — segue o
+    precedente J-3 (google/oauth.ts rejeitou googleapis); evita @google-cloud/
+    speech (gRPC, mau em serverless Vercel).
+
+  ficheiros_working_tree:
+    novos:
+      - "apps/web/src/lib/telegram/get-file.ts (download getFile+ficheiro, erro TelegramFileError)"
+      - "apps/web/src/lib/telegram/__tests__/types.test.ts + get-file.test.ts"
+      - "packages/agent/src/providers/stt/interface.ts (SttProviderInterface + SttError)"
+      - "packages/agent/src/providers/stt/google-speech.ts (GoogleSpeechProvider v2 europe-west4)"
+      - "packages/agent/src/providers/stt/index.ts (factory getSttProvider + resetSttProviderCache)"
+      - "packages/agent/src/__tests__/providers/stt.test.ts (10 testes)"
+      - "docs/epics/v2x-voz-brief.md · docs/stories/active/V-1.*.story.md · docs/qa/gates/V-1-*.yml"
+    modificados:
+      - "apps/web/src/lib/telegram/types.ts (TelegramVoice + isTelegramVoice)"
+      - "apps/web/src/app/api/telegram/webhook/route.ts (handleVoiceMessage + dispatch + guardas AC3 (60s/20MB) + withSpan + no-op confirm branch confirmOutcomeIsNoop)"
+      - "apps/web/src/app/api/telegram/webhook/__tests__/route.test.ts (suite voz + no-op test + AC10 actualizado)"
+      - "packages/agent/src/providers/index.ts (re-exporta camada STT)"
+      - "apps/web/src/lib/agent/cache.ts (FIX a — cache key inclui CLASSIFIER_SYSTEM_PROMPT_VERSION)"
+      - "apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts (FIX b — copy honesta do no-op confirm)"
+
+  gates_verdes:
+    - "lint: 10/10 tasks, No ESLint warnings or errors"
+    - "typecheck: 10/10 tasks, 0 erros"
+    - "test agent: 121 passed (incl. 10 STT novos)"
+    - "test web: 1518 passed / 176 files (incl. voz + no-op + AC10). Flakes de contenção DB sob turbo passam em isolamento (flake guard)."
+    - "build: 10/10 (corrido antes dos 2 micro-fixes; @devops DEVE re-correr build+check:rls pré-push — os fixes são triviais: 1 import + 1 string)"
+
+  ac8_zero_migration: >-
+    Confirmado: git diff NÃO toca packages/db/migrations/, packages/classifier/,
+    packages/planner-executor/, packages/tools/. (Os 2 micro-fixes tocam
+    apps/web/src/lib/agent/cache.ts e confirm/route.ts — código M-6/J-2, também
+    sem migration.)
+
+  micro_fixes_extra:
+    - "FIX a (aprovado Eurico): buildCacheKey passa a incluir CLASSIFIER_SYSTEM_PROMPT_VERSION no SHA-256 → bump de prompt invalida a cache instantaneamente (fecha o stale de classificação que fez 'o que sabes sobre mim?'→unknown às 16:36 de 08/07, resolvido só quando o TTL de 5min expirou / deploy M-6 aterrou)."
+    - "FIX b (aprovado Eurico): no-op confirm (intent unknown confirmado) → copy honesta 'Não percebi bem o que querias fazer, por isso não executei nada. Reformula, por favor.' + webhook NÃO prefixa 'Feito.' nem oferece (Cancelar) para results vazios (confirmOutcomeIsNoop). Execução real mantém Feito+Cancelar (J-2 intacto)."
+
+next_action: >-
+  @devops (com ordem do Eurico): correr o pre-push completo (lint/typecheck/test/
+  build/check:rls) e commitar+push o working tree. Sugestão de commits: (1)
+  feat(agent) V-1 voz STT; (2) fix(agent) cache-version + no-op confirm honesto —
+  OU um bundle único, decisão @devops. Depois [EURICO] no deploy: (a) criar
+  projecto GCP + activar Cloud Speech-to-Text API + gerar service account key;
+  (b) pôr STT_SERVICE_ACCOUNT_JSON (JSON em claro OU base64) em Vercel Env UE
+  (nunca em git); overrides opcionais STT_GCP_PROJECT/STT_REGION/STT_MODEL;
+  (c) E2E live ao @jarvis_eurico_bot: nota de voz curta ('gastei 23 euros no
+  almoço') → resposta 'Percebi: «...»' separada + acção; negativo: nota >1min →
+  guarda de duração sem chamar STT. Registar a latência real observada no Change
+  Log da story (AC7/AC11d). NENHUM trabalho de código fica a meio.
+
+notes: |
+  ⚠️ GOTCHA DESTA SESSÃO (crítico para o terminal sucessor): DUAS edições
+  (apps/web/src/lib/agent/cache.ts e .../confirm/route.ts) foram feitas, o Edit
+  reportou SUCESSO, mas NÃO persistiram no disco (perdidas entre turnos). Só se
+  detectou por `git status` não as listar. Foram RE-APLICADAS e VERIFICADAS por
+  grep (cache.ts: 4 ocorrências de CLASSIFIER_SYSTEM_PROMPT_VERSION; confirm: 1
+  de 'não executei nada'). LIÇÃO: verificar edições ao working tree por grep +
+  git status ANTES de assumir que estão aplicadas — não confiar só no "success"
+  do tool. @devops: confirmar por `git status --short` que os 12 ficheiros
+  abaixo estão todos presentes antes do commit.
+
+  Estado do working tree (git status --short, HEAD 09b3ae2):
+    M apps/web/src/app/api/agent/prompt/[runId]/confirm/route.ts
+    M apps/web/src/app/api/telegram/webhook/__tests__/route.test.ts
+    M apps/web/src/app/api/telegram/webhook/route.ts
+    M apps/web/src/lib/agent/cache.ts
+    M apps/web/src/lib/telegram/types.ts
+    M packages/agent/src/providers/index.ts
+    ?? apps/web/src/lib/telegram/__tests__/
+    ?? apps/web/src/lib/telegram/get-file.ts
+    ?? docs/epics/v2x-voz-brief.md
+    ?? docs/qa/gates/V-1-transcrever-voz-telegram.yml
+    ?? docs/stories/active/V-1.transcrever-voz-telegram.story.md
+    ?? packages/agent/src/__tests__/providers/stt.test.ts
+    ?? packages/agent/src/providers/stt/
+
+  GOTCHA TÉCNICO STT (documentado na story): o recognize síncrono inline do
+  Google STT v2 aceita no máx ~60s / ~10MB; acima exige BatchRecognize
+  (async/GCS, fora de âmbito). Por isso REL-001 baixou o cap de duração da AC3
+  de 120s→60s (copy "As notas de voz têm de ter menos de 1 minuto."). Nota entre
+  60s-120s seria rejeitada pela STT — evitada cedo pela guarda.
+
+  Privacidade (NFR-V1/V2): o áudio (bytes) NUNCA é persistido — só em memória
+  dentro do withSpan('telegram.voice.stt'). Logs nunca contêm a transcrição em
+  claro nem o token/chave (testes dedicados confirmam).
+
+  Constraints vivas (inalteradas): billing CONGELADO · SEC-8 HOLD (não tocar
+  withHousehold/db-shim/client.ts Postgres — o telegram/client.ts é OUTRO
+  ficheiro) · família removida (household_id/RLS intactos) · OAuth SEMPRE conta
+  principal euricojsalves@gmail.com · push/PR/merge só @devops com ordem Eurico ·
+  PT-PT europeu · data residency UE (a razão central da V-1). chat_id Eurico:
+  5647753194; household 2dedb1ec. Token Telegram é Sensitive na Vercel (não está
+  em .env local).
+
+  Concerns LOW diferidos (não corrigir agora — @qa gate V-1): PERF-001 (mint de
+  token STT por chamada, sem cache — aceitável p/ 1 utilizador) e TEST-001.
+
+  Gotcha conhecido: docs/HANDOFF-INDEX.md é muito grande (>256KB) — editar por
+  edição cirúrgica (grep+Edit da linha), não ler inteiro.
