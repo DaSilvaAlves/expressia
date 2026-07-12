@@ -1,0 +1,104 @@
+from_agent: "orchestrator (/sdc)"
+to_agent: "eurico"
+created: "2026-07-12T14:30:00Z"
+status: pending
+
+project: "meu-jarvis (Expressia)"
+summary: >-
+  MIGRAÇÃO DE TERMINAL — Story V-1 (transcrever nota de voz do Telegram via STT,
+  input-first) está LIVE EM PRODUÇÃO em código: origin/main = HEAD = df55598,
+  deploy Vercel Production Ready (fra1), working tree LIMPO. Primeira story da
+  epic v2.x (Voz). Nota de voz → download (getFile) → Google Cloud Speech-to-Text
+  v2 (europe-west4, chirp_2) → MESMO runAgentForHousehold do texto (zero alteração
+  ao motor). Falta APENAS o passo [EURICO] de config externa + E2E live para a
+  story passar a Done — NÃO há trabalho de código a meio. Também já em prod: FIX a
+  (cache key versionada pelo prompt do classifier) + FIX b (no-op confirm honesto,
+  agora COMPLETO após 2º push df55598 — o 1º push tinha-o deixado meio-aplicado).
+
+context:
+  epic: "v2.x — Voz (docs/epics/v2x-voz-brief.md)"
+  story: "docs/stories/active/V-1.transcrever-voz-telegram.story.md (Status: Ready for Review → Done após E2E)"
+  qa_gate: "docs/qa/gates/V-1-transcrever-voz-telegram.yml — CONCERNS 90/100 (não-bloqueante)"
+  branch: "main"
+  head_commit: "df55598 (= origin/main, em sync; working tree LIMPO)"
+
+  commits_em_prod:
+    - "68f1376 feat(agent): V-1 transcrever nota de voz do Telegram via STT — epic v2.x voz"
+    - "df9b95e fix(agent): versionar cache key pelo prompt do classifier + no-op confirm honesto (FIX a + FIX b parcial)"
+    - "8c44ed1 + b3446d1 chore(handoff): bookkeeping V-1 (ready-for-review + consumir pós-push)"
+    - "df55598 fix(agent): completar no-op confirm — suprimir 'Feito.'/(Cancelar) quando não há execução (FIX b parte 2)"
+
+  decisao_fornecedor_stt: >-
+    Tarefa 0 (HALT) resolvida pelo Eurico: Google Cloud Speech-to-Text v2, região
+    europe-west4, modelo chirp_2 (pt-PT nessa região; OGG_OPUS nativo do Telegram
+    sem transcodificação; residência UE garantida — a razão central da V-1). API
+    confirmada contra a doc oficial (Article IV) ANTES de codificar. Dependência:
+    fetch nativo + node:crypto (JWT-bearer RS256 da service-account), ZERO
+    dependência nova (segue precedente J-3; evita @google-cloud/speech gRPC, mau
+    em serverless Vercel).
+
+  gates_verdes_2o_push:
+    - "lint: 10/10, No ESLint warnings or errors"
+    - "typecheck: 10/10, 0 erros"
+    - "test: webhook 28/28 (inclui no-op + AC10); db-test 210 passed. Flakes de contenção DB sob turbo passam em isolamento (flake guard)."
+    - "build: 10/10"
+    - "check:rls: EXIT 0, zero tabelas novas (zero-migration confirmado)"
+
+next_action: >-
+  [EURICO] — config externa + E2E live para fechar a V-1 (Done). Passo a passo,
+  DEVAGAR (o Eurico não é técnico de infra; confirmar por screenshot antes de
+  avançar): (a) criar/usar projecto GCP + ACTIVAR a Cloud Speech-to-Text API +
+  gerar uma service-account key (JSON) com permissão de reconhecimento; (b) pôr
+  STT_SERVICE_ACCOUNT_JSON (o JSON em claro OU base64) em Vercel Env (Production,
+  UE) — NUNCA em git; overrides opcionais STT_GCP_PROJECT / STT_REGION /
+  STT_MODEL se necessário; (c) redeploy (ou aguardar) e fazer E2E live ao
+  @jarvis_eurico_bot: enviar nota de voz curta ("gastei 23 euros no almoço") →
+  esperar resposta "Percebi: «...»" (mensagem separada) + a acção executada;
+  caso negativo: nota >1 min → guarda de duração responde "As notas de voz têm
+  de ter menos de 1 minuto." SEM chamar a STT. Registar a latência real observada
+  no Change Log da story (AC7/AC11d) e então mover a story active/→completed/
+  (Status: Done). Um agente pode APOIAR na verificação, mas o login GCP/Vercel é
+  do Eurico.
+
+  DEPOIS (opcional, nova direcção): V-2 (TTS — o Jarvis responder por voz), a
+  candidata natural pós-V-1 no brief da epic v2.x. Arranca um novo ciclo /sdc
+  (sm draft → po validação → dev) — requer confirmação de direcção do Eurico.
+
+notes: |
+  ⚠️ LIÇÃO DE PROCESSO DESTA SESSÃO (crítica para o sucessor):
+  1. Edições ao working tree PERDERAM-SE repetidamente entre turnos — o Edit
+     reportou "success" mas não persistiu; só `git status`/grep o revelaram.
+     LIÇÃO: verificar edições por grep + git status ANTES de assumir que estão
+     aplicadas, sobretudo para código que vai a produção. Não confiar no "success".
+  2. Working tree PARTILHADO entre terminais/lanes (mesma máquina): uma lane
+     paralela commitou+pushou V-1 + os 2 fixes enquanto outra revertia no working
+     tree → confusão (um push real pareceu "fantasma"). LIÇÃO (handoff-central):
+     cruzar SEMPRE o estado real (git log/origin + disco) antes de agir sobre
+     premissas de working tree. O INDEX/handoff é observação point-in-time.
+  3. O FIX b foi shippado meio-aplicado no 1º push (só a copy em confirm/route.ts,
+     sem a supressão no webhook) → prod mostrou momentaneamente "Feito. ...não
+     executei nada." + (Cancelar) contraditório no edge case no-op. Corrigido pelo
+     2º push (df55598). RESOLVIDO — mencionado só como registo.
+
+  GOTCHA TÉCNICO STT (na story): o recognize síncrono inline do Google STT v2
+  aceita no máx ~60s / ~10MB; acima exige BatchRecognize (async/GCS, fora de
+  âmbito). Por isso REL-001 baixou o cap de duração da AC3 de 120s→60s.
+
+  Privacidade (NFR-V1/V2): o áudio NUNCA é persistido — só em memória dentro do
+  withSpan('telegram.voice.stt'). Logs nunca contêm a transcrição em claro nem o
+  token/chave STT (testes dedicados confirmam).
+
+  Concerns LOW diferidos (não corrigir agora — @qa gate V-1): PERF-001 (mint de
+  token STT por chamada, sem cache — aceitável p/ 1 utilizador) e TEST-001 (span
+  telegram.voice.stt não asserido em teste).
+
+  Constraints vivas (inalteradas): billing CONGELADO · SEC-8 HOLD (não tocar
+  withHousehold/db-shim/client.ts Postgres — o telegram/client.ts é OUTRO ficheiro)
+  · família removida (household_id/RLS intactos) · OAuth SEMPRE conta principal
+  euricojsalves@gmail.com · push/PR/merge só @devops com ordem Eurico · PT-PT
+  europeu · data residency UE. chat_id Eurico: 5647753194; household 2dedb1ec.
+  Token Telegram e (agora) STT_SERVICE_ACCOUNT_JSON são Sensitive na Vercel (não
+  em .env local).
+
+  Gotcha conhecido: docs/HANDOFF-INDEX.md é muito grande (>256KB) — editar por
+  edição cirúrgica (grep+Edit da linha), não ler inteiro.
