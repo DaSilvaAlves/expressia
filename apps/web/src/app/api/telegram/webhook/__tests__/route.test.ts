@@ -350,8 +350,12 @@ describe('POST /api/telegram/webhook — callbacks (AC9/AC10/cancel)', () => {
     mocks.executeConfirmMock.mockResolvedValue({
       ok: true,
       runId: RUN_ID,
-      summary: 'Confirmado.',
-      results: { success: true, results: [] },
+      summary: 'Confirmaste a execução de 1 operação(ões). Tens 30 segundos para reverter.',
+      // Execução REAL (1 operação reversível) → oferece (Cancelar).
+      results: {
+        success: true,
+        results: [{ toolName: 'criar_tarefa', output: { id: 't1' }, reverseOpId: 'rev-1' }],
+      },
       undoExpiresAt: new Date().toISOString(),
     });
 
@@ -361,9 +365,31 @@ describe('POST /api/telegram/webhook — callbacks (AC9/AC10/cancel)', () => {
     expect(mocks.executeConfirmMock).toHaveBeenCalledWith(
       expect.objectContaining({ runId: RUN_ID, householdId: HOUSEHOLD_ID, userId: USER_ID }),
     );
-    // Confirmação executada → novo botão (Cancelar).
+    // Confirmação executada → "Feito." + novo botão (Cancelar).
     const sendCall = sentMessageCalls()[0];
+    expect(sendCall!.text).toContain('Feito');
     expect(sendCall!.reply_markup?.inline_keyboard[0]![0]!.callback_data).toBe(`undo:${RUN_ID}`);
+  });
+
+  it('no-op confirm (intent unknown) → mensagem honesta, SEM "Feito." nem (Cancelar)', async () => {
+    setupIdentityFound();
+    mocks.executeConfirmMock.mockResolvedValue({
+      ok: true,
+      runId: RUN_ID,
+      summary: 'Não percebi bem o que querias fazer, por isso não executei nada. Reformula, por favor.',
+      results: { success: true, results: [] },
+      undoExpiresAt: new Date().toISOString(),
+    });
+
+    const res = await POST(makeRequest({ secret: SECRET, body: callbackUpdate(`confirm:${RUN_ID}`) }) as never);
+
+    expect(res.status).toBe(200);
+    const sendCall = sentMessageCalls()[0];
+    expect(sendCall).toBeDefined();
+    expect(sendCall!.text).toContain('não executei nada');
+    // CRÍTICO: nada foi executado → sem "Feito." e sem afordância de undo.
+    expect(sendCall!.text).not.toContain('Feito');
+    expect(sendCall!.reply_markup).toBeUndefined();
   });
 
   it('UNDO-MISLEAD-1 (J-7) — confirm de envio IRREVERSÍVEL → sem botão (Cancelar), mensagem honesta', async () => {

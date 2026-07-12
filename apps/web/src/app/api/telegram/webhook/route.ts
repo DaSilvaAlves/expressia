@@ -434,10 +434,15 @@ async function handleCallbackQuery(
     });
     await answerCallbackQuery(callback.id);
     if (result.ok) {
-      // Story J-7 UNDO-MISLEAD-1 — escrita externa IRREVERSÍVEL (enviar_email):
-      // NÃO oferecer "(Cancelar)"/undo. O `result.summary` já é honesto ("Email
-      // enviado. Emails enviados não podem ser recuperados." — buildConfirmSummary).
-      if (outcomeHasIrreversibleWrite(result.results)) {
+      if (confirmOutcomeIsNoop(result.results)) {
+        // No-op (ex.: intent `unknown` confirmado): não houve acção executada —
+        // NÃO prefixar "Feito." nem oferecer "(Cancelar)" (não há nada a reverter,
+        // e "Feito." contradiria o summary honesto "não executei nada").
+        await safeSend(chatId, result.summary);
+      } else if (outcomeHasIrreversibleWrite(result.results)) {
+        // Story J-7 UNDO-MISLEAD-1 — escrita externa IRREVERSÍVEL (enviar_email):
+        // NÃO oferecer "(Cancelar)"/undo. O `result.summary` já é honesto ("Email
+        // enviado. Emails enviados não podem ser recuperados." — buildConfirmSummary).
         await safeSend(chatId, result.summary);
       } else {
         // Nova janela de 30 s para reverter a acção reversível agora executada.
@@ -512,4 +517,18 @@ async function safeSend(
   } catch {
     console.error('[telegram] falha ao enviar resposta (não-fatal)');
   }
+}
+
+/**
+ * Um outcome confirmado é um no-op? Sucesso sem nenhuma operação executada (ex.:
+ * intent `unknown` confirmado). Nesse caso o webhook responde sem "Feito." nem
+ * botão (Cancelar) — não há nada executado a anunciar nem a reverter. Verificação
+ * estrutural (o `AtomicOutcome` de sucesso expõe `results: []`).
+ */
+function confirmOutcomeIsNoop(outcome: unknown): boolean {
+  if (typeof outcome !== 'object' || outcome === null) {
+    return false;
+  }
+  const o = outcome as { success?: unknown; results?: unknown };
+  return o.success === true && Array.isArray(o.results) && o.results.length === 0;
 }
