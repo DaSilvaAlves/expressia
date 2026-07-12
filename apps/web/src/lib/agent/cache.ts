@@ -5,9 +5,13 @@
  *   ├─ HIT  → bypass classifier, retornar ClassificationResult cacheado
  *   └─ MISS → executar classifier + cache SET (TTL 300s default)
  *
- * Cache key: `sha256(normalize(prompt) + householdPlan)` per Architecture §4.6
- * literal. Key usa `householdPlan` (não `householdId`) — dois utilizadores do
- * mesmo plano partilham cache de intents (não PII). Ver DN2 + D53.
+ * Cache key: `sha256(normalize(prompt) + householdPlan + CLASSIFIER_SYSTEM_PROMPT_VERSION)`
+ * per Architecture §4.6. Key usa `householdPlan` (não `householdId`) — dois
+ * utilizadores do mesmo plano partilham cache de intents (não PII). Ver DN2 + D53.
+ * Incluir a versão do system prompt do classifier garante que um bump ao prompt
+ * (`'v11' → 'v12'`) invalida automaticamente as entradas cacheadas com o prompt
+ * antigo — sem isto, um classificador melhorado continuaria a servir intents
+ * estagnados até o TTL expirar. Papercut M-6 (cache não versionada pelo prompt).
  *
  * Modo degradado: se `UPSTASH_REDIS_REST_URL` ou `UPSTASH_REDIS_REST_TOKEN`
  * ausentes, `UpstashCache` retorna sempre `null` em `get` e no-op em `set` —
@@ -16,6 +20,8 @@
  * Trace: Story 2.9 AC1-AC3, D44-D46+D53, Architecture §4.6.
  */
 import { createHash } from 'node:crypto';
+
+import { CLASSIFIER_SYSTEM_PROMPT_VERSION } from '@meu-jarvis/classifier';
 
 /**
  * Interface mockable do cliente Upstash — permite swap em testes via
@@ -62,7 +68,12 @@ function normalizePrompt(prompt: string): string {
  */
 export function buildCacheKey(prompt: string, householdPlan: string): string {
   const normalized = normalizePrompt(prompt);
-  return createHash('sha256').update(normalized + householdPlan).digest('hex');
+  // `CLASSIFIER_SYSTEM_PROMPT_VERSION` no material da key: um bump ao prompt do
+  // classifier invalida automaticamente o cache antigo (evita servir intents
+  // estagnados classificados por um prompt já substituído).
+  return createHash('sha256')
+    .update(normalized + householdPlan + CLASSIFIER_SYSTEM_PROMPT_VERSION)
+    .digest('hex');
 }
 
 /**

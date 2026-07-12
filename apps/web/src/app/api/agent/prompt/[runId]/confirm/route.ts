@@ -496,7 +496,10 @@ function buildConfirmSummary(result: AtomicResult): string {
   }
   const count = result.results?.length ?? 0;
   if (count === 0) {
-    return 'Confirmação aceite — nada a executar.';
+    // Copy honesta (papercut M-6/J-2, aprovado Eurico): um confirm que resolve a
+    // zero operações (ex.: intent `unknown` confirmado) NÃO deve sugerir que algo
+    // aconteceu — a mensagem assume que nada foi executado.
+    return 'Não percebi bem o que querias fazer, por isso não executei nada. Reformula, por favor.';
   }
   return `Confirmaste a execução de ${count} operação(ões). Tens 30 segundos para reverter.`;
 }
