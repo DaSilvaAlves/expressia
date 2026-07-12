@@ -27,7 +27,8 @@
 import { sql } from 'drizzle-orm';
 import { type NextRequest } from 'next/server';
 
-import { hashForCorrelation } from '@meu-jarvis/observability';
+import { hashForCorrelation, withSpan } from '@meu-jarvis/observability';
+import { getSttProvider } from '@meu-jarvis/agent/providers';
 
 import { getServiceDb } from '@/lib/agent/db-shim';
 import { outcomeHasIrreversibleWrite } from '@/lib/agent/irreversible';
@@ -39,13 +40,26 @@ import {
   sendChatAction,
   answerCallbackQuery,
 } from '@/lib/telegram/client';
+import { downloadVoiceFile } from '@/lib/telegram/get-file';
 import {
   extractChatId,
   isTelegramUpdate,
   type InlineKeyboardMarkup,
   type TelegramUpdate,
+  type TelegramVoice,
 } from '@/lib/telegram/types';
 import { verifyWebhookSecret } from '@/lib/telegram/verify';
+
+/**
+ * Story V-1 — guardas da nota de voz (AC3). Aplicadas ANTES do download para
+ * não gastar bytes/tempo num ficheiro que já sabemos que vai ser rejeitado.
+ *   - 20 MB: limite físico da Bot API (`getFile` falha acima disso).
+ *   - 60 s: limite TÉCNICO do `recognize` síncrono inline do Google STT v2
+ *     (~60 s / ~10 MB). Acima disso a STT falharia — rejeitamos cedo com uma
+ *     mensagem honesta em vez de gastar download+STT (REL-001, @qa).
+ */
+const VOICE_MAX_BYTES = 20 * 1024 * 1024;
+const VOICE_MAX_DURATION_S = 60;
 
 /** Identidade resolvida a partir de `telegram_link`. */
 interface ResolvedIdentity {
@@ -104,6 +118,14 @@ export async function POST(request: NextRequest): Promise<Response> {
   const messageText = update.message?.text;
   if (update.message && typeof messageText === 'string') {
     return handleTextMessage(update, chatId, messageText, identity, userHash);
+  }
+
+  // 4c. Notas de voz (Story V-1) → download → STT → motor. Só quando há `voice`
+  // e NÃO há texto (uma nota de voz não traz `text`). Despachado ANTES do
+  // fallback genérico, que de outra forma ignoraria a voz silenciosamente.
+  const voice = update.message?.voice;
+  if (update.message && voice) {
+    return handleVoiceMessage(update, chatId, voice, identity, userHash);
   }
 
   // Outros updates (edits, stickers, etc.) — ignorados graciosamente.
@@ -180,6 +202,125 @@ async function handleTextMessage(
 
   console.info(
     `[telegram] resultado do motor: update_id=${update.update_id} user_hash=${userHash} status=${outcome.status}`,
+  );
+
+  await replyForOutcome(chatId, outcome);
+  return new Response(null, { status: 200 });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Handler de nota de voz → STT → motor (Story V-1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Story V-1 — recebe uma nota de voz, transcreve-a e entrega ao MESMO motor que
+ * o texto (`runAgentForHousehold`). Não há branch nova no motor: a voz é apenas
+ * uma camada de transcodificação de entrada (voz→texto).
+ *
+ * Privacidade (NFR-V2): o áudio (bytes) NUNCA é persistido — vive só em memória
+ * entre o download e a chamada STT, dentro do `withSpan` abaixo, e é descartado
+ * quando a função sai de escopo. Só a transcrição (texto) segue para o motor,
+ * com a MESMA disciplina de redacção de logs do texto (NFR-V1): logamos só
+ * `update_id`, hash do user, duração (metadado não sensível) e o `status` — nunca
+ * o conteúdo transcrito em claro.
+ */
+async function handleVoiceMessage(
+  update: TelegramUpdate,
+  chatId: number,
+  voice: TelegramVoice,
+  identity: ResolvedIdentity,
+  userHash: string,
+): Promise<Response> {
+  // Sinalizar processamento ANTES de qualquer trabalho (mesma UX do texto, AC11 J-2).
+  await sendChatAction(chatId, 'typing');
+
+  // AC3 — guardas de tamanho e duração ANTES do download (não gastar bytes/tempo).
+  if (typeof voice.file_size === 'number' && voice.file_size > VOICE_MAX_BYTES) {
+    await safeSend(
+      chatId,
+      'Essa nota de voz é grande demais para eu conseguir processar (limite ~20 MB). Tenta encurtar ou escreve a mensagem.',
+    );
+    return new Response(null, { status: 200 });
+  }
+  if (voice.duration > VOICE_MAX_DURATION_S) {
+    await safeSend(
+      chatId,
+      'As notas de voz têm de ter menos de 1 minuto. Tenta encurtar ou escreve a mensagem.',
+    );
+    return new Response(null, { status: 200 });
+  }
+
+  // AC6 — span isolado para a latência do passo STT (download + transcrição),
+  // permitindo medir o NFR-V3 em produção sem log manual. `voice.duration` é
+  // metadado não sensível (não é o conteúdo). Os bytes do áudio só existem dentro
+  // deste escopo — nunca escritos em disco/DB.
+  let transcription: string;
+  try {
+    transcription = await withSpan(
+      'telegram.voice.stt',
+      {
+        route: '/api/telegram/webhook',
+        method: 'POST',
+        userId: identity.userId,
+        householdId: identity.householdId,
+        extra: { 'voice.duration_s': voice.duration },
+      },
+      async () => {
+        const { bytes, mimeType } = await downloadVoiceFile(voice.file_id);
+        const stt = getSttProvider();
+        const { text } = await stt.transcribe({
+          audioBytes: bytes,
+          mimeType,
+          languageCode: 'pt-PT',
+        });
+        return text;
+      },
+    );
+  } catch (err) {
+    // Falha de download (AC2) ou de STT (AC4) — degradação graciosa. Nunca
+    // expomos detalhes; log só com o nome da classe do erro (sem conteúdo).
+    console.error(
+      `[telegram] voz: download/STT falhou: update_id=${update.update_id} user_hash=${userHash} err=${err instanceof Error ? err.constructor.name : 'unknown'}`,
+    );
+    await safeSend(
+      chatId,
+      'Não consegui processar essa nota de voz agora. Tenta de novo ou escreve a mensagem.',
+    );
+    return new Response(null, { status: 200 });
+  }
+
+  // AC5 — transcrição vazia (ou só espaços): não chamamos o motor.
+  if (transcription.trim().length === 0) {
+    await safeSend(
+      chatId,
+      'Não consegui perceber nada na nota de voz. Tenta outra vez ou escreve a mensagem.',
+    );
+    return new Response(null, { status: 200 });
+  }
+
+  // AC5 / R4 — transparência: mostrar SEMPRE a transcrição interpretada como
+  // mensagem separada ANTES do resultado da acção, para o Eurico corrigir por
+  // texto se a STT ouviu mal. (PO-FIX-1 opção (a): mensagem separada, sem
+  // refactorizar `replyForOutcome` nem o caminho de texto.)
+  await safeSend(chatId, `Percebi: «${transcription}»`);
+
+  let outcome: AgentRunOutcome;
+  try {
+    outcome = await runAgentForHousehold({
+      userId: identity.userId,
+      householdId: identity.householdId,
+      prompt: transcription,
+    });
+  } catch (err) {
+    console.error(
+      `[telegram] pipeline falhou (voz): update_id=${update.update_id} user_hash=${userHash} err=${err instanceof Error ? err.constructor.name : 'unknown'}`,
+    );
+    await safeSend(chatId, 'Não consegui tratar disso agora. Tenta de novo daqui a pouco.');
+    return new Response(null, { status: 200 });
+  }
+
+  console.info(
+    `[telegram] resultado do motor (voz): update_id=${update.update_id} user_hash=${userHash} status=${outcome.status}`,
   );
 
   await replyForOutcome(chatId, outcome);

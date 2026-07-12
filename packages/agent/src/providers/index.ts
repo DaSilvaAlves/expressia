@@ -85,3 +85,13 @@ function resolveProviderId(opts: GetProviderOpts): 'anthropic' | 'openai' {
 export { AnthropicProvider } from './anthropic';
 export { OpenAIProvider } from './openai';
 export type { ProviderInterface } from './interface';
+
+// Story V-1 — provider STT (Speech-to-Text), atrás de interface fina.
+export {
+  getSttProvider,
+  resetSttProviderCache,
+  GoogleSpeechProvider,
+  SttError,
+} from './stt';
+export type { SttProviderInterface } from './stt/interface';
+export type { ServiceAccountKey } from './stt/google-speech';

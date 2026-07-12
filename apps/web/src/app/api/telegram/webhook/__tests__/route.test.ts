@@ -29,6 +29,8 @@ const mocks = vi.hoisted(() => ({
   runAgentMock: vi.fn(),
   executeUndoMock: vi.fn(),
   executeConfirmMock: vi.fn(),
+  transcribeMock: vi.fn(),
+  downloadVoiceFileMock: vi.fn(),
 }));
 
 // telegram_link resolution via getServiceDb.
@@ -46,6 +48,16 @@ vi.mock('@/app/api/agent/prompt/[runId]/undo/route', () => ({
 }));
 vi.mock('@/app/api/agent/prompt/[runId]/confirm/route', () => ({
   executeConfirm: mocks.executeConfirmMock,
+}));
+
+// Story V-1 — provider STT mockado (sem chamadas de rede reais à STT).
+vi.mock('@meu-jarvis/agent/providers', () => ({
+  getSttProvider: () => ({ id: 'stt-mock', transcribe: mocks.transcribeMock }),
+}));
+// Story V-1 — download do ficheiro Telegram mockado (o download real é testado
+// isoladamente em get-file.test.ts; aqui isolamos o comportamento do webhook).
+vi.mock('@/lib/telegram/get-file', () => ({
+  downloadVoiceFile: mocks.downloadVoiceFileMock,
 }));
 
 import { POST } from '@/app/api/telegram/webhook/route';
@@ -88,6 +100,26 @@ function textUpdate(text: string) {
   };
 }
 
+function voiceUpdate(voice: {
+  file_id?: string;
+  duration?: number;
+  file_size?: number;
+}) {
+  return {
+    update_id: 77,
+    message: {
+      message_id: 9,
+      date: 1_700_000_000,
+      chat: { id: CHAT_ID, type: 'private' },
+      voice: {
+        file_id: voice.file_id ?? 'voice-file-1',
+        duration: voice.duration ?? 5,
+        ...(voice.file_size !== undefined ? { file_size: voice.file_size } : {}),
+      },
+    },
+  };
+}
+
 function callbackUpdate(data: string) {
   return {
     update_id: 99,
@@ -122,6 +154,12 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
   vi.stubEnv('TELEGRAM_BOT_TOKEN', '12345:fake-bot-token');
   vi.stubEnv('TELEGRAM_WEBHOOK_SECRET', SECRET);
+  // Story V-1 — defaults do caminho de voz (sobreponíveis por teste).
+  mocks.downloadVoiceFileMock.mockResolvedValue({
+    bytes: new Uint8Array([1, 2, 3]).buffer,
+    mimeType: 'audio/ogg',
+  });
+  mocks.transcribeMock.mockResolvedValue({ text: 'gastei 23 euros no almoço' });
 });
 
 afterEach(() => {
@@ -453,6 +491,157 @@ describe('POST /api/telegram/webhook — UX + privacidade (AC11/AC12)', () => {
       .map((a) => String(a))
       .join(' | ');
     expect(allLogs).not.toContain(secretText);
+    expect(allLogs).not.toContain('IBAN');
+  });
+});
+
+describe('POST /api/telegram/webhook — nota de voz (Story V-1)', () => {
+  function executedOutcome(summary: string) {
+    return {
+      status: 'executed',
+      kind: 'pipeline',
+      runId: RUN_ID,
+      summary,
+      results: { success: true, results: [] },
+      undoExpiresAt: new Date().toISOString(),
+    };
+  }
+
+  it('caminho feliz — download → STT → motor com a transcrição como prompt', async () => {
+    setupIdentityFound();
+    mocks.runAgentMock.mockResolvedValue(executedOutcome('Registei a despesa.'));
+
+    const res = await POST(makeRequest({ secret: SECRET, body: voiceUpdate({}) }) as never);
+
+    expect(res.status).toBe(200);
+    expect(mocks.downloadVoiceFileMock).toHaveBeenCalledWith('voice-file-1');
+    expect(mocks.transcribeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ mimeType: 'audio/ogg', languageCode: 'pt-PT' }),
+    );
+    // O motor recebe a transcrição — mesmo caminho que o texto.
+    expect(mocks.runAgentMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: USER_ID,
+        householdId: HOUSEHOLD_ID,
+        prompt: 'gastei 23 euros no almoço',
+      }),
+    );
+  });
+
+  it('AC5/R4 — "Percebi: …" é enviado como mensagem SEPARADA antes do resultado', async () => {
+    setupIdentityFound();
+    mocks.runAgentMock.mockResolvedValue(executedOutcome('Registei a despesa.'));
+
+    await POST(makeRequest({ secret: SECRET, body: voiceUpdate({}) }) as never);
+
+    const sends = sentMessageCalls();
+    // Duas mensagens: transparência (Percebi) + resultado da acção.
+    expect(sends.length).toBe(2);
+    expect(sends[0]!.text).toContain('Percebi:');
+    expect(sends[0]!.text).toContain('gastei 23 euros no almoço');
+    // Sem teclado na mensagem de transparência.
+    expect(sends[0]!.reply_markup).toBeUndefined();
+    // O resultado da acção mantém o comportamento normal (Feito + Cancelar).
+    expect(sends[1]!.text).toContain('Feito');
+    expect(sends[1]!.reply_markup?.inline_keyboard[0]![0]!.callback_data).toBe(`undo:${RUN_ID}`);
+  });
+
+  it('AC3 — guarda de duração (>60s): sem download, sem STT, mensagem educada', async () => {
+    setupIdentityFound();
+
+    const res = await POST(
+      makeRequest({ secret: SECRET, body: voiceUpdate({ duration: 61 }) }) as never,
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.downloadVoiceFileMock).not.toHaveBeenCalled();
+    expect(mocks.transcribeMock).not.toHaveBeenCalled();
+    expect(mocks.runAgentMock).not.toHaveBeenCalled();
+    const send = sentMessageCalls()[0];
+    expect(send!.text).toContain('menos de 1 minuto');
+  });
+
+  it('AC3 — guarda de tamanho (>20 MB): sem download, sem STT, mensagem educada', async () => {
+    setupIdentityFound();
+
+    const res = await POST(
+      makeRequest({
+        secret: SECRET,
+        body: voiceUpdate({ file_size: 21 * 1024 * 1024 }),
+      }) as never,
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.downloadVoiceFileMock).not.toHaveBeenCalled();
+    expect(mocks.transcribeMock).not.toHaveBeenCalled();
+    const send = sentMessageCalls()[0];
+    expect(send!.text).toContain('grande demais');
+  });
+
+  it('AC5 — transcrição vazia → mensagem amigável, motor NÃO é chamado', async () => {
+    setupIdentityFound();
+    mocks.transcribeMock.mockResolvedValue({ text: '   ' });
+
+    const res = await POST(makeRequest({ secret: SECRET, body: voiceUpdate({}) }) as never);
+
+    expect(res.status).toBe(200);
+    expect(mocks.runAgentMock).not.toHaveBeenCalled();
+    const send = sentMessageCalls()[0];
+    expect(send!.text).toContain('Não consegui perceber nada');
+    // Sem prefixo "Percebi:" quando não há transcrição.
+    expect(send!.text).not.toContain('Percebi:');
+  });
+
+  it('AC5 — falha de download/STT → degradação graciosa, sempre 200', async () => {
+    setupIdentityFound();
+    mocks.transcribeMock.mockRejectedValue(new Error('STT indisponível'));
+
+    const res = await POST(makeRequest({ secret: SECRET, body: voiceUpdate({}) }) as never);
+
+    expect(res.status).toBe(200);
+    expect(mocks.runAgentMock).not.toHaveBeenCalled();
+    const send = sentMessageCalls()[0];
+    expect(send!.text).toContain('Não consegui processar essa nota de voz');
+  });
+
+  it('AC11 — sendChatAction(typing) é chamado no caminho de voz', async () => {
+    setupIdentityFound();
+    mocks.runAgentMock.mockResolvedValue(executedOutcome('ok'));
+
+    await POST(makeRequest({ secret: SECRET, body: voiceUpdate({}) }) as never);
+
+    expect(urlsCalled().some((u) => u.includes('/sendChatAction'))).toBe(true);
+  });
+
+  it('NFR-V2 — o áudio nunca é persistido (só o SELECT de identidade toca a DB)', async () => {
+    setupIdentityFound();
+    mocks.runAgentMock.mockResolvedValue(executedOutcome('ok'));
+
+    await POST(makeRequest({ secret: SECRET, body: voiceUpdate({}) }) as never);
+
+    // A única ida à DB no caminho de voz (fora do motor, que está mockado) é a
+    // resolução de identidade em telegram_link — nenhuma escrita de áudio.
+    expect(mocks.serviceDbExecuteMock).toHaveBeenCalledTimes(1);
+    const identityQuery = String(mocks.serviceDbExecuteMock.mock.calls[0]![0]);
+    expect(identityQuery.toLowerCase()).not.toContain('insert');
+  });
+
+  it('AC6 — o conteúdo transcrito NUNCA aparece nos logs', async () => {
+    setupIdentityFound();
+    const secretTranscript = 'transferi 500 euros para o IBAN PT50 secreto';
+    mocks.transcribeMock.mockResolvedValue({ text: secretTranscript });
+    mocks.runAgentMock.mockResolvedValue(executedOutcome('ok'));
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await POST(makeRequest({ secret: SECRET, body: voiceUpdate({}) }) as never);
+
+    const allLogs = [...infoSpy.mock.calls, ...warnSpy.mock.calls, ...errorSpy.mock.calls]
+      .flat()
+      .map((a) => String(a))
+      .join(' | ');
+    expect(allLogs).not.toContain(secretTranscript);
     expect(allLogs).not.toContain('IBAN');
   });
 });
